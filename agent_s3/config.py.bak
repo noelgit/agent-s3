@@ -1,0 +1,205 @@
+"""Loads configuration data and fixed coding guidelines from .github/copilot-instructions.md.
+
+As per instructions.md:
+"Create guidelines.json by converting the content from the existing .github/copilot-instructions.md file in the repository."
+"""
+
+import json
+import os
+import re
+from pathlib import Path
+from typing import Dict, List, Any, Optional
+
+
+class Config:
+    """Configuration manager for Agent-S3.
+    
+    Loads and provides access to configuration data and coding guidelines.
+    Converts .github/copilot-instructions.md to guidelines.json and loads from it.
+    """
+    
+    def __init__(self, guidelines_path: Optional[str] = None):
+        """Initialize the configuration manager.
+        
+        Args:
+            guidelines_path: Optional path to the guidelines file. If not provided,
+                           uses the default path in the project root.
+        """
+        # Default paths
+        self.guidelines_path = guidelines_path or str(Path(os.getcwd()) / ".github" / "copilot-instructions.md")
+        self.guidelines_json_path = str(Path(os.getcwd()) / "guidelines.json")
+        
+        # Default values
+        self.guidelines: List[str] = []
+        self.config: Dict[str, Any] = {
+            "models": {
+                "planner": "DeepSeek Reasoner",
+                "code_generator": "Gemini 2.5 Pro"
+            },
+            "max_iterations": 5,
+            "sandbox_environment": True,
+            "log_files": {
+                "scratchpad": "scratchpad.txt",
+                "progress": "progress_log.json",
+                "development": "development_status.json"
+            }
+        }
+    
+    def load(self) -> None:
+        """Load configuration and guidelines.
+        
+        As per instructions.md, this method:
+        1. Converts .github/copilot-instructions.md to guidelines.json
+        2. Loads the guidelines and configuration from guidelines.json
+        """
+        # Extract guidelines from copilot-instructions.md
+        extracted_guidelines = self._extract_guidelines_from_md()
+        
+        # Create or update guidelines.json with the extracted guidelines
+        self._convert_md_to_json(extracted_guidelines)
+        
+        # Load from guidelines.json
+        self._load_from_json()
+    
+    def _load_from_json(self) -> None:
+        """Load guidelines and configuration from guidelines.json."""
+        try:
+            if os.path.exists(self.guidelines_json_path):
+                with open(self.guidelines_json_path, "r") as f:
+                    data = json.load(f)
+                
+                # Load guidelines
+                if "guidelines" in data:
+                    self.guidelines = data["guidelines"]
+                
+                # Load configuration
+                if "config" in data:
+                    self._merge_config(data["config"])
+        except Exception as e:
+            print(f"Error loading guidelines.json: {e}")
+            # If loading fails, use the already extracted guidelines
+            # But don't modify self.config
+    
+    def _convert_md_to_json(self, guidelines: List[str]) -> None:
+        """Convert .github/copilot-instructions.md to guidelines.json.
+        
+        As per instructions.md:
+        "Create guidelines.json by converting the content from the existing 
+         .github/copilot-instructions.md file in the repository."
+        
+        Args:
+            guidelines: The guidelines extracted from the MD file
+        """
+        # Create guidelines.json with the extracted guidelines and config
+        json_data = {
+            "guidelines": guidelines,
+            "config": self.config
+        }
+        
+        # Write to guidelines.json
+        try:
+            # Create directory if it doesn't exist
+            os.makedirs(os.path.dirname(self.guidelines_json_path), exist_ok=True)
+            
+            with open(self.guidelines_json_path, "w") as f:
+                json.dump(json_data, f, indent=2)
+            
+            # Set the guidelines in memory too
+            self.guidelines = guidelines
+            
+            # Log hash of guidelines for auditability
+            print(f"Created guidelines.json from {self.guidelines_path}")
+        except Exception as e:
+            print(f"Error creating guidelines.json: {e}")
+            # Still keep the guidelines in memory
+            self.guidelines = guidelines
+    
+    def _extract_guidelines_from_md(self) -> List[str]:
+        """Extract guidelines from .github/copilot-instructions.md."""
+        guidelines = []
+        
+        if os.path.exists(self.guidelines_path):
+            try:
+                with open(self.guidelines_path, "r") as f:
+                    content = f.read()
+                
+                # Extract guidelines from the markdown file
+                # Look for lines with code quality guidelines and bullet points
+                code_quality_section = False
+                for line in content.split("\n"):
+                    # Check if we've entered the code quality section
+                    if "Code Quality" in line or "Project-Specific Guidelines" in line or "Code Style Guidelines" in line:
+                        code_quality_section = True
+                        continue
+                    
+                    # Look for bullet points in the code quality section
+                    if code_quality_section and line.strip().startswith("-"):
+                        # Extract the guideline text, removing the bullet point
+                        guideline = line.strip()[1:].strip()
+                        if guideline and len(guideline) > 5:  # Ensure it's not too short
+                            guidelines.append(guideline)
+                    
+                    # Also look for numbered lists
+                    numbered_match = re.match(r'^\s*\d+\.\s+(.+)$', line)
+                    if code_quality_section and numbered_match:
+                        guideline = numbered_match.group(1).strip()
+                        if guideline and len(guideline) > 5:  # Ensure it's not too short
+                            guidelines.append(guideline)
+                
+                # If we couldn't extract any guidelines, use default ones
+                if not guidelines:
+                    guidelines = self._get_default_guidelines()
+            except Exception as e:
+                print(f"Error extracting guidelines from {self.guidelines_path}: {e}")
+                # Fall back to default guidelines
+                guidelines = self._get_default_guidelines()
+        else:
+            # If the file doesn't exist, use default guidelines
+            guidelines = self._get_default_guidelines()
+        
+        return guidelines
+    
+    def _get_default_guidelines(self) -> List[str]:
+        """Get default guidelines."""
+        return [
+            "Use meaningful variable and function names",
+            "Include type hints for function parameters and returns",
+            "Document all functions and classes with docstrings",
+            "Follow PEP 8 coding style guidelines",
+            "Handle errors with appropriate try/except blocks",
+            "Use f-strings for string formatting",
+            "Use absolute imports within the package",
+            "Avoid global variables",
+            "Write unit tests for all functionality",
+            "Log all operations with proper timestamp and role labels"
+        ]
+    
+    def _merge_config(self, new_config: Dict[str, Any]) -> None:
+        """Merge the new configuration with the existing one.
+        
+        Args:
+            new_config: New configuration dictionary to merge
+        """
+        for key, value in new_config.items():
+            if key in self.config and isinstance(self.config[key], dict) and isinstance(value, dict):
+                # Recursively merge nested dictionaries
+                for k, v in value.items():
+                    self.config[key][k] = v
+            else:
+                # Replace value for non-dict keys
+                self.config[key] = value
+    
+    def get_log_file_path(self, log_type: str) -> str:
+        """Get the path to a log file.
+        
+        Args:
+            log_type: The type of log file to get ("scratchpad", "progress", or "development")
+            
+        Returns:
+            The absolute path to the log file
+        """
+        if log_type not in self.config["log_files"]:
+            raise ValueError(f"Unknown log type: {log_type}")
+        
+        filename = self.config["log_files"][log_type]
+        return str(Path(os.getcwd()) / filename)

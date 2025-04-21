@@ -1,0 +1,184 @@
+[
+  {
+    "model": "openai/gpt-4.1-nano",
+    "role": "initializer",
+    "context_window": 1047576,
+    "parameters": {
+      "temperature": 0.20,
+      "top_p": 0.80,
+      "max_output_tokens": 1024
+    },
+    "pricing_per_million": {
+      "input": 0.10,
+      "output": 0.40
+    },
+    "api": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
+    }
+  },
+  {
+    "model": "meta-llama/llama-4-scout",
+    "role": "planner",
+    "context_window": 327680,
+    "parameters": {
+      "temperature": 0.70,
+      "top_p": 0.90,
+      "max_output_tokens": 4096
+    },
+    "pricing_per_million": {
+      "input": 0.08,
+      "output": 0.30
+    },
+    "api": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
+    }
+  },
+  {
+    "model": "google/gemini-2.5-flash-preview:thinking",
+    "role": "generator",
+    "context_window": 1048576,
+    "parameters": {
+      "temperature": 0.20,
+      "top_p": 0.95,
+      "top_k": 64,
+      "max_output_tokens": 4096
+    },
+    "pricing_per_million": {
+      "input": 0.15,
+      "output": 3.50
+    },
+    "api": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
+    }
+  },
+  {
+    "model": "google/gemini-2.5-pro-preview-03-25",
+    "role": "debugger",
+    "context_window": 1048576,
+    "parameters": {
+      "temperature": 0.20,
+      "top_p": 0.80,
+      "top_k": 64,
+      "max_output_tokens": 2048
+    },
+    "pricing_per_million": {
+      "input": 1.25,
+      "output": 10.00
+    },
+    "api": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
+    }
+  },
+  {
+    "model": "google/gemma-3-12b-it",
+    "role": "orchestrator",
+    "context_window": 131072,
+    "parameters": {
+      "temperature": 0.00,
+      "top_p": 1.00,
+      "max_output_tokens": 256
+    },
+    "pricing_per_million": {
+      "input": 0.05,
+      "output": 0.10
+    },
+    "api": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
+    }
+  },
+  {
+    "model": "openai/gpt-4.1-nano",
+    "role": "tool_user",
+    "context_window": 1047576,
+    "parameters": {
+      "temperature": 0.20,
+      "top_p": 0.80,
+      "max_output_tokens": 1024
+    },
+    "pricing_per_million": {
+      "input": 0.10,
+      "output": 0.40
+    },
+    "api": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
+    }
+  },
+  {
+    "model": "openai/gpt-4.1-nano",
+    "role": "explainer",
+    "context_window": 1047576,
+    "parameters": {
+      "temperature": 0.20,
+      "top_p": 0.80,
+      "max_output_tokens": 1024
+    },
+    "pricing_per_million": {
+      "input": 0.10,
+      "output": 0.40
+    },
+    "api": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
+    }
+  },
+  {
+    "model": "openai/gpt-4.1-nano",
+    "role": "file_finder",
+    "context_window": 1047576,
+    "parameters": {
+      "temperature": 0.20,
+      "top_p": 0.80,
+      "max_output_tokens": 1024
+    },
+    "pricing_per_million": {
+      "input": 0.10,
+      "output": 0.40
+    },
+    "api": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
+    }
+  },
+  {
+    "model": "openai/gpt-4.1-nano",
+    "role": "guideline_expert",
+    "context_window": 1047576,
+    "parameters": {
+      "temperature": 0.20,
+      "top_p": 0.80,
+      "max_output_tokens": 1024
+    },
+    "pricing_per_million": {
+      "input": 0.10,
+      "output": 0.40
+    },
+    "api": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
+    }
+  },
+  {
+    "model": "openai/gpt-4.1-nano",
+    "role": "general_qa",
+    "context_window": 1047576,
+    "parameters": {
+      "temperature": 0.20,
+      "top_p": 0.80,
+      "max_output_tokens": 1024
+    },
+    "pricing_per_million": {
+      "input": 0.10,
+      "output": 0.40
+    },
+    "api": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
+    }
+  }
+]

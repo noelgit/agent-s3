@@ -1,0 +1,18 @@
+# Core dependencies
+requests>=2.25.0
+openai>=1.0.0  # Updated for API v1 compatibility with OpenRouter
+PyGithub>=1.55
+PyJWT>=2.4.0
+faiss-cpu>=1.7.2
+flake8>=4.0.1
+tiktoken
+requests>=2.31.0 # Added for OpenRouter API calls
+
+# Configuration & Data
+toml # Added for pyproject.toml parsing
+
+# Testing and linters
+pytest>=6.2.0
+ruff>=0.0.254
+mypy>=0.910
+radon # Added for complexity analysis
