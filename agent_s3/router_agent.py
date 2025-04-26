@@ -381,6 +381,13 @@ class RouterAgent:
         if metadata is None:
             metadata = {}
             
+        # Apply role-specific system prompt enhancements
+        allocation = self._get_role_specific_context_allocation(role, context_window)
+        if "system_prompt_suffix" in allocation:
+            # Enhance system prompt with test-side workaround prohibition
+            system_prompt += allocation["system_prompt_suffix"]
+            scratchpad.log("RouterAgent", "Added test-side workaround prohibition to system prompt")
+            
         # Enhanced prompt with tech stack, code context and command info if provided
         enhanced_user_prompt = user_prompt
         
@@ -573,6 +580,11 @@ class RouterAgent:
                 scratchpad.log("RouterAgent", 
                     f"Added code context for {role} (estimated {current_tokens:.0f} tokens, " 
                     f"{len(code_context)} files, limit {max_context_tokens:.0f})")
+                
+        # Add reminder about test-side workarounds to the user prompt
+        reminder = "\n\n⚠️ IMPORTANT: You must NEVER modify tests to make failing code pass. Always fix the implementation code itself, not the tests. Modifying tests to accommodate broken code is strictly prohibited. ⚠️"
+        enhanced_user_prompt += reminder
+        scratchpad.log("RouterAgent", "Added test integrity reminder to user prompt")
         
         if not endpoint_str or not auth_header_template:
             raise ValueError(f"API endpoint or auth_header missing for model {model_name}")
@@ -741,7 +753,7 @@ class RouterAgent:
                 "preserve_structure": True,
                 "preserve_relevance_order": True,  # Added to maintain search relevance order
                 # Add no-workaround directive
-                "system_prompt_suffix": "\n\nCRITICAL: Test-side workarounds are STRICTLY PROHIBITED. All test cases must be properly implemented - never include temporary hacks, mocks, or commented code to make tests pass artificially. Implementations should have proper functionality that tests verify, not tests that are modified to accommodate broken implementations. Test integrity must be maintained at all costs."
+                "system_prompt_suffix": "\n\nEXTREMELY CRITICAL: Test-side workarounds are ABSOLUTELY PROHIBITED and must NOT be done under ANY circumstances. All test cases must be properly implemented - NEVER include temporary hacks, mocks, or commented code to make tests pass artificially. Tests must NEVER be modified to accommodate broken code. Implementations MUST have proper functionality that tests verify, not tests that are weakened to accommodate broken implementations. Test integrity is the highest priority and must be maintained AT ALL COSTS. Any solution that requires modifying tests to make them pass is STRICTLY FORBIDDEN."
             },
             # Update generator for smarter file selection
             "generator": {
@@ -753,7 +765,7 @@ class RouterAgent:
                 "min_files": 3,  # Ensure at least 3 most relevant files are included
                 "max_files": 12,  # Increased from 8 to allow more context when needed
                 # Add no-workaround directive
-                "system_prompt_suffix": "\n\nCRITICAL: Test-side workarounds are STRICTLY PROHIBITED. Your code must work properly on its own, without requiring tests to be modified to accommodate it. Never include temporary hacks, mocks that bypass actual functionality, or modified assertions that weaken test validity. Always implement the proper functionality that satisfies the original test requirements. Ensure code and dependency fixes are in the implementation, not the tests."
+                "system_prompt_suffix": "\n\nEXTREMELY CRITICAL: Test-side workarounds are ABSOLUTELY PROHIBITED and must NOT be done under ANY circumstances. Your code MUST work properly on its own, without ANY modifications to tests. NEVER include temporary hacks, mocks that bypass actual functionality, or modified assertions that weaken test validity. Always implement the proper functionality that satisfies the original test requirements. All fixes MUST be in the implementation code, NEVER in the tests. Modifying tests to make them pass is STRICTLY FORBIDDEN and constitutes a critical failure. Test integrity is the highest priority and must be maintained AT ALL COSTS."
             },
             # Enhanced debugger context
             "error_analyzer": {
@@ -765,7 +777,7 @@ class RouterAgent:
                 "error_context_lines": 50,
                 "include_error_history": True,  # Added to track error patterns
                 # Add no-workaround directive
-                "system_prompt_suffix": "\n\nCRITICAL: Test-side workarounds are STRICTLY PROHIBITED. When debugging, you must fix the actual implementation code to properly satisfy test requirements - NOT modify the tests to accommodate broken implementations. Never suggest commenting out assertions, weakening test conditions, adding sleeps/delays, or other testing hacks. Tests exist to verify correct behavior; they must maintain their integrity and standards at all costs."
+                "system_prompt_suffix": "\n\nEXTREMELY CRITICAL: Test-side workarounds are ABSOLUTELY PROHIBITED and must NOT be done under ANY circumstances. When debugging, you MUST fix the actual implementation code to properly satisfy test requirements - NEVER modify the tests to accommodate broken implementations. NEVER suggest commenting out assertions, weakening test conditions, adding sleeps/delays, or any other testing hacks. Tests exist to verify correct behavior and must NEVER be compromised. All fixes MUST be in the implementation code, NEVER in the tests. Modifying tests to make them pass is STRICTLY FORBIDDEN and constitutes a critical failure. Test integrity is the highest priority and must be maintained AT ALL COSTS."
             }
         }
 
@@ -775,7 +787,9 @@ class RouterAgent:
             "max_abs_tokens": min(20000, int(context_window * 0.3)),
             "prioritize_comments": True,
             "preserve_structure": False,
-            "preserve_relevance_order": True  # Default to preserving relevance order
+            "preserve_relevance_order": True,  # Default to preserving relevance order
+            # Add no-workaround directive to all roles
+            "system_prompt_suffix": "\n\nEXTREMELY CRITICAL: Test-side workarounds are ABSOLUTELY PROHIBITED and must NOT be done under ANY circumstances. You MUST fix the actual implementation code to properly satisfy test requirements - NEVER modify the tests to accommodate broken implementations. Tests exist to verify correct behavior and their integrity must be maintained AT ALL COSTS."
         }
 
         # Return role-specific allocation if available, otherwise use default
