@@ -4,15 +4,25 @@ import os
 import json
 import logging
 import time
+import re  # Add import for regex pattern matching
 from time import sleep
 import requests
 import traceback  # Added import
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 # Initialize models_by_role at module level to avoid undefined global variable
 _models_by_role = {}
+
+# Command patterns for special routing
+COMMAND_PATTERNS = {
+    "continue": r"@agent\s+Continue:?\s*(?:\"|\')?(.*?)(?:\"|\')?$",
+    "debug": r"@agent\s+Debug:?\s*(?:\"|\')?(.*?)(?:\"|\')?$",
+    "test": r"@agent\s+Test:?\s*(?:\"|\')?(.*?)(?:\"|\')?$",
+    "plan": r"@agent\s+Plan:?\s*(?:\"|\')?(.*?)(?:\"|\')?$",
+    "execute": r"@agent\s+Execute:?\s*(?:\"|\')?(.*?)(?:\"|\')?$",
+}
 
 class MetricsTracker:
     """Collects metrics for LLM calls."""
@@ -86,11 +96,17 @@ def _load_llm_config():
 class RouterAgent:
     """Routes LLM requests to the appropriate model based on the task."""
 
-    def __init__(self):
-        """Initialize the router agent."""
+    def __init__(self, config=None):
+        """Initialize the router agent.
+        
+        Args:
+            config: Optional configuration object or dictionary.
+        """
         global _models_by_role  # Properly reference the global variable
         if not _models_by_role:
             _models_by_role = _load_llm_config()
+        # Store configuration
+        self.config = config
         # Metrics collector
         self.metrics = MetricsTracker()
         # Circuit breaker state
@@ -102,6 +118,30 @@ class RouterAgent:
         if metadata is None:
             metadata = {}
 
+        # Check for special command patterns
+        command_type, command_content = self.process_command_pattern(query)
+        if command_type:
+            # Map command types to specific roles
+            command_role_map = {
+                "debug": "error_analyzer",
+                "test": "test_planner",
+                "plan": "planner",
+                "execute": "generator",
+                "continue": "generator"  # Default to generator for continuations
+            }
+            
+            # Override role based on command if a mapping exists
+            if command_type in command_role_map:
+                original_role = metadata.get("role")
+                role = command_role_map[command_type]
+                logger.info(f"Command pattern '{command_type}' detected. Routing to role '{role}' instead of '{original_role}'")
+                # Update metadata with the new role
+                metadata["role"] = role
+                metadata["command_type"] = command_type
+                metadata["command_content"] = command_content
+            else:
+                logger.warning(f"Command pattern '{command_type}' detected but no role mapping found.")
+        
         role = metadata.get("role")
         if not role:
             logger.warning("No 'role' provided in metadata. Cannot determine appropriate LLM.")
@@ -150,6 +190,7 @@ class RouterAgent:
         fallback_role: Optional[str] = None,
         tech_stack: Optional[Dict[str, Any]] = None,  # Added tech_stack parameter
         code_context: Optional[Dict[str, str]] = None,  # Added code_context parameter
+        metadata: Optional[Dict[str, Any]] = None,  # New metadata parameter for command info
         **kwargs: Any  # Additional parameters for the API call
     ) -> Optional[str]:
         """Calls the appropriate LLM based on role, handling retries and fallbacks.
@@ -163,11 +204,16 @@ class RouterAgent:
             fallback_role: Optional role to use if primary role fails
             tech_stack: Optional tech stack information (languages, frameworks, etc.)
             code_context: Optional code snippets relevant to the request
+            metadata: Optional metadata including command type and content
             **kwargs: Additional parameters for the API call
         
         Returns:
             The LLM response text or None if the call fails
         """
+        # Initialize metadata if not provided
+        if metadata is None:
+            metadata = {}
+            
         model_info = _models_by_role.get(role)
         if not model_info:
             scratchpad.log("RouterAgent", f"Error: No model configured for role: '{role}'", level="error")
@@ -177,6 +223,42 @@ class RouterAgent:
         if not model_name:
             scratchpad.log("RouterAgent", f"Error: Configuration for role '{role}' is missing the 'model' name.", level="error")
             return None
+            
+        # Enhance system prompt based on command metadata if present
+        if "command_type" in metadata and "command_content" in metadata:
+            command_type = metadata["command_type"]
+            command_content = metadata["command_content"]
+            
+            # Log the command processing
+            scratchpad.log("RouterAgent", 
+                         f"Processing @agent {command_type.capitalize()} command: '{command_content}'")
+            
+            # Command-specific system prompt enhancements
+            command_instructions = {
+                "debug": "\nYou are in DEBUG mode. Focus on identifying and fixing errors in the code. "
+                        "Analyze error messages carefully and provide detailed diagnostics.",
+                
+                "test": "\nYou are in TEST mode. Focus on creating or improving test coverage. "
+                       "Write comprehensive tests that validate functionality and edge cases.",
+                
+                "plan": "\nYou are in PLAN mode. Create a clear, structured plan for implementation. "
+                       "Break down complex tasks into manageable steps with consideration for dependencies.",
+                
+                "execute": "\nYou are in EXECUTE mode. Implement the requested feature or changes according "
+                          "to best practices. Focus on producing working, well-structured code.",
+                
+                "continue": "\nYou are in CONTINUE mode. Pick up from your previous work and continue "
+                           "implementation or analysis. Maintain consistency with the established approach."
+            }
+            
+            # Enhance system prompt with command-specific instructions
+            if command_type in command_instructions:
+                system_prompt += command_instructions[command_type]
+                scratchpad.log("RouterAgent", f"Enhanced system prompt with {command_type} mode instructions")
+            
+            # For continue command, append a special instruction about previous work
+            if command_type == "continue":
+                system_prompt += "\nReview previous outputs and context carefully to ensure continuity."
 
         max_retries = config.get('max_retries', 3)
         initial_backoff = config.get('initial_backoff', 1.0)
@@ -213,6 +295,7 @@ class RouterAgent:
                     role=role,
                     tech_stack=tech_stack,  # Pass tech_stack
                     code_context=code_context,  # Pass code_context
+                    metadata=metadata,  # Pass command metadata
                     **kwargs
                 )
                 self._failure_counts[model_name] = 0  # Reset failure count on success
@@ -254,6 +337,7 @@ class RouterAgent:
                     role=fallback_role,
                     tech_stack=tech_stack,  # Pass tech_stack
                     code_context=code_context,  # Pass code_context
+                    metadata=metadata,  # Pass command metadata
                     **kwargs
                 )
                 scratchpad.log("RouterAgent", f"Successfully called fallback {fallback_model_name} (Role: {fallback_role})")
@@ -275,13 +359,14 @@ class RouterAgent:
         scratchpad: Any,
         timeout: int,
         role: str,
-        tech_stack: Optional[Dict[str, Any]] = None,  # Added tech_stack parameter
-        code_context: Optional[Dict[str, str]] = None,  # Added code_context parameter
+        tech_stack: Optional[Dict[str, Any]] = None,  # Tech stack parameter
+        code_context: Optional[Dict[str, str]] = None,  # Code context parameter
+        metadata: Optional[Dict[str, Any]] = None,  # Metadata parameter including command info
         **kwargs: Any
     ) -> Optional[str]:
         """Executes a single LLM API call.
         
-        Now supports enhanced context with tech stack and code snippets.
+        Now supports enhanced context with tech stack, code snippets, and command metadata.
         """
         start = time.time()
         model_name = model_info["model"]
@@ -292,8 +377,38 @@ class RouterAgent:
         # Get the context window size for token management
         context_window = model_info.get("context_window", 8000)  # Default to 8K if not specified
         
-        # Enhanced prompt with tech stack and code context if provided
+        # Initialize metadata if not provided
+        if metadata is None:
+            metadata = {}
+            
+        # Enhanced prompt with tech stack, code context and command info if provided
         enhanced_user_prompt = user_prompt
+        
+        # Add command-specific context to the user prompt if this is a command
+        if "command_type" in metadata and "command_content" in metadata:
+            command_type = metadata["command_type"]
+            command_content = metadata["command_content"]
+            
+            # Handle specific command types
+            if command_type == "continue":
+                # For continue commands, replace the user prompt entirely with command content if it exists
+                if command_content:
+                    enhanced_user_prompt = f"CONTINUE TASK: {command_content}"
+                else:
+                    enhanced_user_prompt = "Continue from where you left off with the previous task."
+                    
+            elif command_content:  # For other commands with content
+                # Prefix the user prompt with the command info
+                command_prefixes = {
+                    "debug": "DEBUG TASK: ",
+                    "test": "TEST TASK: ",
+                    "plan": "PLANNING TASK: ",
+                    "execute": "EXECUTION TASK: "
+                }
+                prefix = command_prefixes.get(command_type, f"{command_type.upper()} TASK: ")
+                
+                if command_content not in user_prompt:  # Only add if not already present
+                    enhanced_user_prompt = f"{prefix}{command_content}\n\n{user_prompt}"
         
         # Include tech stack information if available
         if tech_stack:
@@ -316,15 +431,99 @@ class RouterAgent:
             def estimate_tokens(text):
                 return len(text.split()) * 1.3  # Rough estimation: words * 1.3
             
+            # Get role-specific context allocation instead of fixed 15% limit
+            allocation = self._get_role_specific_context_allocation(role, context_window)
+            max_context_tokens = min(allocation["max_abs_tokens"], 
+                                    int(context_window * allocation["max_context_pct"]))
+            
             code_context_str = ""
             current_tokens = 0
-            max_context_tokens = min(1500, context_window * 0.15)  # Use at most 15% of context window for code
+
+            # <<< START NEW BLOCK: Load guidelines for guideline_expert >>>
+            if role.lower() == "guideline_expert":
+                guidelines_path = os.path.join(os.getcwd(), ".github", "copilot-instructions.md") # Use os.getcwd() for robustness
+                if os.path.exists(guidelines_path):
+                    try:
+                        with open(guidelines_path, "r", encoding="utf-8") as f:
+                            guidelines_content = f.read()
+                        guidelines_header = f"--- {os.path.relpath(guidelines_path)} ---\n" # Use relative path for header
+                        guidelines_block = f"{guidelines_header}{guidelines_content}\n\n"
+                        guidelines_tokens = estimate_tokens(guidelines_block)
+
+                        # Allocate a significant portion of the budget specifically for guidelines
+                        guideline_budget = max_context_tokens * 0.75 
+                        if guidelines_tokens <= guideline_budget:
+                            code_context_str += guidelines_block
+                            current_tokens += guidelines_tokens
+                            scratchpad.log("RouterAgent", f"Loaded guidelines ({guidelines_tokens:.0f} tokens) for guideline_expert.")
+                        else:
+                            # Truncate guidelines if too long (simple truncation)
+                            max_guideline_chars = int(len(guidelines_content) * (guideline_budget / guidelines_tokens))
+                            truncated_content = guidelines_content[:max_guideline_chars] + "\n... (guidelines truncated)"
+                            truncated_block = f"{guidelines_header}{truncated_content}\n\n"
+                            truncated_tokens = estimate_tokens(truncated_block)
+                            code_context_str += truncated_block
+                            current_tokens += truncated_tokens
+                            scratchpad.log("RouterAgent", f"Loaded truncated guidelines ({truncated_tokens:.0f} tokens) for guideline_expert.")
+
+                    except Exception as e:
+                        scratchpad.log("RouterAgent", f"Error loading guidelines file {guidelines_path}: {e}", level="ERROR")
+                else:
+                    scratchpad.log("RouterAgent", f"Guidelines file not found at {guidelines_path} for guideline_expert.", level="WARNING")
+            # <<< END NEW BLOCK >>>
             
-            # Sort files by likely relevance (can be refined with more sophisticated relevance scoring)
-            sorted_files = sorted(code_context.items(), key=lambda x: len(x[1]), reverse=False)
+            # Log the new allocation settings
+            scratchpad.log("RouterAgent", 
+                f"Using role-specific context allocation for {role}: "
+                f"{allocation['max_context_pct']*100:.0f}% of context window, "
+                f"max {max_context_tokens} tokens (was 15%/1500 tokens)")
             
-            for path, content in sorted_files:
+            # Preserve original ordering - respect relevance ranking from code analysis tool
+            # The code_context is assumed to already be ordered by relevance
+            files_to_process = list(code_context.items()) # Convert to list to iterate
+            
+            # If role needs to preserve structure, include brief metadata about all files first
+            if allocation.get("preserve_structure", False) and len(files_to_process) > 5:
+                structure_summary = "Project Structure Overview:\n"
+                for path, content in files_to_process: 
+                    line_count = content.count('\n') + 1
+                    structure_summary += f"- {path}: {line_count} lines\n"
+                
+                structure_tokens = estimate_tokens(structure_summary)
+                # Use up to 15% of our context budget for structure overview
+                if structure_tokens <= max_context_tokens * 0.15:
+                    code_context_str += structure_summary + "\n\n"
+                    current_tokens += structure_tokens
+            
+            for path, content in files_to_process:
                 context_header = f"--- {path} ---\n"
+                
+                # If we should prioritize comments for this role, extract and highlight them
+                if allocation.get("prioritize_comments", False) and "# " in content:
+                    # Extract comments (simplistic approach - could be improved)
+                    comments = "\n".join([line for line in content.split("\n") 
+                                         if line.strip().startswith("# ") or 
+                                         line.strip().startswith('"""') or
+                                         line.strip().startswith("'''") or
+                                         "# " in line])
+                    
+                    if len(comments) > 100:  # Only if we have meaningful comments
+                        comment_block = f"{context_header}DOCUMENTATION COMMENTS:\n{comments}\n\n"
+                        comment_tokens = estimate_tokens(comment_block)
+                        
+                        # If we can fit comments, add them with higher priority
+                        if current_tokens + comment_tokens <= max_context_tokens * 0.4:
+                            code_context_str += comment_block
+                            current_tokens += comment_tokens
+                            
+                            # Reduce remaining content by removing processed comments
+                            content = "\n".join([line for line in content.split("\n") 
+                                              if not (line.strip().startswith("# ") or
+                                                    "# " in line or
+                                                    line.strip().startswith('"""') or
+                                                    line.strip().startswith("'''"))])
+                
+                # Process the full content or remaining content after comment extraction
                 context_block = f"{context_header}{content}\n\n"
                 block_tokens = estimate_tokens(context_block)
                 
@@ -341,6 +540,31 @@ class RouterAgent:
                         code_context_str += context_header + truncation_msg
                         current_tokens += header_tokens + truncation_tokens
                     
+                    # For error_analyzer role, try to include error-relevant parts even if we need to truncate
+                    if role.lower() == "error_analyzer" and "error" in content.lower():
+                        error_lines = [i for i, line in enumerate(content.split("\n")) 
+                                     if "error" in line.lower() or "exception" in line.lower()]
+                        
+                        if error_lines:
+                            line_context = allocation.get("error_context_lines", 10)
+                            error_context = []
+                            for error_line in error_lines[:3]:  # Focus on first 3 errors max
+                                lines = content.split("\n")
+                                start = max(0, error_line - line_context)
+                                end = min(len(lines), error_line + line_context)
+                                error_snippet = "\n".join(lines[start:end])
+                                error_context.append(f"ERROR CONTEXT (lines {start}-{end}):\n{error_snippet}")
+                            
+                            error_content = "\n\n".join(error_context)
+                            error_tokens = estimate_tokens(error_content)
+                            
+                            # If we can fit error context within remaining budget
+                            remaining_tokens = max_context_tokens - current_tokens
+                            if error_tokens <= remaining_tokens:
+                                code_context_str += f"{context_header}[ERROR CONTEXTS ONLY]\n{error_content}\n\n"
+                                current_tokens += error_tokens + header_tokens
+                    
+                    # No more space for additional files
                     code_context_str += "\n... (more files truncated due to token limits)"
                     break  # Stop adding more files once limit is hit
             
@@ -479,6 +703,83 @@ class RouterAgent:
     def get_metrics(self):
         """Return aggregated LLM call metrics."""
         return self.metrics.get_metrics()
+
+    def process_command_pattern(self, query: str) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Process special command patterns to determine if this is a command query.
+        
+        Args:
+            query: The user query string
+            
+        Returns:
+            Tuple of (command_type, command_content) if a command is detected,
+            otherwise (None, None)
+        """
+        for cmd_type, pattern in COMMAND_PATTERNS.items():
+            match = re.search(pattern, query, re.IGNORECASE | re.DOTALL)
+            if match:
+                # Extract the command content (what comes after the command)
+                cmd_content = match.group(1).strip() if match.group(1) else ""
+                return cmd_type, cmd_content
+                
+        # No command pattern matched
+        return None, None
+    
+    def _get_role_specific_context_allocation(
+        self,
+        role: str,
+        context_window: int
+    ) -> Dict[str, Any]:
+        """Get role-specific context allocation settings."""
+        # Define allocations for different roles
+        allocations = {
+            # Update planner for better context allocation
+            "planner": {
+                "max_context_pct": 0.60,  # 60% of context window
+                "max_abs_tokens": min(100000, int(context_window * 0.6)),
+                "prioritize_comments": True,
+                "preserve_structure": True,
+                "preserve_relevance_order": True,  # Added to maintain search relevance order
+                # Add no-workaround directive
+                "system_prompt_suffix": "\n\nCRITICAL: Test-side workarounds are STRICTLY PROHIBITED. All test cases must be properly implemented - never include temporary hacks, mocks, or commented code to make tests pass artificially. Implementations should have proper functionality that tests verify, not tests that are modified to accommodate broken implementations. Test integrity must be maintained at all costs."
+            },
+            # Update generator for smarter file selection
+            "generator": {
+                "max_context_pct": 0.40,
+                "max_abs_tokens": min(50000, int(context_window * 0.4)),
+                "prioritize_comments": False,
+                "preserve_structure": False,
+                "preserve_relevance_order": True,  # Added to maintain search relevance order
+                "min_files": 3,  # Ensure at least 3 most relevant files are included
+                "max_files": 12,  # Increased from 8 to allow more context when needed
+                # Add no-workaround directive
+                "system_prompt_suffix": "\n\nCRITICAL: Test-side workarounds are STRICTLY PROHIBITED. Your code must work properly on its own, without requiring tests to be modified to accommodate it. Never include temporary hacks, mocks that bypass actual functionality, or modified assertions that weaken test validity. Always implement the proper functionality that satisfies the original test requirements. Ensure code and dependency fixes are in the implementation, not the tests."
+            },
+            # Enhanced debugger context
+            "error_analyzer": {
+                "max_context_pct": 0.50,
+                "max_abs_tokens": min(60000, int(context_window * 0.5)),
+                "prioritize_comments": False,
+                "preserve_structure": False,
+                "preserve_relevance_order": True,
+                "error_context_lines": 50,
+                "include_error_history": True,  # Added to track error patterns
+                # Add no-workaround directive
+                "system_prompt_suffix": "\n\nCRITICAL: Test-side workarounds are STRICTLY PROHIBITED. When debugging, you must fix the actual implementation code to properly satisfy test requirements - NOT modify the tests to accommodate broken implementations. Never suggest commenting out assertions, weakening test conditions, adding sleeps/delays, or other testing hacks. Tests exist to verify correct behavior; they must maintain their integrity and standards at all costs."
+            }
+        }
+
+        # Default allocation
+        default_allocation = {
+            "max_context_pct": 0.30,
+            "max_abs_tokens": min(20000, int(context_window * 0.3)),
+            "prioritize_comments": True,
+            "preserve_structure": False,
+            "preserve_relevance_order": True  # Default to preserving relevance order
+        }
+
+        # Return role-specific allocation if available, otherwise use default
+        return allocations.get(role.lower(), default_allocation)
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
