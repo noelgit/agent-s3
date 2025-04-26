@@ -17,69 +17,137 @@ This document outlines common user scenarios and provides step-by-step walkthrou
         ```bash
         python -m agent_s3.cli /init
         ```
-3.  **VS Code Extension Action:** The `initializeWorkspace` function in `vscode/extension.ts` is triggered. It opens the dedicated "Agent-S3" terminal (creating it if it doesn't exist using `getAgentTerminal`) and sends the `python -m agent_s3.cli /init` command. A notification "Initializing Agent-S3 workspace..." appears.
-4.  **Backend CLI Action:** `agent_s3/cli.py` receives the `/init` command. The `process_command` function handles it.
-5.  **Authentication Check:** The `/init` process (likely within the `Coordinator` or triggered by it) checks if a valid GitHub token exists (e.g., via `os.getenv("GITHUB_TOKEN")` or a stored token file like `~/.agent_s3/github_token.json`).
-6.  **GitHub OAuth Flow (if needed):**
-    *   If no valid token is found, `agent_s3/auth.py`'s `authenticate_user` function is called.
-    *   It constructs a GitHub OAuth URL (`GITHUB_AUTH_URL`) with the `GITHUB_CLIENT_ID`, scope, and a unique `state` parameter.
-    *   It starts a local HTTP server (`http.server`) on `localhost:8000` to listen for the callback.
-    *   It opens the user's web browser to the GitHub authorization URL.
-    *   The user logs into GitHub and authorizes the application.
-    *   GitHub redirects the browser back to `http://localhost:8000/callback` with an authorization `code` and the `state`.
-    *   The local server handler (`CallbackHandler` in `auth.py`) receives the request, validates the `state`, and exchanges the `code` for an access token by making a POST request to `GITHUB_TOKEN_URL` with the `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`.
-    *   The obtained access token is stored securely (e.g., in `~/.agent_s3/github_token.json`).
-    *   The local server shuts down, and the browser might show a success message.
-7.  **Organization Check (if configured):** If `GITHUB_ORG` is set, `auth.py` uses the obtained token to verify the user's membership in the specified organization(s) via the GitHub API (`/user/memberships/orgs`). If the user is not a member, authentication fails.
-8.  **Initialization Complete:** The CLI confirms successful initialization. The VS Code extension sets an internal flag (`isInitialized = true`) after a short delay. Necessary configuration files (like `.github/copilot-instructions.md` if part of the init process) might be created or verified.
+3.  **VS Code Extension Action (`vscode/extension.ts`):**
+    *   The `initializeWorkspace` function is triggered.
+    *   It retrieves or creates the dedicated "Agent-S3" terminal using `getAgentTerminal`.
+    *   It shows the terminal (`terminal.show()`).
+    *   It sends the command `python -m agent_s3.cli /init` to the terminal (`terminal.sendText`).
+    *   A notification "Initializing Agent-S3 workspace..." appears (`vscode.window.showInformationMessage`).
+    *   A timeout is set to update the internal `isInitialized` flag after a delay (this is a simple check, the CLI process confirms actual success).
+4.  **Backend CLI Action (`agent_s3/cli.py`):**
+    *   The `main` function parses arguments and identifies the `/init` command.
+    *   It calls `process_command`.
+    *   `process_command` initializes the `Coordinator` (`agent_s3/coordinator.py`).
+    *   It calls `coordinator.initialize_workspace()`.
+5.  **Coordinator Initialization (`agent_s3/coordinator.py`):**
+    *   The `initialize_workspace` method is executed.
+    *   It loads configuration using `Config` (`agent_s3/config.py`), which reads environment variables and `llm.json`.
+    *   It sets up essential directories and performs workspace validation checks:
+        *   Checks for existence of README.md (core validation requirement)
+        *   Creates required directories like .github if they don't exist
+        *   Logs validation status and errors via EnhancedScratchpadManager
+    *   It creates essential files if missing:
+        *   Creates personas.md via `execute_personas_command()` if it doesn't exist
+        *   Creates .github/copilot-instructions.md via `execute_guidelines_command()` if missing
+        *   Creates llm.json with default LLM configuration if not present
+    *   It detects the tech stack via `_detect_tech_stack()` which:
+        *   Uses TechStackManager to analyze the codebase
+        *   Identifies languages, frameworks, libraries and their versions
+        *   Generates structured tech stack data with best practices
+        *   Logs formatted tech stack information to scratchpad
+6.  **GitHub Authentication Flow (`agent_s3/auth.py`, if needed):**
+    *   If authentication is required and no valid token is found (checked via `check_github_auth`), `auth.authenticate_user()` is called by the `Coordinator`.
+    *   `authenticate_user` determines the flow (OAuth App or GitHub App based on config).
+    *   **OAuth App Flow:**
+        *   Constructs a GitHub OAuth URL (`GITHUB_AUTH_URL`) with `GITHUB_CLIENT_ID`, scope, and a unique `state`.
+        *   Starts a local HTTP server (`http.server.HTTPServer`) on `localhost:8000` with a `CallbackHandler`.
+        *   Opens the user's web browser to the GitHub authorization URL (`webbrowser.open`).
+        *   User logs into GitHub and authorizes the application.
+        *   GitHub redirects the browser back to `http://localhost:8000/callback` with an authorization `code` and the `state`.
+        *   The `CallbackHandler`'s `do_GET` method receives the request, validates the `state`.
+        *   It exchanges the `code` for an access token by making a POST request to `GITHUB_TOKEN_URL` using `requests.post`, sending `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `code`, and `redirect_uri`.
+        *   The obtained access token is stored securely using `store_token` (e.g., in `~/.agent_s3/github_token.json`).
+        *   The local server shuts down (`httpd.shutdown()`), and the browser might show a success message.
+    *   **GitHub App Flow:** (Details depend on specific implementation, but generally involves JWT generation and installation access tokens).
+7.  **Organization Check (`agent_s3/auth.py`, if configured):**
+    *   If `GITHUB_ORG` is set in the environment, `auth.verify_organization_membership()` is called after obtaining the token.
+    *   It uses the token to make a request to the GitHub API (`/user/memberships/orgs`) via `requests.get`.
+    *   It checks if the user is a member of any specified organization. If not, authentication fails, and an error is raised.
+8.  **AI-Generated Guidelines (Optional, `agent_s3/coordinator.py`):**
+    *   If enabled and `copilot-instructions.md` exists, `initialize_workspace` might call `_call_llm_api` (using the 'initializer' role LLM) to generate tech-stack-specific guidelines.
+    *   It uses `PromptModerator` (`agent_s3/prompt_moderator.py`) to ask the user if they want to append these suggestions (`prompt_moderator.ask_binary_question`).
+    *   If approved, it uses `FileTool` (`agent_s3/tools/file_tool.py`) to append the content (`file_tool.append_to_file`).
+9.  **Initialization Complete:**
+    *   The CLI prints a confirmation message.
+    *   The `Coordinator` finishes.
+    *   The VS Code extension's `isInitialized` flag (set via timeout earlier) allows subsequent commands.
 
-**Outcome:** Agent-S3 is ready to use in the workspace. The user is authenticated with GitHub, and subsequent commands requiring GitHub access will use the stored token.
+**Outcome:** Agent-S3 is ready to use in the workspace. The user is authenticated with GitHub (if required), necessary configuration/guideline files are verified or created, and the tech stack is detected. Subsequent commands requiring GitHub access will use the stored token.
 
 ---
 
-## Story 2: Making a Code Change Request via VS Code Command
+## Story 2: Making a Code Change Request
 
-**Goal:** Request a code modification using the VS Code command palette.
+**Goal:** Request a code modification using various VS Code UI elements or the CLI.
 
-**Persona:** A developer wanting to add a feature or fix a bug.
+**Persona:** A developer wanting to add a feature, fix a bug, or refactor code.
 
 **Walkthrough:**
 
-1.  **Trigger Command:** The developer presses `Ctrl+Shift+P` (or `Cmd+Shift+P`), types `Agent-S3: Make change request`, and selects the command. Alternatively, they click the `$(sparkle) Agent-S3` item in the status bar.
-2.  **Input Prompt:** VS Code shows an input box (`vscode.window.showInputBox`) prompting "Enter your change request".
-3.  **Enter Request:** The developer types their request (e.g., "Add a function to calculate the factorial of a number in utils.py") and presses Enter.
-4.  **VS Code Extension Action:** The `makeChangeRequest` function in `vscode/extension.ts` is called.
-    *   It checks if the workspace is initialized (`isInitialized` flag). If not, it prompts the user to initialize first.
+1.  **Trigger Command:**
+    *   **VS Code Command Palette:** Press `Ctrl+Shift+P`, type `Agent-S3: Make change request`, select command.
+    *   **VS Code Status Bar:** Click the `$(sparkle) Agent-S3` item.
+    *   **VS Code Chat UI:** Open via `Agent-S3: Open Chat Window`, type request, press Send/Enter. (See Story 3 for Chat UI details).
+    *   **CLI:** Open terminal, run `python -m agent_s3.cli "Your detailed change request here"`.
+2.  **VS Code Extension Action (`vscode/extension.ts` - for UI triggers):**
+    *   The `makeChangeRequest` function (or the status bar command handler, or the chat message handler `panel.webview.onDidReceiveMessage`) is called.
+    *   It checks the `isInitialized` flag. If `false`, it prompts the user to initialize first (`vscode.window.showWarningMessage`, potentially calling `initializeWorkspace`).
+    *   If triggered via Command Palette or Status Bar, it shows an input box (`vscode.window.showInputBox`) prompting "Enter your change request".
     *   It retrieves the dedicated "Agent-S3" terminal using `getAgentTerminal`.
     *   It shows the terminal (`terminal.show()`).
-    *   It sends the developer's request to the CLI, escaping any quotes: `python -m agent_s3.cli "<user_request>"`.
-    *   It shows an information notification: `Processing request: <user_request>`.
-    *   It starts monitoring the `progress_log.json` file for updates using `monitorProgress`.
-5.  **Backend CLI Action:** `agent_s3/cli.py` receives the request as a command-line argument.
-    *   The `main` function parses the arguments.
+    *   It sends the developer's request (from input box or chat message) to the CLI, escaping quotes: `python -m agent_s3.cli "<user_request>"` (`terminal.sendText`).
+    *   It shows an information notification: `Processing request: <user_request>` (`vscode.window.showInformationMessage`).
+    *   It starts monitoring the `progress_log.json` file for updates by calling `monitorProgress`.
+3.  **Backend CLI Action (`agent_s3/cli.py`):**
+    *   The `main` function parses the command-line arguments, receiving the request text.
     *   It loads the configuration (`Config`).
-    *   It initializes the `Coordinator`.
-    *   It checks for authentication (calling `authenticate_user` if needed, as in Story 1).
-    *   It calls `coordinator.process_change_request(prompt)`.
-6.  **Coordinator Workflow:** The `Coordinator` (`agent_s3/coordinator.py`) executes its phases:
-    *   **Planning:** Uses the `RouterAgent` to select a planning LLM (based on `llm.json`). Calls the `Planner` (`agent_s3/planner.py`) to generate a step-by-step plan based on the request and project context (potentially using RAG via `EmbeddingClient` and `MemoryManager`). Logs progress to `progress_log.json`.
-    *   **Plan Approval:** Uses `PromptModerator` (`agent_s3/prompt_moderator.py`) to display the plan in the terminal and ask the user for approval (`y/n`).
-    *   **GitHub Issue Creation (Optional):** If approved and configured, uses `GitTool` (`agent_s3/tools/git_tool.py`) to create a GitHub issue based on the plan. Logs progress.
-    *   **Execution:** Iterates through the plan steps. For code generation steps:
-        *   Uses `RouterAgent` to select a code generation LLM.
-        *   Calls `CodeGenerator` (`agent_s3/code_generator.py`) to generate code/diffs.
-        *   Uses `PromptModerator` to show diffs and ask for approval.
-        *   Uses `FileTool` (`agent_s3/tools/file_tool.py`) to apply approved changes.
-        *   Uses `CodeAnalysisTool` (`agent_s3/tools/code_analysis_tool.py`) or `BashTool` (`agent_s3/tools/bash_tool.py`) to run linters/tests.
-        *   If errors occur, potentially enters a refinement loop, feeding errors back to the planner/generator. Logs progress.
-    *   **PR Creation (Optional):** If configured, uses `GitTool` to commit changes, push a branch, and create a Pull Request. Logs progress.
-7.  **VS Code Monitoring:** The `monitorProgress` function in `vscode/extension.ts` periodically reads `progress_log.json`.
-    *   It parses new entries.
-    *   It updates the status bar item (`updateProgressStatus`) with the current phase/status.
-    *   It shows relevant notifications (e.g., "Agent-S3 created pull request: <url>", "Agent-S3 encountered an issue...").
-    *   It stops monitoring when a final state (completed, failed, rejected, PR created) is reached or after a timeout.
+    *   It initializes the `Coordinator` (`agent_s3/coordinator.py`).
+    *   It performs an authentication check and initializes the `RouterAgent`.
+    *   **Important:** It routes the request through an orchestrator that classifies the input:
+        *   First calls the LLM with an orchestrator role to classify the request as planner, designer, tool_user, or general_qa.
+        *   If classification confidence is below 0.7, it asks the user to clarify the intent.
+        *   Based on classification, it routes to the appropriate method - most code change requests go to `coordinator.process_change_request`.
+4.  **Coordinator Workflow (`agent_s3/coordinator.py` - `run_task` method):**
+    *   **Phase 0: Pre-Planning Assessment:**
+        *   Updates progress: `{"phase": "pre_planning", "status": "started"}`.
+        *   Uses `pre_planner.collect_impacted_files(request_text)` to analyze which files will be affected.
+        *   Calculates complexity score and estimates effort.
+        *   If complexity exceeds threshold, offers to switch to the design workflow instead.
+        *   Updates progress: `{"phase": "pre_planning", "status": "completed", "complexity_score": score}`.
+    *   **Phase 1: Planning:**
+        *   Updates progress: `{"phase": "planning", "status": "started"}`.
+        *   Calls `planner.create_plan(request_text)` to generate a detailed implementation plan.
+        *   If `test_planner` is available, it:
+            *   Extracts implementation files from the plan
+            *   Generates a comprehensive test plan via `test_planner.plan_tests`
+            *   Ensures test plan includes unit, integration, approval, and property-based tests
+        *   Updates progress: `{"phase": "planning", "status": "completed", "plan": plan}`.
+    *   **Phase 2: Code Generation and Refinement Loop:**
+        *   Multiple attempts may be made (configured via `max_attempts`, default 3).
+        *   For each attempt:
+            *   Updates progress: `{"phase": "generation", "status": "started", "attempt": attempt}`.
+            *   Calls `code_generator.generate_code(request_text, plan)` to create code changes.
+            *   Applies changes using `_apply_changes_and_manage_dependencies`.
+            *   Runs validation via `_run_validation_phase()` which includes:
+                *   Linting with tools like flake8
+                *   Type checking with mypy
+                *   Running tests with test_runner_tool
+                *   Verifying test coverage with TestCritic
+            *   If validation fails, collects error context and refines the plan.
+            *   If validation passes, breaks the loop.
+    *   **Phase 3: Finalization:**
+        *   If changes were successfully made and validated, calls `_finalize_task(changes)` which:
+            *   Commits changes with a descriptive message
+            *   Pushes the branch if configured to do so
+            *   Creates a pull request if configured
+        *   Clears the task state and reports completion.
+5.  **VS Code Monitoring (`vscode/extension.ts`):**
+    *   The `monitorProgress` function periodically reads `progress_log.json`.
+    *   Updates the status bar with current phase and status.
+    *   When a final state is reached, shows a notification with result summary.
+    *   If a PR was created, includes the PR URL in the notification.
 
-**Outcome:** The requested code change is planned, potentially tracked in a GitHub issue, implemented (with user approvals), and possibly submitted as a PR. The developer sees progress updates in VS Code.
+**Outcome:** The requested code change is evaluated for complexity, planned with comprehensive test specifications, implemented through an iterative process that includes validation and refinement, and finalized with proper version control integration. The system adapts to errors by refining its approach, ensuring high-quality code changes that meet both functional requirements and code quality standards.
 
 ---
 
@@ -92,60 +160,553 @@ This document outlines common user scenarios and provides step-by-step walkthrou
 **Walkthrough:**
 
 1.  **Open Chat Window:** The developer runs `Agent-S3: Open Chat Window` from the Command Palette.
-2.  **VS Code Extension Action:** The `openChatWindow` function in `vscode/extension.ts` creates a `WebviewPanel`.
-    *   It sets up the HTML content using `getWebviewContent`, including CSS for styling and JavaScript for interaction (using a `nonce` for CSP).
-    *   It loads previous message history from `extensionContext.workspaceState`.
-    *   It sets up a message listener (`panel.webview.onDidReceiveMessage`) to handle messages sent *from* the webview JS.
-3.  **Webview Loads:** The chat panel appears. The webview's JavaScript (`acquireVsCodeApi`, event listeners) initializes. It requests and displays the loaded history.
-4.  **User Sends Message:** The developer types a request (e.g., "/help" or "Refactor the login function") into the textarea (`#msg`) and clicks Send or presses Enter.
-5.  **Webview JavaScript Action:**
-    *   The `sendMessage` function in the webview JS captures the text.
-    *   It adds the user's message to the UI (`addMessageToUI`).
-    *   It sends the message to the VS Code extension using `vscode.postMessage({ command: 'send', text: <user_text> })`.
-    *   It might show a temporary typing indicator.
-6.  **VS Code Extension Receives Message:** The `panel.webview.onDidReceiveMessage` listener in `extension.ts` receives the message.
-    *   It adds the user message to the persistent `messageHistory`.
+2.  **VS Code Extension Action (`vscode/extension.ts`):**
+    *   The `openChatWindow` function creates a `WebviewPanel`.
+    *   It generates a `nonce` for Content Security Policy (CSP).
+    *   It loads previous message history from `extensionContext.workspaceState.get('agent-s3.chatHistory', [])`.
+    *   It sets the webview's HTML content using `getWebviewContent(nonce)`. This function generates the HTML structure, CSS for styling (respecting VS Code themes), and the client-side JavaScript. CSP is configured via `<meta>` tag. ARIA roles (`role="log"`, `aria-live="polite"`) are included for accessibility.
+    *   It sets up a message listener (`panel.webview.onDidReceiveMessage`) to handle messages sent *from* the webview JavaScript to the extension.
+    *   It registers a disposal handler (`panel.onDidDispose`) to save the final chat history when the panel is closed.
+3.  **Webview Loads:**
+    *   The chat panel appears in VS Code (typically beside the editor).
+    *   The webview's JavaScript initializes.
+    *   It acquires the VS Code API bridge using `acquireVsCodeApi()`.
+    *   It sends a 'ready' message to the extension: `vscode.postMessage({ command: 'ready' })`.
+4.  **Extension Sends History:**
+    *   The `panel.webview.onDidReceiveMessage` listener in `extension.ts` receives the 'ready' message.
+    *   It sends the loaded `messageHistory` back to the webview: `panel.webview.postMessage({ command: 'loadHistory', history: messageHistory })`.
+5.  **Webview Renders History:**
+    *   The `window.addEventListener('message', ...)` listener in the webview JS receives the 'loadHistory' message.
+    *   It iterates through the history array and calls `addMessageToUI(message)` for each message to render them in the `#messages` div. `addMessageToUI` creates DOM elements for the message bubble, content, and timestamp, applying appropriate CSS classes (`user`, `agent`, `system`).
+6.  **User Sends Message:**
+    *   The developer types a request (e.g., "/help" or "Refactor the login function") into the textarea (`#msg`) and clicks the Send button (`#send`) or presses Enter (handler in webview JS `input.addEventListener('keydown', ...)`).
+7.  **Webview JavaScript Action (`getWebviewContent` script):**
+    *   The `sendMessage` function is called.
+    *   It gets the text from the input (`input.value`).
+    *   It calls `addMessageToUI` to immediately display the user's message in the chat window.
+    *   It clears the input field (`input.value = ''`).
+    *   It sends the message content to the VS Code extension: `vscode.postMessage({ command: 'send', text: <user_text> })`.
+    *   It might show a temporary typing indicator (`showTypingIndicator`).
+8.  **VS Code Extension Receives Message (`vscode/extension.ts`):**
+    *   The `panel.webview.onDidReceiveMessage` listener receives the message with `command: 'send'`.
+    *   It creates a message object `{ type: 'user', content: msg.text, timestamp: ... }`.
+    *   It appends this message to the `messageHistory` array (potentially trimming old messages).
+    *   It saves the updated `messageHistory` to workspace state: `extensionContext.workspaceState.update('agent-s3.chatHistory', messageHistory)`.
     *   It gets the "Agent-S3" terminal (`getAgentTerminal`).
-    *   It sends the user's text to the CLI: `python -m agent_s3.cli "<user_text>"`.
-7.  **Backend Processing:** The CLI (`agent_s3/cli.py`) processes the command or request as described in Story 1 (for `/` commands) or Story 2 (for change requests). All output, including plans, prompts for approval, and results, appears in the "Agent-S3" terminal.
-8.  **Chat UI Feedback (Simulated/Limited):**
-    *   The current implementation in `vscode/extension.ts` *simulates* an agent response in the chat UI after a delay (`setTimeout`).
-    *   **Note:** It does *not* currently parse the actual output from the terminal to display the agent's real responses directly in the chat bubbles. The user needs to monitor the "Agent-S3" terminal for the actual interaction and results. The chat UI primarily serves as an input mechanism.
+    *   It shows the terminal (`term.show(true)`).
+    *   It sends the user's text to the CLI, escaping quotes: `term.sendText(\`python -m agent_s3.cli "${safe_text}"\`)`.
+9.  **Backend Processing:**
+    *   The CLI (`agent_s3/cli.py`) receives and processes the command or request exactly as described in Story 1 (for `/` commands like `/init`, `/help`, `/guidelines`) or Story 2 (for change requests).
+    *   **Crucially, all interactive output from the backend (plans, persona debates, approval prompts, diffs, results) appears in the "Agent-S3" terminal, NOT directly in the chat UI bubbles.**
+10. **Chat UI Feedback (Simulated/Limited):**
+    *   The current webview JS in `getWebviewContent` includes a `setTimeout` within `sendMessage` that *simulates* an agent response after a delay (calling `removeTypingIndicator` and `addMessageToUI` with placeholder content).
+    *   **Note:** This is **not** connected to the actual backend output. The chat UI primarily serves as a convenient input method and history viewer. The user **must** monitor the "Agent-S3" terminal for the real interaction flow and agent output.
 
-**Outcome:** The user can initiate Agent-S3 commands and requests via the chat interface. The actual interaction and detailed output occur in the associated "Agent-S3" terminal. The chat history is saved within the VS Code workspace state.
+**Outcome:** The user can initiate Agent-S3 commands and requests via the chat interface, and the conversation history is saved. However, the actual detailed interaction (planning, approvals, code diffs, results) occurs in the associated "Agent-S3" terminal, which the user needs to monitor.
 
 ---
 
 ## Story 4: Using Helper Commands
 
-**Goal:** Get help or view coding guidelines using specific commands.
+**Goal:** Get help information or view loaded coding guidelines using specific commands.
 
-**Persona:** A developer needing information about Agent-S3 or project standards.
+**Persona:** A developer needing information about Agent-S3 commands or project standards.
 
 **Walkthrough (using `/help`):**
 
 1.  **Trigger Command:**
-    *   **VS Code:** Run `Agent-S3: Show help` from the Command Palette.
+    *   **VS Code Command Palette:** Run `Agent-S3: Show help`.
     *   **CLI:** Run `python -m agent_s3.cli /help` in the terminal.
-    *   **Chat UI:** Type `/help` and send.
-2.  **VS Code Extension Action (if applicable):** The `showHelp` function (or `openChatWindow` message handler) gets the terminal and sends `python -m agent_s3.cli /help`.
-3.  **Backend CLI Action:** `agent_s3/cli.py` receives the `/help` command.
-    *   `process_command` identifies it as a special command.
-    *   It calls a function (e.g., `display_help` or a coordinator method) to print help information to standard output.
+    *   **Chat UI:** Type `/help` and send (See Story 3).
+2.  **VS Code Extension Action (`vscode/extension.ts`, if applicable):**
+    *   The `showHelp` function (or the chat message handler) is called.
+    *   It gets the terminal (`getAgentTerminal`).
+    *   It shows the terminal (`terminal.show()`).
+    *   It sends the command `python -m agent_s3.cli /help` to the terminal (`terminal.sendText`).
+3.  **Backend CLI Action (`agent_s3/cli.py`):**
+    *   `main` parses arguments and identifies `/help`.
+    *   `process_command` handles it.
+    *   It likely calls a dedicated function like `display_help()` (implementation details may vary) which prints pre-defined help text to standard output.
 4.  **Output:** The help text is displayed directly in the "Agent-S3" terminal where the command was executed.
 
-**Walkthrough (using `/guidelines`):**
+**Walkthrough (using `/config`):**
 
 1.  **Trigger Command:**
-    *   **VS Code:** Run `Agent-S3: Show coding guidelines` from the Command Palette.
-    *   **CLI:** Run `python -m agent_s3.cli /guidelines` in the terminal.
-    *   **Chat UI:** Type `/guidelines` and send.
-2.  **VS Code Extension Action (if applicable):** The `showGuidelines` function (or `openChatWindow` message handler) gets the terminal and sends `python -m agent_s3.cli /guidelines`.
-3.  **Backend CLI Action:** `agent_s3/cli.py` receives the `/guidelines` command.
-    *   `process_command` identifies it.
-    *   It likely calls a method on the `Coordinator` or `Config` object.
-    *   `agent_s3/config.py`'s `load` method reads guidelines (e.g., from `.github/copilot-instructions.md`).
-    *   The relevant function prints the loaded guidelines content to standard output.
-4.  **Output:** The coding guidelines are displayed in the "Agent-S3" terminal.
+    *   **VS Code Command Palette:** Run `Agent-S3: Show current configuration`.
+    *   **CLI:** Run `python -m agent_s3.cli /config` in the terminal.
+    *   **Chat UI:** Type `/config` and send (See Story 3).
+2.  **Backend CLI Action (`agent_s3/cli.py`):**
+    *   `main` parses arguments and identifies `/config`.
+    *   `process_command` handles it and prints "Current configuration:".
+    *   It iterates over `coordinator.config.config` and prints each key/value pair, masking sensitive values for `openrouter_key`, `github_token`, and `api_key`.
+3.  **Output:** The current configuration settings are displayed in the "Agent-S3" terminal, with sensitive values masked.
 
-**Outcome:** The user receives the requested information directly in the terminal associated with Agent-S3.
+**Walkthrough (using `/explain`):**
+
+1.  **Trigger Command:**
+    *   **CLI:** Run `python -m agent_s3.cli /explain` in the terminal.
+    *   **Chat UI:** Type `/explain` and send (See Story 3).
+2.  **Backend CLI Action (`agent_s3/cli.py`):**
+    *   `main` parses arguments and identifies `/explain`.
+    *   `process_command` handles it and prints "Explaining the last LLM interaction with context...".
+    *   It initializes the `Coordinator`.
+    *   It gathers context via `coordinator._gather_context()` to provide tech stack and code snippets for better explanation context.
+    *   It calls `coordinator.explain_last_llm_interaction(context)`, passing in the gathered context.
+3.  **Explanation Content (Enhanced with Tech Stack and Code Context):**
+    *   The `role` (model identifier used, e.g., "gemini-2.5-pro" or "mistral-7b-instruct") is shown.
+    *   The `status` of the interaction (e.g., "success", "error", "fallback_success") is shown.
+    *   The `timestamp` of when the interaction occurred is displayed.
+    *   A truncated version of the `prompt` sent to the LLM is displayed, including code context that was provided.
+    *   A truncated version of the `response` received from the LLM is displayed.
+    *   If relevant, tech stack information is shown to clarify what technologies were considered.
+    *   If the interaction failed, the error message is displayed along with debugging suggestions.
+4.  **Implementation Details:**
+    *   The enhanced scratchpad manager (`EnhancedScratchpadManager`) captures detailed LLM interaction logs.
+    *   The system has a circuit breaker pattern implemented in `RouterAgent`, which can trigger fallbacks to alternative models if a primary model fails.
+    *   The explanation includes information about any token estimation and potential truncation that may have occurred.
+    *   The system can show confidence scores for classifications if they were part of the LLM call.
+    *   In the case of orchestrator calls, information about the routing decision is also included.
+5.  **Output:** The formatted explanation of the last LLM interaction including tech context is displayed in the "Agent-S3" terminal, providing a comprehensive view of how the LLM made its decision.
+
+**Walkthrough (using `/reload-llm-config`):**
+
+1.  **Trigger Command:**
+    *   **CLI:** Run `python -m agent_s3.cli /reload-llm-config` in the terminal.
+    *   **Chat UI:** Type `/reload-llm-config` and send (See Story 3).
+2.  **Backend CLI Action (`agent_s3/cli.py`):**
+    *   `main` parses arguments and identifies `/reload-llm-config`.
+    *   `process_command` handles it.
+    *   It attempts to import `RouterAgent` (`agent_s3/router_agent.py`).
+    *   It creates an instance of `RouterAgent`.
+    *   It calls `router.reload_config()`.
+3.  **Router Agent Action (`agent_s3/router_agent.py`):**
+    *   The `reload_config` method calls the internal `_load_llm_config()` function.
+    *   `_load_llm_config()` re-reads and parses `llm.json`.
+    *   It validates the structure of each entry.
+    *   It rebuilds the internal `_models_by_role` dictionary.
+    *   `reload_config` then clears the circuit breaker state (`_failure_counts`, `_last_failure_time`).
+4.  **Output:** The CLI prints "LLM configuration reloaded successfully." or an error message if reloading failed (e.g., file not found, JSON invalid).
+
+**Outcome:** The `RouterAgent`'s model configuration is updated based on the current `llm.json` without restarting the application. Circuit breaker states are reset.
+
+---
+
+## Story 5: Processing a Full Change Request (`/request`)
+
+**Goal:** Process a full change request with planning, code generation, and execution.
+
+**Persona:** A developer wanting to implement a feature or make code changes.
+
+**Walkthrough:**
+
+1.  **Trigger Command:**
+    *   **CLI:** Run `python -m agent_s3.cli /request "Your detailed feature request here"`.
+    *   **Chat UI:** Type `/request Add user profile page` and send (See Story 3).
+2.  **Backend CLI Action (`agent_s3/cli.py`):**
+    *   `main` parses arguments and identifies the command starting with `/request`.
+    *   It extracts the request text following the command.
+    *   It calls `process_command`.
+    *   `process_command` initializes the `Coordinator`.
+    *   It calls `coordinator.process_change_request(request_text)`, which is effectively mapped to `run_task` in the actual implementation.
+3.  **Coordinator Action (`agent_s3/coordinator.py` - `run_task` method):**
+    *   **Phase 0: Pre-Planning Assessment**
+        *   Updates progress: `{"phase": "pre_planning", "status": "started"}`.
+        *   Calls `pre_planner.collect_impacted_files(request_text)` to analyze which files will be affected.
+        *   Calculates complexity score and checks if it exceeds threshold.
+        *   If complexity is high, offers to switch to the `/design` workflow instead.
+    *   **Phase 1: Planning**
+        *   Updates progress: `{"phase": "planning", "status": "started"}`.
+        *   Calls `planner.create_plan(request_text)` to generate a detailed implementation plan.
+        *   If `test_planner` is available, extracts implementation files from the plan.
+        *   Generates a comprehensive test plan for the affected files.
+        *   Updates progress: `{"phase": "planning", "status": "completed", "plan": plan}`.
+    *   **Phase 2: Code Generation and Refinement Loop**
+        *   Multiple attempts may be made (configured via `max_attempts`, default 3).
+        *   For each attempt:
+            *   Updates progress: `{"phase": "generation", "status": "started", "attempt": attempt}`.
+            *   Calls `code_generator.generate_code(request_text, plan)` to create code changes.
+            *   If generation fails, aborts with error message.
+            *   Applies changes using `_apply_changes_and_manage_dependencies(changes)`.
+            *   Runs validation via `_run_validation_phase()` which includes linting, type checking, and running tests.
+            *   If validation fails, collects error context and refines the plan for the next attempt.
+            *   If validation passes, breaks the loop.
+    *   **Phase 3: Finalization**
+        *   If changes were successfully made and validated, calls `_finalize_task(changes)`.
+        *   This may involve committing changes, pushing to a branch, and creating a pull request.
+
+**Outcome:** The developer gets a complete end-to-end implementation of their requested feature or code change, including planning, code generation, testing, and optional Git operations. The process involves automatic validation and multiple refinement attempts if needed.
+
+---
+
+## Story 6: Executing Direct CLI Commands (`/cli`)
+
+**Goal:** Execute specific file modifications or shell commands directly, bypassing the LLM planning and generation phases.
+
+**Persona:** A developer needing to perform a precise, known operation quickly or interact directly with the file system or shell within the agent's environment.
+
+**Walkthrough:**
+
+1.  **Trigger Command:**
+    *   **CLI (Bash):** `python -m agent_s3.cli /cli bash "git status"`
+    *   **CLI (File Write):** `python -m agent_s3.cli /cli file ./new_file.txt "Hello World"`
+    *   **CLI (Multi-line Bash):**
+        ```bash
+        python -m agent_s3.cli /cli bash "echo 'Start';\nls -l" <<EOF
+        echo 'Middle Line 1'
+        echo 'Middle Line 2'
+        EOF
+        ```
+    *   **CLI (Multi-line File):**
+        ```bash
+        python -m agent_s3.cli /cli file ./multi.sh <<MARKER
+        #!/bin/bash
+        echo "This is a multi-line script."
+        MARKER
+        ```
+    *   **Chat UI:** `/cli bash ls -la` or `/cli file notes.txt "Initial note."` (See Story 3).
+2.  **Backend CLI Action (`agent_s3/cli.py`):**
+    *   `main` parses arguments and identifies the command starting with `/cli`.
+    *   `process_command` determines the type (`file` or `bash`) and extracts the arguments.
+    *   If multi-line input syntax (`<<MARKER`) is detected, it calls `_process_multiline_cli` to read lines from standard input until the marker is found, constructing the full command arguments.
+    *   It initializes the `Coordinator`.
+    *   It calls `coordinator.execute_cli_command(command_type, command_args)`.
+3.  **Coordinator Action (`agent_s3/coordinator.py` - `execute_cli_command` method):**
+    *   Logs the start of the CLI execution.
+    *   Updates progress: `{"phase": "cli_execution", "status": "started"}`.
+    *   Checks if a first-time usage warning for `/cli` needs to be shown (`cli_warning` log file check) and displays it via `PromptModerator.ask_binary_question` if needed.
+    *   Based on `command_type`:
+        *   **If 'file':** Calls `_execute_cli_file_command(command_args)`.
+            *   Parses path and content.
+            *   Checks for potentially dangerous paths (`_is_dangerous_file_operation`) and asks for confirmation via `PromptModerator.ask_binary_question` if needed.
+            *   Uses `FileTool.write_file` to perform the operation.
+            *   Returns success status and message.
+        *   **If 'bash':** Calls `_execute_cli_bash_command(command_args)`.
+            *   Checks for potentially dangerous command patterns (`_is_dangerous_bash_operation`) and asks for confirmation via `PromptModerator.ask_binary_question` if needed.
+            *   Uses `BashTool.run_command` (which respects sandboxing config) to execute the command.
+            *   Returns success status and command output/error.
+    *   Updates progress based on the success/failure result: `{"phase": "cli_execution", "status": "completed/failed", "error": ...}`.
+    *   Notifies the user of the outcome (success message with result, or failure message with error) via `PromptModerator.notify_user`.
+
+**Outcome:** The specified file operation or bash command is executed directly. The user sees a warning for potentially dangerous operations and must confirm. The result (output or error) is displayed in the terminal. This bypasses all LLM interaction for planning or code generation.
+
+---
+
+## Story 7: Viewing and Resuming Interrupted Tasks
+
+**Goal:** Resume a previously interrupted or incomplete Agent-S3 workflow.
+
+**Persona:** A developer who closed VS Code or the terminal before a task completed, or who wants to continue a previously started request.
+
+**Walkthrough:**
+
+1. **Trigger:**
+    * On CLI startup, or when initializing the `Coordinator`, Agent-S3 checks for an existing `development_status.json` file.
+2. **Backend Action (`agent_s3/coordinator.py`):**
+    * The `_check_for_interrupted_tasks` method reads the last entry in `development_status.json`.
+    * If the last status is not `completed` and the phase is not `initialization`, it prints a message about the interrupted task, including the phase, timestamp, and original request.
+    * The user is prompted: "Do you want to attempt resuming this task? (yes/no):"
+    * If the user answers `yes`, a message is printed: "Resumption logic needs further implementation. Please re-enter the request manually if needed." (Full auto-resume is not yet implemented.)
+    * If the user answers `no`, the process continues as normal.
+
+**Outcome:** Agent-S3 detects incomplete tasks and prompts the user to resume or ignore them. Full auto-resume is not yet implemented, but the user is made aware of the previous state and can re-enter the request if desired.
+
+---
+
+## Story 8: File Reference and Tagging in Prompts
+
+**Goal:** Quickly view file contents or add tags to the scratchpad using special prompt syntax.
+
+**Persona:** A developer who wants to inspect a file or organize notes/todos during a session.
+
+**Walkthrough:**
+
+1. **File Reference:**
+    * The user enters a prompt starting with `@filename` (e.g., `@README.md`).
+    * The CLI (`agent_s3/cli.py`) detects the `@` prefix in `process_change_request`.
+    * If the file exists, its contents are printed to the terminal, surrounded by separators.
+    * If the file does not exist, an error message is shown.
+2. **Tagging:**
+    * The user includes a `#tag` in their prompt (e.g., `Add login #auth`).
+    * The tag is added to the scratchpad or used for organization (implementation may be minimal or for future use).
+
+**Outcome:** Users can quickly view file contents or add tags to their session context using simple prompt syntax.
+
+---
+
+## Story 9: Workspace and Module Scaffolding Tracking
+
+**Goal:** Track the creation of new modules or workspace initialization for audit and progress purposes.
+
+**Persona:** A developer or team lead who wants to monitor project scaffolding and module creation.
+
+**Walkthrough:**
+
+1. **Module Tracking:**
+    * When a new module is scaffolded (e.g., via a CLI command or internal workflow), the CLI (`agent_s3/cli.py`) calls `track_module_scaffold(module_name)`.
+    * This function appends an entry to `development_status.json` with the module name and status `created`.
+2. **Workspace Initialization:**
+    * During `/init`, workspace setup steps and status are logged in `development_status.json`.
+
+**Outcome:** The `development_status.json` file provides a record of module creation and workspace setup events for auditing and resumption.
+
+---
+
+## Story 10: System Design Conversation
+
+**Goal:** Engage in a conversation with Agent-S3 to design a software system and generate a structured design document.
+
+**Persona:** A software architect or developer planning a new system or feature.
+
+**Walkthrough:**
+
+1. **Start Design Process:**
+   * **CLI:** Run `python -m agent_s3.cli /design "Design a scalable e-commerce platform with microservices architecture"`
+   * **Chat UI:** Type `/design Create a real-time analytics dashboard` and send.
+
+2. **Backend CLI Action (`agent_s3/cli.py`):**
+   * `main` parses arguments and identifies the command starting with `/design`.
+   * It extracts the design objective text following the command.
+   * `process_command` initializes the `Coordinator`.
+   * It calls `coordinator.execute_design(design_objective)`.
+
+3. **Coordinator Action (`agent_s3/coordinator.py` - `execute_design` method):**
+   * Logs the start of the design process.
+   * Updates progress: `{"phase": "design", "status": "started"}`.
+   * Initializes the `DesignManager` (`agent_s3/design_manager.py`).
+   * Calls `design_manager.start_design_conversation(design_objective)`.
+
+4. **Design Manager Action (`agent_s3/design_manager.py` - Initial Conversation):**
+   * Creates the conversation history array with system prompt (focusing on high-level architecture, component design, and best practices).
+   * Adds the user's design objective as the first user message.
+   * Calls the LLM via `RouterAgent` with role "designer" to get an initial response.
+   * Displays the response to the user via the terminal.
+   * The response typically analyzes the design objective, enhances it with industry best practices, and asks clarification questions for ambiguous or missing details.
+
+5. **Iterative Conversation:**
+   * The Coordinator enters a conversation loop, prompting the user for input after each LLM response.
+   * Each user input is processed via `design_manager.continue_conversation(user_message)`, which:
+     * Adds the user message to the conversation history.
+     * Updates the context based on conversation state (tracking clarifications vs. feature definition).
+     * Calls the LLM for the next response.
+     * Checks if the design process is complete based on heuristics like feature listing patterns, user confirmations, or explicit completion requests ("/finalize-design").
+   * The conversation typically progresses through distinct phases:
+     * **Clarification Phase:** LLM asks questions about requirements, constraints, scale, etc.
+     * **Feature Definition Phase:** LLM starts decomposing the system into distinct, single-concern features.
+     * **Refinement Phase:** Features are discussed, improved, and detailed.
+     * **Completion Phase:** LLM suggests completion or user explicitly requests finalization.
+
+6. **Design Finalization:**
+   * When `design_manager.detect_design_completion()` returns `True`, the Coordinator exits the conversation loop.
+   * It calls `design_manager.write_design_to_file()` which:
+     * Extracts structured feature information from the conversation using another LLM call or pattern matching.
+     * Formats the design content with clear section headers, feature names, descriptions, and components.
+     * Writes this content to `design.txt` at the root of the workspace using `FileTool`.
+   * Updates progress: `{"phase": "design", "status": "completed"}`.
+   * Notifies the user that the design has been finalized and stored in `design.txt`.
+
+**Outcome:** The user collaboratively develops a system design through a guided conversation with the AI. The conversation naturally progresses from clarification to feature decomposition. Once complete, a structured design document is generated containing the distinct, single-concern features that can be implemented iteratively. This design serves as a foundation for subsequent implementation tasks, either manually or with further Agent-S3 assistance.
+
+---
+
+## Story 11: Advanced LLM Response Caching and Performance Optimization
+
+**Goal:** Understand how Agent-S3 caches LLM responses and optimizes performance with vLLM KV cache reuse.
+
+**Persona:** A developer or system maintainer interested in understanding the caching mechanisms for performance tuning or debugging cache-related behaviors.
+
+**Walkthrough:**
+
+1.  **Dual-Caching Architecture Overview:**
+    *   Agent-S3 implements a two-tier caching approach to optimize LLM calls:
+        *   **Semantic Cache:** Full prompt-response pairs are cached based on semantic similarity.
+        *   **vLLM KV Cache:** GPU/TPU attention key-value tensor caches for prompt prefixes are stored to accelerate inference.
+ 
+2.  **Cache Initialization (`agent_s3/cache/setup_cache.py`):**
+    *   During startup, Agent-S3 initializes the semantic cache (`gptcache`) with configuration from environment variables.
+    *   It configures the key-value store (`kv_store`) for tensor persistence.
+    *   Cache directories are created under `.cache/semantic_cache/` if they don't exist.
+
+3.  **LLM Response Lookup Flow (`agent_s3/cache/helpers.py` - `read_cache` method):**
+    *   When code requests an LLM response, it first calls `read_cache(prompt, llm)`.
+    *   The function first attempts a semantic cache lookup using `cache.get(prompt)`.
+    *   On semantic hit, it returns the cached full response immediately.
+    *   On semantic miss, it calculates a `prefix_hash` of the prompt text.
+    *   It then checks if this hash exists in the `kv_store`.
+    *   If the prefix exists, it attaches the corresponding KV tensor to the LLM model via `llm.attach_kv()`.
+    *   It returns `None` to signal that the LLM must still be called, but with the KV prefix already attached.
+    *   If neither cache hit succeeds, it returns `None` with no attached KV tensor.
+
+4.  **LLM Response Storage Flow (`agent_s3/cache/helpers.py` - `write_cache` method):**
+    *   After calling the LLM, the system calls `write_cache(prompt, answer, kv_tensor)`.
+    *   It calculates a prefix hash from the prompt text.
+    *   It creates metadata including the hash, tensor size, timestamp, and hit counter.
+    *   It stores the prompt-answer pair in the semantic cache via `cache.set()` along with the metadata.
+    *   It stores the KV tensor in the KV store using the prefix hash as the key.
+    *   This ensures both the semantic result and the KV tensor are preserved for future reuse.
+
+5.  **Under the Hood:**
+    *   **GDSF Eviction (`agent_s3/cache/gdsf.py`):** Implements Greedy Dual Size Frequency algorithm for cache eviction, considering both size and access frequency.
+    *   **Prefix Hashing (`agent_s3/cache/prefix.py`):** Generates stable, collision-resistant hashes of prompt prefixes for tensor lookup.
+    *   **KV Store Management (`agent_s3/cache/kv_store.py`):** Provides a dictionary-like interface for storing and retrieving large tensor objects.
+
+6.  **Benefits:**
+    *   **Reduced API Costs:** Complete semantic hits eliminate redundant API calls.
+    *   **Lower Latency:** Even partial matches (KV tensor reuse) reduce compute needs and response times.
+    *   **Improved Throughput:** Fewer tokens need processing when KV cache is reused.
+    *   **Tracking:**
+        *   Cache statistics track hits, misses, and semantic hits.
+        *   Tensor size tracking helps analyze memory usage patterns.
+
+**Outcome:** By combining semantic caching with vLLM KV cache reuse, Agent-S3 optimizes both cost and performance of LLM interactions. Full prompt-response pairs are reused when available, and even unique prompts benefit from partial computation reuse through KV tensor prefix attachment.
+
+---
+
+## Story 12: Generating Default Personas File
+
+**Goal:** Create a `personas.md` file with default persona definitions.
+
+**Persona:** A developer setting up Agent-S3 for the first time and needing persona templates.
+
+**Walkthrough:**
+1. **Trigger Command:**
+   * CLI: `python -m agent_s3.cli /personas`
+   * Chat UI: Type `/personas` and send
+2. CLI: `process_command` detects `/personas` and calls `coordinator.execute_personas_command()`
+3. Coordinator: `execute_personas_command()` generates default content via `_get_default_personas()` and uses `FileTool.write_file` to create `personas.md`
+4. Logs success in scratchpad and prints: "Created personas.md successfully."
+
+---
+
+## Story 13: Generating Default Copilot Instructions File
+
+**Goal:** Create a `.github/copilot-instructions.md` file with default coding guidelines.
+
+**Persona:** A developer initializing the workspace and needing default coding guidelines.
+
+**Walkthrough:**
+1. **Trigger Command:**
+   * CLI: `python -m agent_s3.cli /guidelines`
+   * Chat UI: Type `/guidelines` and send
+2. CLI: `process_command` detects `/guidelines` and calls `coordinator.execute_guidelines_command()`
+3. Coordinator: `execute_guidelines_command()` retrieves default via `_get_default_guidelines()` and writes `.github/copilot-instructions.md` with `FileTool.write_file`
+4. Logs and prints: "Created copilot-instructions.md successfully."
+
+---
+
+## Story 14: Resuming a Task via `/continue` Command
+
+**Goal:** Resume the most recent interrupted task without restarting the workflow.
+
+**Persona:** A developer who previously aborted or lost connection during a request.
+
+**Walkthrough:**
+1. **Trigger Command:**
+   * CLI: `python -m agent_s3.cli /continue`
+   * Chat UI: Type `/continue` and send
+2. CLI: `process_command` detects `/continue` and calls `coordinator._handle_generic_continue("")`
+3. Coordinator: identifies latest task via `TaskStateManager.get_active_tasks()`, prompts "Detected interrupted task at phase X. Resume?" and on approval loads snapshot and calls `_resume_task(state)`
+4. Workflow skips completed phases and continues from the saved sub-state (e.g., code execution or PR creation)
+
+---
+
+## Story 15: Using the Comprehensive Test Framework
+
+**Goal:** Generate code with comprehensive test coverage that includes all required test types.
+
+**Persona:** A developer who needs to implement a feature with high test quality and coverage.
+
+**Walkthrough:**
+
+1. **Trigger Command:**
+   * CLI: `python -m agent_s3.cli "Implement a user authentication feature with JWT"`
+   * VS Code: Make a change request for implementing a feature
+
+2. **Pre-Planning Phase (`agent_s3/pre_planning.py`):**
+   * The `PrePlanningManager` decomposes the feature request into distinct, single-concern features through `decompose_feature(request_text)`
+   * It analyzes potential impacted files with `collect_impacted_files(request_text)`
+   * It identifies test requirements with `identify_test_requirements(request_text, impacted_files)`
+   * Test requirements track which files need unit, integration, approval, and property-based tests
+
+3. **Planning Phase with Enhanced Testing (`agent_s3/planner.py`):**
+   * The `Planner` creates an enhanced prompt with explicit test requirements using `_create_enhanced_prompt()`
+   * The prompt enforces all four test types: unit, integration, approval, and property-based tests
+   * The generated plan must include test specifications for every implementation file
+
+4. **Test Planning Review (`agent_s3/coordinator.py`):**
+   * Upon plan creation, the `Coordinator` extracts implementation files with `_extract_implementation_files_from_plan(plan)`
+   * It uses `TestPlanner.plan_tests(request_text, implementation_files)` to generate detailed test specifications
+   * The test specifications are presented to the user during plan approval
+
+5. **Code Generation with Test Validation (`agent_s3/code_generator.py`):**
+   * The `CodeGenerator` creates a prompt with TDD-inspired instructions that prioritize test creation
+   * Generated code is analyzed by `TestCritic.analyze_generated_code(generated_code)`
+   * If tests are missing required types, the code is automatically regenerated (recursive retry)
+   * The user is notified about any test coverage issues during generation
+
+6. **Execution and Test Validation (`agent_s3/coordinator.py`):**
+   * During the execution phase, the `Coordinator` runs tests via `run_tests()`
+   * The `_run_validation_phase()` uses `TestCritic` to check that all required test types are present
+   * If test types are missing, validation fails and prompts regeneration
+   * Test results and coverage are displayed to the user
+
+7. **Framework-Agnostic Testing (`agent_s3/tools/test_frameworks.py`):**
+   * `TestFrameworks` detects available test frameworks in the project
+   * It provides templates for all four test types across different languages
+   * Framework-specific test generation allows compatibility with pytest, unittest, jest, etc.
+   * Dependency checking ensures all required test libraries are installed
+
+**Outcome:** The feature is implemented with comprehensive test coverage that includes all four required test types: unit, integration, approval, and property-based tests. The system enforces this test coverage throughout the planning, generation, and validation phases, ensuring no shortcuts are taken. The framework adapts to the project's existing test tools and patterns while maintaining consistent quality standards.
+
+---
+
+## Story 16: Optimizing Context for Framework-Specific Tasks
+
+**Goal:** Optimize LLM context based on the specific framework being used in the project to improve code generation quality.
+
+**Persona:** A developer working on a project that uses a specific framework (e.g., Django, React, Flask) who wants Agent-S3 to leverage framework-specific knowledge.
+
+**Walkthrough:**
+
+1. **Framework Detection:**
+   * During workspace initialization or task processing, the `TechStackManager` detects the frameworks used in the project.
+   * `FrameworkAdapter.detect_confidence()` is called for registered adapters (React, Django, Flask, FastAPI, Express).
+   * Each adapter checks for framework-specific files and configuration patterns, calculating a confidence score.
+   * The adapter with the highest confidence above the threshold is selected.
+
+2. **Context Transformation:**
+   * When preparing context for an LLM call, the `MemoryManager` calls `transform_context()` on the selected adapter.
+   * For example, if Django is detected, the `DjangoAdapter` transforms the context:
+     * Extracts models, views, and URLs from code context
+     * Identifies Django-specific patterns (models.py, views.py, urls.py)
+     * Organizes context with Django's MVT architecture in mind
+     * Prioritizes relevant Django files in the token allocation
+
+3. **Token Budget Allocation:**
+   * The `TokenBudgetAnalyzer` adjusts the token allocation strategy based on the detected framework:
+     * Framework-specific files receive higher allocation priority
+     * Core framework concepts (e.g., components in React, models in Django) get larger token budgets
+     * The token allocation aims to optimize context within the LLM's token limits
+
+4. **Context Compression (When Needed):**
+   * If the context exceeds token limits, the `CompressionManager` selects an appropriate strategy:
+     * `SemanticSummarizer` preserves imports and class definitions while summarizing implementation details
+     * `KeyInfoExtractor` extracts framework-specific patterns like component definitions or route handlers
+     * `ReferenceCompressor` identifies repeated patterns common in framework boilerplate
+   * Each compression strategy maintains comprehensive metadata:
+     * Compression ratios, strategies used, and timestamps are tracked
+     * Decompression adds detailed metadata about the process
+     * Data lineage is maintained for debugging and tracing
+     * Error handling for cases where the original strategy is unavailable
+
+5. **Framework-Specific Output:**
+   * The LLM uses the optimized context to generate high-quality, framework-idiomatic code:
+     * Generated code follows framework conventions and patterns
+     * Framework-specific functions and imports are correctly used
+     * Code structure aligns with the framework's architecture
+
+6. **Checkpoint and Recovery:**
+   * The `CheckpointManager` creates checkpoints of the transformed context
+   * If an operation is interrupted, the context can be restored exactly as it was
+   * Checkpoints are compressed and versioned for efficiency
+
+**Outcome:** The code generated by Agent-S3 is highly tailored to the specific framework used in the project. By optimizing the context with framework-specific knowledge, the system produces more idiomatic, higher-quality code that follows framework conventions and best practices. Token usage is optimized to include the most relevant framework-specific information, and the ability to checkpoint and recover ensures that complex framework-specific context is never lost.
