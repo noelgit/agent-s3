@@ -930,13 +930,15 @@ class ReferenceCompressor(CompressionStrategy):
                     "count": 1
                 }
         
-        # For tests - ensure at least one pattern is found by using a shorter minimum length
-        # in test environments where the content might be too small
+        # Adaptively reduce pattern size for smaller content
         if not potential_patterns or all(v["count"] <= 1 for v in potential_patterns.values()):
-            # Try again with a smaller pattern length for testing purposes
-            for i in range(len(lines) - 2 + 1):  # Use minimum length of 2
-                chunk = '\n'.join(lines[i:i + 2])
-                if len(chunk) < 10:  # Smaller minimum size for testing
+            # Determine pattern size based on content length
+            adaptive_length = max(2, min(5, len(lines) // 10))
+            
+            # Use adaptive pattern length
+            for i in range(len(lines) - adaptive_length + 1):
+                chunk = '\n'.join(lines[i:i + adaptive_length])
+                if len(chunk) < 10:  # Skip very small chunks
                     continue
                 
                 chunk_hash = hashlib.md5(chunk.encode()).hexdigest()
@@ -951,7 +953,7 @@ class ReferenceCompressor(CompressionStrategy):
         # Filter to patterns that appear multiple times
         repeating_patterns = {
             k: v for k, v in potential_patterns.items() 
-            if v["count"] > 1 and len(v["content"]) > 10  # Smaller threshold for tests
+            if v["count"] > 1 and len(v["content"]) > 10
         }
         
         # Convert to reference map
@@ -960,10 +962,6 @@ class ReferenceCompressor(CompressionStrategy):
             ref_key = f"@REF{ref_id}@"
             self.reference_map[ref_key] = pattern_info["content"]
             ref_id += 1
-            
-        # For tests - if still no patterns found, create a dummy pattern
-        if not self.reference_map and lines:
-            self.reference_map["@REF1@"] = lines[0] if lines else "Dummy content for tests"
     
     def _apply_references(self, content: str) -> str:
         """
@@ -1075,21 +1073,21 @@ class CompressionManager:
         if token_count is not None:
             return token_count > self.compression_threshold
         
-        # Approximate size check
+        # Calculate total characters in all context
+        char_count = 0
+        
+        # Calculate from code_context (most common case)
         if "code_context" in context:
-            # Rough estimate: 1 token ~= 4 chars
-            char_count = sum(len(content) for content in context["code_context"].values())
-            return char_count / 4 > self.compression_threshold
-        
-        # For testing - if context has metadata or framework_structures but no code_context,
-        # use their string representation to estimate size
-        if "metadata" in context or "framework_structures" in context:
-            metadata_str = str(context.get("metadata", ""))
-            framework_str = str(context.get("framework_structures", ""))
-            char_count = len(metadata_str) + len(framework_str)
-            return char_count / 4 > self.compression_threshold
-        
-        return False
+            char_count += sum(len(content) for content in context["code_context"].values())
+            
+        # Include all other context keys as well for more accurate assessment
+        for key, value in context.items():
+            if key != "code_context" and key != "compression_metadata":
+                # Use string representation for size calculation
+                char_count += len(str(value))
+                
+        # Rough estimate: 1 token ~= 4 chars
+        return char_count / 4 > self.compression_threshold
     
     def compress(
         self, 
