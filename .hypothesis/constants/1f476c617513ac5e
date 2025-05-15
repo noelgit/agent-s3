@@ -1,4 +1,0 @@
-# file: /Users/noelpatron/Documents/GitHub/agent-s3/agent_s3/planning/persona_debate_manager.py
-# hypothesis_version: 6.131.9
-
-[300, 500, 1000, '\n## Debate Summary\n', '\n...(truncated)...', '...(truncated)', '1.', 'ERROR', 'Expert A', 'Expert B', 'Expert C', 'PersonaDebateManager', 'Relevant files:', 'Unknown error', '[-*]\\s+(.+)(?:\\n|$)', '\\d+\\.\\s+(.+)(?:\\n|$)', 'challenges', 'considerations', 'content', 'debate_sections', 'debate_template', 'error', 'final_plan', 'persona', 'personas', 'perspective', 'project_structure', 'raw_debate', 'relevant_files', 'response', 'role', 'specialty', 'steps', 'success', 'system', 'task', 'tech_stack', 'user', 'utf-8', 'w']

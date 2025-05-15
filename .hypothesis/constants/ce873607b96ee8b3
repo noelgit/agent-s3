@@ -1,4 +1,0 @@
-# file: /Users/noelpatron/Documents/GitHub/agent-s3/agent_s3/tools/bash_tool.py
-# hypothesis_version: 6.131.9
-
-[493, 3600, '#!/bin/bash\n', '--cpu-shares', '--filter', '--format', '--memory', '--name', '--network', '--rm', '--version', '-a', '-c', '-d', '-e', '-f', '-v', '-w', '/bin/bash', '/script.sh', '/workspace', '1024', '512m', ':(){', '> /dev', 'agent_s3_sandbox', 'blocked', 'chmod', 'chown', 'cmd', 'cmd.exe', 'command', 'command_failed', 'container_name', 'cpu-shares', 'dd if=', 'details', 'docker', 'error:', 'error_type', 'exception', 'exception:', 'github.com', 'host', 'inspect', 'log_path', 'logs', 'memory', 'message', 'mkfs', 'mount', 'output', 'powershell', 'process_id', 'ps', 'pypi.org', 'python:3.10-slim', 'r', 'reboot', 'registry.npmjs.org', 'rm', 'rm -rf', 'run', 'shutdown', 'start_time', 'stop', 'success', 'sudo', 'timed out', 'timeout', 'umount', 'w', 'windows', '{{.Names}}', '{{.State.ExitCode}}', '{{.Status}}']

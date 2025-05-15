@@ -1,4 +1,0 @@
-# file: /Users/noelpatron/Documents/GitHub/agent-s3/agent_s3/planning/file_metadata_manager.py
-# hypothesis_version: 6.131.9
-
-['*', '.', 'FileMetadataManager', 'created', 'error', 'extension', 'last_modified', 'last_updated', 'relative_path', 'size']

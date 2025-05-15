@@ -1,4 +1,0 @@
-# file: /Users/noelpatron/Documents/GitHub/agent-s3/agent_s3/planning/plan_ui_interactor.py
-# hypothesis_version: 6.131.9
-
-['Modify', 'No', 'PlanUIInteractor', 'Yes', 'add', 'approach', 'approved', 'cancelled', 'description', 'edit', 'feedback', 'general', 'id', 'metadata', 'modifications', 'position', 'remove', 'response', 'steps', 'substeps', 'text', 'user_modified']

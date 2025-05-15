@@ -1,4 +1,0 @@
-# file: /Users/noelpatron/Documents/GitHub/agent-s3/agent_s3/tool_definitions.py
-# hypothesis_version: 6.131.9
-
-[0.9, 384, 1024, '# Available Tools\n\n', '.', 'Parameters:\n', 'ToolRegistry', '__doc__', 'action', 'allowed_dirs', 'allowed_extensions', 'bash_tool', 'cleanup', 'close', 'code_analysis_tool', 'command', 'content', 'database_tool', 'databases', 'description', 'dev_github_token', 'embedding_client', 'embedding_dim', 'env_vars', 'eviction_threshold', 'file_path', 'file_tool', 'files', 'flake8', 'get_parameter_schema', 'git_tool', 'github_', 'github_repo', 'github_token', 'ignore_patterns', 'linters', 'max_file_size', 'max_files_analysis', 'message', 'name', 'parameters', 'path', 'query', 'repo_path', 'sandbox_environment', 'target_org', 'tech_stack_manager', 'terminal_executor', 'top_k_retrieval', 'top_n', 'vector_store_path']

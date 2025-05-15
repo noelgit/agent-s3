@@ -1,4 +1,0 @@
-# file: /Users/noelpatron/Documents/GitHub/agent-s3/agent_s3/file_history_analyzer.py
-# hypothesis_version: 6.131.9
-
-[365, '+00:00', 'FileHistoryAnalyzer', 'UTC', 'Z', 'date', 'days_since_modified', 'error', 'files_changed', 'info', 'last_modified', 'log', 'warning']
