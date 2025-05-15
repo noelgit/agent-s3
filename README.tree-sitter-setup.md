@@ -55,21 +55,21 @@ parser.set_language(ts_grammar)
 ```
 
 ```python
-# In javascript_parser.py or php_parser.py
-from tree_sitter_languages import get_language, get_parser
+# Python Parser
+from tree_sitter import Language, Parser
+import tree_sitter_python
 
-# Get languages
-js_grammar = get_language("javascript")
-php_grammar = get_language("php")
-
-# Or directly get configured parsers
-js_parser = get_parser("javascript")
-php_parser = get_parser("php")
+python_grammar = Language(tree_sitter_python.language())
+parser = Parser()
+parser.set_language(python_grammar)
 ```
 
-## 5. Re-run your tests
+## Testing
+
+To verify the parser implementations are working correctly:
 
 ```zsh
+# Run all tree-sitter parser tests
 pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
 ```
 

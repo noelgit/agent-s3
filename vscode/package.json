@@ -9,7 +9,6 @@
   "categories": [
     "Other"
   ],
-  
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -36,6 +35,14 @@
       {
         "command": "agent-s3.openInteractiveView",
         "title": "Agent-S3: Open Interactive View"
+      },
+      {
+        "command": "agent-s3.testWebSocket",
+        "title": "Agent-S3: Test WebSocket Connection"
+      },
+      {
+        "command": "agent-s3.testWebSocketPerformance",
+        "title": "Agent-S3: Test WebSocket Performance with Large Messages"
       }
     ]
   },
@@ -45,7 +52,8 @@
     "watch": "tsc -watch -p ./",
     "lint": "eslint src --ext ts",
     "build-webview": "cd webview-ui && npm install && npm run build",
-    "watch-webview": "cd webview-ui && npm run start"
+    "watch-webview": "cd webview-ui && npm run start",
+    "test-server": "node ../simple-test-server.js"
   },
   "devDependencies": {
     "@types/node": "^14.14.37",
@@ -58,7 +66,9 @@
     "typescript": "^4.2.4"
   },
   "dependencies": {
+    "@types/ws": "^8.18.1",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "ws": "^8.18.2"
   }
 }

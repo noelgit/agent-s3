@@ -3,8 +3,10 @@ import { vscode } from './utilities/vscode';
 import { ApprovalRequest } from './components/interactive/ApprovalRequest';
 import { DiffViewer } from './components/interactive/DiffViewer';
 import { ProgressIndicator } from './components/interactive/ProgressIndicator';
+import { ChatView } from './components/chat/ChatView';
 import './App.css';
 
+// Import types from our types directory (we'll reference it in tsconfig.json)
 interface MessageData {
   type: string;
   content: any;
@@ -21,7 +23,7 @@ function App() {
       
       // Process incoming message
       if (message.type) {
-        setMessages(prev => [...prev, message]);
+        setMessages((prev: MessageData[]) => [...prev, message]);
       }
     };
 
@@ -71,13 +73,40 @@ function App() {
     }
   };
 
+  const [activeView, setActiveView] = useState<'interactive' | 'chat'>('chat');
+
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Agent-S3 Interactive View</h1>
+        <h1>Agent-S3</h1>
+        <div className="view-switcher">
+          <button
+            className={activeView === 'chat' ? 'active' : ''}
+            onClick={() => setActiveView('chat')}
+          >
+            Chat
+          </button>
+          <button
+            className={activeView === 'interactive' ? 'active' : ''}
+            onClick={() => setActiveView('interactive')}
+          >
+            Interactive Components
+          </button>
+        </div>
       </header>
       <main className="app-content">
-        {messages.map(renderInteractiveComponent)}
+        {activeView === 'interactive' ? (
+          messages.map(renderInteractiveComponent)
+        ) : (
+          <ChatView messages={messages.filter(m => 
+            m.type === 'THINKING_INDICATOR' || 
+            m.type === 'STREAM_START' || 
+            m.type === 'STREAM_CONTENT' || 
+            m.type === 'STREAM_END' || 
+            m.type === 'TERMINAL_OUTPUT' ||
+            m.type === 'CHAT_MESSAGE'
+          )} />
+        )}
       </main>
     </div>
   );

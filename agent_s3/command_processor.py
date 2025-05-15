@@ -454,6 +454,10 @@ class CommandProcessor:
     def execute_design_command(self, args: str) -> str:
         """Execute the design command to create a design document.
         
+        This command initiates the design workflow through the coordinator's execute_design facade.
+        After the design is completed, it can automatically transition to implementation or deployment
+        based on user preferences captured during the design process.
+        
         Args:
             args: Design objective
             
@@ -466,63 +470,30 @@ class CommandProcessor:
         self._log(f"Starting design process for: {args}")
         
         try:
-            # Execute design command using the coordinator's execute_design method
+            # Check if the coordinator supports the design workflow
             if hasattr(self.coordinator, 'execute_design'):
-                result = self.coordinator.execute_design(args)
+                # Execute the design workflow through the coordinator
+                result = self.coordinator.execute_design(args.strip())
                 
+                # Handle errors and cancellations
                 if not result.get("success", False):
                     if result.get("cancelled", False):
                         return "Design process cancelled by user."
                     else:
                         return f"Design process failed: {result.get('error', 'Unknown error')}"
                 
-                # Check for next action
+                # Process next actions based on user choices during design
                 next_action = result.get("next_action")
                 if next_action == "implementation":
-                    self._log("Design completed, proceeding to implementation")
-                    # Auto-execute implementation
+                    # Auto-execute implementation if that was the user's choice
                     return f"Design process completed. Starting implementation of design.txt...\n{self.execute_implement_command('')}"
                 elif next_action == "deployment":
-                    self._log("Design completed, proceeding to deployment")
-                    # Auto-execute deployment
-                    return f"Design process completed. Starting deployment of design.txt...\n{self.execute_deploy_command('')}"
-                else:
-                    return f"Design process completed successfully. Design saved to {result.get('design_file', 'design.txt')}"
-                    
-            elif hasattr(self.coordinator, 'design_manager') and hasattr(self.coordinator.design_manager, 'start_design_conversation'):
-                # Start design conversation directly using the design manager
-                initial_response = self.coordinator.design_manager.start_design_conversation(args)
-                print(initial_response)
-                
-                # Continue the conversation flow
-                is_design_complete = False
-                while not is_design_complete:
-                    user_message = input("Design> ")
-                    
-                    if user_message.lower() in ["/exit", "/quit", "/cancel"]:
-                        return "Design process cancelled by user."
-                    
-                    response, is_design_complete = self.coordinator.design_manager.continue_conversation(user_message)
-                    print(response)
-                
-                # Write design to file
-                success, message = self.coordinator.design_manager.write_design_to_file()
-                if not success:
-                    return f"Failed to write design: {message}"
-                
-                # Prompt for next steps
-                choices = self.coordinator.design_manager.prompt_for_implementation()
-                
-                if choices.get("implementation", False):
-                    # Auto-execute implementation
-                    return f"Design process completed. Starting implementation of design.txt...\n{self.execute_implement_command('')}"
-                elif choices.get("deployment", False):
-                    # Auto-execute deployment
+                    # Auto-execute deployment if that was the user's choice
                     return f"Design process completed. Starting deployment of design.txt...\n{self.execute_deploy_command('')}"
                 else:
                     return "Design process completed successfully. Design saved to design.txt"
             else:
-                return "Design functionality not available."
+                return "Design functionality not available in this workspace."
         except Exception as e:
             error_msg = f"Design process failed: {e}"
             self._log(error_msg, level="error")

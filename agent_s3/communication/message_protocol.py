@@ -37,6 +37,12 @@ class MessageType(Enum):
     RECONNECT = "reconnect"
     RECONNECTION_RESULT = "reconnection_result"
     
+    # Streaming message types
+    THINKING = "thinking"
+    STREAM_START = "stream_start"
+    STREAM_CONTENT = "stream_content"
+    STREAM_END = "stream_end"
+    
     # UI-specific messages
     NOTIFICATION = "notification"
     COMMAND_RESULT = "command_result"
@@ -417,6 +423,84 @@ class MessageBus:
         """Reset message bus metrics."""
         for key in self.metrics:
             self.metrics[key] = 0
+
+    def publish_thinking(self, source: str, session_id: Optional[str] = None) -> str:
+        """Publish a thinking indicator message to indicate the agent is processing.
+        
+        Args:
+            source: The source of the thinking action
+            session_id: Optional session ID to group related messages
+            
+        Returns:
+            The stream ID that can be used for subsequent streaming messages
+        """
+        stream_id = str(uuid.uuid4())
+        message = Message(
+            type=MessageType.THINKING,
+            content={
+                "stream_id": stream_id,
+                "source": source
+            },
+            session_id=session_id
+        )
+        self.publish(message)
+        return stream_id
+        
+    def publish_stream_start(self, source: str, session_id: Optional[str] = None) -> str:
+        """Start a new content stream.
+        
+        Args:
+            source: The source of the stream
+            session_id: Optional session ID to group related messages
+            
+        Returns:
+            The stream ID that can be used for subsequent streaming messages
+        """
+        stream_id = str(uuid.uuid4())
+        message = Message(
+            type=MessageType.STREAM_START,
+            content={
+                "stream_id": stream_id,
+                "source": source
+            },
+            session_id=session_id
+        )
+        self.publish(message)
+        return stream_id
+    
+    def publish_stream_content(self, stream_id: str, content: str, session_id: Optional[str] = None) -> None:
+        """Publish content to an existing stream.
+        
+        Args:
+            stream_id: The stream ID returned from publish_stream_start
+            content: The content to stream
+            session_id: Optional session ID to group related messages
+        """
+        message = Message(
+            type=MessageType.STREAM_CONTENT,
+            content={
+                "stream_id": stream_id,
+                "content": content
+            },
+            session_id=session_id
+        )
+        self.publish(message)
+    
+    def publish_stream_end(self, stream_id: str, session_id: Optional[str] = None) -> None:
+        """End a content stream.
+        
+        Args:
+            stream_id: The stream ID to close
+            session_id: Optional session ID to group related messages
+        """
+        message = Message(
+            type=MessageType.STREAM_END,
+            content={
+                "stream_id": stream_id
+            },
+            session_id=session_id
+        )
+        self.publish(message)
 
 
 class MessageQueue:

@@ -114,19 +114,52 @@ class ProgressTracker:
             self.logger.error(f"Failed to write progress log: {e}")
             # Avoid crashing the application if logging fails
 
-        # Broadcast via WebSocket if available and loop is set
-        if self.websocket_server and self.websocket_server.running and self.loop:
+        # Stream via WebSocket if available and loop is set
+        if self.websocket_server and hasattr(self.websocket_server, 'message_bus') and self.loop:
             try:
                 # Use model_dump to get a dict suitable for JSON serialization
                 entry_dict = entry.model_dump(mode='json')
-                # Ensure broadcast_progress_update is a coroutine
-                coro = self.websocket_server.broadcast_progress_update(entry_dict)
-                # Schedule the coroutine safely from any thread
-                self.loop.call_soon_threadsafe(self.loop.create_task, coro)
+                
+                # Create a streaming progress update
+                phase = entry_dict.get('phase', 'unknown')
+                status = entry_dict.get('status', 'unknown')
+                details = entry_dict.get('details', '')
+                
+                # Create a message that summarizes the progress update
+                content = f"Phase: {phase} - Status: {status}"
+                if details:
+                    content += f"\n{details}"
+                
+                # Schedule the streaming message safely from any thread
+                def send_streaming_update():
+                    # First indicate thinking if starting a new phase
+                    if status.lower() == 'started' or status.lower() == 'pending':
+                        self.websocket_server.message_bus.publish_thinking(
+                            source=f"progress-{phase}", 
+                            session_id=None
+                        )
+                    
+                    # Send the progress as a stream
+                    stream_id = self.websocket_server.message_bus.publish_stream_start(
+                        source=f"progress-{phase}",
+                        session_id=None
+                    )
+                    self.websocket_server.message_bus.publish_stream_content(
+                        stream_id=stream_id, 
+                        content=content,
+                        session_id=None
+                    )
+                    self.websocket_server.message_bus.publish_stream_end(
+                        stream_id=stream_id,
+                        session_id=None
+                    )
+                
+                # Schedule the function to run in the event loop
+                self.loop.call_soon_threadsafe(send_streaming_update)
             except Exception as e:
-                 self.logger.error(f"Failed to broadcast progress update via WebSocket: {e}")
+                self.logger.error(f"Failed to stream progress update via WebSocket: {e}")
         elif self.websocket_server and not self.loop:
-             self.logger.warning("WebSocket server is set but no event loop is available in ProgressTracker for broadcasting.")
+            self.logger.warning("WebSocket server is set but no event loop is available in ProgressTracker for streaming.")
 
 
     def get_latest_progress(self) -> Dict[str, Any]:

@@ -333,13 +333,17 @@ class DesignManager:
     def prompt_for_implementation(self) -> Dict[str, Any]:
         """Prompt the user if they want to proceed with implementation or deployment.
         
+        This method will directly transition to pre-planning if implementation is chosen.
+        The pre-planning phase will then guide the user through code generation.
+        
         Returns:
-            Dictionary with user choices
+            Dictionary with user choices and transition status
         """
         # Prepare the implementation message for the user
         impl_message = (
-            "The design has been written to design.txt. "
-            "Would you like to proceed with implementation? (yes/no): "
+            "The design has been written to design.txt.\n"
+            "Would you like to proceed with implementation? "
+            "This will transition to code generation. (yes/no): "
         )
         
         # If we have access to coordinator's scratchpad, use that to prompt
@@ -351,10 +355,27 @@ class DesignManager:
             impl_response = input(impl_message).strip().lower()
         
         impl_choice = impl_response in ["yes", "y", "true", "1"]
+        deploy_choice = False
         
-        # If user doesn't want implementation, ask about deployment
-        if not impl_choice:
-            # Prepare the deployment message
+        if impl_choice:
+            # User wants to implement, transition to pre-planning
+            print("Starting transition to code implementation phase...")
+            success = self._transition_to_pre_planning()
+            if not success:
+                print("Failed to transition to implementation phase. See logs for details.")
+                # If implementation transition fails, offer deployment as fallback
+                deploy_message = (
+                    "Would you like to deploy the application locally instead? (yes/no): "
+                )
+                if self.coordinator and hasattr(self.coordinator, 'scratchpad'):
+                    self.coordinator.scratchpad.log("DesignManager", deploy_message)
+                    deploy_response = input(deploy_message).strip().lower()
+                    deploy_choice = deploy_response in ["yes", "y", "true", "1"]
+                else:
+                    deploy_response = input(deploy_message).strip().lower()
+                    deploy_choice = deploy_response in ["yes", "y", "true", "1"]
+        else:
+            # If user doesn't want implementation, ask about deployment
             deploy_message = (
                 "Would you like to deploy the application locally instead? (yes/no): "
             )
@@ -367,8 +388,6 @@ class DesignManager:
                 deploy_response = input(deploy_message).strip().lower()
             
             deploy_choice = deploy_response in ["yes", "y", "true", "1"]
-        else:
-            deploy_choice = False
         
         return {
             "implementation": impl_choice,
@@ -584,3 +603,245 @@ class DesignManager:
             return True
             
         return False
+
+    def _transition_to_pre_planning(self) -> bool:
+        """Convert design tasks to planning format and transition to pre-planning phase.
+        
+        This creates a structured format from the design features that can be used
+        by the pre-planning phase for implementation.
+        
+        Returns:
+            True if transition was successful, False otherwise
+        """
+        try:
+            # Get the path to design.txt
+            design_path = os.path.join(os.getcwd(), "design.txt")
+            
+            if not os.path.exists(design_path):
+                logger.error("Design file not found. Cannot transition to pre-planning.")
+                return False
+                
+            # Load hierarchical tasks from the progress tracker
+            progress_path = os.path.join(os.getcwd(), "implementation_progress.json")
+            if not os.path.exists(progress_path):
+                logger.error("Progress file not found. Cannot transition to pre-planning.")
+                return False
+                
+            with open(progress_path, 'r') as f:
+                progress_data = json.load(f)
+            
+            # Create feature groups from the tasks for pre-planning
+            feature_groups = self._convert_tasks_to_feature_groups(progress_data.get('tasks', []))
+            
+            if not feature_groups:
+                logger.error("Failed to convert design tasks to feature groups.")
+                return False
+            
+            # Create the pre-planning input
+            pre_planning_input = {
+                "original_request": self.design_objective,
+                "feature_groups": feature_groups,
+                "from_design": True,  # Explicit flag for tracking
+                "design_file": design_path
+            }
+            
+            # Log the transition
+            if self.coordinator and hasattr(self.coordinator, 'scratchpad'):
+                self.coordinator.scratchpad.log(
+                    "DesignManager", 
+                    "Transitioning from design to pre-planning phase..."
+                )
+            
+            # Initialize the pre-planning phase with our input
+            if self.coordinator:
+                if hasattr(self.coordinator, 'run_task'):
+                    # Standardize on directly using run_task with from_design=True
+                    self.coordinator.run_task(
+                        task=self.design_objective,
+                        pre_planning_input=pre_planning_input,
+                        from_design=True
+                    )
+                    return True
+            
+            # If we reach here, we couldn't call the method
+            logger.error("Coordinator doesn't support transitioning to pre-planning from design.")
+            return False
+                
+        except Exception as e:
+            logger.error(f"Error transitioning to pre-planning: {e}")
+            return False
+    
+    def _convert_tasks_to_feature_groups(self, tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Convert hierarchical tasks to feature groups for pre-planning.
+        
+        This method transforms the hierarchical task structure from the design phase
+        into the format required by the pre-planning phase. It preserves the task hierarchy
+        while adding necessary metadata for implementation planning.
+        
+        Args:
+            tasks: List of tasks from implementation_progress.json
+            
+        Returns:
+            List of feature groups in pre-planning format
+        """
+        # Group tasks by their parent feature (first-level tasks)
+        task_groups = {}
+        subtask_details = {}  # Cache for storing details about subtasks
+        
+        # First pass: categorize tasks and gather details
+        for task in tasks:
+            task_id = task.get('id', '')
+            task_desc = task.get('description', '')
+            task_details = task.get('details', '')
+            task_status = task.get('status', 'pending')
+            
+            # Check if this is a top-level task (no decimal in ID)
+            if '.' not in task_id:
+                # Create a new feature group for this top-level task
+                task_groups[task_id] = {
+                    "group_name": task_desc,
+                    "group_description": task_details,
+                    "group_id": task_id,
+                    "status": task_status,
+                    "features": [],
+                    "subtasks": []
+                }
+            else:
+                # This is a subtask
+                parts = task_id.split('.')
+                parent_id = parts[0]
+                
+                # Store detailed info about this subtask
+                subtask_details[task_id] = {
+                    "id": task_id,
+                    "description": task_desc,
+                    "details": task_details,
+                    "status": task_status,
+                    "depth": len(parts) - 1  # How deep in the hierarchy
+                }
+                
+                # Add to parent's subtasks
+                if parent_id in task_groups:
+                    task_groups[parent_id]["subtasks"].append(task)
+        
+        # Convert task groups to feature groups
+        feature_groups = []
+        for task_id, group_data in task_groups.items():
+            # Create features from the subtasks
+            features = []
+            
+            # Group subtasks by their immediate parent (level 2 tasks)
+            level2_tasks = {}
+            for subtask in group_data["subtasks"]:
+                subtask_id = subtask.get('id', '')
+                if subtask_id.count('.') == 1:  # Level 2 task (e.g. "1.1")
+                    level2_tasks[subtask_id] = {
+                        "task": subtask,
+                        "children": []
+                    }
+                elif subtask_id.count('.') > 1:  # Level 3+ task (e.g. "1.1.1")
+                    parent_prefix = '.'.join(subtask_id.split('.')[:2])  # Get "1.1" from "1.1.1"
+                    if parent_prefix in level2_tasks:
+                        level2_tasks[parent_prefix]["children"].append(subtask)
+            
+            # Create a feature for each level 2 task
+            for level2_id, level2_data in level2_tasks.items():
+                level2_task = level2_data["task"]
+                
+                # Extract system design elements from children
+                code_elements = []
+                interfaces = []
+                data_flows = []
+                
+                # Process children to extract code elements and other design info
+                for child in level2_data["children"]:
+                    child_desc = child.get('description', '').lower()
+                    
+                    # Try to identify what kind of component this is
+                    if any(keyword in child_desc for keyword in ['class', 'function', 'method', 'component']):
+                        code_elements.append({
+                            "name": child.get('description', ''),
+                            "type": "class" if "class" in child_desc else 
+                                   "function" if "function" in child_desc else
+                                   "method" if "method" in child_desc else
+                                   "component",
+                            "description": child.get('details', ''),
+                            "id": child.get('id', '')
+                        })
+                    elif any(keyword in child_desc for keyword in ['api', 'endpoint', 'interface', 'route']):
+                        interfaces.append({
+                            "name": child.get('description', ''),
+                            "description": child.get('details', ''),
+                            "id": child.get('id', '')
+                        })
+                    elif any(keyword in child_desc for keyword in ['data', 'flow', 'store', 'model']):
+                        data_flows.append({
+                            "name": child.get('description', ''),
+                            "description": child.get('details', ''),
+                            "id": child.get('id', '')
+                        })
+                
+                # Create the feature from the level 2 task
+                feature = {
+                    "name": level2_task.get('description', f"Feature {level2_task.get('id', 'unknown')}"),
+                    "description": level2_task.get('details', ''),
+                    "task_id": level2_task.get('id', ''),
+                    "files_affected": [],
+                    "test_requirements": {
+                        "unit_tests": [],
+                        "integration_tests": []
+                    },
+                    "dependencies": {
+                        "external_libraries": [],
+                        "internal_modules": []
+                    },
+                    "risk_assessment": {
+                        "complexity": "medium",
+                        "security_concerns": [],
+                        "backwards_compatibility": True
+                    },
+                    "system_design": {
+                        "code_elements": code_elements,
+                        "data_flow": data_flows,
+                        "interfaces": interfaces
+                    }
+                }
+                features.append(feature)
+            
+            # If no level 2 tasks, create a single feature from the main task
+            if not features:
+                features = [{
+                    "name": group_data.get("group_name", f"Feature {task_id}"),
+                    "description": group_data.get("group_description", ""),
+                    "task_id": task_id,
+                    "files_affected": [],
+                    "test_requirements": {
+                        "unit_tests": [],
+                        "integration_tests": []
+                    },
+                    "dependencies": {
+                        "external_libraries": [],
+                        "internal_modules": []
+                    },
+                    "risk_assessment": {
+                        "complexity": "medium",
+                        "security_concerns": [],
+                        "backwards_compatibility": True
+                    },
+                    "system_design": {
+                        "code_elements": [],
+                        "data_flow": [],
+                        "interfaces": []
+                    }
+                }]
+            
+            # Add the feature group
+            feature_group = {
+                "group_name": group_data.get("group_name", f"Feature Group {task_id}"),
+                "group_description": group_data.get("group_description", ""),
+                "group_id": task_id,
+                "features": features
+            }
+            feature_groups.append(feature_group)
+        
+        return feature_groups

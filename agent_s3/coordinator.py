@@ -505,11 +505,12 @@ class Coordinator:
                 modification_text
             )
     
-    def run_task(self, request_text: str):
-        """Run a task based on the request text.
+    def run_task(self, task: str, pre_planning_input: Dict[str, Any] = None, from_design: bool = False):
+        """Run a task based on the request text or pre-planning input.
 
         The core workflow is:
         1. Pre-planning: Generate feature groups from task description using pre_planner_json_enforced
+           (or use provided pre_planning_input if coming from design phase)
         2. Validation: Validate the pre-planning output structure and content
         3. User Handoff: Present pre-planning results to user for approval or modification
         4. Signature Normalization: Normalize signatures and IDs for consistency
@@ -524,34 +525,57 @@ class Coordinator:
         alignment with user intentions.
 
         Args:
-            request_text: The original task description from the user
+            task: The original task description or design objective
+            pre_planning_input: Optional pre-planning data from design phase
+            from_design: Flag indicating if the task is coming from design phase
         """
         # Use the main try-except with error handler for the entire task execution
         # This will provide consistent error handling and logging for the entire task
         try:
             # Initialize task tracking
-            self.current_task_description = request_text
+            self.current_task_description = task
             self.current_task_id = self.task_state_manager.create_new_task_id()
-            self.scratchpad.log("Coordinator", f"Starting task {self.current_task_id}: {request_text[:50]}...")
-            self.progress_tracker.update_progress({"phase": "pre_planner", "status": "started", "task_id": self.current_task_id})
+            
+            # Log different message based on source
+            if from_design:
+                self.scratchpad.log("Coordinator", f"Starting implementation of design {self.current_task_id}: {task[:50]}...")
+                # Enhanced tracking for design-sourced tasks
+                design_file = pre_planning_input.get("design_file", "design.txt") if pre_planning_input else "design.txt"
+                self.progress_tracker.update_progress({
+                    "phase": "pre_planner", 
+                    "status": "started", 
+                    "task_id": self.current_task_id,
+                    "from_design": True,
+                    "design_file": design_file,
+                    "request_text": task  # Use task as request_text for consistency
+                })
+            else:
+                self.scratchpad.log("Coordinator", f"Starting task {self.current_task_id}: {task[:50]}...")
+                self.progress_tracker.update_progress({"phase": "pre_planner", "status": "started", "task_id": self.current_task_id})
 
             # --- PHASE 1: Pre-Planning - Generate feature groups ---
             # Use a more specific error handling context for this phase
             with self.error_handler.error_context(phase="pre_planning", operation="generate_feature_groups"):
-                # First, import both base and specialized pre-planner modules to maintain architecture consistency
-                from agent_s3.pre_planner import call_pre_planner
-                from agent_s3.pre_planner_json_enforced import pre_planning_workflow
+                # Check if pre-planning data was provided (from design phase)
+                if from_design and pre_planning_input:
+                    self.scratchpad.log("Coordinator", "Using feature groups from design phase")
+                    success = True
+                    pre_plan_data = pre_planning_input
+                else:
+                    # First, import both base and specialized pre-planner modules to maintain architecture consistency
+                    from agent_s3.pre_planner import call_pre_planner
+                    from agent_s3.pre_planner_json_enforced import pre_planning_workflow
 
-                # Collect context for the pre-planner
-                context = self._prepare_context(request_text)
+                    # Collect context for the pre-planner
+                    context = self._prepare_context(task)
 
-                # Call the canonical JSON-enforced pre-planner for robust schema validation
-                self.scratchpad.log("Coordinator", "Using JSON-enforced pre-planner for feature group generation")
-                success, pre_plan_data = pre_planning_workflow(
-                    self.router_agent,
-                    request_text,
-                    context=context
-                )
+                    # Call the canonical JSON-enforced pre-planner for robust schema validation
+                    self.scratchpad.log("Coordinator", "Using JSON-enforced pre-planner for feature group generation")
+                    success, pre_plan_data = pre_planning_workflow(
+                        self.router_agent,
+                        task,
+                        context=context
+                    )
 
                 # Handle pre-planning failure
                 if not success:
@@ -742,7 +766,7 @@ class Coordinator:
                 # 2. Generates architecture reviews for each group
                 # 3. Creates consolidated plans with implementation details
                 # 4. Returns a result dictionary with processed_groups array
-                processing_results = self.feature_group_processor.process_pre_planning_output(pre_plan_data, request_text)
+                processing_results = self.feature_group_processor.process_pre_planning_output(pre_plan_data, task)
 
                 # Handle processing failures
                 if not processing_results.get("success", False):
@@ -1622,3 +1646,74 @@ class Coordinator:
             self.progress_tracker.update_progress({"phase": "finalizing", "status": "completed"})
             self.task_state_manager.clear_state(self.current_task_id)
             print("Task completed successfully.")
+
+    # Method removed - functionality consolidated in run_task with from_design=True
+
+    def execute_design(self, design_objective: str) -> Dict[str, Any]:
+        """Execute the design workflow.
+        
+        This is a facade method that delegates to the design manager to create a design document.
+        
+        Args:
+            design_objective: The design objective or requirements
+            
+        Returns:
+            Dictionary with design execution results
+        """
+        try:
+            self.scratchpad.log("Coordinator", f"Starting design process for: {design_objective}")
+            
+            if not hasattr(self, 'design_manager'):
+                return {
+                    "success": False,
+                    "error": "Design manager not available"
+                }
+                
+            # Start design conversation
+            initial_response = self.design_manager.start_design_conversation(design_objective)
+            print(initial_response)
+            
+            # Continue the conversation flow
+            is_design_complete = False
+            while not is_design_complete:
+                user_message = input("Design> ")
+                
+                if user_message.lower() in ["/exit", "/quit", "/cancel"]:
+                    return {
+                        "success": False,
+                        "cancelled": True
+                    }
+                
+                response, is_design_complete = self.design_manager.continue_conversation(user_message)
+                print(response)
+            
+            # Write design to file
+            success, message = self.design_manager.write_design_to_file()
+            if not success:
+                return {
+                    "success": False,
+                    "error": message
+                }
+            
+            # Prompt for next steps
+            choices = self.design_manager.prompt_for_implementation()
+            
+            # Return results based on user choices
+            return {
+                "success": True,
+                "design_file": "design.txt",
+                "next_action": "implementation" if choices.get("implementation") else 
+                              "deployment" if choices.get("deployment") else 
+                              None
+            }
+            
+        except Exception as e:
+            self.error_handler.handle_exception(
+                exc=e,
+                operation="execute_design",
+                level=logging.ERROR
+            )
+            return {
+                "success": False,
+                "error": str(e)
+            }

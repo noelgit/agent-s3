@@ -114,6 +114,14 @@ class EnhancedWebSocketServer:
                                           self._handle_file_tree)
         self.message_bus.register_handler(MessageType.TASK_BREAKDOWN,
                                           self._handle_task_breakdown)
+        self.message_bus.register_handler(MessageType.THINKING_INDICATOR,
+                                          self._handle_thinking)
+        self.message_bus.register_handler(MessageType.STREAM_START,
+                                          self._handle_stream_start)
+        self.message_bus.register_handler(MessageType.STREAM_CONTENT,
+                                          self._handle_stream_content)
+        self.message_bus.register_handler(MessageType.STREAM_END,
+                                          self._handle_stream_end)
     
     def _handle_terminal_output(self, message: Message):
         """Handle terminal output messages.
@@ -232,6 +240,82 @@ class EnhancedWebSocketServer:
         Args:
             message: The message to handle
         """
+        asyncio.create_task(self.broadcast_message(message))
+    
+    def _handle_thinking(self, message: Message):
+        """Handle thinking indicator messages.
+        
+        Args:
+            message: The message to handle
+        """
+        # Extract stream ID for tracking
+        content = message.content
+        stream_id = content.get("stream_id", "")
+        source = content.get("source", "agent")
+        
+        logger.debug(f"Agent thinking indicator received from {source} (stream: {stream_id})")
+        
+        # Broadcast the thinking indicator to all clients
+        asyncio.create_task(self.broadcast_message(message))
+    
+    def _handle_stream_start(self, message: Message):
+        """Handle stream start messages.
+        
+        Args:
+            message: The message to handle
+        """
+        # Extract stream ID for tracking
+        content = message.content
+        stream_id = content.get("stream_id", "")
+        source = content.get("source", "agent")
+        
+        logger.debug(f"Content stream started from {source} (stream: {stream_id})")
+        
+        # Initialize tracking for this stream ID
+        self._active_streams = getattr(self, "_active_streams", set())
+        self._active_streams.add(stream_id)
+        
+        # Broadcast the stream start to all clients
+        asyncio.create_task(self.broadcast_message(message))
+    
+    def _handle_stream_content(self, message: Message):
+        """Handle stream content messages.
+        
+        Args:
+            message: The message to handle
+        """
+        # Extract stream ID and content
+        content = message.content
+        stream_id = content.get("stream_id", "")
+        text_content = content.get("content", "")
+        
+        # Ensure we're tracking this stream
+        self._active_streams = getattr(self, "_active_streams", set())
+        if stream_id not in self._active_streams:
+            logger.warning(f"Received content for unknown stream: {stream_id}")
+            self._active_streams.add(stream_id)
+        
+        # Broadcast the stream content to all clients
+        asyncio.create_task(self.broadcast_message(message))
+    
+    def _handle_stream_end(self, message: Message):
+        """Handle stream end messages.
+        
+        Args:
+            message: The message to handle
+        """
+        # Extract stream ID
+        content = message.content
+        stream_id = content.get("stream_id", "")
+        
+        logger.debug(f"Content stream ended (stream: {stream_id})")
+        
+        # Remove from active streams tracking
+        self._active_streams = getattr(self, "_active_streams", set())
+        if stream_id in self._active_streams:
+            self._active_streams.remove(stream_id)
+        
+        # Broadcast the stream end to all clients
         asyncio.create_task(self.broadcast_message(message))
     
     def _handle_code_snippet(self, message: Message):

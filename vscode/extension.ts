@@ -1,75 +1,198 @@
+import * as vscode from 'vscode';
+import * as path from 'path';
+import { InteractiveWebviewManager } from './webview-ui-loader';
+import { BackendConnection } from './backend-connection';
+import { initializeWebSocketTester } from './websocket-tester';
+import { registerPerformanceTestCommand } from './websocket-performance-test';
+
 /**
- * Open the interactive components view.
+ * Extension activation point
  */
-function openInteractiveView() {
-  // Create or show the interactive webview panel
-  const panel = interactiveWebviewManager.createOrShowPanel();
+export function activate(context: vscode.ExtensionContext) {
+  console.log('Activating Agent-S3 extension');
   
-  // Set up message handler for the interactive webview
-  interactiveWebviewManager.setMessageHandler((message) => {
-    console.log('Received message from interactive webview:', message);
-    
-    // Handle messages from the interactive components
-    if (message.type) {
-      switch (message.type) {
-        case 'APPROVAL_RESPONSE':
-          // Forward response to backend
-          backendConnection.sendMessage({
-            type: 'interactive_response',
-            response_type: 'approval',
-            request_id: message.content.request_id,
-            selected_option: message.content.selected_option
-          });
-          break;
-          
-        case 'DIFF_RESPONSE':
-          // Forward response to backend
-          backendConnection.sendMessage({
-            type: 'interactive_response',
-            response_type: 'diff',
-            action: message.content.action,
-            files: message.content.files,
-            file: message.content.file
-          });
-          break;
-          
-        case 'PROGRESS_RESPONSE':
-          // Forward response to backend
-          backendConnection.sendMessage({
-            type: 'interactive_response',
-            response_type: 'progress',
-            action: message.content.action
-          });
-          break;
-          
-        case 'webview-ready':
-          // Send any pending interactive components
-          // This could be fetched from a cache or state
-          console.log('Interactive webview is ready');
-          break;
-      }
+  // Create interactive webview manager
+  const interactiveWebviewManager = new InteractiveWebviewManager(context.extensionUri);
+  
+  // Create backend connection
+  const backendConnection = new BackendConnection();
+  backendConnection.setInteractiveWebviewManager(interactiveWebviewManager);
+  
+  // Try to connect to the backend
+  backendConnection.connect().then(connected => {
+    if (connected) {
+      console.log('Connected to Agent-S3 backend');
+    } else {
+      console.log('Not connected to Agent-S3 backend yet');
     }
   });
-}
-
-// Add the interactive component handling to the backend connection
-const originalProcessMessage = BackendConnection.prototype.processMessage;
-BackendConnection.prototype.processMessage = function(message: any): void {
-  const { type } = message;
   
-  // Handle interactive components
-  switch (type) {
-    case 'INTERACTIVE_APPROVAL':
-    case 'INTERACTIVE_DIFF':
-    case 'PROGRESS_INDICATOR':
-      // Show the interactive panel if not already visible
-      const panel = interactiveWebviewManager.createOrShowPanel();
+  // Register commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand('agent-s3.init', initializeWorkspace),
+    vscode.commands.registerCommand('agent-s3.help', showHelp),
+    vscode.commands.registerCommand('agent-s3.guidelines', showGuidelines),
+    vscode.commands.registerCommand('agent-s3.request', makeChangeRequest),
+    vscode.commands.registerCommand('agent-s3.openChatWindow', openChatWindow),
+    vscode.commands.registerCommand('agent-s3.openInteractiveView', openInteractiveView)
+  );
+  
+  // Initialize the WebSocket tester
+  const wsocketTester = initializeWebSocketTester(context);
+  
+  // Register WebSocket performance test
+  registerPerformanceTestCommand(context);
+  
+  // Register the backend connection for disposal
+  context.subscriptions.push(backendConnection);
+  
+  /**
+   * Open the interactive components view.
+   */
+  function openInteractiveView() {
+    // Create or show the interactive webview panel
+    const panel = interactiveWebviewManager.createOrShowPanel();
+    
+    // Set up message handler for the interactive webview
+    interactiveWebviewManager.setMessageHandler((message) => {
+      console.log('Received message from interactive webview:', message);
       
-      // Forward the message to the webview
-      interactiveWebviewManager.postMessage(message);
-      return;
+      // Handle messages from the interactive components
+      if (message.type) {
+        switch (message.type) {
+          case 'APPROVAL_RESPONSE':
+            // Forward response to backend
+            backendConnection.sendMessage({
+              type: 'interactive_response',
+              response_type: 'approval',
+              request_id: message.content.request_id,
+              selected_option: message.content.selected_option
+            });
+            break;
+            
+          case 'DIFF_RESPONSE':
+            // Forward response to backend
+            backendConnection.sendMessage({
+              type: 'interactive_response',
+              response_type: 'diff',
+              action: message.content.action,
+              files: message.content.files,
+              file: message.content.file
+            });
+            break;
+            
+          case 'PROGRESS_RESPONSE':
+            // Forward response to backend
+            backendConnection.sendMessage({
+              type: 'interactive_response',
+              response_type: 'progress',
+              action: message.content.action
+            });
+            break;
+            
+          case 'webview-ready':
+            // Send any pending interactive components
+            // This could be fetched from a cache or state
+            console.log('Interactive webview is ready');
+            break;
+        }
+      }
+    });
   }
   
-  // Call the original method for other message types
-  originalProcessMessage.call(this, message);
-};
+  /**
+   * Initialize workspace for Agent-S3
+   */
+  function initializeWorkspace() {
+    // Get the Agent-S3 terminal
+    const terminal = getAgentTerminal();
+    
+    // Show the terminal
+    terminal.show();
+    
+    // Send initialization command
+    terminal.sendText('python -m agent_s3.cli /init');
+    
+    // Show notification
+    vscode.window.showInformationMessage('Initializing Agent-S3 workspace...');
+  }
+  
+  /**
+   * Show help information
+   */
+  function showHelp() {
+    // Get the Agent-S3 terminal
+    const terminal = getAgentTerminal();
+    
+    // Show the terminal
+    terminal.show();
+    
+    // Send help command
+    terminal.sendText('python -m agent_s3.cli /help');
+  }
+  
+  /**
+   * Show coding guidelines
+   */
+  function showGuidelines() {
+    // Get the Agent-S3 terminal
+    const terminal = getAgentTerminal();
+    
+    // Show the terminal
+    terminal.show();
+    
+    // Send guidelines command
+    terminal.sendText('python -m agent_s3.cli /guidelines');
+  }
+  
+  /**
+   * Make a change request
+   */
+  async function makeChangeRequest() {
+    // Show input box for request
+    const request = await vscode.window.showInputBox({
+      placeHolder: 'Enter your change request',
+      prompt: 'Describe the code changes you want Agent-S3 to make'
+    });
+    
+    if (request) {
+      // Get the Agent-S3 terminal
+      const terminal = getAgentTerminal();
+      
+      // Show the terminal
+      terminal.show();
+      
+      // Escape quotes in the request
+      const safeRequest = request.replace(/"/g, '\\"');
+      
+      // Send the request to the CLI
+      terminal.sendText(`python -m agent_s3.cli "${safeRequest}"`);
+      
+      // Show notification
+      vscode.window.showInformationMessage(`Processing request: ${request}`);
+    }
+  }
+  
+  /**
+   * Open the chat window
+   */
+  function openChatWindow() {
+    // Implementation would go here
+    vscode.window.showInformationMessage('Chat window will be implemented with WebSocket streaming');
+  }
+  
+  /**
+   * Get or create the Agent-S3 terminal
+   */
+  function getAgentTerminal(): vscode.Terminal {
+    // Try to find existing terminal
+    const existingTerminal = vscode.window.terminals.find(t => t.name === 'Agent-S3');
+    
+    if (existingTerminal) {
+      return existingTerminal;
+    }
+    
+    // Create a new terminal
+    return vscode.window.createTerminal('Agent-S3');
+  }
+}
