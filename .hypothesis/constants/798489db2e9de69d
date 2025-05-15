@@ -1,0 +1,4 @@
+# file: /Users/noelpatron/Documents/GitHub/agent-s3/agent_s3/planning/plan_generator.py
+# hypothesis_version: 6.131.9
+
+['#', '1.', 'Expert', 'PlanGenerator', 'Relevant files:', '[-*]\\s+(.+)(?:\\n|$)', '\\d+\\.\\s+(.+)(?:\\n|$)', 'approach', 'considerations', 'content', 'debate_template', 'extension', 'file_metadata', 'last_modified', 'plan_template', 'project_structure', 'raw_response', 'relative_path', 'relevance_score', 'relevant_files', 'role', 'steps', 'system', 'task', 'tech_stack', 'user']

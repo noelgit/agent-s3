@@ -1,32 +1,88 @@
-"""Loads fixed coding guidelines from .github/copilot-instructions.md.
+"""Config manager module for Agent-S3.
 
-As per instructions.md:
-"load fixed coding guidelines from .github/copilot-instructions.md"
+Handles configuration loading and default parameters.
 """
 
 import os
 import re
+import glob
+import json
+import time
+import logging
+import platform
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Optional, Dict, List, Any, Union
 
-# Constants loaded from environment or defaults
-# Update default context window sizes to match llm.json
-CONTEXT_WINDOW_SCAFFOLDER = int(os.getenv('CONTEXT_WINDOW_SCAFFOLDER', '1047576')) # gpt-4.1-nano
-CONTEXT_WINDOW_PLANNER   = int(os.getenv('CONTEXT_WINDOW_PLANNER',   '327680'))  # llama-4-scout
-CONTEXT_WINDOW_GENERATOR = int(os.getenv('CONTEXT_WINDOW_GENERATOR', '1048576')) # gemini-2.5-flash
-TOP_K_RETRIEVAL          = int(os.getenv('TOP_K_RETRIEVAL',          '5'))
-EVICTION_THRESHOLD       = float(os.getenv('EVICTION_THRESHOLD',       '0.90'))
-VECTOR_STORE_PATH        = os.getenv('VECTOR_STORE_PATH',        './data/vector_store.faiss')
-MAX_RETRIES              = int(os.getenv('MAX_RETRIES',              '3'))
-INITIAL_BACKOFF          = float(os.getenv('INITIAL_BACKOFF',          '1.0'))
-BACKOFF_MULTIPLIER       = float(os.getenv('BACKOFF_MULTIPLIER',       '2.0'))
-FAILURE_THRESHOLD        = int(os.getenv('FAILURE_THRESHOLD',        '5'))
-COOLDOWN_PERIOD          = int(os.getenv('COOLDOWN_PERIOD',          '300'))
-DEV_MODE                 = os.getenv('DEV_MODE', 'false').lower() == 'true'
-DEV_GITHUB_TOKEN         = os.getenv('DEV_GITHUB_TOKEN')
-TARGET_ORG               = os.getenv('TARGET_ORG')
-# Remove individual keys, add OPENROUTER_KEY
-OPENROUTER_KEY           = os.getenv('OPENROUTER_KEY')
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Default values
+_config_instance = None
+
+# Adaptive Configuration settings
+ADAPTIVE_CONFIG_ENABLED = os.getenv('ADAPTIVE_CONFIG_ENABLED', 'true').lower() == 'true'
+ADAPTIVE_CONFIG_REPO_PATH = os.getenv('ADAPTIVE_CONFIG_REPO_PATH', os.getcwd())
+ADAPTIVE_CONFIG_DIR = os.getenv('ADAPTIVE_CONFIG_DIR', os.path.join(ADAPTIVE_CONFIG_REPO_PATH, '.agent_s3', 'config'))
+ADAPTIVE_METRICS_DIR = os.getenv('ADAPTIVE_METRICS_DIR', os.path.join(ADAPTIVE_CONFIG_REPO_PATH, '.agent_s3', 'metrics'))
+ADAPTIVE_OPTIMIZATION_INTERVAL = int(os.getenv('ADAPTIVE_OPTIMIZATION_INTERVAL', '3600'))  # Default: optimize hourly
+ADAPTIVE_CONFIG_DIR = os.getenv('ADAPTIVE_CONFIG_DIR', os.path.join(ADAPTIVE_CONFIG_REPO_PATH, '.agent_s3', 'config'))
+ADAPTIVE_METRICS_DIR = os.getenv('ADAPTIVE_METRICS_DIR', os.path.join(ADAPTIVE_CONFIG_REPO_PATH, '.agent_s3', 'metrics'))
+ADAPTIVE_OPTIMIZATION_INTERVAL = int(os.getenv('ADAPTIVE_OPTIMIZATION_INTERVAL', '3600'))  # Default: optimize hourly
+
+# Context Window Sizes (tokens)
+CONTEXT_WINDOW_SCAFFOLDER = int(os.getenv('CONTEXT_WINDOW_SCAFFOLDER', '16384'))
+CONTEXT_WINDOW_PLANNER = int(os.getenv('CONTEXT_WINDOW_PLANNER', '16384'))
+CONTEXT_WINDOW_GENERATOR = int(os.getenv('CONTEXT_WINDOW_GENERATOR', '16384'))
+# Context optimization settings
+CONTEXT_BACKGROUND_OPT_TARGET_TOKENS = int(os.getenv('CONTEXT_BACKGROUND_OPT_TARGET_TOKENS', '16000'))
+
+# Library parameters
+TOP_K_RETRIEVAL = int(os.getenv('TOP_K_RETRIEVAL', '10'))
+EVICTION_THRESHOLD = int(os.getenv('EVICTION_THRESHOLD', '10000'))
+VECTOR_STORE_PATH = os.getenv('VECTOR_STORE_PATH', '.cache')
+
+# Error recovery parameters
+MAX_RETRIES = int(os.getenv('MAX_RETRIES', '3'))
+INITIAL_BACKOFF = float(os.getenv('INITIAL_BACKOFF', '1.0'))
+BACKOFF_MULTIPLIER = float(os.getenv('BACKOFF_MULTIPLIER', '2.0'))
+FAILURE_THRESHOLD = int(os.getenv('FAILURE_THRESHOLD', '5'))
+COOLDOWN_PERIOD = int(os.getenv('COOLDOWN_PERIOD', '300'))
+
+# Default API parameters
+DEV_MODE = os.getenv('DEV_MODE', 'true').lower() == 'true'
+DEV_GITHUB_TOKEN = os.getenv('GITHUB_TOKEN', '')
+
+# LLM API error recovery parameters
+LLM_MAX_RETRIES = int(os.getenv('LLM_MAX_RETRIES', '3'))
+LLM_INITIAL_BACKOFF = float(os.getenv('LLM_INITIAL_BACKOFF', '1.0'))
+LLM_BACKOFF_FACTOR = float(os.getenv('LLM_BACKOFF_FACTOR', '2.0'))
+LLM_FALLBACK_STRATEGY = os.getenv('LLM_FALLBACK_STRATEGY', 'retry_simplified')
+LLM_DEFAULT_TIMEOUT = float(os.getenv('LLM_DEFAULT_TIMEOUT', '60.0'))
+LLM_EXPLAIN_PROMPT_MAX_LEN = int(os.getenv('LLM_EXPLAIN_PROMPT_MAX_LEN', '1000'))
+LLM_EXPLAIN_RESPONSE_MAX_LEN = int(os.getenv('LLM_EXPLAIN_RESPONSE_MAX_LEN', '1000'))
+
+# CLI command execution parameters
+CLI_COMMAND_WARNINGS     = os.getenv('CLI_COMMAND_WARNINGS', 'true').lower() == 'true'
+CLI_COMMAND_MAX_SIZE     = int(os.getenv('CLI_COMMAND_MAX_SIZE',     '10000'))
+# New configuration for CodeAnalysisTool query cache TTL
+QUERY_CACHE_TTL_SECONDS  = int(os.getenv('QUERY_CACHE_TTL_SECONDS',  '3600')) # Default 1 hour
+# Cache configuration for filesystem monitoring and memory management
+CACHE_DEBOUNCE_DELAY     = float(os.getenv('CACHE_DEBOUNCE_DELAY',   '0.5'))  # Default 0.5 seconds
+MAX_QUERY_THEMES         = int(os.getenv('MAX_QUERY_THEMES',        '50'))    # Default 50 themes
+# Configuration for LLM summarization features
+MIN_SIZE_FOR_LLM_SUMMARIZATION = int(os.getenv('MIN_SIZE_FOR_LLM_SUMMARIZATION', '1000'))
+SUMMARY_CACHE_MAX_SIZE   = int(os.getenv('SUMMARY_CACHE_MAX_SIZE',   '500'))
+ENABLE_LLM_SUMMARIZATION = os.getenv('ENABLE_LLM_SUMMARIZATION', 'true').lower() == 'true'
+# Embedding generation configuration
+EMBEDDING_RETRY_COUNT    = int(os.getenv('EMBEDDING_RETRY_COUNT',    '3'))
+EMBEDDING_BACKOFF_INITIAL = float(os.getenv('EMBEDDING_BACKOFF_INITIAL', '1.0'))
+EMBEDDING_BACKOFF_FACTOR = float(os.getenv('EMBEDDING_BACKOFF_FACTOR', '2.0'))
+EMBEDDING_TIMEOUT        = float(os.getenv('EMBEDDING_TIMEOUT',      '30.0'))
+# Specialized LLM roles configuration
+EMBEDDER_ROLE_NAME       = os.getenv('EMBEDDER_ROLE_NAME',     'embedder')
+SUMMARIZER_ROLE_NAME     = os.getenv('SUMMARIZER_ROLE_NAME',   'summarizer')
+SUMMARIZER_MAX_CHUNK_SIZE = int(os.getenv('SUMMARIZER_MAX_CHUNK_SIZE', '2048'))
+SUMMARIZER_TIMEOUT       = float(os.getenv('SUMMARIZER_TIMEOUT',      '45.0'))
 
 
 class Config:
@@ -45,9 +101,27 @@ class Config:
         # Default paths
         self.guidelines_path = guidelines_path or str(Path(os.getcwd()) / ".github" / "copilot-instructions.md")
         
+        # OS Detection
+        self.host_os_type = platform.system().lower()
+        self.host_os = self.host_os_type  # Add alias for compatibility
+        
+        # Flag to track if config loading failed
+        self.load_failed = False
+        
+        # GitHub token placeholder
+        self.github_token = None
+        
         # Default values
         self.guidelines: List[str] = []
-        self.config: Dict[str, Any] = {
+        self.config = self.get_default_config()
+        
+    def get_default_config(self) -> Dict[str, Any]:
+        """Get default configuration values.
+        
+        Returns:
+            Dictionary containing default configuration.
+        """
+        return {
             "models": {
                 # Update default model names
                 "scaffolder": "openai/gpt-4.1-nano",
@@ -58,176 +132,244 @@ class Config:
                 "fallback_generator": "openai/gpt-4.1-nano"
             },
             "max_iterations": 5,
-            "sandbox_environment": True,
+            "complexity_threshold": 250,
+            "complexity_scale_factor": 0.15,
+            "complexity_scale_exponent": 0.8,
+            # Default paths
+            "workspace_path": ".",
             "log_files": {
-                "scratchpad": "scratchpad.txt",
-                "progress": "progress_log.json",
-                "development": "development_status.json"
+                "development": "progress_log.json",
             },
-            # Database configurations - disabled by default, uncomment to use
-            "databases": {
-                "default": {
-                    "type": "postgresql",  # "postgresql", "mysql", or "sqlite"
-                    "name": "default",     # Used for environment variable naming (DB_DEFAULT_USER)
-                    "host": "localhost",
-                    "port": 5432,
-                    "database": "agent_s3_db",
-                    "pool_size": 5,
-                    "max_overflow": 10,
-                    "timeout": 30,
-                    "recycle": 3600
+            # Context Management Configuration
+            "context_management": {
+                "enabled": True,
+                "background_enabled": True,
+                "optimization_interval": 60,
+                "embedding": {
+                    "chunk_size": 1000,
+                    "chunk_overlap": 200,
+                },
+                "search": {
+                    "bm25": {
+                        "k1": 1.2, 
+                        "b": 0.75
+                    },
+                },
+                "summarization": {
+                    "threshold": 2000,
+                    "compression_ratio": 0.5
+                },
+                "importance_scoring": {
+                    "code_weight": 1.0,
+                    "comment_weight": 0.8,
+                    "metadata_weight": 0.7,
+                    "framework_weight": 0.9
                 }
-                # To add SQLite support:
-                # "sqlite_db": {
-                #     "type": "sqlite",
-                #     "name": "sqlite_db",
-                #     "path": "./data/sqlite_db.sqlite"
-                # }
-            }
+            },
+            # Adaptive Configuration Settings
+            "adaptive_config": {
+                "enabled": ADAPTIVE_CONFIG_ENABLED,
+                "repo_path": ADAPTIVE_CONFIG_REPO_PATH,
+                "config_dir": ADAPTIVE_CONFIG_DIR,
+                "metrics_dir": ADAPTIVE_METRICS_DIR,
+                "optimization_interval": ADAPTIVE_OPTIMIZATION_INTERVAL,
+                "auto_adjust": True,
+                "profile_repo_on_start": True,
+                "metrics_collection": True
+            },
+            "logs": {
+                "debug": "debug_log.json",
+                "error": "error_log.json"
+            },
+            # Context Management Configuration
+            "context_management": {
+                "enabled": True,
+                "background_enabled": True,
+                "optimization_interval": 60,
+                "embedding": {
+                    "chunk_size": 1000,
+                    "chunk_overlap": 200,
+                },
+                "search": {
+                    "bm25": {
+                        "k1": 1.2, 
+                        "b": 0.75
+                    },
+                },
+                "summarization": {
+                    "threshold": 2000,
+                    "compression_ratio": 0.5
+                },
+                "importance_scoring": {
+                    "code_weight": 1.0,
+                    "comment_weight": 0.8,
+                    "metadata_weight": 0.7,
+                    "framework_weight": 0.9
+                }
+            },
+            # Adaptive Configuration Settings
+            "adaptive_config": {
+                "enabled": ADAPTIVE_CONFIG_ENABLED,
+                "repo_path": ADAPTIVE_CONFIG_REPO_PATH,
+                "config_dir": ADAPTIVE_CONFIG_DIR,
+                "metrics_dir": ADAPTIVE_METRICS_DIR,
+                "optimization_interval": ADAPTIVE_OPTIMIZATION_INTERVAL,
+                "auto_adjust": True,
+                "profile_repo_on_start": True,
+                "metrics_collection": True
+            },
+            # Default flags
+            "check_auth": True,
+            "interactive": True,
+            "sandbox_environment": True,
+            # Context optimization settings
+            'openrouter_key': os.environ.get('OPENROUTER_KEY', ''),
+            # New LLM error recovery configuration
+            'llm_max_retries': LLM_MAX_RETRIES,
+            'llm_initial_backoff': LLM_INITIAL_BACKOFF, 
+            'llm_backoff_factor': LLM_BACKOFF_FACTOR,
+            'llm_fallback_strategy': LLM_FALLBACK_STRATEGY,
+            'llm_default_timeout': LLM_DEFAULT_TIMEOUT,
+            'llm_explain_prompt_max_len': LLM_EXPLAIN_PROMPT_MAX_LEN,
+            'llm_explain_response_max_len': LLM_EXPLAIN_RESPONSE_MAX_LEN,
+            # New CLI command configuration
+            'cli_command_warnings': CLI_COMMAND_WARNINGS,
+            'cli_command_max_size': CLI_COMMAND_MAX_SIZE,
+            # Cache configuration settings
+            'query_cache_ttl_seconds': QUERY_CACHE_TTL_SECONDS,
+            'cache_debounce_delay': CACHE_DEBOUNCE_DELAY,
+            'max_query_themes': MAX_QUERY_THEMES,
+            'min_size_for_llm_summarization': MIN_SIZE_FOR_LLM_SUMMARIZATION,
+            'summary_cache_max_size': SUMMARY_CACHE_MAX_SIZE,
+            'enable_llm_summarization': ENABLE_LLM_SUMMARIZATION,
+            # Embedding configuration settings
+            'embedding_retry_count': EMBEDDING_RETRY_COUNT,
+            'embedding_backoff_initial': EMBEDDING_BACKOFF_INITIAL,
+            'embedding_backoff_factor': EMBEDDING_BACKOFF_FACTOR,
+            'embedding_timeout': EMBEDDING_TIMEOUT,
+            # Specialized LLM roles configuration
+            'embedder_role_name': EMBEDDER_ROLE_NAME,
+            'summarizer_role_name': SUMMARIZER_ROLE_NAME,
+            'summarizer_max_chunk_size': SUMMARIZER_MAX_CHUNK_SIZE,
+            'summarizer_timeout': SUMMARIZER_TIMEOUT,
+            # Adaptive Configuration settings
+            'adaptive_config_enabled': ADAPTIVE_CONFIG_ENABLED,
+            'adaptive_config_repo_path': ADAPTIVE_CONFIG_REPO_PATH,
+            'adaptive_config_dir': ADAPTIVE_CONFIG_DIR,
+            'adaptive_metrics_dir': ADAPTIVE_METRICS_DIR,
+            'adaptive_optimization_interval': ADAPTIVE_OPTIMIZATION_INTERVAL,
         }
-    
-    def load(self) -> None:
-        """Load configuration and guidelines.
         
-        As per instructions.md:
-        - Load fixed coding guidelines from .github/copilot-instructions.md
-        - Load runtime parameters from environment variables
-        """
-        # Extract guidelines from copilot-instructions.md
-        self.guidelines = self._extract_guidelines_from_md()
-
-        # Load runtime parameters
-        env = os.environ
-        self.config.update({
-            'context_window_scaffolder': CONTEXT_WINDOW_SCAFFOLDER,
-            'context_window_planner': CONTEXT_WINDOW_PLANNER,
-            'context_window_generator': CONTEXT_WINDOW_GENERATOR,
-            'top_k_retrieval': TOP_K_RETRIEVAL,
-            'eviction_threshold': EVICTION_THRESHOLD,
-            'vector_store_path': VECTOR_STORE_PATH,
-            'max_retries': MAX_RETRIES,
-            'initial_backoff': INITIAL_BACKOFF,
-            'backoff_multiplier': BACKOFF_MULTIPLIER,
-            'failure_threshold': FAILURE_THRESHOLD,
-            'cooldown_period': COOLDOWN_PERIOD,
-            'dev_mode': DEV_MODE,
-            'dev_github_token': DEV_GITHUB_TOKEN,
-            'github_app_id': env.get('GITHUB_APP_ID', ''),
-            'github_private_key': env.get('GITHUB_PRIVATE_KEY', ''),
-            # Remove individual keys, add OPENROUTER_KEY
-            'openrouter_key': env.get('OPENROUTER_KEY', '')
-        })
-        # Security settings for shell command execution
-        self.config['denylist'] = [cmd.strip() for cmd in env.get('DENYLIST_COMMANDS', 'rm,shutdown,reboot').split(',') if cmd.strip()]
-        self.config['command_timeout'] = float(env.get('COMMAND_TIMEOUT', '30.0'))
-        # Validate and raise on missing critical environment variables
-        missing = []
-        for var in ('github_app_id', 'github_private_key'):
-            if not self.config.get(var):
-                missing.append(var.upper())
-        if missing:
-            raise EnvironmentError(f"Missing required environment variables: {', '.join(missing)}")
-        # Load allowed GitHub organizations for access control
-        self.config['allowed_orgs'] = [org.strip() for org in env.get('GITHUB_ORG', '').split(',') if org.strip()]
-
-        # Validate required keys
-        self._validate_keys()
-
-    def _validate_keys(self) -> None:
-        """Validate that required API keys are present, especially outside DEV_MODE."""
-        # Update required keys check
-        required_keys_prod = [
-            'github_app_id', 'github_private_key',
-            'openrouter_key' # Check for OpenRouter key now
-        ]
-        missing_keys = []
-        if not self.config.get('dev_mode'):
-            for key in required_keys_prod:
-                if not self.config.get(key):
-                    missing_keys.append(key.upper()) # Use env var name convention
-
-            if 'allowed_orgs' not in self.config or not self.config['allowed_orgs']:
-                 missing_keys.append('GITHUB_ORG')
-
-            if missing_keys:
-                print(f"Warning: The following required environment variables are missing or empty: {', '.join(missing_keys)}")
-                # In a real application, you might raise an error or exit here
-                # raise ValueError(f"Missing required environment variables: {', '.join(missing_keys)}")
-        elif not self.config.get('dev_github_token'):
-             print("Warning: DEV_MODE is true, but DEV_GITHUB_TOKEN is missing or empty.")
-             # Consider raising an error if DEV_GITHUB_TOKEN is essential for dev mode functionality
-
-    def _extract_guidelines_from_md(self) -> List[str]:
-        """Extract guidelines from .github/copilot-instructions.md."""
-        guidelines = []
+        # If we have a GitHub token in environment, store it
+        if runtime_config.get('dev_github_token'):
+            self.github_token = runtime_config.get('dev_github_token')
+            
+        self.config.update(runtime_config)
         
-        if os.path.exists(self.guidelines_path):
+        # Load optional llm.json if available
+        llm_config_path = os.path.join(os.getcwd(), 'llm.json')
+        if os.path.exists(llm_config_path):
             try:
-                with open(self.guidelines_path, "r") as f:
+                with open(llm_config_path, 'r') as f:
+                    self.config['llm_models'] = json.load(f)
+                    logger.info("Loaded LLM model configuration from llm.json")
+            except json.JSONDecodeError:
+                logger.error("Invalid JSON in llm.json")
+            except Exception as e:
+                logger.error(f"Error loading llm.json: {e}")
+                
+        logger.info("Configuration loaded")
+
+    def reload(self):
+        """Reload all configuration settings from scratch."""
+        # Reset to initial state
+        self.guidelines = []
+        self.config = self.get_default_config()
+        # Load fresh config
+        self.load()
+        logger.info("Configuration reloaded")
+    
+    def _extract_guidelines_from_md(self) -> List[str]:
+        """Extract coding guidelines from .github/copilot-instructions.md.
+        
+        Returns:
+            List of guidelines extracted from markdown headings and lists.
+        """
+        guidelines = []
+        try:
+            if os.path.exists(self.guidelines_path):
+                with open(self.guidelines_path, 'r', encoding='utf-8') as f:
                     content = f.read()
                 
-                # Extract guidelines from the markdown file
-                # Look for lines with code quality guidelines and bullet points
-                code_quality_section = False
-                for line in content.split("\n"):
-                    # Check if we've entered the code quality section
-                    if "Code Quality" in line or "Project-Specific Guidelines" in line or "Code Style Guidelines" in line:
-                        code_quality_section = True
-                        continue
-                    
-                    # Look for bullet points in the code quality section
-                    if code_quality_section and line.strip().startswith("-"):
-                        # Extract the guideline text, removing the bullet point
-                        guideline = line.strip()[1:].strip()
-                        if guideline and len(guideline) > 5:  # Ensure it's not too short
-                            guidelines.append(guideline)
-                    
-                    # Also look for numbered lists
-                    numbered_match = re.match(r'^\s*\d+\.\s+(.+)$', line)
-                    if code_quality_section and numbered_match:
-                        guideline = numbered_match.group(1).strip()
-                        if guideline and len(guideline) > 5:  # Ensure it's not too short
-                            guidelines.append(guideline)
+                # Extract section headings (##, ###)
+                section_headers = re.findall(r'^#{2,3}\s+(.+?)$', content, re.MULTILINE)
+                guidelines.extend(section_headers)
                 
-                # If we couldn't extract any guidelines, use default ones
-                if not guidelines:
-                    guidelines = self._get_default_guidelines()
-            except Exception as e:
-                print(f"Error extracting guidelines from {self.guidelines_path}: {e}")
-                # Fall back to default guidelines
-                guidelines = self._get_default_guidelines()
-        else:
-            # If the file doesn't exist, use default guidelines
-            guidelines = self._get_default_guidelines()
+                # Extract list items (- bullet points)
+                list_items = re.findall(r'^\s*-\s+(.+?)$', content, re.MULTILINE)
+                guidelines.extend(list_items)
+                
+                logger.info(f"Extracted {len(guidelines)} guidelines from {self.guidelines_path}")
+            else:
+                logger.warning(f"Guidelines file not found: {self.guidelines_path}")
+        except Exception as e:
+            logger.error(f"Error extracting guidelines: {e}")
         
         return guidelines
     
-    def _get_default_guidelines(self) -> List[str]:
-        """Get default guidelines."""
-        return [
-            "Use meaningful variable and function names",
-            "Include type hints for function parameters and returns",
-            "Document all functions and classes with docstrings",
-            "Follow PEP 8 coding style guidelines",
-            "Handle errors with appropriate try/except blocks",
-            "Use f-strings for string formatting",
-            "Use absolute imports within the package",
-            "Avoid global variables",
-            "Write unit tests for all functionality",
-            "Log all operations with proper timestamp and role labels"
-        ]
-    
-    def get_log_file_path(self, log_type: str) -> str:
-        """Get the path to a log file.
+    def get_guideline_fragments(self, max_fragments: int = 5) -> List[str]:
+        """Get a sample of guideline fragments to enhance prompts.
         
         Args:
-            log_type: The type of log file to get ("scratchpad", "progress", or "development")
+            max_fragments: Maximum number of guideline fragments to return
             
         Returns:
-            The absolute path to the log file
+            List of guideline fragments, limited to max_fragments
         """
-        if log_type not in self.config["log_files"]:
-            raise ValueError(f"Unknown log type: {log_type}")
+        if not self.guidelines:
+            return []
         
-        filename = self.config["log_files"][log_type]
-        return str(Path(os.getcwd()) / filename)
+        # Return a sample of guidelines
+        import random
+        if len(self.guidelines) <= max_fragments:
+            return self.guidelines
+        else:
+            return random.sample(self.guidelines, max_fragments)
+            
+    def get_log_file_path(self, log_type: str) -> str:
+        """Get the path to a specific log file.
+        
+        Args:
+            log_type: Type of log file ("development", "debug", or "error")
+            
+        Returns:
+            Absolute path to the log file
+        """
+        if log_type in self.config.get("log_files", {}):
+            return os.path.join(os.getcwd(), self.config["log_files"][log_type])
+        else:
+            return os.path.join(os.getcwd(), f"{log_type}_log.json")
+
+
+def get_config():
+    """Get the loaded configuration instance.
+    
+    If the configuration hasn't been loaded yet, it will be loaded
+    with default parameters.
+    
+    Returns:
+        The loaded configuration dictionary.
+    """
+    global _config_instance
+    if _config_instance is None:
+        _config_instance = Config()
+        try:
+            _config_instance.load()
+        except Exception as e:
+            # Log the error instead of silently ignoring it
+            logging.error(f"Error loading configuration: {e}")
+            # Load default configuration values
+            _config_instance.config = _config_instance.get_default_config()
+            # Set load failure flag to allow callers to detect this condition
+            _config_instance.load_failed = True
+    return _config_instance.config

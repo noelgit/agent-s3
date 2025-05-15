@@ -1,0 +1,44 @@
+[SessionManager • 2025-04-28T12:41:16.565807 • INFO] [METADATA] Session 20250428_124116 started
+  METADATA:
+    {
+      "session_id": "20250428_124116",
+      "start_time": "2025-04-28T12:41:16.565747",
+      "agent_version": "unknown",
+      "config_hash": "9bf5c82196e9f43b976dc84083d6ae14",
+      "platform": "posix",
+      "max_file_size_mb": 50,
+      "encryption_enabled": false
+    }
+[SessionManager • 2025-04-28T12:41:16.703119 • INFO] [METADATA] Session 20250428_124116 started
+  METADATA:
+    {
+      "session_id": "20250428_124116",
+      "start_time": "2025-04-28T12:41:16.703088",
+      "agent_version": "unknown",
+      "config_hash": "9bf5c82196e9f43b976dc84083d6ae14",
+      "platform": "posix",
+      "max_file_size_mb": 50,
+      "encryption_enabled": false
+    }
+[SessionManager • 2025-04-28T12:41:16.740761 • INFO] [METADATA] Session 20250428_124116 started
+  METADATA:
+    {
+      "session_id": "20250428_124116",
+      "start_time": "2025-04-28T12:41:16.740733",
+      "agent_version": "unknown",
+      "config_hash": "9bf5c82196e9f43b976dc84083d6ae14",
+      "platform": "posix",
+      "max_file_size_mb": 50,
+      "encryption_enabled": false
+    }
+[SessionManager • 2025-04-28T12:41:16.778382 • INFO] [METADATA] Session 20250428_124116 started
+  METADATA:
+    {
+      "session_id": "20250428_124116",
+      "start_time": "2025-04-28T12:41:16.778355",
+      "agent_version": "unknown",
+      "config_hash": "9bf5c82196e9f43b976dc84083d6ae14",
+      "platform": "posix",
+      "max_file_size_mb": 50,
+      "encryption_enabled": false
+    }

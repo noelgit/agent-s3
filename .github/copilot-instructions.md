@@ -277,7 +277,7 @@ Suggested Fix:
 ```--- /src/validation.ts
 +++ /src/validation.ts
 @@ -45,2 +45,2 @@
- const validateInput = (input) => {
-   -  return input;
-   +  return sanitizeAndValidate(input);
+const validateInput = (input) => {
+  -  return input;
+  +  return sanitizeAndValidate(input);
 ```

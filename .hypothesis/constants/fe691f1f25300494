@@ -1,0 +1,4 @@
+# file: /Users/noelpatron/Documents/GitHub/agent-s3/agent_s3/task_state_manager.py
+# hypothesis_version: 6.131.9
+
+['.json', '.tmp', 'CodeGenerationState', 'ExecutionState', 'IssueCreationState', 'PRCreationState', 'PREPARING', 'PlanningState', 'PromptApprovalState', 'TaskState', 'Unknown task', '_snapshot_timestamp', 'api_response', 'applied_changes', 'base', 'base_branch', 'body', 'branch_name', 'changes', 'code_context', 'code_generation', 'commit_sha', 'current_iteration', 'discussion', 'draft', 'errors', 'execution', 'generated_changes', 'is_applied', 'is_approved', 'is_created', 'issue_creation', 'issue_url', 'iteration', 'last_updated', 'main', 'pending_changes', 'phase', 'plan', 'planning', 'pr_body', 'pr_creation', 'pr_title', 'pr_url', 'prompt_approval', 'r', 'raw_test_output', 'request_text', 'sub_state', 'task_id', 'tech_stack', 'test_results', 'timestamp', 'title', 'user_modifications', 'w']

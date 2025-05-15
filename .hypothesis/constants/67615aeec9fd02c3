@@ -1,0 +1,4 @@
+# file: /Users/noelpatron/Documents/GitHub/agent-s3/agent_s3/planning/context_gatherer.py
+# hypothesis_version: 6.131.9
+
+[0.15, 0.2, 0.7, 200, 1000, 6000, 'ContextGatherer', 'add', 'bug', 'bugfix', 'build', 'class', 'clean up', 'component', 'content', 'crash', 'create', 'develop', 'error', 'estimate_token_count', 'faster', 'file_metadata', 'file_path', 'fix', 'function', 'general-development', 'get_tech_stack', 'implement', 'integration test', 'issue', 'memory_manager', 'method', 'modify', 'needs_truncation', 'optimize', 'performance', 'problem', 'project_structure', 'redesign', 'refactor', 'relevance_score', 'relevant_files', 'restructure', 'slow', 'speed', 'target_tokens', 'task', 'tech_stack', 'test', 'testing', 'unit test', 'update']

@@ -1,0 +1,4 @@
+# file: /Users/noelpatron/Documents/GitHub/agent-s3/agent_s3/terminal_executor.py
+# hypothesis_version: 6.131.9
+
+[30.0, 300, 1024, 4096, '&&', '&>', '2>', ';', '>', '>(', '>>', 'LD_LIBRARY_PATH', 'LD_PRELOAD', 'allowed_dirs', 'bash -c', 'chmod -R', 'chmod 777', 'command_timeout', 'cooldown_period', 'curl -O', 'dd', 'debug', 'denylist', 'error', 'error|fail|exception', 'eval', 'exec', 'failure_threshold', 'fdisk', 'format', 'halt', 'info', 'max_output_size', 'mkfs', 'nc', 'ncat', 'nmap', 'poweroff', 'reboot', 'rm -r', 'rm -rf', 'rmdir', 'shutdown', 'source', 'ssh', 'su', 'sudo', 'telnet', 'terminal_executor', 'timer', 'wget', '|', '||']

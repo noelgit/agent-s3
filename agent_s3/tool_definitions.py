@@ -266,16 +266,17 @@ class ToolRegistry:
                 self.tools["terminal_executor"] = terminal_executor
                 return True
             elif tool_name == "bash_tool":
-                # First ensure terminal_executor is registered
+                # Ensure TerminalExecutor is registered for fallback
                 if "terminal_executor" not in self.tools:
                     self.register_tool("terminal_executor")
                 terminal_executor = self.tools["terminal_executor"]
-                    
+
                 self.tools["bash_tool"] = BashTool(
-                    executor=terminal_executor,
                     sandbox=self.config.config.get("sandbox_environment", True),
                     env_vars=self.config.config.get("env_vars", {})
                 )
+                # Attach the terminal executor for subprocess execution
+                self.tools["bash_tool"].terminal_executor = terminal_executor
                 return True
             elif tool_name == "code_analysis_tool":
                 self.tools["code_analysis_tool"] = CodeAnalysisTool(

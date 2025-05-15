@@ -3,7 +3,7 @@ import threading
 import os
 import re
 import shlex
-from typing import Tuple, List, Optional, Dict, Set, Any
+from typing import Tuple, List, Optional, Dict, Set, Any, Callable
 
 class TerminalExecutor:
     """Executes shell commands in a sandbox with denylist and timeout enforcement."""
@@ -59,7 +59,8 @@ class TerminalExecutor:
                 return False, f"Error: Command contains forbidden token '{forbidden}'"
 
         # Extract file paths and check if they're allowed
-        path_pattern = re.compile(r'(?:^|\s)(\/[^\s]+)')
+        # More robust pattern to capture path even in quotes or parentheses
+        path_pattern = re.compile(r'(?:^|\s|"|\'|\()(\/[^\s"\')\|;&<>]+)')
         paths = path_pattern.findall(command)
         
         for path in paths:
@@ -140,16 +141,18 @@ class TerminalExecutor:
                     output_chunks.append("\n... Output truncated due to size limit ...")
                     break
             
-            proc.wait()
-            timer.cancel()
-            
-            output = ''.join(output_chunks)
-            
-            # Reset failure count on success
-            if proc.returncode == 0:
-                self.failure_count = 0
+            try:
+                proc.wait()
+                output = ''.join(output_chunks)
                 
-            return proc.returncode, output
+                # Reset failure count on success
+                if proc.returncode == 0:
+                    self.failure_count = 0
+                    
+                return proc.returncode, output
+            finally:
+                # Ensure timer is always canceled, even if an exception occurs
+                timer.cancel()
             
         except Exception as e:
             # Log error and return
@@ -158,6 +161,11 @@ class TerminalExecutor:
             
             self.failure_count += 1
             self.last_failure_time = current_time
+            
+            # Make sure to cancel the timer in case of exception
+            if 'timer' in locals():
+                timer.cancel()
+                
             return 1, f"Error executing command: {e}"
             
     def run_command_in_background(self, command: str, env: Optional[Dict[str, str]] = None) -> str:
@@ -214,3 +222,69 @@ class TerminalExecutor:
             if self.logger:
                 self.logger.error(f"Error starting background command: {e}")
             return f"ERROR: Failed to start background process: {e}"
+
+    def run_command_stream(self, command: str, env: Optional[Dict[str, str]] = None, 
+                           output_callback: Optional[Callable[[str, str], None]] = None, 
+                           level: str = "info") -> int:
+        """
+        Run a shell command and stream output line by line to a callback (e.g., websocket).
+        
+        Args:
+            command: The shell command to execute
+            env: Optional environment variables
+            output_callback: Function to call with each output line and level.
+                            Should accept two string parameters: (output_line, level)
+            level: Output level (info, debug, error)
+            
+        Returns:
+            Exit code of the process
+        """
+        import time
+        
+        # Validate output_callback is callable if provided
+        if output_callback is not None and not callable(output_callback):
+            if self.logger:
+                self.logger.error("Output callback is not callable")
+            return 1
+            
+        # Validate command
+        is_valid, error_message = self._validate_command(command)
+        if not is_valid:
+            if output_callback:
+                output_callback(error_message, "error")
+            return 1
+        execution_env = os.environ.copy()
+        if env:
+            execution_env.update(env)
+        for dangerous_var in ['LD_PRELOAD', 'LD_LIBRARY_PATH']:
+            if dangerous_var in execution_env:
+                del execution_env[dangerous_var]
+        try:
+            proc = subprocess.Popen(
+                command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                env=execution_env,
+                cwd=os.getcwd()
+            )
+            for line in iter(proc.stdout.readline, ''):
+                if not line:
+                    break
+                # Filter output level by keywords
+                if re.search(r'error|fail|exception', line, re.I):
+                    cb_level = "error"
+                elif re.search(r'debug', line, re.I):
+                    cb_level = "debug"
+                else:
+                    cb_level = level
+                if output_callback:
+                    output_callback(line.rstrip(), cb_level)
+            proc.stdout.close()
+            proc.wait()
+            return proc.returncode
+        except Exception as e:
+            if output_callback:
+                output_callback(f"Error executing command: {e}", "error")
+            return 1

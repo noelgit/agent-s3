@@ -6,7 +6,7 @@ import argparse
 import json
 import logging
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 
 from agent_s3.config import Config
 from agent_s3.coordinator import Coordinator
@@ -40,17 +40,35 @@ def display_help() -> None:
 Agent-S3 Command-Line Interface
 
 Commands:
-  agent-s3 <prompt>        - Process a change request
+  agent-s3 <prompt>        - Process a change request (full workflow)
+  agent-s3 /plan <prompt>        - Generate a plan only (bypass execution)
+  agent-s3 /request <prompt>     - Full change request (plan, generate, execute)
   agent-s3 /init           - Initialize the workspace
   agent-s3 /help           - Display this help message
   agent-s3 /config         - Show current configuration
   agent-s3 /reload-llm-config - Reload LLM configuration
+  agent-s3 /explain        - Explain the last LLM interaction
+  agent-s3 /terminal <command>  - Execute shell commands directly (bypassing LLM)
+  agent-s3 /design <objective>  - Start a design process
+  agent-s3 /continue [task_id]   - Continue implementation from where it left off
+  agent-s3 /tasks          - List active tasks that can be resumed
+  agent-s3 /clear <task_id>      - Clear a specific task state
+  agent-s3 /db <command>   - Database operations (see /db help for details)
 
 Special Commands (can be used in prompt):
   /help                    - Display help message
   /init                    - Initialize workspace
   /config                  - Show current configuration
   /reload-llm-config       - Reload LLM configuration
+  /explain                 - Explain the last LLM interaction
+  /plan <prompt>           - Generate a plan only (bypass execution)
+  /request <prompt>        - Full change request (plan + execution)
+  /terminal <command>      - Execute shell commands literally (bypassing LLM)
+  /design <objective>      - Start a design process
+  /continue [task_id]      - Continue implementation from where it left off
+  /tasks                   - List active tasks that can be resumed
+  /clear <task_id>         - Clear a specific task state
+  /db <command>            - Database operations (schema, query, test, etc.)
   @<filename>              - Open a file in the editor
   #<tag>                   - Add a tag to the scratchpad
 """
@@ -87,36 +105,84 @@ def track_module_scaffold(module_name: str) -> None:
         print(f"Error tracking module scaffold for {module_name}: {e}")
 
 
-def process_command(coordinator: Coordinator, command: str) -> None:
-    """Process a special command.
+def _process_multiline_cli(command_type: str, initial_args: str) -> Tuple[str, bool]:
+    """Process a multi-line CLI command with heredoc-style syntax.
     
+    Args:
+        command_type: Type of CLI command (file or bash)
+        initial_args: Initial command arguments containing the heredoc marker
+        
+    Returns:
+        Tuple of (processed_args, success_flag)
+    """
+    # Extract the marker
+    parts = initial_args.split("<<", 1)
+    if len(parts) != 2:
+        print("Error: Invalid multi-line syntax. Use: /cli [file|bash] [args] <<MARKER")
+        return "", False
+        
+    prefix_args = parts[0].strip()
+    marker = parts[1].strip()
+    
+    if not marker:
+        print("Error: Missing end marker after <<")
+        return "", False
+        
+    print(f"Enter multi-line content. End with '{marker}' on a line by itself:")
+    
+    # Collect content lines
+    content_lines = []
+    max_lines = 1000  # Safety limit
+    while True:
+        try:
+            line = input()
+            if line.strip() == marker:
+                break
+            content_lines.append(line)
+            if len(content_lines) >= max_lines:
+                print(f"Error: Exceeded maximum of {max_lines} lines")
+                return "", False
+        except EOFError:
+            print("Error: Multi-line input terminated unexpectedly")
+            return "", False
+            
+    # Construct the full command with content
+    if command_type == "file":
+        # For file commands, we need: path + content
+        content = "\n".join(content_lines)
+        return f"{prefix_args} {content}", True
+    else:
+        # For bash commands, join lines with proper line endings
+        script = "\n".join(content_lines)
+        return f"{prefix_args} {script}", True
+
+
+def process_command(coordinator: Coordinator, command: str) -> None:
+    """Process a special command by delegating to CommandProcessor.
+
     Args:
         coordinator: The coordinator instance
         command: The command to process
     """
+    # Initialize CommandProcessor if not already done
+    if not hasattr(coordinator, 'command_processor'):
+        from agent_s3.command_processor import CommandProcessor
+        coordinator.command_processor = CommandProcessor(coordinator)
+
+    # Handle help command at CLI level since it's display-specific
     if command == "/help":
         display_help()
-    elif command == "/init":
-        print("Initializing workspace...")
-        coordinator.initialize_workspace()
-        print("Workspace initialized successfully.")
-    elif command == "/config":
-        print("Current configuration:")
-        for key, value in coordinator.config.config.items():
-            if key in ["openrouter_key", "github_token", "api_key"]:
-                # Mask sensitive values
-                print(f"  {key}: {'*' * 10}")
-            else:
-                print(f"  {key}: {value}")
-    elif command == "/reload-llm-config":
-        try:
-            router = RouterAgent()
-            router.reload_config()
-            print("LLM configuration reloaded successfully.")
-        except Exception as e:
-            print(f"Failed to reload LLM configuration: {e}")
     else:
-        print(f"Unknown command: {command}")
+        try:
+            # Delegate all other commands to CommandProcessor
+            result = coordinator.command_processor.process_command(command)
+
+            # Print result if it's non-empty
+            if result:
+                print(result)
+        except Exception as e:
+            print(f"Error processing command '{command}': {e}")
+            logger.error(f"Command processing error: {e}", exc_info=True)
 
 
 def main() -> None:
@@ -131,6 +197,11 @@ def main() -> None:
 
     prompt = " ".join(args.prompt).strip()
     if not prompt:
+        display_help()
+        return
+        
+    # Handle help command without initializing coordinator
+    if prompt == "/help":
         display_help()
         return
 
@@ -161,12 +232,99 @@ def main() -> None:
     # Re-initialize coordinator with authentication
     coordinator = Coordinator(config, github_token=github_token)
 
-    # Process the change request
+    # Route bare-text prompt through RouterAgent (orchestrator)
+    router = RouterAgent()
+    # Orchestrator prompt template with definitions and examples
+    orchestrator_prompt = '''
+You are the orchestrator for an AI coding agent. Your job is to classify the user's bare text input into one of the following routing categories. Respond with a JSON object containing "category", "rationale", and "confidence" (0-1).
+
+Categories:
+- planner: Single-concern feature or simple code change request. Example: "Add a logout button to the navbar." Route to the planner.
+- designer: Multi-concern or architectural/design requests. Example: "Redesign the authentication and notification systems." Route to the designer.
+- tool_user: Not a feature or design request. User wants to execute a command (e.g., run tests, list files, run a script). Example: "Run all tests" or "Show me the last 10 git commits." Route to the tool_user LLM.
+- general_qa: General question/answer, may or may not be about the codebase. Example: "What is the purpose of this project?" or "How does OAuth2 work?" Route to the general_qa LLM.
+
+If you are not confident, set confidence below 0.7 and explain why in rationale.
+
+Examples:
+Input: "Add a password reset feature."
+Output: {"category": "planner", "rationale": "Single feature request.", "confidence": 0.95}
+Input: "Refactor the database and add a new notification system."
+Output: {"category": "designer", "rationale": "Multiple concerns: database and notifications.", "confidence": 0.92}
+Input: "Run all tests."
+Output: {"category": "tool_user", "rationale": "User wants to execute a command.", "confidence": 0.98}
+Input: "What is a JWT?"
+Output: {"category": "general_qa", "rationale": "General question.", "confidence": 0.99}
+
+User input: ''' + repr(prompt)
+    # Use a minimal scratchpad and config for logging
+    class DummyScratchpad:
+        def log(self, *a, **k):
+            pass
     try:
-        coordinator.process_change_request(prompt)
+        response = router.call_llm_by_role(
+            role="orchestrator",
+            system_prompt="Classify the user's intent for routing.",
+            user_prompt=orchestrator_prompt,
+            config=config.config,
+            scratchpad=DummyScratchpad()
+        )
+        import json as _json
+        try:
+            result = _json.loads(response)
+            category = result.get("category", "").strip().lower()
+            rationale = result.get("rationale", "")
+            confidence = float(result.get("confidence", 0))
+        except Exception:
+            print(f"Orchestrator response could not be parsed as JSON: {response}")
+            return
+        print(f"[Orchestrator] Routing decision: {category} (confidence: {confidence:.2f})\nRationale: {rationale}")
+        # Log routing decision (could be to a file or audit log)
+        # ...
+        if confidence < 0.7 or not category:
+            clarification = input("Orchestrator is not confident in routing. Please clarify your intent (planner/designer/tool_user/general_qa): ").strip().lower()
+            category = clarification
+        if category == "planner":
+            coordinator.process_change_request(prompt)
+        elif category == "designer":
+            print("Routing to /design directive...")
+            coordinator.execute_design(prompt)
+        elif category == "tool_user":
+            # Execute arbitrary shell command directly
+            print("Routing to tool_user: executing shell command...")
+            # Use coordinator's CLI executor for bash commands
+            coordinator.execute_terminal_command(prompt)
+        elif category == "general_qa":
+            # General Q&A: call the LLM with entire codebase as context
+            print("Routing to general_qa: querying codebase context...")
+            from pathlib import Path
+            import glob
+            # Gather code files (e.g., .py) as context
+            code_context = {}
+            for path in glob.glob("**/*.py", recursive=True):
+                try:
+                    content = Path(path).read_text(encoding="utf-8")
+                    code_context[path] = content[:5000]  # truncate large files
+                except Exception:
+                    continue
+            system_prompt = (
+                "You are a Q&A assistant. Use the provided codebase context to answer questions about the project."
+            )
+            user_prompt = prompt
+            # Call orchestrator or general_qa LLM role
+            response = router.call_llm_by_role(
+                role="general_qa",
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                config=config.config,
+                scratchpad=DummyScratchpad(),
+                code_context=code_context
+            )
+            print(response)
+        else:
+            print(f"Unknown or unsupported routing category: {category}")
     except Exception as e:
-        logger.error(f"Error processing change request: {e}", exc_info=True)
-        print(f"Error processing change request: {e}")
+        print(f"Error routing prompt through orchestrator: {e}")
         sys.exit(1)
 
 

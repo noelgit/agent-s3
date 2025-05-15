@@ -9,13 +9,7 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [
-    "onCommand:agent-s3.init",
-    "onCommand:agent-s3.help",
-    "onCommand:agent-s3.guidelines",
-    "onCommand:agent-s3.request",
-    "onCommand:agent-s3.openChatWindow"
-  ],
+  
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -38,21 +32,33 @@
       {
         "command": "agent-s3.openChatWindow",
         "title": "Agent-S3: Open Chat Window"
+      },
+      {
+        "command": "agent-s3.openInteractiveView",
+        "title": "Agent-S3: Open Interactive View"
       }
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run compile && npm run build-webview",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext ts"
+    "lint": "eslint src --ext ts",
+    "build-webview": "cd webview-ui && npm install && npm run build",
+    "watch-webview": "cd webview-ui && npm run start"
   },
   "devDependencies": {
     "@types/node": "^14.14.37",
+    "@types/react": "^18.0.28",
+    "@types/react-dom": "^18.0.11",
     "@types/vscode": "^1.60.0",
     "@typescript-eslint/eslint-plugin": "^4.22.0",
     "@typescript-eslint/parser": "^4.22.0",
     "eslint": "^7.24.0",
     "typescript": "^4.2.4"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   }
 }

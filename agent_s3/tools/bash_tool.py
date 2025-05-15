@@ -10,6 +10,7 @@ import time
 import shutil
 import json
 import uuid
+import platform
 from pathlib import Path
 from typing import Tuple, Optional, Dict, Any, List
 
@@ -21,7 +22,8 @@ class BashTool:
                  sandbox: bool = True, 
                  env_vars: Optional[Dict[str, str]] = None,
                  container_image: str = "python:3.10-slim",
-                 resource_limits: Optional[Dict[str, str]] = None):
+                 resource_limits: Optional[Dict[str, str]] = None,
+                 host_os_type: Optional[str] = None):
         """Initialize the bash tool.
         
         Args:
@@ -29,6 +31,7 @@ class BashTool:
             env_vars: Additional environment variables to set
             container_image: Docker image to use for sandboxed execution
             resource_limits: Resource limits for the container (e.g. memory, cpu)
+            host_os_type: The host operating system type ('windows', 'darwin', 'linux', etc.)
         """
         self.sandbox = sandbox
         self.env_vars = env_vars or {}
@@ -37,6 +40,9 @@ class BashTool:
             "memory": "512m",
             "cpu-shares": "1024"
         }
+        
+        # Store the host OS type
+        self.host_os_type = host_os_type or platform.system().lower()
         
         # Define blocked commands for security (used as fallback if containerization fails)
         self.blocked_commands = [
@@ -74,7 +80,16 @@ class BashTool:
         if self.sandbox and not self.docker_available:
             print("Warning: Docker not available. Falling back to restricted subprocess mode.")
     
-    def run_command(self, command: str, timeout: int = 60) -> Tuple[int, str]:
+    def _format_error(self, error_type: str, message: str, details: Any = None) -> Dict[str, Any]:
+        """Return a standardized error object for BashTool."""
+        return {
+            "success": False,
+            "error_type": error_type,
+            "message": message,
+            "details": details
+        }
+
+    def run_command(self, command: str, timeout: int = 60) -> Dict[str, Any]:
         """Run a shell command.
         
         Args:
@@ -86,18 +101,21 @@ class BashTool:
         """
         # Check if command is blocked (applies only when Docker is unavailable)
         if not self.docker_available and self._is_blocked(command):
-            return 1, f"Error: Command '{command}' is blocked for security reasons"
-        
+            return self._format_error('blocked', f"Command '{command}' is blocked for security reasons", command)
         try:
             # Run in a container if sandbox mode is enabled and Docker is available
             if self.sandbox and self.docker_available:
-                return self._run_in_container(command, timeout)
+                code, output = self._run_in_container(command, timeout)
             else:
                 # Fallback to subprocess with restrictions
-                return self._run_with_subprocess(command, timeout)
-            
+                code, output = self._run_with_subprocess(command, timeout)
+            if code == 0:
+                return {"success": True, "output": output}
+            else:
+                error_type = 'timeout' if 'timed out' in output.lower() else 'command_failed'
+                return self._format_error(error_type, f"Command failed: {output}", output)
         except Exception as e:
-            return 1, f"Error executing command: {e}"
+            return self._format_error('exception', f"Error executing command: {e}", str(e))
     
     def run_command_async(self, command: str, timeout: int = 3600) -> str:
         """Run a shell command asynchronously.
@@ -453,10 +471,24 @@ class BashTool:
             for key, value in self.env_vars.items():
                 env[key] = value
             
-            # Run the command
+            # OS-specific command execution
+            shell = True
+            shell_executable = None
+            
+            # Windows-specific adjustments
+            if self.host_os_type == 'windows':
+                # Use cmd.exe explicitly on Windows
+                shell_executable = 'cmd.exe'
+                # If the command doesn't use cmd.exe syntax (like dir, echo, etc.),
+                # prefix it with 'cmd /c' to ensure it runs correctly
+                if not any(cmd in command for cmd in ['cmd', 'powershell']):
+                    command = f'cmd /c {command}'
+            
+            # Run the command with the appropriate shell based on OS
             process = subprocess.Popen(
                 command,
-                shell=True,
+                shell=shell,
+                executable=shell_executable,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 env=env,

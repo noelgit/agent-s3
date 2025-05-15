@@ -8,7 +8,7 @@ import re  # Add import for regex pattern matching
 from time import sleep
 import requests
 import traceback  # Added import
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, List
 
 logger = logging.getLogger(__name__)
 
@@ -361,12 +361,16 @@ class RouterAgent:
         role: str,
         tech_stack: Optional[Dict[str, Any]] = None,  # Tech stack parameter
         code_context: Optional[Dict[str, str]] = None,  # Code context parameter
+        historical_context: Optional[Dict[str, Any]] = None,  # Historical context parameter 
+        file_metadata: Optional[Dict[str, Any]] = None,  # File metadata parameter
+        related_features: Optional[List[str]] = None,  # Related features parameter
         metadata: Optional[Dict[str, Any]] = None,  # Metadata parameter including command info
         **kwargs: Any
     ) -> Optional[str]:
         """Executes a single LLM API call.
         
-        Now supports enhanced context with tech stack, code snippets, and command metadata.
+        Now supports enhanced context with tech stack, code snippets, command metadata,
+        historical context, file metadata, and related features.
         """
         start = time.time()
         model_name = model_info["model"]
@@ -432,14 +436,51 @@ class RouterAgent:
                 enhanced_user_prompt = f"Detected Tech Stack:\n{tech_stack_str}\n\n{enhanced_user_prompt}"
                 scratchpad.log("RouterAgent", f"Added tech stack context for {role}: {tech_stack_str}")
         
+        # Get role-specific allocation settings
+        allocation = self._get_role_specific_context_allocation(role, context_window)
+            
+        # Include historical context if available and if role allocation requests it
+        if historical_context and allocation.get("include_historical_context", False):
+            historical_sections = []
+            
+            # Process recent changes
+            if "previous_changes" in historical_context and historical_context["previous_changes"]:
+                changes = historical_context["previous_changes"][:5]  # Limit to 5
+                changes_text = "Recent Changes:\n" + "\n".join([f"- {change}" for change in changes])
+                historical_sections.append(changes_text)
+            
+            # Process file change frequency
+            if "file_change_frequency" in historical_context and historical_context["file_change_frequency"]:
+                freq_items = list(historical_context["file_change_frequency"].items())
+                top_files = sorted(freq_items, key=lambda x: x[1], reverse=True)[:5]  # Top 5
+                freq_text = "Frequently Modified Files:\n" + "\n".join([f"- {file}: {freq} changes" for file, freq in top_files])
+                historical_sections.append(freq_text)
+            
+            if historical_sections:
+                historical_text = "Historical Context:\n" + "\n\n".join(historical_sections)
+                enhanced_user_prompt = f"{historical_text}\n\n{enhanced_user_prompt}"
+                scratchpad.log("RouterAgent", f"Added historical context for {role} based on role allocation")
+        
+        # Include file metadata if available and if role allocation requests it
+        if file_metadata and allocation.get("include_file_metadata", False):
+            metadata_text = "File Metadata:\n" + json.dumps(file_metadata, indent=2)
+            enhanced_user_prompt = f"{metadata_text}\n\n{enhanced_user_prompt}"
+            scratchpad.log("RouterAgent", f"Added file metadata for {role} based on role allocation")
+        
+        # Include related features if available and if role allocation requests it
+        if related_features and allocation.get("include_related_features", False):
+            features_text = "Related Past Features:\n" + "\n".join([f"- {feature}" for feature in related_features[:3]])
+            enhanced_user_prompt = f"{features_text}\n\n{enhanced_user_prompt}"
+            scratchpad.log("RouterAgent", f"Added related features for {role} based on role allocation")
+        
         # Include relevant code context if available
         if code_context:
             # Simple token estimation (can be refined)
             def estimate_tokens(text):
                 return len(text.split()) * 1.3  # Rough estimation: words * 1.3
             
-            # Get role-specific context allocation instead of fixed 15% limit
-            allocation = self._get_role_specific_context_allocation(role, context_window)
+            # We already retrieved the allocation above, but reuse it to calculate max_context_tokens
+            # allocation = self._get_role_specific_context_allocation(role, context_window)
             max_context_tokens = min(allocation["max_abs_tokens"], 
                                     int(context_window * allocation["max_context_pct"]))
             
@@ -745,6 +786,19 @@ class RouterAgent:
         """Get role-specific context allocation settings."""
         # Define allocations for different roles
         allocations = {
+            # Pre-planner for task analysis and feature decomposition
+            "pre_planner": {
+                "max_context_pct": 0.60,  # 60% of context window
+                "max_abs_tokens": min(100000, int(context_window * 0.6)),
+                "prioritize_comments": True,
+                "preserve_structure": True, 
+                "preserve_relevance_order": True,
+                "include_historical_context": True,  # Include file history, changes, etc.
+                "include_file_metadata": True,       # Include file and directory structures
+                "include_related_features": True,    # Include related past tasks/features
+                "system_prompt_suffix": "\n\nEXTREMELY CRITICAL: Your task is to analyze and decompose requests into well-structured features. You MUST output valid JSON that strictly follows the provided schema. Focus on identifying the underlying user intent, breaking down features, and assessing risks. Respond with JSON ONLY - no extra text or explanations."
+            },
+            
             # Update planner for better context allocation
             "planner": {
                 "max_context_pct": 0.60,  # 60% of context window

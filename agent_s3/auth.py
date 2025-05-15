@@ -225,7 +225,7 @@ def authenticate_user() -> Optional[str]:
     state = secrets.token_urlsafe(16)
     GitHubOAuthHandler.expected_state = state
     auth_url = f"{GITHUB_AUTH_URL}?client_id={GITHUB_CLIENT_ID}&redirect_uri={GITHUB_REDIRECT_URI}&scope=repo&state={state}"
-    print(f"Opening browser for GitHub authentication...")
+    print("Opening browser for GitHub authentication...")
     webbrowser.open(auth_url)
     
     # Start a server to receive the callback
@@ -259,7 +259,7 @@ def authenticate_user() -> Optional[str]:
     
     token_data = response.json()
     if "access_token" not in token_data:
-        print(f"Authentication failed: No access token in response")
+        print("Authentication failed: No access token in response")
         return None
     
     # Save the token for future use

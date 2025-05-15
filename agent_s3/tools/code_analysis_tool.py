@@ -23,66 +23,143 @@ try:
     FAISS_AVAILABLE = True
 except ImportError:
     FAISS_AVAILABLE = False
+    print("FAISS not available - using numpy-based vector search instead")
 
-# Try to import rank_bm25 for BM25 sparse retrieval
+from rank_bm25 import BM25Okapi  # Ensure dependency is present, import will fail otherwise
+
+from agent_s3.tools.embedding_client import EmbeddingClient
+from agent_s3.tools.parsing.parser_registry import ParserRegistry
+
+# Import StaticAnalyzer for structural analysis if possible
 try:
-    from rank_bm25 import BM25Okapi
-    BM25_AVAILABLE = True
+    from agent_s3.tools.static_analyzer import StaticAnalyzer
+    STATIC_ANALYZER_AVAILABLE = True
 except ImportError:
-    BM25_AVAILABLE = False
-    logging.warning("rank_bm25 package not found. Hybrid search will fall back to embedding-only search.")
+    STATIC_ANALYZER_AVAILABLE = False
+    print("Static analyzer not available - using only semantic search")
 
-# Constants for query theme caching
-QUERY_SIMILARITY_THRESHOLD = 0.85  # Threshold for considering queries similar
-QUERY_CACHE_MAX_AGE = 24 * 60 * 60  # 24 hours in seconds
+# Define weights for hybrid search
+DENSE_WEIGHT = 0.7  # Weight for dense embedding-based search
+SPARSE_WEIGHT = 0.3  # Weight for sparse BM25-based search
 
-# Hybrid search weight parameters (0.0 to 1.0)
-DENSE_WEIGHT = 0.7  # Weight for embedding-based similarity
-SPARSE_WEIGHT = 0.3  # Weight for BM25 text similarity
+# Multi-signal fusion weights
+SEMANTIC_WEIGHT = 0.3  # Weight for semantic search (embeddings)
+LEXICAL_WEIGHT = 0.2   # Weight for lexical search (BM25)
+STRUCTURAL_WEIGHT = 0.4  # Weight for structural relevance
+EVOLUTIONARY_WEIGHT = 0.1  # Weight for evolutionary coupling
 
+# Threshold for considering queries semantically similar (0.0-1.0)
+QUERY_SIMILARITY_THRESHOLD = 0.85  # High threshold to avoid false positives
+
+# Flag to control whether to use enhanced context analysis
+USE_ENHANCED_ANALYSIS = True  # Can be configured via config
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_QUERY_CACHE_MAX_AGE = 3600  # Default to 1 hour in seconds
+DEFAULT_MAX_QUERY_THEMES = 50       # Default max number of query themes to cache
+BM25_AVAILABLE = True   # Assume BM25 is available since we import it above
 
 class CodeAnalysisTool:
     """
-    Tool for analyzing code files in a project and finding relevant code.
-    Implements optimized embedding caching and semantic search capabilities.
+    Tool for code analysis and searching using embeddings.
+    Provides semantic search over codebase with context-aware prioritization.
+    
+    Enhanced with structural code analysis capabilities for deeper understanding 
+    of code relationships, dependencies, and evolutionary coupling.
     """
     
-    def __init__(self, coordinator=None):
+    def __init__(self, coordinator=None, config: Optional[Dict[str, Any]] = None, file_tool=None, *args, **kwargs):
         """Initialize the code analysis tool with a coordinator for access to other tools."""
         self.coordinator = coordinator
-        self.embedding_client = coordinator.embedding_client if coordinator else None
-        self.file_tool = coordinator.file_tool if coordinator else None
+        self.embedding_client = coordinator.embedding_client if coordinator else EmbeddingClient(config)
+        self.file_tool = file_tool if file_tool else (coordinator.file_tool if coordinator else None)
+        self.git_tool = coordinator.git_tool if coordinator and hasattr(coordinator, 'git_tool') else None
         
         # Initialize embedding cache
         self._embedding_cache = {}
         
         # Enhanced query cache with theme support
         self._query_cache = {
-            "themes": {},     # Map theme_id -> {query_embedding, results, timestamp}
+            "themes": {},     # Map theme_id -> {query_embedding, results, timestamp, expiry_timestamp}
             "embeddings": {}, # Map query hash -> embedding vector
             "recent": []      # List of recent theme_ids (for LRU cache eviction)
         }
         
-        # Cache configuration
-        self._max_cache_size = 100
-        self._max_query_themes = 50
-    
+        # Cache configuration - use values from config or defaults
+        self._max_cache_size = config.get('max_embedding_cache_size', 100) if config else 100
+        self._max_query_themes = config.get('max_query_themes', DEFAULT_MAX_QUERY_THEMES) if config else DEFAULT_MAX_QUERY_THEMES
+        self.query_cache_max_age = config.get('query_cache_ttl_seconds', DEFAULT_QUERY_CACHE_MAX_AGE) if config else DEFAULT_QUERY_CACHE_MAX_AGE
+        
+        # Progressive eviction settings from config
+        self.eviction_threshold = config.get('embedding_eviction_threshold', 0.8) if config else 0.8
+        self.eviction_check_interval = config.get('eviction_check_interval', 20) if config else 20
+        self._operation_count = 0
+        
+        # Initialize static analyzer for structural code analysis if available
+        self.static_analyzer = None
+        if STATIC_ANALYZER_AVAILABLE:
+            workspace_path = None
+            if coordinator and hasattr(coordinator, 'project_root'):
+                workspace_path = coordinator.project_root
+            
+            # Create static analyzer instance with coordinator components
+            self.static_analyzer = StaticAnalyzer(
+                workspace_path=workspace_path,
+                file_tool=self.file_tool,
+                code_analysis_tool=self  # Circular reference for convenience
+            )
+            
+            # Set fusion weights from config if available
+            if config and 'fusion_weights' in config:
+                weights = config.get('fusion_weights', {})
+                self.static_analyzer.fusion_weights = {
+                    'structural': weights.get('structural', STRUCTURAL_WEIGHT),
+                    'semantic': weights.get('semantic', SEMANTIC_WEIGHT),
+                    'lexical': weights.get('lexical', LEXICAL_WEIGHT),
+                    'evolutionary': weights.get('evolutionary', EVOLUTIONARY_WEIGHT)
+                }
+            else:
+                # Use default weights
+                self.static_analyzer.fusion_weights = {
+                    'structural': STRUCTURAL_WEIGHT,
+                    'semantic': SEMANTIC_WEIGHT,
+                    'lexical': LEXICAL_WEIGHT,
+                    'evolutionary': EVOLUTIONARY_WEIGHT
+                }
+                
+        # Flag to control whether to use enhanced context analysis
+        self.use_enhanced_analysis = config.get('use_enhanced_analysis', USE_ENHANCED_ANALYSIS) if config else USE_ENHANCED_ANALYSIS
+
+        # Initialize parser registry
+        if coordinator and hasattr(coordinator, 'parser_registry'):
+            self.parser_registry = coordinator.parser_registry
+        else:
+            self.parser_registry = ParserRegistry()
+            logging.info("CodeAnalysisTool initialized its own ParserRegistry instance.")
+        if not self.file_tool:
+            logging.warning("FileTool not available to CodeAnalysisTool during __init__. Some operations might fail if not set later.")
+
+    def lint(self, paths: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        """
+            logger.error(f"Error running Ruff lint: {e}")
+            return []
+        if not output:
+            return []
+        try:
+            return json.loads(output)
+        except json.JSONDecodeError:
+            return []
+
     def find_relevant_files(self, query: str, top_n: int = 5, query_theme: Optional[str] = None, 
                             use_hybrid: bool = True) -> List[Dict[str, Any]]:
         """
         Find relevant files based on a natural language query using hybrid search.
-        
-        Args:
-            query: The natural language query
-            top_n: Number of top results to return
-            query_theme: Optional theme identifier for caching query results by semantic theme
-            use_hybrid: Whether to use hybrid search (dense + sparse) or just dense embeddings
-            
-        Returns:
-            List of dicts with file_path, content, and score
         """
         current_time = self._get_current_timestamp()
-        
+        # Enforce hybrid search requires BM25
+        if use_hybrid and not BM25_AVAILABLE:
+            raise ImportError("rank_bm25 is required for hybrid search; please install it.")
         # Generate query embedding first for cache matching
         query_embedding = None
         if self.embedding_client:
@@ -105,12 +182,12 @@ class CodeAnalysisTool:
             cache_entry = self._query_cache["themes"][theme_id]
             
             # Check if cache is still valid (not expired)
-            if current_time - cache_entry["timestamp"] < QUERY_CACHE_MAX_AGE:
+            if current_time - cache_entry.get("timestamp", 0) < self.query_cache_max_age:
                 # Update access recency for LRU cache management
                 self._update_theme_recency(theme_id)
                 
                 logging.info(f"Using cached results for query theme: {theme_id}")
-                return cache_entry["results"]
+                return cache_entry["results"][:top_n]
             else:
                 # Cache entry is too old, remove it
                 logging.info(f"Query theme cache expired: {theme_id}")
@@ -258,6 +335,238 @@ class CodeAnalysisTool:
             logging.info(f"Cached query results with theme ID: {theme_id}")
         
         return top_results
+
+    def search(self, query: str, k: int = 5, paths: Optional[List[str]] = None) -> List[Dict]:
+        """
+        Search for code related to the query using embeddings.
+        Returns a list of relevant code chunks with their file paths and line numbers.
+        
+        Args:
+            query: Natural language query
+            k: Number of results to return
+            paths: Optional list of paths to search in
+            
+        Returns:
+            List of relevant files with their content and relevance scores
+        """
+        # Check if we need to run cache eviction
+        self._check_and_evict_cache_if_needed()
+        
+        # Get the embedding for the query
+        query_embedding = self.embedding_client.get_embedding(query)
+        if not query_embedding:
+            logger.error("Failed to generate query embedding")
+            return []
+        
+        # Find the most semantically similar files
+        results = self.find_relevant_files(
+            query=query,
+            top_n=k,
+            query_theme=self._generate_query_theme_id(query),
+            use_hybrid=True
+        )
+        
+        # If enhanced analysis is enabled and static analyzer is available,
+        # enhance results with structural information
+        if self.use_enhanced_analysis and self.static_analyzer and results:
+            # Get the top files to use as structural query files
+            query_files = [result["file_path"] for result in results[:3]]
+            
+            try:
+                # Enhance results with structural relevance
+                enhanced_results = self.static_analyzer.enhance_search_results(
+                    semantic_results=results,
+                    query_files=query_files
+                )
+                
+                # Replace results with enhanced results
+                results = enhanced_results
+                
+                logger.info(f"Enhanced search results with structural analysis for query: {query[:50]}...")
+            except Exception as e:
+                logger.error(f"Error enhancing search results with structural analysis: {e}")
+        
+        # Update access patterns for progressive eviction
+        if hasattr(self.embedding_client, 'update_access_patterns'):
+            # Pass the file paths that were accessed during this search
+            file_paths = [result["file_path"] for result in results]
+            self.embedding_client.update_access_patterns(file_paths)
+        
+        return results
+        
+    def find_structurally_relevant_files(self, paths: List[str], k: int = 5) -> List[Dict]:
+        """
+        Find files that are structurally related to the given paths using static analysis.
+        
+        Args:
+            paths: List of file paths to analyze
+            k: Number of results to return
+            
+        Returns:
+            List of relevant files with their content and relevance scores
+        """
+        if not self.static_analyzer or not paths:
+            return []
+            
+        # Use static analyzer to find structurally relevant files
+        try:
+            results = self.static_analyzer.find_structurally_relevant_files(
+                query_files=paths
+            )
+            
+            # Return top k results
+            return results[:k]
+        except Exception as e:
+            logger.error(f"Error finding structurally relevant files: {e}")
+            return []
+            
+    def compute_multi_signal_relevance(self, file_path: str, query: str = None, target_files: List[str] = None) -> Dict[str, float]:
+        """
+        Compute relevance using multiple signals (fusion strategy).
+        
+        Args:
+            file_path: Path to the file to analyze
+            query: Optional natural language query
+            target_files: Optional list of target files to compare against
+            
+        Returns:
+            Dictionary with different relevance scores
+        """
+        if not self.static_analyzer:
+            # Return simplified scores if static analyzer not available
+            return {
+                'semantic': 0.0,
+                'structural': 0.0,
+                'lexical': 0.0,
+                'evolutionary': 0.0,
+                'combined': 0.0
+            }
+            
+        try:
+            # Delegate to static analyzer
+            return self.static_analyzer.compute_multi_signal_relevance(
+                file_path=file_path,
+                query=query,
+                target_files=target_files
+            )
+        except Exception as e:
+            logger.error(f"Error computing multi-signal relevance: {e}")
+            return {
+                'semantic': 0.0,
+                'structural': 0.0,
+                'lexical': 0.0,
+                'evolutionary': 0.0,
+                'combined': 0.0
+            }
+
+    def _check_and_evict_cache_if_needed(self):
+        """
+        Check cache size and trigger eviction if needed based on operation count
+        and configured eviction check interval.
+        """
+        self._operation_count += 1
+        
+        # Only check periodically to avoid overhead
+        if self._operation_count % self.eviction_check_interval == 0:
+            # Delegate eviction to the embedding client
+            if hasattr(self.embedding_client, 'evict_embeddings'):
+                evicted = self.embedding_client.evict_embeddings()
+                if evicted > 0:
+                    logger.info(f"Evicted {evicted} embeddings during code analysis operation")
+            
+            # Also clean up the local query cache if it's too large
+            self._clean_query_cache()
+
+    def invalidate_cache_for_file(self, file_path: str):
+        """Remove cache entries containing results for the specified file path."""
+        abs_file_path = str(Path(file_path).resolve())
+        themes_to_invalidate = []
+        for theme_id, cache_entry in self._query_cache["themes"].items():
+            results = cache_entry.get("results", [])
+            if any(result.get("file_path") == abs_file_path for result in results):
+                themes_to_invalidate.append(theme_id)
+
+        if themes_to_invalidate:
+            logger.info(f"Invalidating cache themes {themes_to_invalidate} due to change in {abs_file_path}")
+            for theme_id in themes_to_invalidate:
+                self._remove_theme_from_cache(theme_id)
+        else:
+            logger.debug(f"No cache themes found containing {abs_file_path} to invalidate.")
+
+    def _add_query_to_cache(self, theme_id: str, query_embedding: List[float], results: List[Dict[str, Any]], timestamp: int) -> None:
+        """
+        Add a query and its results to the theme cache with TTL.
+        
+        Args:
+            theme_id: Theme identifier
+            query_embedding: Embedding vector of the query
+            results: Search results to cache
+            timestamp: Current timestamp
+        """
+        expiry_timestamp = timestamp + self.query_cache_max_age
+        if theme_id in self._query_cache["themes"]:
+            # Theme already exists, update results and expiry
+            self._query_cache["themes"][theme_id].update({
+                "query_embedding": query_embedding,
+                "results": results,
+                "timestamp": timestamp,
+                "expiry_timestamp": expiry_timestamp
+            })
+            self._update_theme_recency(theme_id)
+        else:
+            # New theme, add entry
+            self._prune_theme_cache_if_needed()
+            self._query_cache["themes"][theme_id] = {
+                "query_embedding": query_embedding,
+                "results": results,
+                "timestamp": timestamp,
+                "expiry_timestamp": expiry_timestamp
+            }
+            self._query_cache["recent"].append(theme_id)
+            logging.info(f"Cached results for new theme: {theme_id}")
+    
+    def _update_theme_recency(self, theme_id: str) -> None:
+        """
+        Update the recency list for LRU cache management.
+        
+        Args:
+            theme_id: Theme identifier to update
+        """
+        # Remove from current position if exists
+        if theme_id in self._query_cache["recent"]:
+            self._query_cache["recent"].remove(theme_id)
+            
+        # Add to front of list (most recent)
+        self._query_cache["recent"].insert(0, theme_id)
+    
+    def _remove_theme_from_cache(self, theme_id: str) -> None:
+        """
+        Remove a theme from the cache.
+        
+        Args:
+            theme_id: Theme identifier to remove
+        """
+        if theme_id in self._query_cache["themes"]:
+            del self._query_cache["themes"][theme_id]
+            
+        if theme_id in self._query_cache["recent"]:
+            self._query_cache["recent"].remove(theme_id)
+    
+    def _prune_theme_cache_if_needed(self) -> None:
+        """Prune the theme cache if it exceeds the maximum size."""
+        themes = self._query_cache["themes"]
+        if len(themes) > self._max_query_themes:
+            # Use the recency list to identify least recently used themes
+            themes_to_remove = len(themes) - self._max_query_themes
+            
+            # Get the oldest themes from the end of the recency list
+            oldest_themes = self._query_cache["recent"][-themes_to_remove:]
+            
+            # Remove them from the cache
+            for theme_id in oldest_themes:
+                self._remove_theme_from_cache(theme_id)
+                
+            logging.info(f"Pruned {themes_to_remove} themes from cache")
     
     def _get_code_files(self) -> List[str]:
         """
@@ -348,20 +657,22 @@ class CodeAnalysisTool:
     
     def _prune_cache_if_needed(self):
         """Prune the embedding cache if it's too large."""
-        if len(self._embedding_cache) > self._max_cache_size:
-            # Find oldest entries based on timestamp
-            sorted_cache = sorted(
-                self._embedding_cache.items(),
-                key=lambda x: x[1].get("timestamp", 0)
-            )
-            
-            # Remove oldest entries to get below max size
-            entries_to_remove = len(self._embedding_cache) - self._max_cache_size
-            
-            for i in range(entries_to_remove):
-                if i < len(sorted_cache):
-                    key = sorted_cache[i][0]
-                    del self._embedding_cache[key]
+        self._operation_count += 1
+        if self._operation_count % self.eviction_check_interval == 0:
+            cache_size = len(self._embedding_cache)
+            if cache_size > self._max_cache_size * self.eviction_threshold:
+                # Find oldest entries based on timestamp
+                sorted_cache = sorted(
+                    self._embedding_cache.items(),
+                    key=lambda x: x[1].get("timestamp", 0)
+                )
+                
+                # Remove oldest entries to get below max size
+                entries_to_remove = cache_size - self._max_cache_size
+                for i in range(entries_to_remove):
+                    if i < len(sorted_cache):
+                        key = sorted_cache[i][0]
+                        del self._embedding_cache[key]
     
     def analyze_code_complexity(self, file_path: str) -> Dict[str, Any]:
         """
@@ -480,72 +791,6 @@ class CodeAnalysisTool:
             
         return None
     
-    def _add_query_to_cache(self, theme_id: str, query_embedding: List[float], results: List[Dict[str, Any]], timestamp: int) -> None:
-        """
-        Add a query and its results to the theme cache.
-        
-        Args:
-            theme_id: Theme identifier
-            query_embedding: Embedding vector of the query
-            results: Search results to cache
-            timestamp: Current timestamp
-        """
-        # Store the results in the theme cache
-        self._query_cache["themes"][theme_id] = {
-            "query_embedding": query_embedding,
-            "results": results,
-            "timestamp": timestamp
-        }
-        
-        # Update recency (for LRU eviction)
-        self._update_theme_recency(theme_id)
-        
-        # Prune theme cache if needed
-        self._prune_theme_cache_if_needed()
-    
-    def _update_theme_recency(self, theme_id: str) -> None:
-        """
-        Update the recency list for LRU cache management.
-        
-        Args:
-            theme_id: Theme identifier to update
-        """
-        # Remove from current position if exists
-        if theme_id in self._query_cache["recent"]:
-            self._query_cache["recent"].remove(theme_id)
-            
-        # Add to front of list (most recent)
-        self._query_cache["recent"].insert(0, theme_id)
-    
-    def _remove_theme_from_cache(self, theme_id: str) -> None:
-        """
-        Remove a theme from the cache.
-        
-        Args:
-            theme_id: Theme identifier to remove
-        """
-        if theme_id in self._query_cache["themes"]:
-            del self._query_cache["themes"][theme_id]
-            
-        if theme_id in self._query_cache["recent"]:
-            self._query_cache["recent"].remove(theme_id)
-    
-    def _prune_theme_cache_if_needed(self) -> None:
-        """Prune the theme cache if it exceeds the maximum size."""
-        themes = self._query_cache["themes"]
-        if len(themes) > self._max_query_themes:
-            # Use the recency list to identify least recently used themes
-            themes_to_remove = len(themes) - self._max_query_themes
-            
-            # Get the oldest themes from the end of the recency list
-            oldest_themes = self._query_cache["recent"][-themes_to_remove:]
-            
-            # Remove them from the cache
-            for theme_id in oldest_themes:
-                self._remove_theme_from_cache(theme_id)
-                
-            logging.info(f"Pruned {themes_to_remove} themes from cache")
-    
     def get_cached_query_themes(self) -> List[Dict[str, Any]]:
         """
         Get information about all cached query themes.
@@ -630,230 +875,56 @@ class CodeAnalysisTool:
         """
         if not text:
             return []
-        
-        # Convert to lowercase for case-insensitive matching
-        text = text.lower()
-        
-        # Split camelCase identifiers
-        text = re.sub(r'([a-z])([A-Z])', r'\1 \2', text)
-        
-        # Split snake_case identifiers
-        text = re.sub(r'_', ' ', text)
-        
-        # Handle common programming constructs and punctuation
-        text = re.sub(r'[(){}\[\]<>.,;:+=\-*/&|!?]', ' ', text)
-        
-        # Remove common programming language keywords to reduce noise
-        tokens = text.split()
-        common_keywords = {
-            'if', 'else', 'for', 'while', 'return', 'function', 'class', 'import', 
-            'from', 'def', 'var', 'let', 'const', 'public', 'private', 'protected',
-            'static', 'void', 'int', 'string', 'bool', 'true', 'false', 'null',
-            'undefined', 'this', 'self', 'new', 'try', 'catch', 'finally', 'throw',
-            'async', 'await', 'export', 'default', 'extends', 'implements'
-        }
-        
-        # Filter out common short tokens and keywords
-        filtered_tokens = [token for token in tokens if len(token) > 1 and token not in common_keywords]
-        
-        # Add special handling for important code identifiers even if they're in common keywords
-        # For example, if someone is specifically searching for "class" or "function"
-        for important_term in ['class', 'function', 'def']:
-            if important_term in text.split() and important_term not in filtered_tokens:
-                filtered_tokens.append(important_term)
-        
-        return filtered_tokens
-    
-    def prune_context_by_relevance(self, context_chunks: List[Dict[str, Any]], 
-                                   query: str, 
-                                   target_token_count: int,
-                                   llm_client=None) -> List[Dict[str, Any]]:
+        # Normalize whitespace and split on non-word boundaries
+        tokens = re.findall(r"\b\w{2,}\b", text)
+        return tokens
+
+    def analyze_file_structure(self, file_path: str, language: str = None) -> dict:
         """
-        Prunes context chunks based on their relevance to the query as determined by an LLM.
-        
-        Args:
-            context_chunks: List of context chunks with content to assess
-            query: The original query or planning objective
-            target_token_count: Desired token count after pruning
-            llm_client: Optional LLM client (uses coordinator's client if None)
-            
-        Returns:
-            Pruned list of context chunks, retaining the most relevant ones
+        Analyze the structure of a code file using language-specific parsers from ParserRegistry.
+        Always use the new parser system; legacy regex-based parsing is removed.
         """
-        if not context_chunks:
-            return []
-            
-        # Track start time for performance monitoring
-        start_time = time.time()
-            
-        # Use coordinator's LLM client if none provided
-        client = llm_client or (self.coordinator.llm if self.coordinator else None)
-        if not client:
-            logging.warning("No LLM client available for relevance scoring, falling back to hybrid search scores")
-            # Fall back to using the search scores if available
-            return sorted(context_chunks, key=lambda x: x.get("score", 0), reverse=True)
-        
-        # Calculate current token count (approximate)
-        current_tokens = 0
-        for chunk in context_chunks:
-            content = chunk.get("content", "")
-            # Use token estimator if available, otherwise use word count as approximation
-            if self.coordinator and hasattr(self.coordinator, "memory_manager"):
-                chunk_tokens = self.coordinator.memory_manager.estimate_token_count(content)
-            else:
-                chunk_tokens = len(content.split())
-            
-            # Store token count in chunk for later use
-            chunk["token_count"] = chunk_tokens
-            current_tokens += chunk_tokens
-            
-        if current_tokens <= target_token_count:
-            # No pruning needed
-            logging.info(f"Context already within token limit ({current_tokens}/{target_token_count}), no pruning needed")
-            return context_chunks
-        
-        logging.info(f"Pruning context from {current_tokens} to {target_token_count} tokens using relevance scoring")
-        
-        # Prepare chunks for scoring
-        chunks_to_score = []
-        for i, chunk in enumerate(context_chunks):
-            # Create a truncated version of content for scoring (to save tokens)
-            content = chunk.get("content", "")
-            
-            # Extract key information (first part, variable/function names, comments)
-            # This is a content summarization strategy to reduce tokens while preserving key information
-            lines = content.split("\n")
-            first_lines = lines[:10]  # First 10 lines often contain important context
-            
-            # Extract comments
-            comments = []
-            for line in lines:
-                line = line.strip()
-                if line.startswith("//") or line.startswith("#"):
-                    comments.append(line)
-                elif "/*" in line or "*/" in line or "'''" in line or '"""' in line:
-                    comments.append(line)
-            
-            # Extract function and class definitions
-            definitions = []
-            for line in lines:
-                line = line.strip()
-                if re.search(r'(def|class|function|interface|struct)\s+\w+', line):
-                    definitions.append(line)
-            
-            # Combine the most informative parts
-            info_content = "\n".join(first_lines)
-            if definitions:
-                info_content += "\n\nKey definitions:\n" + "\n".join(definitions[:5])
-            if comments:
-                info_content += "\n\nKey comments:\n" + "\n".join(comments[:5])
-                
-            # Truncate if still too long
-            if len(info_content) > 800:
-                info_content = info_content[:800] + "..."
-            
-            chunks_to_score.append({
-                "id": i,
-                "content": info_content,
-                "file_path": chunk.get("file_path", "unknown")
-            })
-        
-        # Create prompt for LLM to score relevance
-        prompt = f"""
-        TASK: Score the relevance of each code snippet for addressing this query:
-        "{query}"
-        
-        INSTRUCTIONS:
-        - Assign each snippet a relevance score from 0 to 10
-        - Consider how directly it relates to the query's core concepts
-        - Higher scores mean higher relevance
-        - Focus on code functionality, not just keyword matches
-        - Consider both implementation details and structural elements
-        - Return ONLY a JSON array with ID and score for each snippet
-        
-        RESPONSE FORMAT:
-        [
-          {{"id": 0, "score": 5}},
-          {{"id": 1, "score": 9}},
-          ...
-        ]
-        
-        CODE SNIPPETS:
-        """
-        
-        for chunk in chunks_to_score:
-            prompt += f"\n--- SNIPPET {chunk['id']} (from {chunk['file_path']}) ---\n{chunk['content']}\n"
-        
-        # Call LLM to get relevance scores
+        if not self.file_tool:
+            logger.error("FileTool is not available. Cannot analyze file structure.")
+            return {'error': 'FileTool not available', 'file_path': file_path, 'elements': [], 'status': 'error'}
+        if not self.parser_registry:
+            logger.error("ParserRegistry not available. Cannot analyze file structure.")
+            return {'error': 'ParserRegistry not available', 'file_path': file_path, 'elements': [], 'status': 'error'}
         try:
-            # Use a lower temperature for more consistent scoring
-            response = client.generate(prompt, temperature=0.1, max_tokens=500)
-            
-            # Parse the JSON response
-            import json
-            import re
-            
-            # Extract JSON array from response (handle cases where LLM includes extra text)
-            json_match = re.search(r'\[.*\]', response, re.DOTALL)
-            if not json_match:
-                logging.error("Failed to extract JSON from LLM response for relevance scoring")
-                # Fallback to search scores
-                logging.info("Falling back to hybrid search scores for pruning")
-                return sorted(context_chunks, key=lambda x: x.get("score", 0), reverse=True)
-                
-            json_str = json_match.group(0)
-            
-            # Clean up any potential JSON issues (like trailing commas)
-            json_str = re.sub(r',\s*]', ']', json_str)
-            
-            try:
-                scores = json.loads(json_str)
-            except json.JSONDecodeError as je:
-                logging.error(f"JSON parsing error: {je}")
-                logging.error(f"Raw JSON: {json_str}")
-                # Fallback to search scores
-                return sorted(context_chunks, key=lambda x: x.get("score", 0), reverse=True)
-            
-            # Create a mapping of chunk ID to relevance score
-            score_map = {item["id"]: item["score"] for item in scores if "id" in item and "score" in item}
-            
-            # Assign relevance scores to original chunks
-            for i, chunk in enumerate(context_chunks):
-                relevance_score = score_map.get(i, 0)
-                chunk["relevance_score"] = relevance_score
-                logging.debug(f"Chunk {i} ({chunk.get('file_path', 'unknown')}) scored {relevance_score}/10")
-            
-            # Sort by relevance score (descending)
-            sorted_chunks = sorted(context_chunks, key=lambda x: x.get("relevance_score", 0), reverse=True)
-            
-            # Keep chunks until we hit the target token count
-            result_chunks = []
-            current_tokens = 0
-            
-            for chunk in sorted_chunks:
-                chunk_tokens = chunk.get("token_count", 0)
-                if current_tokens + chunk_tokens <= target_token_count or not result_chunks:
-                    result_chunks.append(chunk)
-                    current_tokens += chunk_tokens
-                    
-                    # If this is the first chunk and already exceeds the token count,
-                    # we might need to truncate its content
-                    if len(result_chunks) == 1 and current_tokens > target_token_count:
-                        # Simply indicate truncation needed (actual truncation happens elsewhere)
-                        chunk["needs_truncation"] = True
-                        chunk["target_tokens"] = target_token_count
-                else:
-                    break
-            
-            # Record processing time for performance monitoring
-            processing_time = time.time() - start_time
-            logging.info(f"Relevance-based pruning completed in {processing_time:.2f}s. "
-                         f"Pruned from {len(context_chunks)} to {len(result_chunks)} chunks.")
-            
-            return result_chunks
-            
+            content = self.file_tool.read_file(file_path)
+            if content is None:
+                logger.warning(f"Could not read content of file: {file_path}")
+                return {'error': 'Could not read file', 'file_path': file_path, 'elements': [], 'status': 'error'}
         except Exception as e:
-            logging.error(f"Error during relevance-based pruning: {e}")
-            logging.error(traceback.format_exc())
-            # Fall back to hybrid search scores if LLM scoring fails
-            return sorted(context_chunks, key=lambda x: x.get("score", 0), reverse=True)
+            logger.error(f"Error reading file {file_path}: {e}", exc_info=True)
+            return {'error': f'Error reading file: {str(e)}', 'file_path': file_path, 'elements': [], 'status': 'error'}
+        # Language detection
+        if not language:
+            if hasattr(self.file_tool, 'get_language_from_extension'):
+                language = self.file_tool.get_language_from_extension(file_path)
+            if not language:
+                language = Path(file_path).suffix[1:].lower() if Path(file_path).suffix else 'unknown'
+        parser = self.parser_registry.get_parser(language_name=language, file_path=file_path)
+        if parser:
+            try:
+                logger.info(f"Analyzing {file_path} with {type(parser).__name__} for language '{language}'.")
+                structure = parser.parse_code(content, file_path)
+                return {
+                    'file_path': file_path,
+                    'language': language,
+                    'parser_used': type(parser).__name__,
+                    'status': 'success',
+                    'structure': structure
+                }
+            except Exception as e:
+                logger.error(f"Error during analysis of {file_path} with {type(parser).__name__}: {e}", exc_info=True)
+                return {'error': f'Analysis error with {type(parser).__name__}: {str(e)}', 'file_path': file_path, 'language': language, 'elements': [], 'status': 'analysis_error'}
+        else:
+            logger.error(f"No parser found for language '{language}' for file {file_path}.")
+            return {
+                'file_path': file_path,
+                'language': language,
+                'parser_used': None,
+                'status': 'unsupported_language_or_no_parser',
+                'elements': [], 'relations': [], 'functions': [], 'classes': [], 'imports': []
+            }

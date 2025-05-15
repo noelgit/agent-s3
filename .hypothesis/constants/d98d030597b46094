@@ -1,0 +1,4 @@
+# file: /Users/noelpatron/Documents/GitHub/agent-s3/agent_s3/planning/plan_validator.py
+# hypothesis_version: 6.131.9
+
+['\nApproach:', '\nChallenges:', '\nConsiderations:', '\nSteps:', 'PlanValidator', 'Validating plan...', 'approach', 'approach_count', 'approach_properties', 'challenges', 'considerations', 'description', 'id', 'metadata', 'optional_fields', 'raw_response', 'required_fields', 'step_count', 'step_properties', 'steps', 'substeps', 'task', 'validation_error']

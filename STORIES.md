@@ -110,19 +110,32 @@ This document outlines common user scenarios and provides step-by-step walkthrou
 4.  **Coordinator Workflow (`agent_s3/coordinator.py` - `run_task` method):**
     *   **Phase 0: Pre-Planning Assessment:**
         *   Updates progress: `{"phase": "pre_planning", "status": "started"}`.
-        *   Uses `pre_planner.collect_impacted_files(request_text)` to analyze which files will be affected.
-        *   Calculates complexity score and estimates effort.
-        *   If complexity exceeds threshold, offers to switch to the design workflow instead.
-        *   Updates progress: `{"phase": "pre_planning", "status": "completed", "complexity_score": score}`.
-    *   **Phase 1: Planning:**
-        *   Updates progress: `{"phase": "planning", "status": "started"}`.
-        *   Calls `planner.create_plan(request_text)` to generate a detailed implementation plan.
-        *   If `test_planner` is available, it:
-            *   Extracts implementation files from the plan
-            *   Generates a comprehensive test plan via `test_planner.plan_tests`
-            *   Ensures test plan includes unit, integration, approval, and property-based tests
-        *   Updates progress: `{"phase": "planning", "status": "completed", "plan": plan}`.
-    *   **Phase 2: Code Generation and Refinement Loop:**
+        *   Uses `pre_planner_json_enforced.pre_planning_workflow` to analyze the request and generate structured feature groups.
+        *   Validates the pre-planner output with Static Plan Checker (`plan_validator.validate_pre_plan`).
+        *   Saves a checkpoint of the pre-planning data for version tracking.
+        *   Checks for task complexity (either `is_complex` flag or complexity_score > 7).
+        *   If complex, presents warning to user with explicit confirmation options (yes/modify/no).
+    *   **Pre-Planning Review:**
+        *   Presents pre-planning results to user for review.
+        *   User can accept (yes), reject (no), or modify the pre-planning results.
+        *   If user chooses to modify, system calls `_regenerate_pre_planning_with_modifications` to update pre-planning with user feedback.
+        *   Saves modification checkpoint and continues when user approves.
+    *   **Feature Group Processing:**
+        *   Updates progress: `{"phase": "feature_group_processing", "status": "started"}`.
+        *   Calls `feature_group_processor.process_pre_planning_output` to process each feature group.
+        *   For each feature group:
+            *   Generates architecture review for the feature group
+            *   Creates implementation plan based on architecture review and feature group
+            *   Generates tests for the implementation plan
+            *   Runs test critic to analyze test quality and coverage
+            *   Performs cross-phase validation across architecture, implementation, and tests
+            *   Creates consolidated plan that combines all components
+            *   Performs semantic validation for logical coherence
+            *   Presents the consolidated plan to the user for review
+        *   User can accept (yes), reject (no), or modify the consolidated plan.
+        *   If user chooses to modify, applies modifications to architecture review and performs comprehensive re-validation.
+        *   Automatically saves plan file with unique ID for reference.
+    *   **Code Generation and Refinement:**
         *   Multiple attempts may be made (configured via `max_attempts`, default 3).
         *   For each attempt:
             *   Updates progress: `{"phase": "generation", "status": "started", "attempt": attempt}`.
@@ -135,11 +148,12 @@ This document outlines common user scenarios and provides step-by-step walkthrou
                 *   Verifying test coverage with TestCritic
             *   If validation fails, collects error context and refines the plan.
             *   If validation passes, breaks the loop.
-    *   **Phase 3: Finalization:**
+    *   **Finalization:**
         *   If changes were successfully made and validated, calls `_finalize_task(changes)` which:
             *   Commits changes with a descriptive message
             *   Pushes the branch if configured to do so
             *   Creates a pull request if configured
+            *   Includes database schema metadata in PR descriptions when database changes are involved
         *   Clears the task state and reports completion.
 5.  **VS Code Monitoring (`vscode/extension.ts`):**
     *   The `monitorProgress` function periodically reads `progress_log.json`.
@@ -147,7 +161,7 @@ This document outlines common user scenarios and provides step-by-step walkthrou
     *   When a final state is reached, shows a notification with result summary.
     *   If a PR was created, includes the PR URL in the notification.
 
-**Outcome:** The requested code change is evaluated for complexity, planned with comprehensive test specifications, implemented through an iterative process that includes validation and refinement, and finalized with proper version control integration. The system adapts to errors by refining its approach, ensuring high-quality code changes that meet both functional requirements and code quality standards.
+**Outcome:** The requested code change is evaluated for complexity, broken down into feature groups, and each group is reviewed by the user with a comprehensive view of implementation, architecture, and tests. After approval, the system generates and validates code, ensuring high-quality changes that meet requirements. The process includes multiple validation phases, automatic re-validation after modifications, and comprehensive coverage testing to deliver robust implementations.
 
 ---
 
@@ -311,16 +325,23 @@ This document outlines common user scenarios and provides step-by-step walkthrou
 3.  **Coordinator Action (`agent_s3/coordinator.py` - `run_task` method):**
     *   **Phase 0: Pre-Planning Assessment**
         *   Updates progress: `{"phase": "pre_planning", "status": "started"}`.
-        *   Calls `pre_planner.collect_impacted_files(request_text)` to analyze which files will be affected.
-        *   Calculates complexity score and checks if it exceeds threshold.
-        *   If complexity is high, offers to switch to the `/design` workflow instead.
-    *   **Phase 1: Planning**
-        *   Updates progress: `{"phase": "planning", "status": "started"}`.
-        *   Calls `planner.create_plan(request_text)` to generate a detailed implementation plan.
-        *   If `test_planner` is available, extracts implementation files from the plan.
-        *   Generates a comprehensive test plan for the affected files.
-        *   Updates progress: `{"phase": "planning", "status": "completed", "plan": plan}`.
-    *   **Phase 2: Code Generation and Refinement Loop**
+        *   Calls `pre_planner_json_enforced.pre_planning_workflow` to analyze the request with enforced JSON output.
+        *   Validates output with Static Plan Checker
+        *   Saves a checkpoint of the pre-planning data.
+        *   Checks if task is complex and requires explicit user confirmation.
+        *   If complex, presents warning to user with options to proceed, modify, or cancel.
+    *   **Feature Group Processing**
+        *   Updates progress: `{"phase": "feature_group_processing", "status": "started"}`.
+        *   Calls `feature_group_processor.process_pre_planning_output(pre_plan_data, request_text)`.
+        *   For each feature group:
+            *   Generates architecture review, implementation plan, and tests.
+            *   Creates a consolidated plan combining all three components.
+            *   Performs semantic validation for logical coherence.
+            *   Presents consolidated plan to user for review.
+            *   User chooses to accept, modify, or reject the plan.
+            *   If modified, performs comprehensive re-validation.
+            *   Saves plan file with unique ID for reference.
+    *   **Code Generation and Refinement Loop**
         *   Multiple attempts may be made (configured via `max_attempts`, default 3).
         *   For each attempt:
             *   Updates progress: `{"phase": "generation", "status": "started", "attempt": attempt}`.
@@ -330,11 +351,12 @@ This document outlines common user scenarios and provides step-by-step walkthrou
             *   Runs validation via `_run_validation_phase()` which includes linting, type checking, and running tests.
             *   If validation fails, collects error context and refines the plan for the next attempt.
             *   If validation passes, breaks the loop.
-    *   **Phase 3: Finalization**
+    *   **Finalization**
         *   If changes were successfully made and validated, calls `_finalize_task(changes)`.
         *   This may involve committing changes, pushing to a branch, and creating a pull request.
+        *   For database changes, includes schema metadata in PR descriptions.
 
-**Outcome:** The developer gets a complete end-to-end implementation of their requested feature or code change, including planning, code generation, testing, and optional Git operations. The process involves automatic validation and multiple refinement attempts if needed.
+**Outcome:** The developer gets a complete end-to-end implementation of their requested feature or code change, with interactive review of consolidated plans (implementation, architecture, tests) before code generation. The process involves automatic validation and multiple refinement attempts if needed, ensuring high-quality code that meets requirements.
 
 ---
 
@@ -400,313 +422,30 @@ This document outlines common user scenarios and provides step-by-step walkthrou
 **Walkthrough:**
 
 1. **Trigger:**
-    * On CLI startup, or when initializing the `Coordinator`, Agent-S3 checks for an existing `development_status.json` file.
-2. **Backend Action (`agent_s3/coordinator.py`):**
-    * The `_check_for_interrupted_tasks` method reads the last entry in `development_status.json`.
-    * If the last status is not `completed` and the phase is not `initialization`, it prints a message about the interrupted task, including the phase, timestamp, and original request.
-    * The user is prompted: "Do you want to attempt resuming this task? (yes/no):"
-    * If the user answers `yes`, a message is printed: "Resumption logic needs further implementation. Please re-enter the request manually if needed." (Full auto-resume is not yet implemented.)
-    * If the user answers `no`, the process continues as normal.
-
-**Outcome:** Agent-S3 detects incomplete tasks and prompts the user to resume or ignore them. Full auto-resume is not yet implemented, but the user is made aware of the previous state and can re-enter the request if desired.
-
----
-
-## Story 8: File Reference and Tagging in Prompts
-
-**Goal:** Quickly view file contents or add tags to the scratchpad using special prompt syntax.
-
-**Persona:** A developer who wants to inspect a file or organize notes/todos during a session.
-
-**Walkthrough:**
-
-1. **File Reference:**
-    * The user enters a prompt starting with `@filename` (e.g., `@README.md`).
-    * The CLI (`agent_s3/cli.py`) detects the `@` prefix in `process_change_request`.
-    * If the file exists, its contents are printed to the terminal, surrounded by separators.
-    * If the file does not exist, an error message is shown.
-2. **Tagging:**
-    * The user includes a `#tag` in their prompt (e.g., `Add login #auth`).
-    * The tag is added to the scratchpad or used for organization (implementation may be minimal or for future use).
-
-**Outcome:** Users can quickly view file contents or add tags to their session context using simple prompt syntax.
-
----
-
-## Story 9: Workspace and Module Scaffolding Tracking
-
-**Goal:** Track the creation of new modules or workspace initialization for audit and progress purposes.
-
-**Persona:** A developer or team lead who wants to monitor project scaffolding and module creation.
-
-**Walkthrough:**
-
-1. **Module Tracking:**
-    * When a new module is scaffolded (e.g., via a CLI command or internal workflow), the CLI (`agent_s3/cli.py`) calls `track_module_scaffold(module_name)`.
-    * This function appends an entry to `development_status.json` with the module name and status `created`.
-2. **Workspace Initialization:**
-    * During `/init`, workspace setup steps and status are logged in `development_status.json`.
-
-**Outcome:** The `development_status.json` file provides a record of module creation and workspace setup events for auditing and resumption.
-
----
-
-## Story 10: System Design Conversation
-
-**Goal:** Engage in a conversation with Agent-S3 to design a software system and generate a structured design document.
-
-**Persona:** A software architect or developer planning a new system or feature.
-
-**Walkthrough:**
-
-1. **Start Design Process:**
-   * **CLI:** Run `python -m agent_s3.cli /design "Design a scalable e-commerce platform with microservices architecture"`
-   * **Chat UI:** Type `/design Create a real-time analytics dashboard` and send.
-
-2. **Backend CLI Action (`agent_s3/cli.py`):**
-   * `main` parses arguments and identifies the command starting with `/design`.
-   * It extracts the design objective text following the command.
-   * `process_command` initializes the `Coordinator`.
-   * It calls `coordinator.execute_design(design_objective)`.
-
-3. **Coordinator Action (`agent_s3/coordinator.py` - `execute_design` method):**
-   * Logs the start of the design process.
-   * Updates progress: `{"phase": "design", "status": "started"}`.
-   * Initializes the `DesignManager` (`agent_s3/design_manager.py`).
-   * Calls `design_manager.start_design_conversation(design_objective)`.
-
-4. **Design Manager Action (`agent_s3/design_manager.py` - Initial Conversation):**
-   * Creates the conversation history array with system prompt (focusing on high-level architecture, component design, and best practices).
-   * Adds the user's design objective as the first user message.
-   * Calls the LLM via `RouterAgent` with role "designer" to get an initial response.
-   * Displays the response to the user via the terminal.
-   * The response typically analyzes the design objective, enhances it with industry best practices, and asks clarification questions for ambiguous or missing details.
-
-5. **Iterative Conversation:**
-   * The Coordinator enters a conversation loop, prompting the user for input after each LLM response.
-   * Each user input is processed via `design_manager.continue_conversation(user_message)`, which:
-     * Adds the user message to the conversation history.
-     * Updates the context based on conversation state (tracking clarifications vs. feature definition).
-     * Calls the LLM for the next response.
-     * Checks if the design process is complete based on heuristics like feature listing patterns, user confirmations, or explicit completion requests ("/finalize-design").
-   * The conversation typically progresses through distinct phases:
-     * **Clarification Phase:** LLM asks questions about requirements, constraints, scale, etc.
-     * **Feature Definition Phase:** LLM starts decomposing the system into distinct, single-concern features.
-     * **Refinement Phase:** Features are discussed, improved, and detailed.
-     * **Completion Phase:** LLM suggests completion or user explicitly requests finalization.
-
-6. **Design Finalization:**
-   * When `design_manager.detect_design_completion()` returns `True`, the Coordinator exits the conversation loop.
-   * It calls `design_manager.write_design_to_file()` which:
-     * Extracts structured feature information from the conversation using another LLM call or pattern matching.
-     * Formats the design content with clear section headers, feature names, descriptions, and components.
-     * Writes this content to `design.txt` at the root of the workspace using `FileTool`.
-   * Updates progress: `{"phase": "design", "status": "completed"}`.
-   * Notifies the user that the design has been finalized and stored in `design.txt`.
-
-**Outcome:** The user collaboratively develops a system design through a guided conversation with the AI. The conversation naturally progresses from clarification to feature decomposition. Once complete, a structured design document is generated containing the distinct, single-concern features that can be implemented iteratively. This design serves as a foundation for subsequent implementation tasks, either manually or with further Agent-S3 assistance.
-
----
-
-## Story 11: Advanced LLM Response Caching and Performance Optimization
-
-**Goal:** Understand how Agent-S3 caches LLM responses and optimizes performance with vLLM KV cache reuse.
-
-**Persona:** A developer or system maintainer interested in understanding the caching mechanisms for performance tuning or debugging cache-related behaviors.
-
-**Walkthrough:**
-
-1.  **Dual-Caching Architecture Overview:**
-    *   Agent-S3 implements a two-tier caching approach to optimize LLM calls:
-        *   **Semantic Cache:** Full prompt-response pairs are cached based on semantic similarity.
-        *   **vLLM KV Cache:** GPU/TPU attention key-value tensor caches for prompt prefixes are stored to accelerate inference.
- 
-2.  **Cache Initialization (`agent_s3/cache/setup_cache.py`):**
-    *   During startup, Agent-S3 initializes the semantic cache (`gptcache`) with configuration from environment variables.
-    *   It configures the key-value store (`kv_store`) for tensor persistence.
-    *   Cache directories are created under `.cache/semantic_cache/` if they don't exist.
-
-3.  **LLM Response Lookup Flow (`agent_s3/cache/helpers.py` - `read_cache` method):**
-    *   When code requests an LLM response, it first calls `read_cache(prompt, llm)`.
-    *   The function first attempts a semantic cache lookup using `cache.get(prompt)`.
-    *   On semantic hit, it returns the cached full response immediately.
-    *   On semantic miss, it calculates a `prefix_hash` of the prompt text.
-    *   It then checks if this hash exists in the `kv_store`.
-    *   If the prefix exists, it attaches the corresponding KV tensor to the LLM model via `llm.attach_kv()`.
-    *   It returns `None` to signal that the LLM must still be called, but with the KV prefix already attached.
-    *   If neither cache hit succeeds, it returns `None` with no attached KV tensor.
-
-4.  **LLM Response Storage Flow (`agent_s3/cache/helpers.py` - `write_cache` method):**
-    *   After calling the LLM, the system calls `write_cache(prompt, answer, kv_tensor)`.
-    *   It calculates a prefix hash from the prompt text.
-    *   It creates metadata including the hash, tensor size, timestamp, and hit counter.
-    *   It stores the prompt-answer pair in the semantic cache via `cache.set()` along with the metadata.
-    *   It stores the KV tensor in the KV store using the prefix hash as the key.
-    *   This ensures both the semantic result and the KV tensor are preserved for future reuse.
-
-5.  **Under the Hood:**
-    *   **GDSF Eviction (`agent_s3/cache/gdsf.py`):** Implements Greedy Dual Size Frequency algorithm for cache eviction, considering both size and access frequency.
-    *   **Prefix Hashing (`agent_s3/cache/prefix.py`):** Generates stable, collision-resistant hashes of prompt prefixes for tensor lookup.
-    *   **KV Store Management (`agent_s3/cache/kv_store.py`):** Provides a dictionary-like interface for storing and retrieving large tensor objects.
-
-6.  **Benefits:**
-    *   **Reduced API Costs:** Complete semantic hits eliminate redundant API calls.
-    *   **Lower Latency:** Even partial matches (KV tensor reuse) reduce compute needs and response times.
-    *   **Improved Throughput:** Fewer tokens need processing when KV cache is reused.
-    *   **Tracking:**
-        *   Cache statistics track hits, misses, and semantic hits.
-        *   Tensor size tracking helps analyze memory usage patterns.
-
-**Outcome:** By combining semantic caching with vLLM KV cache reuse, Agent-S3 optimizes both cost and performance of LLM interactions. Full prompt-response pairs are reused when available, and even unique prompts benefit from partial computation reuse through KV tensor prefix attachment.
-
----
-
-## Story 12: Generating Default Personas File
-
-**Goal:** Create a `personas.md` file with default persona definitions.
-
-**Persona:** A developer setting up Agent-S3 for the first time and needing persona templates.
-
-**Walkthrough:**
-1. **Trigger Command:**
-   * CLI: `python -m agent_s3.cli /personas`
-   * Chat UI: Type `/personas` and send
-2. CLI: `process_command` detects `/personas` and calls `coordinator.execute_personas_command()`
-3. Coordinator: `execute_personas_command()` generates default content via `_get_default_personas()` and uses `FileTool.write_file` to create `personas.md`
-4. Logs success in scratchpad and prints: "Created personas.md successfully."
-
----
-
-## Story 13: Generating Default Copilot Instructions File
-
-**Goal:** Create a `.github/copilot-instructions.md` file with default coding guidelines.
-
-**Persona:** A developer initializing the workspace and needing default coding guidelines.
-
-**Walkthrough:**
-1. **Trigger Command:**
-   * CLI: `python -m agent_s3.cli /guidelines`
-   * Chat UI: Type `/guidelines` and send
-2. CLI: `process_command` detects `/guidelines` and calls `coordinator.execute_guidelines_command()`
-3. Coordinator: `execute_guidelines_command()` retrieves default via `_get_default_guidelines()` and writes `.github/copilot-instructions.md` with `FileTool.write_file`
-4. Logs and prints: "Created copilot-instructions.md successfully."
-
----
-
-## Story 14: Resuming a Task via `/continue` Command
-
-**Goal:** Resume the most recent interrupted task without restarting the workflow.
-
-**Persona:** A developer who previously aborted or lost connection during a request.
-
-**Walkthrough:**
-1. **Trigger Command:**
-   * CLI: `python -m agent_s3.cli /continue`
-   * Chat UI: Type `/continue` and send
-2. CLI: `process_command` detects `/continue` and calls `coordinator._handle_generic_continue("")`
-3. Coordinator: identifies latest task via `TaskStateManager.get_active_tasks()`, prompts "Detected interrupted task at phase X. Resume?" and on approval loads snapshot and calls `_resume_task(state)`
-4. Workflow skips completed phases and continues from the saved sub-state (e.g., code execution or PR creation)
-
----
-
-## Story 15: Using the Comprehensive Test Framework
-
-**Goal:** Generate code with comprehensive test coverage that includes all required test types.
-
-**Persona:** A developer who needs to implement a feature with high test quality and coverage.
-
-**Walkthrough:**
-
-1. **Trigger Command:**
-   * CLI: `python -m agent_s3.cli "Implement a user authentication feature with JWT"`
-   * VS Code: Make a change request for implementing a feature
-
-2. **Pre-Planning Phase (`agent_s3/pre_planning.py`):**
-   * The `PrePlanningManager` decomposes the feature request into distinct, single-concern features through `decompose_feature(request_text)`
-   * It analyzes potential impacted files with `collect_impacted_files(request_text)`
-   * It identifies test requirements with `identify_test_requirements(request_text, impacted_files)`
-   * Test requirements track which files need unit, integration, approval, and property-based tests
-
-3. **Planning Phase with Enhanced Testing (`agent_s3/planner.py`):**
-   * The `Planner` creates an enhanced prompt with explicit test requirements using `_create_enhanced_prompt()`
-   * The prompt enforces all four test types: unit, integration, approval, and property-based tests
-   * The generated plan must include test specifications for every implementation file
-
-4. **Test Planning Review (`agent_s3/coordinator.py`):**
-   * Upon plan creation, the `Coordinator` extracts implementation files with `_extract_implementation_files_from_plan(plan)`
-   * It uses `TestPlanner.plan_tests(request_text, implementation_files)` to generate detailed test specifications
-   * The test specifications are presented to the user during plan approval
-
-5. **Code Generation with Test Validation (`agent_s3/code_generator.py`):**
-   * The `CodeGenerator` creates a prompt with TDD-inspired instructions that prioritize test creation
-   * Generated code is analyzed by `TestCritic.analyze_generated_code(generated_code)`
-   * If tests are missing required types, the code is automatically regenerated (recursive retry)
-   * The user is notified about any test coverage issues during generation
-
-6. **Execution and Test Validation (`agent_s3/coordinator.py`):**
-   * During the execution phase, the `Coordinator` runs tests via `run_tests()`
-   * The `_run_validation_phase()` uses `TestCritic` to check that all required test types are present
-   * If test types are missing, validation fails and prompts regeneration
-   * Test results and coverage are displayed to the user
-
-7. **Framework-Agnostic Testing (`agent_s3/tools/test_frameworks.py`):**
-   * `TestFrameworks` detects available test frameworks in the project
-   * It provides templates for all four test types across different languages
-   * Framework-specific test generation allows compatibility with pytest, unittest, jest, etc.
-   * Dependency checking ensures all required test libraries are installed
-
-**Outcome:** The feature is implemented with comprehensive test coverage that includes all four required test types: unit, integration, approval, and property-based tests. The system enforces this test coverage throughout the planning, generation, and validation phases, ensuring no shortcuts are taken. The framework adapts to the project's existing test tools and patterns while maintaining consistent quality standards.
-
----
-
-## Story 16: Optimizing Context for Framework-Specific Tasks
-
-**Goal:** Optimize LLM context based on the specific framework being used in the project to improve code generation quality.
-
-**Persona:** A developer working on a project that uses a specific framework (e.g., Django, React, Flask) who wants Agent-S3 to leverage framework-specific knowledge.
-
-**Walkthrough:**
-
-1. **Framework Detection:**
-   * During workspace initialization or task processing, the `TechStackManager` detects the frameworks used in the project.
-   * `FrameworkAdapter.detect_confidence()` is called for registered adapters (React, Django, Flask, FastAPI, Express).
-   * Each adapter checks for framework-specific files and configuration patterns, calculating a confidence score.
-   * The adapter with the highest confidence above the threshold is selected.
-
-2. **Context Transformation:**
-   * When preparing context for an LLM call, the `MemoryManager` calls `transform_context()` on the selected adapter.
-   * For example, if Django is detected, the `DjangoAdapter` transforms the context:
-     * Extracts models, views, and URLs from code context
-     * Identifies Django-specific patterns (models.py, views.py, urls.py)
-     * Organizes context with Django's MVT architecture in mind
-     * Prioritizes relevant Django files in the token allocation
-
-3. **Token Budget Allocation:**
-   * The `TokenBudgetAnalyzer` adjusts the token allocation strategy based on the detected framework:
-     * Framework-specific files receive higher allocation priority
-     * Core framework concepts (e.g., components in React, models in Django) get larger token budgets
-     * The token allocation aims to optimize context within the LLM's token limits
-
-4. **Context Compression (When Needed):**
-   * If the context exceeds token limits, the `CompressionManager` selects an appropriate strategy:
-     * `SemanticSummarizer` preserves imports and class definitions while summarizing implementation details
-     * `KeyInfoExtractor` extracts framework-specific patterns like component definitions or route handlers
-     * `ReferenceCompressor` identifies repeated patterns common in framework boilerplate
-   * Each compression strategy maintains comprehensive metadata:
-     * Compression ratios, strategies used, and timestamps are tracked
-     * Decompression adds detailed metadata about the process
-     * Data lineage is maintained for debugging and tracing
-     * Error handling for cases where the original strategy is unavailable
-
-5. **Framework-Specific Output:**
-   * The LLM uses the optimized context to generate high-quality, framework-idiomatic code:
-     * Generated code follows framework conventions and patterns
-     * Framework-specific functions and imports are correctly used
-     * Code structure aligns with the framework's architecture
-
-6. **Checkpoint and Recovery:**
-   * The `CheckpointManager` creates checkpoints of the transformed context
-   * If an operation is interrupted, the context can be restored exactly as it was
-   * Checkpoints are compressed and versioned for efficiency
-
-**Outcome:** The code generated by Agent-S3 is highly tailored to the specific framework used in the project. By optimizing the context with framework-specific knowledge, the system produces more idiomatic, higher-quality code that follows framework conventions and best practices. Token usage is optimized to include the most relevant framework-specific information, and the ability to checkpoint and recover ensures that complex framework-specific context is never lost.
+   * On CLI startup, or when initializing the `Coordinator`, Agent-S3 checks for an existing `development_status.json` file.
+   * Alternatively, the user can manually list tasks via `/tasks` command or attempt to resume via `/continue` command.
+2. **Backend Action (`agent_s3/coordinator.py` and `agent_s3/task_resumer.py`):**
+   * The `check_for_interrupted_tasks` method in `TaskResumer` reads the last entry in `development_status.json`.
+   * If the last status is not `completed` and the phase is not `initialization`, it prints a message about the interrupted task, including the phase, timestamp, and original request.
+   * The user is prompted: "Do you want to attempt resuming this task? (yes/no):"
+   * If the user answers `yes`, the task state is loaded from the task snapshot directory:
+     * Task ID, description, phase, plan, and other context is restored
+     * For execution phase tasks, completed steps are tracked to avoid redoing work
+     * The system positions itself at the appropriate restart point
+3. **Resume Options:**
+   * **Pre-Planning Phase:** If interrupted during pre-planning, the system restarts with any saved pre-planning data, preserving complexity assessment.
+   * **Feature Group Processing Phase:** If interrupted during feature group processing, the system restores any already processed feature groups and continues with the next unprocessed group.
+   * **Code Generation Phase:** If interrupted during code generation, the system restores the validated plan and continues with code generation, potentially skipping to a specific attempt number.
+   * **Execution Phase:** If interrupted during execution, the system can resume after applying certain changes but before running tests, or after specific validation steps.
+   * **PR Creation Phase:** If interrupted before creating a PR, the system can resume by creating the PR with previously committed changes.
+4. **State Management (`agent_s3/task_state_manager.py`):**
+   * The `TaskStateManager` loads the appropriate task snapshot from disk
+   * Snapshots contain phase-specific data needed to resume each particular phase
+   * Snapshots include metadata such as timestamp, task ID, phase, and status
+   * For database operations, any schema changes made before interruption are preserved in the snapshots
+5. **Execution:**
+   * The task continues from the resumed state, with all context and progress preserved
+   * Any necessary re-validation is performed automatically to ensure consistency
+   * The system generates appropriate log entries to track the resumption
+
+**Outcome:** The developer successfully resumes an interrupted task without having to start over from the beginning. All context, progress, and state information is preserved, saving time and maintaining consistency across the workflow.

@@ -1,0 +1,29 @@
+"""
+Helpers for semantic cache read/write and vLLM KV reuse.
+"""
+import time
+import torch
+from gptcache import cache
+from .prefix import prefix_hash
+from .kv_store import kv_store
+
+def read_cache(prompt: str, llm):
+    res = cache.get(prompt)
+    if res:
+        return res  # semantic hit
+    pfx = prefix_hash(prompt)
+    if pfx in kv_store:
+        llm.attach_kv(kv_store[pfx])  # vLLM API for prefix reuse
+        return None  # must still call LLM
+    return None
+
+def write_cache(prompt: str, answer: str, kv_tensor: torch.Tensor):
+    meta = {
+        "prefix": prefix_hash(prompt),
+        "hits": 1,
+        "kv_size": kv_tensor.nbytes,
+        "is_leaf": True,
+        "last": time.time(),
+    }
+    cache.set(prompt, answer, meta=meta)
+    kv_store[meta["prefix"]] = kv_tensor

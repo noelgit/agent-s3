@@ -1,181 +1,242 @@
 [
   {
+    "model": "google/gemini-2.5-pro-preview-03-25",
+    "role": "pre_planner",
+    "context_window": 1048576,
+    "parameters": {
+      "temperature": 0.10,
+      "top_p": 0.70,
+      "top_k": 50,
+      "max_output_tokens": 4096,
+      "response_format": {"type": "json_object"}
+    },
+    "pricing_per_million": { "input": 1.25, "output": 10.00 },
+    "capabilities": ["task analysis", "feature decomposition", "complexity assessment", "risk assessment", "dependency mapping"],
+    "api": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
+    }
+  },
+
+  {
+    "model": "google/gemini-2.5-pro-preview-03-25",
+    "role": "analyzer",
+    "context_window": 1048576,
+    "parameters": {
+      "temperature": 0.15,
+      "top_p": 0.80,
+      "top_k": 64,
+      "max_output_tokens": 2560
+    },
+    "pricing_per_million": { "input": 1.25, "output": 10.00 },
+    "capabilities": ["code structure analysis", "dependency analysis", "quality assessment", "security evaluation", "performance profiling"],
+    "api": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
+    }
+  },
+
+  {
+    "model": "google/gemma-3-4b-it",
+    "role": "test_critic",
+    "context_window": 131072,
+    "parameters": { "temperature": 0.00, "top_p": 0.80, "max_output_tokens": 1024 },
+    "pricing_per_million": { "input": 0.02, "output": 0.04 },
+    "api": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
+    }
+  },
+
+  {
     "model": "openai/gpt-4.1-nano",
     "role": "initializer",
     "context_window": 1047576,
-    "parameters": {
-      "temperature": 0.20,
-      "top_p": 0.80,
-      "max_output_tokens": 1024
-    },
-    "pricing_per_million": {
-      "input": 0.10,
-      "output": 0.40
-    },
+    "parameters": { "temperature": 0.00, "top_p": 0.80, "max_output_tokens": 1024 },
+    "pricing_per_million": { "input": 0.10, "output": 0.40 },
     "api": {
       "endpoint": "https://openrouter.ai/api/v1/chat/completions",
       "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
     }
   },
-  {
-    "model": "meta-llama/llama-4-scout",
-    "role": "planner",
-    "context_window": 327680,
-    "parameters": {
-      "temperature": 0.70,
-      "top_p": 0.90,
-      "max_output_tokens": 4096
-    },
-    "pricing_per_million": {
-      "input": 0.08,
-      "output": 0.30
-    },
-    "api": {
-      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
-      "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
-    }
-  },
+
   {
     "model": "google/gemini-2.5-flash-preview:thinking",
+    "role": "planner",
+    "context_window": 1048576,
+    "parameters": {
+      "temperature": 0.15,
+      "top_p": 0.90,
+      "top_k": 64,
+      "max_output_tokens": 4096,
+      "thinking_budget": "auto"
+    },
+    "pricing_per_million": { "input": 0.15, "output": 0.60 },
+    "api": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
+    }
+  },
+
+  {
+    "model": "google/gemini-2.5-flash-preview",
     "role": "generator",
     "context_window": 1048576,
     "parameters": {
-      "temperature": 0.20,
-      "top_p": 0.95,
+      "temperature": 0.10,
+      "top_p": 0.90,
       "top_k": 64,
       "max_output_tokens": 4096
     },
-    "pricing_per_million": {
-      "input": 0.15,
-      "output": 3.50
-    },
+    "pricing_per_million": { "input": 0.15, "output": 0.60 },
     "api": {
       "endpoint": "https://openrouter.ai/api/v1/chat/completions",
       "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
     }
   },
+
   {
     "model": "google/gemini-2.5-pro-preview-03-25",
     "role": "debugger",
     "context_window": 1048576,
     "parameters": {
-      "temperature": 0.20,
-      "top_p": 0.80,
+      "temperature": 0.10,
+      "top_p": 0.75,
       "top_k": 64,
       "max_output_tokens": 2048
     },
-    "pricing_per_million": {
-      "input": 1.25,
-      "output": 10.00
-    },
+    "pricing_per_million": { "input": 1.25, "output": 10.00 },
     "api": {
       "endpoint": "https://openrouter.ai/api/v1/chat/completions",
       "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
     }
   },
+
+  {
+    "model": "google/gemini-2.5-pro-preview-03-25",
+    "role": "designer",
+    "context_window": 1048576,
+    "parameters": {
+      "temperature": 0.25,
+      "top_p": 0.80,
+      "top_k": 64,
+      "max_output_tokens": 3072
+    },
+    "pricing_per_million": { "input": 1.25, "output": 10.00 },
+    "api": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
+    }
+  },
+
   {
     "model": "google/gemma-3-12b-it",
     "role": "orchestrator",
     "context_window": 131072,
-    "parameters": {
-      "temperature": 0.00,
-      "top_p": 1.00,
-      "max_output_tokens": 256
-    },
-    "pricing_per_million": {
-      "input": 0.05,
-      "output": 0.10
-    },
+    "parameters": { "temperature": 0.00, "top_p": 1.00, "max_output_tokens": 256 },
+    "pricing_per_million": { "input": 0.05, "output": 0.10 },
     "api": {
       "endpoint": "https://openrouter.ai/api/v1/chat/completions",
       "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
     }
   },
+
   {
-    "model": "openai/gpt-4.1-nano",
+    "model": "google/gemma-3-4b-it",
     "role": "tool_user",
-    "context_window": 1047576,
-    "parameters": {
-      "temperature": 0.20,
-      "top_p": 0.80,
-      "max_output_tokens": 1024
-    },
-    "pricing_per_million": {
-      "input": 0.10,
-      "output": 0.40
-    },
+    "context_window": 131072,
+    "parameters": { "temperature": 0.00, "top_p": 0.80, "max_output_tokens": 1024 },
+    "pricing_per_million": { "input": 0.02, "output": 0.04 },
     "api": {
       "endpoint": "https://openrouter.ai/api/v1/chat/completions",
       "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
     }
   },
+
   {
-    "model": "openai/gpt-4.1-nano",
+    "model": "google/gemma-3-4b-it",
     "role": "explainer",
-    "context_window": 1047576,
-    "parameters": {
-      "temperature": 0.20,
-      "top_p": 0.80,
-      "max_output_tokens": 1024
-    },
-    "pricing_per_million": {
-      "input": 0.10,
-      "output": 0.40
-    },
+    "context_window": 131072,
+    "parameters": { "temperature": 0.20, "top_p": 0.80, "max_output_tokens": 1024 },
+    "pricing_per_million": { "input": 0.02, "output": 0.04 },
     "api": {
       "endpoint": "https://openrouter.ai/api/v1/chat/completions",
       "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
     }
   },
+
   {
-    "model": "openai/gpt-4.1-nano",
+    "model": "google/gemma-3-4b-it",
     "role": "file_finder",
-    "context_window": 1047576,
-    "parameters": {
-      "temperature": 0.20,
-      "top_p": 0.80,
-      "max_output_tokens": 1024
-    },
-    "pricing_per_million": {
-      "input": 0.10,
-      "output": 0.40
-    },
+    "context_window": 131072,
+    "parameters": { "temperature": 0.00, "top_p": 0.80, "max_output_tokens": 1024 },
+    "pricing_per_million": { "input": 0.02, "output": 0.04 },
     "api": {
       "endpoint": "https://openrouter.ai/api/v1/chat/completions",
       "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
     }
   },
+
   {
     "model": "openai/gpt-4.1-nano",
     "role": "guideline_expert",
     "context_window": 1047576,
-    "parameters": {
-      "temperature": 0.20,
-      "top_p": 0.80,
-      "max_output_tokens": 1024
-    },
-    "pricing_per_million": {
-      "input": 0.10,
-      "output": 0.40
-    },
+    "parameters": { "temperature": 0.00, "top_p": 0.80, "max_output_tokens": 1024 },
+    "pricing_per_million": { "input": 0.10, "output": 0.40 },
     "api": {
       "endpoint": "https://openrouter.ai/api/v1/chat/completions",
       "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
     }
   },
+
   {
     "model": "openai/gpt-4.1-nano",
     "role": "general_qa",
     "context_window": 1047576,
+    "parameters": { "temperature": 0.20, "top_p": 0.80, "max_output_tokens": 1024 },
+    "pricing_per_million": { "input": 0.10, "output": 0.40 },
+    "api": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
+    }
+  },
+
+  {
+    "model": "openai/text-embedding-3-small",
+    "role": "embedder",
+    "context_window": 8191,
+    "parameters": {},
+    "pricing_per_million": { "input": 0.02, "output": 0.00 },
+    "api": {
+      "endpoint": "https://api.openai.com/v1/embeddings",
+      "auth_header": "Authorization: Bearer $OPENAI_API_KEY"
+    }
+  },
+
+  {
+    "model": "google/gemma-3-4b-it",
+    "role": "summarizer",
+    "context_window": 131072,
+    "parameters": { "temperature": 0.00, "top_p": 0.80, "max_output_tokens": 2048 },
+    "pricing_per_million": { "input": 0.02, "output": 0.04 },
+    "api": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
+    }
+  },
+
+  {
+    "model": "google/gemini-2.5-flash-preview",
+    "role": "context_distiller",
+    "context_window": 1048576,
     "parameters": {
-      "temperature": 0.20,
-      "top_p": 0.80,
+      "temperature": 0.05,
+      "top_p": 0.70,
+      "top_k": 40,
       "max_output_tokens": 1024
     },
-    "pricing_per_million": {
-      "input": 0.10,
-      "output": 0.40
-    },
+    "pricing_per_million": { "input": 0.15, "output": 0.60 },
+    "capabilities": ["task-specific context extraction", "relevance filtering", "snippet generation"],
     "api": {
       "endpoint": "https://openrouter.ai/api/v1/chat/completions",
       "auth_header": "Authorization: Bearer $OPENROUTER_KEY"

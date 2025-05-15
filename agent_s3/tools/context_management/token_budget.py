@@ -209,9 +209,28 @@ class TokenEstimator:
             framework_tokens = self.estimate_tokens_for_text(framework_str)
             estimates["framework_structures"] = framework_tokens
         
+        # Estimate historical context tokens
+        if "historical_context" in context:
+            historical_str = str(context["historical_context"])
+            historical_tokens = self.estimate_tokens_for_text(historical_str)
+            estimates["historical_context"] = historical_tokens
+        
+        # Estimate file metadata tokens
+        if "file_metadata" in context:
+            file_metadata_str = str(context["file_metadata"])
+            file_metadata_tokens = self.estimate_tokens_for_text(file_metadata_str)
+            estimates["file_metadata"] = file_metadata_tokens
+        
+        # Estimate related features tokens
+        if "related_features" in context:
+            related_features_str = str(context["related_features"])
+            related_features_tokens = self.estimate_tokens_for_text(related_features_str)
+            estimates["related_features"] = related_features_tokens
+        
         # Handle any other context sections
         for section, content in context.items():
-            if section not in ["code_context", "metadata", "framework_structures"]:
+            if section not in ["code_context", "metadata", "framework_structures", 
+                              "historical_context", "file_metadata", "related_features"]:
                 section_str = str(content)
                 section_tokens = self.estimate_tokens_for_text(section_str)
                 estimates[section] = section_tokens
@@ -343,11 +362,11 @@ class TokenBudgetAnalyzer:
                             "bases": len(node.bases),
                             "methods": sum(1 for child in node.body if isinstance(child, ast.FunctionDef))
                         })
-                    elif isinstance(node, ast.Import):
-                        for name in node.names:
-                            analysis["imports"].append(name.name)
                     elif isinstance(node, ast.ImportFrom):
-                        analysis["imports"].append(f"{node.module} ({', '.join(n.name for n in node.names)})")
+                        if node.module:
+                            analysis["imports"].append(f"{node.module} ({', '.join(n.name for n in node.names)})")
+                    elif isinstance(node, ast.Import):
+                        analysis["imports"].extend(n.name for n in node.names)
                 
                 # Calculate complexity metrics
                 analysis["complexity_metrics"] = {
@@ -462,31 +481,33 @@ class TokenBudgetAnalyzer:
     def calculate_importance_scores(
         self, 
         context: Dict[str, Any], 
-        task_type: Optional[str] = None
+        task_type: Optional[str] = None,
+        task_keywords: Optional[List[str]] = None  # New parameter
     ) -> Dict[str, float]:
         """
         Calculate importance scores for different parts of the context.
-        
+
         Args:
             context: The context dictionary
             task_type: Optional task type to influence scoring
-            
+            task_keywords: Optional list of keywords from the task description
+                           to boost relevance.
+
         Returns:
             Dictionary mapping context items to importance scores
         """
         importance_scores = {}
-        
+
         # Process code_context
         if "code_context" in context:
             file_scores = {}
-            
+
             # Get complexity scores
             complexity_scores = self.analyze_content_complexity(context["code_context"])
-            
-            # Apply task-specific scoring
+
             for file_path, complexity in complexity_scores.items():
                 score = complexity  # Base score is the complexity
-                
+
                 # Apply custom scorers if available
                 for scorer_name, scorer_fn in self.importance_scorers.items():
                     try:
@@ -495,32 +516,43 @@ class TokenBudgetAnalyzer:
                         score *= custom_score
                     except Exception as e:
                         logger.warning(f"Error in custom scorer {scorer_name}: {e}")
-                
+
                 # Task-specific scoring
                 if task_type:
                     task_type = task_type.lower()
-                    
+
                     # For debugging tasks, prioritize test files and error handling
                     if task_type == "debugging":
                         if "test" in file_path or "spec" in file_path:
                             score *= 1.3
                         if "error" in file_path or "exception" in file_path:
                             score *= 1.4
-                    
+
                     # For feature implementation tasks, prioritize related components
                     elif task_type == "implementation":
                         if "component" in file_path or "model" in file_path:
                             score *= 1.3
-                    
+
                     # For refactoring tasks, prioritize code quality files
                     elif task_type == "refactoring":
                         if "util" in file_path or "helper" in file_path:
                             score *= 1.2
                 
+                # Boost score if task_keywords are present in the file content
+                if task_keywords and file_path in context.get("code_context", {}):
+                    content = context["code_context"][file_path].lower()
+                    keyword_bonus = 0.0
+                    for keyword in task_keywords:
+                        if keyword.lower() in content:
+                            keyword_bonus += 0.2 # Add a bonus for each keyword found
+                    
+                    if keyword_bonus > 0:
+                        score *= (1 + min(keyword_bonus, 1.0)) # Cap bonus at doubling the score
+
                 file_scores[file_path] = score
-            
+
             importance_scores["code_context"] = file_scores
-        
+
         # Process other context sections
         for section in context:
             if section != "code_context" and section not in importance_scores:
@@ -547,25 +579,29 @@ class TokenBudgetAnalyzer:
         self, 
         context: Dict[str, Any], 
         task_type: Optional[str] = None,
+        task_keywords: Optional[List[str]] = None,  # New parameter
         force_optimization: bool = False
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Allocate tokens to different parts of the context based on importance.
-        
+
         Args:
             context: The context dictionary
             task_type: Optional task type to influence allocation
+            task_keywords: Optional list of keywords from the task description.
             force_optimization: Force optimization even if token count is low (for testing)
-            
+
         Returns:
-            Dictionary with token allocation information and optimized context
+            Tuple: (Dictionary with token allocation information and optimized context, importance_scores)
+                - The first element is a dictionary with keys 'optimized_context' and 'allocation_report'.
+                - The second element is the full importance_scores map (including task-keyword-boosted scores).
         """
         # Estimate token usage
         token_estimates = self.estimator.estimate_tokens_for_context(context)
-        
+
         # Calculate importance scores
-        importance_scores = self.calculate_importance_scores(context, task_type)
-        
+        importance_scores = self.calculate_importance_scores(context, task_type, task_keywords)  # Pass keywords
+
         # Calculate available tokens
         total_estimated_tokens = token_estimates.get("total", 0)
         
@@ -705,7 +741,7 @@ class TokenBudgetAnalyzer:
                 return {
                     "optimized_context": optimized_context,
                     "allocation_report": allocation_report
-                }
+                }, importance_scores
             
         # If no optimization needed, return original context
         return {
@@ -716,7 +752,20 @@ class TokenBudgetAnalyzer:
                 "allocated_tokens": total_estimated_tokens,
                 "optimization_applied": False
             }
-        }
+        }, importance_scores
+    
+    def get_total_token_count(self, context: Dict[str, Any]) -> int:
+        """
+        Returns the total estimated token count for the given context.
+        """
+        token_estimates = self.estimator.estimate_tokens_for_context(context)
+        return token_estimates.get("total", 0)
+    
+    def get_token_count(self, text: str, language: Optional[str] = None) -> int:
+        """
+        Returns the estimated token count for a given text and optional language.
+        """
+        return self.estimator.estimate_tokens_for_text(text, language=language)
 
 
 class DynamicAllocationStrategy(ABC):
@@ -877,38 +926,50 @@ class TaskAdaptiveAllocation(DynamicAllocationStrategy):
     def allocate(
         self, 
         context: Dict[str, Any], 
-        task_type: Optional[str] = None
+        task_type: Optional[str] = None,
+        task_keywords: Optional[List[str]] = None  # New parameter
     ) -> Dict[str, Any]:
         """
         Allocate tokens adaptively based on task type.
-        
+
         Args:
             context: The context dictionary
             task_type: Optional task type to influence allocation
-            
+            task_keywords: Optional list of keywords from the task description.
+
         Returns:
             Dictionary with token allocation information and optimized context
         """
         # Default to implementation if no task type is provided
         task_type = task_type or "implementation"
         task_type = task_type.lower()
-        
+
         # Get priorities for this task type, or use default
         priorities = self.task_priorities.get(task_type, self.task_priorities["implementation"])
-        
+
         # Get scorers for this task type
         scorers = self.task_scorers.get(task_type, {})
-        
+
         # Create a priority scorer
-        def priority_scorer(file_path, content, task_type, priorities=priorities):
+        def priority_scorer(file_path, content, task_type, priorities=priorities, task_keywords=task_keywords):  # Pass keywords
             score = priorities.get("code_context", 1.0)
             # Apply any task-specific scorers
             for scorer_name, scorer_fn in scorers.items():
                 score *= scorer_fn(file_path, content, task_type)
+            
+            # Apply keyword bonus if keywords are provided
+            if task_keywords and file_path in context.get("code_context", {}):  # Check if file_path is in code_context
+                file_content_lower = content.lower()  # content is already available
+                keyword_bonus = 0.0
+                for keyword in task_keywords:
+                    if keyword.lower() in file_content_lower:
+                        keyword_bonus += 0.2 
+                if keyword_bonus > 0:
+                    score *= (1 + min(keyword_bonus, 1.0))
             return score
-        
+
         # Set the analyzer's scorers
         self.analyzer.importance_scorers = {"task_scorer": priority_scorer}
-        
-        # Run the allocation
-        return self.analyzer.allocate_tokens(context, task_type)
+
+        # Run the allocation, passing task_keywords
+        return self.analyzer.allocate_tokens(context, task_type, task_keywords)

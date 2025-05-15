@@ -1,30 +1,27 @@
-"""Manages logging of detailed internal chain-of-thought to scratchpad.txt."""
+"""
+This module has been deprecated. The ScratchpadManager class has been replaced by
+EnhancedScratchpadManager from agent_s3.enhanced_scratchpad_manager module.
 
-import os
-from datetime import datetime
-from typing import Optional
+Please update imports to use EnhancedScratchpadManager directly:
+from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager, LogLevel, Section
 
-from agent_s3.config import Config
+This file exists as a compatibility shim for older code that may still depend on it.
+"""
 
+import sys
 
-class ScratchpadManager:
-    """Manages the scratchpad log file for Agent-S3."""
-
-    def __init__(self, config: Config):
-        """Initialize the scratchpad manager.
+def __getattr__(name):
+    if name == "ScratchpadManager":
+        import warnings
+        from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager
         
-        Args:
-            config: The loaded configuration
-        """
-        self.config = config
-        self.log_file = os.path.join(os.getcwd(), config.config['log_files']['scratchpad'])
-
-    def log(self, role: str, message: str) -> None:
-        """Append a log entry to scratchpad.txt."""
-        ts = datetime.utcnow().isoformat() + "Z"
-        entry = f"[{role} • {ts}] {message}\n"
-        # Rotate if log file exceeds 1MB
-        if os.path.exists(self.log_file) and os.path.getsize(self.log_file) > 1_000_000:
-            os.rename(self.log_file, self.log_file + ".1")
-        with open(self.log_file, 'a', encoding='utf-8') as f:
-            f.write(entry)
+        warnings.warn(
+            "ScratchpadManager has been replaced by EnhancedScratchpadManager. "
+            "Please update your imports to use EnhancedScratchpadManager directly.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
+        return EnhancedScratchpadManager
+    
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

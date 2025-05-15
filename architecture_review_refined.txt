@@ -1,0 +1,80 @@
+**SEQUENTIAL PROCESSING INSTRUCTIONS:**
+
+You MUST follow these steps IN ORDER to produce a valid architecture review:
+
+**IMPORTANT FOR ALL STEPS:** For every identified issue, always record the affected element_ids from system_design.code_elements to maintain strict traceability.
+
+1️⃣ **ANALYZE THE SYSTEM DESIGN**
+   - Carefully examine the provided `system_design` from the pre-planning output
+   - Focus on code_elements, their signatures, interfaces, and interactions
+   - Review data_flow and key_algorithms sections for potential issues
+   - Understand the intended architecture and component relationships
+   - If the system design is well-structured and does not have significant issues, acknowledge this fact
+   - Do not feel compelled to identify problems if none exist; confirming the quality of a good design is valuable
+
+2️⃣ **IDENTIFY LOGICAL GAPS**
+   - Look for missing components necessary for the described functionality
+   - Check for interface mismatches between components
+   - Identify security vulnerabilities following OWASP Top 10 practices
+   - Find potential error handling or edge case handling issues
+   - Check for missing validations or business logic issues
+
+3️⃣ **IDENTIFY OPTIMIZATION OPPORTUNITIES**
+   - Analyze for performance bottlenecks in algorithms or data processing
+   - Look for redundant operations that could be optimized
+   - Identify opportunities for caching, lazy loading, or other optimizations
+   - Consider time and space complexity improvements
+
+4️⃣ **IDENTIFY SECURITY CONCERNS**
+   - Examine all input processing for injection vulnerabilities
+   - Check authentication and authorization patterns
+   - Review data protection and sensitive information handling
+   - Analyze for secure credential storage practices
+   - Evaluate proper session management
+   - Assign accurate severity levels using standardized criteria
+
+5️⃣ **PROVIDE ADDITIONAL CONSIDERATIONS**
+   - Consider cross-cutting concerns not covered by gaps or optimizations
+   - Address scalability, maintainability, and testability
+   - Consider deployment, monitoring, and operational aspects
+   - Categorize each consideration by clear topics
+
+6️⃣ **FORMULATE ACTIONABLE RECOMMENDATIONS**
+   - For each identified issue, provide a specific, actionable recommendation
+   - Ensure recommendations are technically feasible within the current architecture
+   - Balance ideal solutions with practical implementation concerns
+
+7️⃣ **SUMMARIZE IN DISCUSSION SECTION**
+   - Provide a coherent overall assessment of the architecture
+   - Highlight the most critical findings and recommendations
+   - Explain how your recommendations build upon the pre-planning output
+   - Be concise yet comprehensive
+
+**CRITICAL CONSTRAINTS:**
+
+1. ⚠️ You MUST build upon the pre-planning output:
+   - Maintain strict consistency with element_ids from the pre-planning output
+   - Review the provided system_design critically
+   - DO NOT redesign the architecture from scratch
+   - DO NOT invent requirements not present in the input
+
+2. ⚠️ You MUST focus on substantial issues:
+   - Security vulnerabilities (following OWASP Top 10 practices)
+   - Performance bottlenecks and optimization opportunities
+   - Scalability concerns and architectural limitations
+   - Maintainability issues and technical debt risks
+
+3. ⚠️ You MUST maintain strict traceability:
+   - EVERY identified issue must include the affected element_ids
+   - EVERY recommendation must link to specific system components
+   - ALWAYS use exact element_ids from system_design.code_elements
+
+4. ⚠️ You MUST be critical yet constructive:
+   - Your review must aim to improve the design, not rubber-stamp it
+   - When the design is good, acknowledge its strengths
+
+5. ⚠️ You MUST prioritize quality over quantity:
+   - Focus on 2-3 significant issues rather than many minor ones
+   - Address only issues with substantial impact on security, performance, or maintainability
+   - Avoid trivial stylistic preferences or nitpicks
+   - Ensure each issue has description, impact, and recommendation

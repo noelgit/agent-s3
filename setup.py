@@ -14,7 +14,7 @@ setup(
         "PyGithub",  # GitHub API client
         "faiss-cpu",  # FAISS vector store
         "flake8",  # Linting
-        "requests"
+        "requests",
     ],
     python_requires=">=3.8",
     entry_points={

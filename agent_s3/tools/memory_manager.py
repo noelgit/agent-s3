@@ -5,709 +5,519 @@ This module provides advanced memory management capabilities as specified in ins
 
 import os
 import json
+import threading
 import re
 import time
 import hashlib
+import logging
+import gzip
+import shutil  # For atomic saving
 from copy import deepcopy
 from typing import Dict, List, Any, Optional, Set, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
 import numpy as np  # type: ignore
+import tiktoken  # Import tiktoken for accurate token counting
 from agent_s3.tools.embedding_client import EmbeddingClient
-import tiktoken  # Add import
-import openai  # Add openai import
+from agent_s3.tools.file_tool import FileTool  # Assuming FileTool exists
+from agent_s3.llm_utils import cached_call_llm  # Use semantic cache LLM wrapper
+# Import configuration values
+from agent_s3 import config
+from agent_s3.llm_prompts.summarization_prompts import SummarizationPromptGenerator
+from agent_s3.tools.summarization.summary_validator import SummaryValidator
+from agent_s3.tools.summarization.validation_config import SummaryValidationConfig
+from agent_s3.tools.summarization.prompt_factory import SummarizationPromptFactory
+from agent_s3.tools.summarization.summary_refiner import SummaryRefiner
+from agent_s3.tools.summarization.summary_cache import SummaryCache
+from agent_s3.tools.summarization.refinement_manager import SummaryRefinementManager
 
 DEFAULT_MAX_TOKENS = 4096
 DEFAULT_SUMMARY_TARGET_TOKENS = 1024
 DEFAULT_CHUNK_SIZE = 1000  # Tokens per chunk for summarization
 
+# Default settings for progressive embedding eviction
+DEFAULT_MAX_EMBEDDINGS = 10000  # Maximum number of embeddings before eviction
+DEFAULT_EVICTION_BATCH_SIZE = 100  # Number of embeddings to evict in one batch
+DEFAULT_ACCESS_THRESHOLD = 30  # Days threshold for "cold" embeddings
+
+logger = logging.getLogger(__name__)
+
+CACHE_DIR_NAME = ".cache"
+MEMORY_STATE_FILE = "memory_state.v1.json"
+DEFAULT_MODEL_NAME = "gpt-4"  # Default model for token counting if not specified
+
 
 class MemoryManager:
-    """Tool for memory management with context versioning and hierarchical summarization."""
-    
-    def __init__(self, memory_path: str = ".memory_cache.json", max_context_items: int = 10):
+    """Manages context history, summaries, and embeddings with progressive eviction strategy."""
+
+    def __init__(self, config: Dict[str, Any], embedding_client: Optional[EmbeddingClient] = None, 
+                 file_tool: Optional[FileTool] = None, llm_client: Optional[Any] = None):
         """Initialize the memory manager.
         
         Args:
-            memory_path: Path to the memory cache file
-            max_context_items: Maximum number of context items to maintain
+            config: Configuration dictionary
+            embedding_client: Optional embedding client instance. If None, attempts to create one.
+            file_tool: Optional file tool instance. If None, creates a new instance.
+            llm_client: Optional LLM client. If None, uses router agent when needed.
         """
-        self.memory_path = memory_path
-        self.max_context_items = max_context_items
-        # Initialize embedding client for retrieval-augmented generation
-        cfg = {}  # placeholder: replaced below
-        try:
-            from agent_s3.config import Config
-            config = Config()
-            config.load()
-            cfg = config.config
-        except Exception:
-            cfg = {}
-        self.embedding_client = EmbeddingClient(
-            store_path=cfg.get('vector_store_path', './data/vector_store.faiss'),
-            dim=cfg.get('embedding_dim', 384),
-            top_k=cfg.get('top_k_retrieval', 5),
-            eviction_threshold=cfg.get('eviction_threshold', 0.90)
-        )
+        self.config = config
+        self.embedding_client = embedding_client
+        self.file_tool = file_tool or FileTool()
+        self.llm_client = llm_client
+        self.workspace_path = Path(config.get("workspace_path", ".")).resolve()
+        self.store_path_base = self.workspace_path / CACHE_DIR_NAME
+        self.memory_state_path = self.store_path_base / MEMORY_STATE_FILE
+        self.access_log_path = self.store_path_base / "embedding_access_log.json"
+
+        # Set up checkpoint and manifest paths
+        self.checkpoint_dir = self.store_path_base / 'checkpoints'
+        self.checkpoint_dir.mkdir(exist_ok=True)
+        self.manifest_path = self.store_path_base / 'cache_manifest.json'
+
+        # Async executor and batch queue for embedding updates
+        from concurrent.futures import ThreadPoolExecutor
+        self._executor = ThreadPoolExecutor(max_workers=4)
+        self._batch_queue: Set[str] = set()
+        self._batch_lock = threading.Lock()
+        self._batch_timer: Optional[threading.Timer] = None
+        self.batch_delay = config.get('cache_debounce_delay', 0.2)
+
+        # Configure progressive eviction parameters
+        self.max_embeddings = config.get("max_embeddings", DEFAULT_MAX_EMBEDDINGS)
+        self.eviction_batch_size = config.get("eviction_batch_size", DEFAULT_EVICTION_BATCH_SIZE)
+        self.access_threshold_days = config.get("embedding_cold_threshold_days", DEFAULT_ACCESS_THRESHOLD)
+
+        # Configure LLM summarization parameters
+        self.min_size_for_llm_summarization = config.get("MIN_SIZE_FOR_LLM_SUMMARIZATION", 1000)
+        self.enable_llm_summarization = config.get("ENABLE_LLM_SUMMARIZATION", True)
+        self.summary_cache_max_size = config.get("SUMMARY_CACHE_MAX_SIZE", 100)
+        
+        # Initialize LRU cache for summaries
+        from collections import OrderedDict
+        self._summary_cache: OrderedDict[str, str] = OrderedDict()
+        self._summary_cache_hits = 0
+        self._summary_cache_misses = 0
+        
+        # Initialize router agent for specialized LLM roles
+        self.router_agent = None
+        # We'll use the router_agent passed from Coordinator if provided
+        # or lazily initialize it when needed in the _summarize_with_llm method
+
+        # Dictionary to track embedding access: {file_path: {"last_access": timestamp, "access_count": count}}
+        self.embedding_access_log = {}
+        # Counter for prefix-aware eviction occurrences
+        self.prefix_evictions = 0
+
+        # Ensure cache directory exists
+        self.store_path_base.mkdir(exist_ok=True)
+
+        # Initialize state
         self.context_history: List[Dict[str, Any]] = []
-        self.context_versions: Dict[str, List[Dict[str, Any]]] = {}
-        self.summaries: Dict[str, str] = {}
-        self.versioned_summaries: Dict[str, Dict[str, str]] = {}
-        self.checkpoints: List[Dict[str, Any]] = []
-    
-    def initialize(self) -> None:
-        """Initialize the memory manager.
-        
-        Loads existing data if available.
-        """
-        if os.path.exists(self.memory_path):
+        self.summaries: Dict[str, str] = {}  # file_path -> summary
+        self.token_limit = config.get('context_token_limit', 4096)
+
+        # Initialize SummarizationPromptGenerator
+        self.prompt_generator = SummarizationPromptGenerator()
+
+        self._load_memory()
+        self._load_embedding_access_log()
+        # Verify manifest integrity before normal operations
+        self._verify_manifest()
+        # After loading, update manifest with current checksums
+        self._update_manifest()
+
+    def _load_memory(self):
+        """Load memory state (history, summaries) from disk."""
+        if self.memory_state_path.exists():
             try:
-                with open(self.memory_path, "r") as f:
-                    data = json.load(f)
-                    self.context_history = data.get("context_history", [])
-                    self.summaries = data.get("summaries", {})
-                    self.context_versions = data.get("context_versions", {})
-                    self.versioned_summaries = data.get("versioned_summaries", {})
-                    self.checkpoints = data.get("checkpoints", [])
-            except Exception as e:
-                print(f"Error loading memory cache: {e}")
-                self._reset_memory()
+                # Auto-detect gzip magic
+                with open(self.memory_state_path, 'rb') as hf:
+                    sig = hf.read(2)
+                if sig == b"\x1f\x8b":
+                    f_open = gzip.open
+                    mode = 'rt'
+                else:
+                    f_open = open
+                    mode = 'r'
+                with f_open(self.memory_state_path, mode, encoding='utf-8') as f:
+                    state = json.load(f)
+                self.context_history = state.get('context_history', [])
+                self.summaries = state.get('summaries', {})
+                logger.info(f"Loaded memory state from {self.memory_state_path}")
+            except (json.JSONDecodeError, OSError) as e:
+                logger.error(f"Error loading memory state from {self.memory_state_path}: {e}. Initializing empty state.")
+                self.context_history = []
+                self.summaries = {}
         else:
-            self._reset_memory()
-    
-    def add_context(self, context_type: str, content: str, metadata: Optional[Dict[str, Any]] = None) -> str:
-        """Add a new context item with versioning support.
-        
-        Args:
-            context_type: Type of context ("file", "output", "plan", etc.)
-            content: The context content
-            metadata: Optional metadata for the context
-            
-        Returns:
-            The version ID of the added context
-        """
-        # Generate a unique version ID
-        version_id = self._generate_version_id(context_type, content, metadata)
-        
-        # Check if content size exceeds a threshold, compress if needed
-        original_size = len(content.encode('utf-8'))
-        compressed_content = content
-        is_compressed = False
-        
-        # Compress large content items (>100KB) to save memory
-        if original_size > 100 * 1024:  # 100 KB
-            try:
-                import zlib
-                compressed_bytes = zlib.compress(content.encode('utf-8'))
-                if len(compressed_bytes) < original_size * 0.7:  # Only use if compression helps
-                    compressed_content = f"__COMPRESSED__{compressed_bytes.hex()}"
-                    is_compressed = True
-                    print(f"Compressed content from {original_size} to {len(compressed_bytes)} bytes")
-            except Exception as e:
-                print(f"Compression error: {e}, storing uncompressed")
-        
-        # Create a new context item with additional metadata
-        timestamp = datetime.now().isoformat()
-        context_item = {
-            "type": context_type,
-            "content": compressed_content,
-            "metadata": metadata or {},
-            "version_id": version_id,
-            "timestamp": timestamp,
-            "is_compressed": is_compressed,
-            "original_size": original_size,
-            "last_accessed": timestamp,
-            "access_count": 0
+            logger.info(f"Memory state file not found at {self.memory_state_path}. Initializing empty state.")
+            self.context_history = []
+            self.summaries = {}
+
+    def _save_memory(self):
+        """Save memory state (history, summaries) to disk atomically with checkpoint retention."""
+        # Ensure cache directory exists
+        self.store_path_base.mkdir(exist_ok=True)
+
+        state = {
+            'context_history': self.context_history,
+            'summaries': self.summaries
         }
-        
-        # Add to context history
-        self.context_history.append(context_item)
-        
-        # Trim if too many items - use age-based and frequency-based eviction
-        self._apply_eviction_strategy()
-        
-        # Handle versioning with age-based management
-        context_key = self._get_context_key(context_type, metadata)
-        if context_key:
-            if context_key not in self.context_versions:
-                self.context_versions[context_key] = []
-            
-            # Add this version
-            version_info = {
-                "version_id": version_id,
-                "content": compressed_content,
-                "metadata": deepcopy(metadata) if metadata else {},
-                "timestamp": timestamp,
-                "is_compressed": is_compressed,
-                "last_accessed": timestamp,
-                "access_count": 0
-            }
-            self.context_versions[context_key].append(version_info)
-            
-            # Age-based version management: keep recent ones and important ones
-            if len(self.context_versions[context_key]) > 5:
-                # Sort by recency and importance 
-                # (newer + frequently accessed are kept; older + rarely accessed are removed)
-                versions = self.context_versions[context_key]
-                versions.sort(key=lambda v: (
-                    # Primary sort: access count (higher is better)
-                    -v.get("access_count", 0),
-                    # Secondary sort: recency (newer is better)
-                    -datetime.fromisoformat(v.get("last_accessed", v.get("timestamp", ""))).timestamp()
-                ))
-                # Keep top 5
-                self.context_versions[context_key] = versions[:5]
-        
-        # Generate summary if it's a file or other important context
-        if context_key and (context_type == "file" or context_type == "code"):
-            # Decompress if needed for summarization
-            content_for_summary = self._decompress_if_needed(compressed_content, is_compressed)
-            
-            # Current summary
-            summary = self._generate_summary(content_for_summary)
-            self.summaries[context_key] = summary
-            
-            # Versioned summary
-            if context_key not in self.versioned_summaries:
-                self.versioned_summaries[context_key] = {}
-            self.versioned_summaries[context_key][version_id] = summary
-        
-        # Run periodic cache maintenance (once per ~100 additions)
-        if hash(content) % 100 == 0:
-            self._run_cache_maintenance()
-        
-        # Save changes
-        self._save_memory()
-        
-        # Add to vector store for semantic retrieval
         try:
-            # Decompress for embedding if needed
-            content_for_embedding = self._decompress_if_needed(compressed_content, is_compressed)
-            embedding = self._generate_embedding(content_for_embedding)
-            if embedding is not None:
-                self.embedding_client.add_embeddings(np.array([embedding]), [{'type': context_type, 'metadata': metadata or {}}])
-            else:
-                print(f"Warning: Failed to generate embedding for context: {context_type}")
-        except Exception as e:
-            print(f"Error adding embeddings to vector store: {e}")
-        
-        return version_id
-        
-    def _apply_eviction_strategy(self) -> None:
-        """Apply smarter eviction strategy using age and access patterns."""
-        if len(self.context_history) <= self.max_context_items:
-            return  # No need to evict anything
-            
-        # Calculate how many items to evict
-        num_to_evict = len(self.context_history) - self.max_context_items
-        
-        # Score items by age and access patterns
-        scored_items = []
-        now = datetime.now()
-        
-        for i, item in enumerate(self.context_history):
-            # Get values with defaults
-            timestamp_str = item.get("timestamp", "")
+            # Write compressed JSON atomically
+            temp_path = self.memory_state_path.with_suffix(self.memory_state_path.suffix + ".tmp")
+            with gzip.open(temp_path, 'wt', encoding='utf-8') as f:
+                json.dump(state, f, indent=2)
+            shutil.move(str(temp_path), str(self.memory_state_path))
+            logger.info(f"Saved memory state to {self.memory_state_path}")
+            # Create checkpoint after save
+            ts = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+            cp_name = f'memory_state_{ts}.json.gz'
             try:
-                age_days = (now - datetime.fromisoformat(timestamp_str)).days if timestamp_str else 365
-            except:
-                age_days = 365  # Default to old if we can't parse
-                
-            access_count = item.get("access_count", 0)
-            last_accessed_str = item.get("last_accessed", timestamp_str)
-            
-            try:
-                days_since_access = (now - datetime.fromisoformat(last_accessed_str)).days if last_accessed_str else age_days
-            except:
-                days_since_access = age_days
-            
-            # Calculate eviction score - higher means more likely to evict
-            # Factors: age (older = more likely to evict)
-            #          access count (less used = more likely to evict)
-            #          days since last access (longer = more likely to evict)
-            eviction_score = (
-                age_days * 0.6 +            # Age factor 
-                days_since_access * 0.3 -   # Recent access factor
-                min(10, access_count) * 2   # Usage factor: max benefit for 10 accesses
-            )
-            
-            scored_items.append((i, eviction_score, item))
-            
-        # Sort by eviction score (highest first - most eligible for eviction)
-        scored_items.sort(key=lambda x: x[1], reverse=True)
-        
-        # Identify items to evict and generate summaries of important ones
-        eviction_candidates = scored_items[:num_to_evict]
-        indices_to_remove = [idx for idx, _, _ in eviction_candidates]
-        
-        # Separate by type: important (files/code) vs less important
-        important_evicted = []
-        
-        for _, _, item in eviction_candidates:
-            if item.get("type") in ("file", "code") and item.get("content"):
-                # Save important items for summarization
-                content = self._decompress_if_needed(
-                    item.get("content", ""), 
-                    item.get("is_compressed", False)
-                )
-                if content:
-                    important_evicted.append({
-                        "type": item.get("type", "unknown"),
-                        "content": content,
-                        "metadata": item.get("metadata", {})
-                    })
-        
-        # Generate a summary for important evicted items if any
-        if important_evicted:
-            combined = "\n\n".join(item.get('content', '') for item in important_evicted)
-            summary_evicted = self.hierarchical_summarize(combined, target_tokens=DEFAULT_SUMMARY_TARGET_TOKENS)
-            
-            # Store in special evicted summaries area
-            timestamp = datetime.now().isoformat()
-            eviction_key = f"evicted_{timestamp}"
-            self.summaries[eviction_key] = summary_evicted
-        
-        # Remove items from context_history, from highest index to lowest to avoid index issues
-        indices_to_remove.sort(reverse=True)
-        for idx in indices_to_remove:
-            self.context_history.pop(idx)
-            
-    def _run_cache_maintenance(self) -> None:
-        """Run periodic cache maintenance tasks."""
-        print("Running cache maintenance...")
-        
-        # 1. Clean up old or unused summaries
-        summaries_to_remove = []
-        for key in self.summaries:
-            if key.startswith("evicted_"):
-                # Extract timestamp from evicted_TIMESTAMP format
-                try:
-                    ts_part = key.split("_", 1)[1]
-                    timestamp = datetime.fromisoformat(ts_part)
-                    age_days = (datetime.now() - timestamp).days
-                    
-                    # Remove summaries older than 30 days
-                    if age_days > 30:
-                        summaries_to_remove.append(key)
-                except:
-                    # If we can't parse the timestamp, keep the summary
-                    pass
-        
-        # Remove old summaries
-        for key in summaries_to_remove:
-            del self.summaries[key]
-        
-        # 2. Consolidate very similar summaries from evictions
-        summary_vectors = {}
-        summary_keys = []
-        
-        for key, summary in self.summaries.items():
-            if key.startswith("evicted_"):
-                try:
-                    embedding = self._generate_embedding(summary)
-                    if embedding is not None:
-                        summary_vectors[key] = embedding
-                        summary_keys.append(key)
-                except:
-                    pass
-        
-        # If we have enough to consolidate
-        if len(summary_keys) > 5:
-            # Find clusters of similar summaries
-            consolidated_groups = []
-            remaining_keys = set(summary_keys)
-            
-            while remaining_keys:
-                current_key = next(iter(remaining_keys))
-                current_vec = summary_vectors[current_key]
-                
-                # Find similar summaries
-                similar_keys = []
-                
-                for key in remaining_keys:
-                    if key == current_key:
-                        continue
-                        
-                    vec = summary_vectors[key]
-                    # Cosine similarity approximation
-                    similarity = np.dot(current_vec, vec) / (np.linalg.norm(current_vec) * np.linalg.norm(vec))
-                    
-                    if similarity > 0.85:  # Very similar content
-                        similar_keys.append(key)
-                
-                # Create a group
-                group = [current_key] + similar_keys
-                consolidated_groups.append(group)
-                
-                # Remove processed keys
-                for k in group:
-                    remaining_keys.remove(k)
-            
-            # Consolidate each group
-            for group in consolidated_groups:
-                if len(group) > 1:  # Only consolidate groups with multiple summaries
-                    # Create a combined summary
-                    combined_content = "\n\n".join([self.summaries[k] for k in group])
-                    new_summary = self.hierarchical_summarize(combined_content)
-                    
-                    # Create a new key for the consolidated summary
-                    new_key = f"consolidated_{datetime.now().isoformat()}"
-                    self.summaries[new_key] = new_summary
-                    
-                    # Remove the individual summaries
-                    for k in group:
-                        del self.summaries[k]
-        
-        # 3. Check for vector store maintenance
-        vector_store_stats = self.embedding_client.get_stats()
-        
-        # If load factor is too high (>80%), run a cleanup
-        if vector_store_stats.get("load_factor", 0) > 0.8:
-            print("Vector store load factor high, suggesting reorganization")
-            try:
-                self.embedding_client.reorganize()
-            except:
-                print("Failed to reorganize vector store")
-                
-        print("Cache maintenance complete")
-    
-    def _decompress_if_needed(self, content: str, is_compressed: bool) -> str:
-        """Decompress content if it was compressed."""
-        if not is_compressed or not content.startswith("__COMPRESSED__"):
-            return content
-            
-        try:
-            import zlib
-            # Extract hex data after prefix
-            hex_data = content[len("__COMPRESSED__"):]
-            # Convert hex to bytes
-            compressed_bytes = bytes.fromhex(hex_data)
-            # Decompress
-            decompressed_bytes = zlib.decompress(compressed_bytes)
-            # Convert back to string
-            return decompressed_bytes.decode('utf-8')
-        except Exception as e:
-            print(f"Decompression error: {e}, returning as-is")
-            return content
+                shutil.copy2(self.memory_state_path, self.checkpoint_dir / cp_name)
+                # Prune old checkpoints, keep last 3
+                cps = sorted(self.checkpoint_dir.iterdir(), key=lambda p: p.stat().st_mtime)
+                for old in cps[:-3]:
+                    old.unlink()
+            except Exception as e:
+                logger.error(f"Error creating memory checkpoint: {e}")
+        except (OSError, TypeError) as e:
+            logger.error(f"Error saving memory state to {self.memory_state_path}: {e}")
 
-    def get_relevant_context(self, query: str, plan_text: Optional[str] = None, 
-                             file_modification_info: Optional[Dict[str, Any]] = None,
-                             max_tokens: int = DEFAULT_MAX_TOKENS) -> str:
-        """Retrieve relevant context based on query, respecting token limits.
+    def _load_embedding_access_log(self):
+        """Load embedding access log from disk."""
+        if self.access_log_path.exists():
+            try:
+                with open(self.access_log_path, 'r', encoding='utf-8') as f:
+                    self.embedding_access_log = json.load(f)
+                    logger.info(f"Loaded embedding access log from {self.access_log_path}")
+            except (json.JSONDecodeError, OSError) as e:
+                logger.error(f"Error loading embedding access log: {e}. Initializing empty log.")
+                self.embedding_access_log = {}
+        else:
+            logger.info("Embedding access log not found. Initializing empty log.")
+            self.embedding_access_log = {}
+
+    def _save_embedding_access_log(self):
+        """Save embedding access log to disk atomically."""
+        try:
+            temp_path = self.access_log_path.with_suffix(self.access_log_path.suffix + ".tmp")
+            with open(temp_path, 'w', encoding='utf-8') as f:
+                json.dump(self.embedding_access_log, f, indent=2)
+            shutil.move(str(temp_path), str(self.access_log_path))
+            logger.debug(f"Saved embedding access log to {self.access_log_path}")
+        except (OSError, TypeError) as e:
+            logger.error(f"Error saving embedding access log: {e}")
+
+    def _record_embedding_access(self, file_path: str):
+        """Record access to an embedding for a specific file."""
+        abs_path = str(Path(file_path).resolve())
+        current_time = time.time()
+        
+        if abs_path in self.embedding_access_log:
+            # Update existing record
+            self.embedding_access_log[abs_path]["last_access"] = current_time
+            self.embedding_access_log[abs_path]["access_count"] += 1
+        else:
+            # Create new record
+            self.embedding_access_log[abs_path] = {
+                "last_access": current_time,
+                "access_count": 1,
+                "created": current_time
+            }
+        
+        # Save periodically (e.g., every 10 accesses)
+        if sum(record.get("access_count", 0) % 10 == 0 for record in self.embedding_access_log.values()) > 0:
+            self._save_embedding_access_log()
+
+    def _clean_deleted_files_from_logs(self):
+        """Remove entries from access logs for files that no longer exist."""
+        to_remove = []
+        for file_path in self.embedding_access_log:
+            if not Path(file_path).is_file():
+                to_remove.append(file_path)
+
+        if to_remove:
+            for file_path in to_remove:
+                del self.embedding_access_log[file_path]
+            logger.info(f"Removed {len(to_remove)} deleted files from embedding access log")
+            self._save_embedding_access_log()
+
+    def apply_progressive_eviction(self, force=False):
+        """
+        Apply progressive embedding eviction strategy based on access patterns.
         
         Args:
-            query: The user query or task description
-            plan_text: Optional plan text that may contain file references
-            file_modification_info: Optional dict mapping filenames to recency/frequency info
-            max_tokens: Maximum tokens for returned context
+            force: If True, run eviction even if below threshold
             
         Returns:
-            Formatted context string
+            Number of embeddings evicted
         """
-        query_embedding = self._generate_embedding(query)
-        if query_embedding is None:
-            print("Warning: Failed to generate embedding for query.")
-            return ""  # Return empty context if query embedding fails
-
-        # Extract file references from the plan if available
-        plan_mentioned_files = set()
-        if plan_text:
-            # Find file paths in the plan text using regex patterns
-            # Looking for paths that are inside backticks, quotes, or mentioned after "File:" or similar
-            file_patterns = [
-                r'`([^`]+\.[a-zA-Z0-9]+)`',  # Files in backticks
-                r'"([^"]+\.[a-zA-Z0-9]+)"',  # Files in double quotes
-                r"'([^']+\.[a-zA-Z0-9]+')",  # Files in single quotes
-                r'File:\s*([^\s,]+\.[a-zA-Z0-9]+)',  # Files after "File:"
-                r'file:\s*([^\s,]+\.[a-zA-Z0-9]+)',  # Files after "file:"
-                r'in\s+([^\s,]+\.[a-zA-Z0-9]+)',  # Files after "in"
-                r'at\s+([^\s,]+\.[a-zA-Z0-9]+)'  # Files after "at"
-            ]
+        # Get current embedding count
+        try:
+            if self.embedding_client is not None and hasattr(self.embedding_client, 'get_embedding_count'):
+                current_count = self.embedding_client.get_embedding_count()
+            else:
+                # Estimate if not available
+                current_count = len(self.embedding_access_log)
+        except Exception as e:
+            logger.error(f"Error getting embedding count: {e}")
+            current_count = 0
             
-            for pattern in file_patterns:
-                matches = re.findall(pattern, plan_text)
-                plan_mentioned_files.update(set(matches))
-                
-            if plan_mentioned_files:
-                print(f"Files mentioned in plan: {', '.join(plan_mentioned_files)}")
-
-        # Retrieve top-k relevant metadata entries
-        results = self.embedding_client.query(np.array([query_embedding]))
+        # Clean up deleted files first
+        self._clean_deleted_files_from_logs()
+            
+        # Check if we need to evict
+        if not force and current_count < self.max_embeddings:
+            logger.debug(f"No eviction needed: {current_count}/{self.max_embeddings} embeddings used")
+            return 0
+            
+        logger.info(f"Starting progressive embedding eviction: {current_count}/{self.max_embeddings} embeddings used")
         
-        # Score and rank results based on multiple factors
-        scored_results = []
-        for i, item in enumerate(results):
-            source = item.get('source', 'unknown')
-            content = item.get('original_content', '')
-            metadata = item.get('metadata', {})
-            similarity_score = item.get('score', 0)
-            
-            # Base score from embedding similarity (0-1)
-            score = similarity_score
-            
-            # Boost files specifically mentioned in the plan
-            if plan_text and any(mentioned_file in source for mentioned_file in plan_mentioned_files):
-                score += 0.5  # Significant boost for plan-mentioned files
-            
-            # Boost based on recency/modification frequency if available
-            if file_modification_info and source in file_modification_info:
-                file_info = file_modification_info[source]
-                # Recency boost (0-0.3)
-                if 'last_modified' in file_info:
-                    days_since_modified = file_info.get('days_since_modified', 365)
-                    recency_score = max(0, 0.3 - (days_since_modified / 30) * 0.1)
-                    score += recency_score
-                
-                # Frequency boost (0-0.2)
-                if 'modification_frequency' in file_info:
-                    freq = file_info.get('modification_frequency', 0)
-                    freq_score = min(0.2, freq * 0.05)  # Cap at 0.2
-                    score += freq_score
-            
-            # Add to scored results
-            scored_results.append({
-                'item': item,
-                'score': score,
-                'original_index': i
+        # Determine how many embeddings to evict
+        to_evict = min(self.eviction_batch_size, max(0, current_count - self.max_embeddings + self.eviction_batch_size//2))
+        if force:
+            to_evict = max(to_evict, self.eviction_batch_size)
+        
+        # Prefix-aware eviction removed; using fallback LRU eviction
+
+        # Evict embeddings (legacy LRU/Frequency)
+        # Build eviction candidates from access log
+        candidates: List[Dict[str, Any]] = []
+        now = time.time()
+        for fp, rec in self.embedding_access_log.items():
+            days = (now - rec.get("last_access", now)) / 86400
+            candidates.append({
+                "file_path": fp,
+                "access_count": rec.get("access_count", 0),
+                "days_since_access": days
             })
-        
-        # Sort by score, highest first
-        scored_results.sort(key=lambda x: x['score'], reverse=True)
-        
-        # Now build the context with the reranked results
-        combined_context = ""
-        current_tokens = 0
-        added_sources = set()
-        
-        # First add plan-mentioned files if they exist
-        plan_context_added = False
-        if plan_mentioned_files:
-            plan_file_results = [r for r in scored_results 
-                                if any(mentioned_file in r['item'].get('source', '') 
-                                      for mentioned_file in plan_mentioned_files)]
-            
-            if plan_file_results:
-                combined_context += "\n\n--- Priority Files (Mentioned in Plan) ---\n"
-                for result in plan_file_results[:3]:  # Limit to top 3 plan files
-                    item = result['item']
-                    source = item.get('source', 'unknown')
-                    if source in added_sources:
-                        continue
-                        
-                    content = item.get('original_content', '')
-                    token_count = item.get('token_count', self.estimate_token_count(content))
+        # Sort by oldest access first (LRU)
+        candidates.sort(key=lambda x: x['days_since_access'], reverse=True)
+        evicted_count = 0
+        for candidate in candidates[:to_evict]:
+            file_path = candidate["file_path"]
+            try:
+                # Attempt to remove the embedding
+                if self.remove_embedding(file_path, record_removal=True):
+                    evicted_count += 1
                     
-                    # Only use max 35% of context budget for plan files
-                    max_plan_tokens = max_tokens * 0.35
-                    if current_tokens + token_count <= max_plan_tokens:
-                        combined_context += f"\n--- {source} ---\n{content}\n"
-                        current_tokens += token_count
-                        added_sources.add(source)
-                        plan_context_added = True
-                    else:
-                        # Try to fit a targeted summary
-                        remaining_tokens = max_plan_tokens - current_tokens
-                        if remaining_tokens > 100:
-                            summary = self.hierarchical_summarize(content, target_tokens=remaining_tokens - 50)
-                            summary_tokens = self.estimate_token_count(summary)
-                            if current_tokens + summary_tokens <= max_plan_tokens:
-                                combined_context += f"\n--- {source} (Summary) ---\n{summary}\n"
-                                current_tokens += summary_tokens
-                                added_sources.add(source)
-                                plan_context_added = True
-            
-            if plan_context_added:
-                combined_context += "\n\n--- Additional Context ---\n"
+                    # Log eviction details
+                    logger.info(
+                        f"Evicted embedding for {file_path}: "
+                        f"last accessed {candidate['days_since_access']:.1f} days ago, "
+                        f"access count: {candidate['access_count']}"
+                    )
+                    
+                    # If we've evicted enough, stop
+                    if evicted_count >= to_evict:
+                        break
+            except Exception as e:
+                logger.error(f"Error evicting embedding for {file_path}: {e}")
+        
+        logger.info(f"Progressive eviction complete: {evicted_count} embeddings evicted")
+        self._save_embedding_access_log()
+        return evicted_count
 
-        # Then add the rest of the ranked results
-        for result in scored_results:
-            item = result['item']
-            source = item.get('source', 'unknown')
-            if source in added_sources:
-                continue  # Skip already added sources
+    def add_to_history(self, entry: Dict[str, Any]):
+        """Add an entry to the context history and save."""
+        self.context_history.append(entry)
+        self._save_memory()
+
+    def get_history(self) -> List[Dict[str, Any]]:
+        """Get the current context history."""
+        return self.context_history
+
+    def update_embedding(self, file_path: str):
+        """Update embedding for a file immediately and add to embedding client."""
+        # Read file content
+        content = self.file_tool.read_file(file_path)
+        if content is None:
+            return
+        # Generate embedding
+        embedding = self.embedding_client.generate_embedding(content)
+        if embedding is None:
+            return
+        # Prepare array for embedding client: always wrap embedding in a numpy array
+        arr = np.array([embedding])
+        # Prepare metadata
+        stat = Path(file_path).stat()
+        metadata = [{
+            'file_path': str(Path(file_path).resolve()),
+            'last_modified': stat.st_mtime
+        }]
+        # Add embeddings synchronously
+        self.embedding_client.add_embeddings(arr, metadata)
+
+    def remove_embedding(self, file_path: str, record_removal: bool = False):
+        """
+        Remove the embedding for a specific file.
+        
+        Args:
+            file_path: Path to the file
+            record_removal: Whether to record this as deliberate removal
+            
+        Returns:
+            True if embedding was removed, False otherwise
+        """
+        abs_path_str = str(Path(file_path).resolve())
+        try:
+            removed_count = self.embedding_client.remove_embeddings_by_metadata({'file_path': abs_path_str})
+            if removed_count > 0:
+                logger.info(f"Removed {removed_count} embedding(s) for file: {file_path}")
                 
-            content = item.get('original_content', '')
-            token_count = item.get('token_count', self.estimate_token_count(content))
-            
-            remaining_budget = max_tokens - current_tokens
-            
-            # Apply adaptive context inclusion based on score
-            score = result['score']
-            if score > 0.8:  # Very relevant - try to include most/all
-                max_file_tokens = min(token_count, remaining_budget * 0.7)
-            elif score > 0.6:  # Moderately relevant - include partial
-                max_file_tokens = min(token_count, remaining_budget * 0.3)
-            else:  # Less relevant - include summary or small part
-                max_file_tokens = min(token_count, remaining_budget * 0.15)
-            
-            # Check if we can include the content within our token budget
-            if current_tokens + token_count <= current_tokens + max_file_tokens:
-                combined_context += f"\n\n--- {source} (Score: {score:.2f}) ---\n{content}"
-                current_tokens += token_count
-                added_sources.add(source)
+                # Also remove from access log if it was a deliberate removal
+                if record_removal and abs_path_str in self.embedding_access_log:
+                    del self.embedding_access_log[abs_path_str]
+                
+                if abs_path_str in self.summaries:
+                    del self.summaries[abs_path_str]
+                    logger.info(f"Removed summary for file: {file_path}")
+                    self._save_memory()
+                    
+                return True
             else:
-                # Try creating a summary that fits
-                remaining_tokens = max_tokens - current_tokens
-                if remaining_tokens > 100:
-                    summary = self.hierarchical_summarize(content, target_tokens=int(max_file_tokens))
-                    summary_tokens = self.estimate_token_count(summary)
-                    if current_tokens + summary_tokens <= max_tokens:
-                        combined_context += f"\n\n--- {source} (Summary, Score: {score:.2f}) ---\n{summary}"
-                        current_tokens += summary_tokens
-                        added_sources.add(source)
-                    else:
-                        break  # Cannot fit even the summary
-                else:
-                    break  # Not enough tokens left for any meaningful addition
+                logger.debug(f"No embedding found to remove for file: {file_path}")
+                return False
 
-        return combined_context.strip()
+        except Exception as e:
+            logger.error(f"Error removing embedding for {file_path}: {e}")
+            return False
 
-    def _generate_embedding(self, text: str) -> Optional[np.ndarray]:
-        """Generate embedding for text using OpenAI API."""
+    def _detect_language(self, file_path: Optional[str]) -> str:
+        """
+        Detects the programming language or content type based on file extension. Defaults to 'text'.
+        """
+        if not file_path:
+            return 'text'
+        _, ext = os.path.splitext(file_path)
+        ext = ext.lower()
+        LANG_MAP = {
+            '.py': 'python',
+            '.js': 'javascript', '.jsx': 'javascript', '.mjs': 'javascript', '.cjs': 'javascript',
+            '.ts': 'typescript', '.tsx': 'typescript',
+            '.php': 'php', '.phtml': 'php',
+            '.java': 'java',
+            '.rb': 'ruby',
+            '.go': 'go',
+            '.rs': 'rust',
+            '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.hpp': 'cpp', '.h': 'cpp', '.c': 'cpp',
+            '.cs': 'csharp',
+            '.swift': 'swift',
+            '.kt': 'kotlin', '.kts': 'kotlin',
+            '.scala': 'scala',
+            '.sh': 'shell', '.bash': 'shell',
+            '.html': 'html', '.htm': 'html',
+            '.css': 'css', '.scss': 'css', '.sass': 'css', '.less': 'css',
+            '.md': 'markdown',
+            '.json': 'json',
+            '.yml': 'yaml', '.yaml': 'yaml',
+            '.txt': 'text',
+        }
+        return LANG_MAP.get(ext, 'text')
+
+    def summarize_file(self, file_path: str, content: Optional[str] = None):
+        """Schedule summarization in background thread."""
+        self._executor.submit(self._do_summarize_file, file_path, content)
+
+    def _do_summarize_file(self, file_path: str, content: Optional[str]):
+        """Internal summarization logic using AST-guided pipeline."""
+        if content is None:
+            try:
+                content = self.file_tool.read_file(file_path)
+                if content is None:
+                    logger.error(f"Cannot summarize, failed to read file: {file_path}")
+                    return
+            except Exception as e:
+                logger.error(f"Error reading file for summarization {file_path}: {e}")
+                return
         try:
-            openai_key = os.environ.get('OPENAI_KEY')
-            if not openai_key:
-                raise ValueError("OpenAI API key not found in environment variables")
-
-            client = openai.OpenAI(api_key=openai_key)
-            response = client.embeddings.create(
-                model="text-embedding-ada-002",
-                input=text
+            from agent_s3.ast_tools.python_units import extract_units
+            from agent_s3.ast_tools.summariser import summarise_unit, merge_summaries
+            # Detect language and instantiate prompt generator
+            language = self._detect_language(file_path)
+            prompt_generator = SummarizationPromptGenerator()
+            # Extract units and summarize each unit with language and prompt generator
+            units = extract_units(content, language=language)
+            unit_summaries = []
+            for unit in units:
+                summary = summarise_unit(
+                    self.llm_client or self.router_agent,
+                    unit['kind'],
+                    unit['name'],
+                    unit['code'],
+                    language,
+                    prompt_generator
+                )
+                unit_summaries.append(summary)
+            # Merge summaries with language and prompt generator
+            merged_summary = merge_summaries(
+                self.llm_client or self.router_agent,
+                file_path,
+                unit_summaries,
+                language,
+                prompt_generator
             )
-            embedding = response.data[0].embedding
-            return np.array(embedding, dtype=np.float32)
+            self.summaries[file_path] = merged_summary
+            self._save_memory()
         except Exception as e:
-            print(f"Error generating embedding: {e}")
-            return None
+            logger.error(f"Error during summarization for {file_path}: {e}")
 
-    def estimate_token_count(self, text: str) -> int:
-        """Estimate token count using tiktoken."""
-        try:
-            encoding = tiktoken.get_encoding("cl100k_base")
-            return len(encoding.encode(text))
-        except Exception as e:
-            print(f"Tiktoken error: {e}. Falling back to character-based token estimation.")
-            return len(text) // 4  # Rough estimate
-
-    def _generate_summary(self, text_chunk: str, target_tokens: Optional[int] = None) -> str:
-        """Generate summary for a text chunk using an LLM."""
-        try:
-            openai_key = os.environ.get('OPENAI_KEY')
-            if not openai_key:
-                raise ValueError("OpenAI API key not found for summarization")
-
-            client = openai.OpenAI(api_key=openai_key)
-
-            max_tokens_hint = f" Aim for approximately {target_tokens} tokens." if target_tokens else ""
-            prompt = f"""Summarize the following text concisely, capturing the main points and key information.{max_tokens_hint}
-
-Text:
-```
-{text_chunk}
-```
-
-Summary:
-"""
-
-            estimated_input_tokens = self.estimate_token_count(prompt)
-            output_max_tokens = target_tokens * 2 if target_tokens else 1024
-            output_max_tokens = min(output_max_tokens, 4000)
-
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "You are an expert summarizer. Create concise summaries capturing key information."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.1,
-                max_tokens=output_max_tokens,
-                top_p=1.0,
-                frequency_penalty=0.0,
-                presence_penalty=0.0
+    def hierarchical_summarize(self, content: str, language: str = None, max_tokens: int = None, preserve_sections: bool = False):
+        """Summarize content with validation and refinement."""
+        if not content.strip():
+            return {"summary": "", "was_summarized": False, "validation": None}
+        validator = SummaryValidator()
+        refinement_manager = SummaryRefinementManager(self.router_agent)
+        # TODO: Replace with real chunking logic
+        chunks = [content]
+        chunk_summaries = []
+        for chunk in chunks:
+            summary = self._generate_summary(chunk, language)
+            validation_result = validator.validate(chunk, summary, language)
+            if not validation_result["passed"]:
+                refinement_result = refinement_manager.refine_summary(
+                    source=chunk,
+                    summary=summary,
+                    validation_result=validation_result,
+                    language=language
+                )
+                summary = refinement_result["summary"]
+                validation_result = refinement_result["validation"]
+            chunk_summaries.append({
+                "summary": summary,
+                "validation": validation_result
+            })
+        if len(chunk_summaries) == 1:
+            return {
+                "summary": chunk_summaries[0]["summary"],
+                "was_summarized": True,
+                "validation": chunk_summaries[0]["validation"]
+            }
+        merged_content = "\n\n".join([cs["summary"] for cs in chunk_summaries])
+        if len(merged_content) > (max_tokens or 3000):
+            return self.hierarchical_summarize(merged_content, language, max_tokens, False)
+        final_summary = self._generate_summary(merged_content, language)
+        final_validation = validator.validate(content, final_summary, language)
+        if not final_validation["passed"]:
+            final_refinement = refinement_manager.refine_summary(
+                source=content,
+                summary=final_summary,
+                validation_result=final_validation,
+                language=language
             )
+            final_summary = final_refinement["summary"]
+            final_validation = final_refinement["validation"]
+        return {
+            "summary": final_summary,
+            "was_summarized": True,
+            "validation": final_validation
+        }
 
-            summary = response.choices[0].message.content.strip()
-            return summary
-
-        except Exception as e:
-            print(f"Error generating summary with LLM: {e}")
-            fallback_length = target_tokens * 4 if target_tokens else 4000
-            return text_chunk[:fallback_length] + "... (summary failed)"
-
-    def hierarchical_summarize(self, content: str, target_tokens: int = DEFAULT_SUMMARY_TARGET_TOKENS) -> str:
-        """Summarize content hierarchically to meet target token count."""
-        current_tokens = self.estimate_token_count(content)
-        if current_tokens <= target_tokens:
-            return content
-
-        print(f"Hierarchically summarizing content ({current_tokens} tokens) to target ~{target_tokens} tokens...")
-
-        chunk_size = min(DEFAULT_CHUNK_SIZE, target_tokens * 2)
-        chunks = self._split_into_chunks(content, chunk_size)
-
-        summaries = []
-        for i, chunk in enumerate(chunks):
-            print(f"  Summarizing chunk {i+1}/{len(chunks)}...")
-            chunk_target_tokens = max(50, int(target_tokens / len(chunks)))
-            summary = self._generate_summary(chunk, target_tokens=chunk_target_tokens)
-            summaries.append(summary)
-
-        combined_summary = "\n\n".join(summaries)
-        combined_tokens = self.estimate_token_count(combined_summary)
-
-        print(f"  Combined summary has {combined_tokens} tokens.")
-
-        if combined_tokens > target_tokens:
-            print(f"  Combined summary too large, summarizing the summaries...")
-            final_summary = self._generate_summary(combined_summary, target_tokens=target_tokens)
-            final_tokens = self.estimate_token_count(final_summary)
-            print(f"  Final summary has {final_tokens} tokens.")
-            return final_summary
-        else:
-            return combined_summary
-
-    def _split_into_chunks(self, text: str, chunk_size_tokens: int) -> List[str]:
-        """Split text into chunks of approximately chunk_size_tokens."""
-        paragraphs = text.split('\n\n')
-        chunks = []
-        current_chunk = ""
-        current_chunk_tokens = 0
-
-        for para in paragraphs:
-            para_tokens = self.estimate_token_count(para)
-            if para_tokens == 0:
-                continue
-
-            if current_chunk_tokens + para_tokens <= chunk_size_tokens:
-                current_chunk += ("\n\n" if current_chunk else "") + para
-                current_chunk_tokens += para_tokens
-            else:
-                if para_tokens > chunk_size_tokens:
-                    if current_chunk:
-                        chunks.append(current_chunk)
-                        current_chunk = ""
-                        current_chunk_tokens = 0
-                    lines = para.split('\n')
-                    temp_chunk = ""
-                    temp_chunk_tokens = 0
-                    for line in lines:
-                        line_tokens = self.estimate_token_count(line)
-                        if temp_chunk_tokens + line_tokens <= chunk_size_tokens:
-                            temp_chunk += ("\n" if temp_chunk else "") + line
-                            temp_chunk_tokens += line_tokens
-                        else:
-                            if temp_chunk:
-                                chunks.append(temp_chunk)
-                            temp_chunk = line
-                            temp_chunk_tokens = line_tokens
-                    if temp_chunk:
-                        chunks.append(temp_chunk)
-                else:
-                    if current_chunk:
-                        chunks.append(current_chunk)
-                    current_chunk = para
-                    current_chunk_tokens = para_tokens
-
-        if current_chunk:
-            chunks.append(current_chunk)
-
-        return chunks
+    def _generate_summary(self, content: str, language: str = None) -> str:
+        system_prompt = self._create_summary_system_prompt(language)
+        user_prompt = self._create_summary_user_prompt(content, language)
+        return self.router_agent.call_llm_by_role(
+            role="summarizer",
+            system_prompt=system_prompt,
+            user_prompt=user_prompt
+        )

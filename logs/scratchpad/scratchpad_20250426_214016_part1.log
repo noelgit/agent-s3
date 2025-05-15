@@ -1,0 +1,11 @@
+[SessionManager • 2025-04-26T21:40:16.390985 • INFO] [METADATA] Session 20250426_214016 started
+  METADATA:
+    {
+      "session_id": "20250426_214016",
+      "start_time": "2025-04-26T21:40:16.390859",
+      "agent_version": "unknown",
+      "config_hash": "ac5676133a35c0bdbad1ce095535618d",
+      "platform": "posix",
+      "max_file_size_mb": 50,
+      "encryption_enabled": false
+    }

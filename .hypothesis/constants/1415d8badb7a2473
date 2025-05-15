@@ -1,0 +1,4 @@
+# file: /Users/noelpatron/Documents/GitHub/agent-s3/agent_s3/llm_utils.py
+# hypothesis_version: 6.131.9
+
+[0.0, 1.0, 2.0, 60.0, 100, 1536, 8192, '...', 'Agent-S3', 'Authorization', 'Content-Type', 'HTTP-Referer', 'LLM Cache', 'LLM Utils', 'X-Title', 'application/json', 'cached', 'config', 'content', 'data', 'details', 'embedding', 'error', 'fallback_prefix', 'generate', 'get_kv_tensor', 'http://localhost', 'input', 'llm_backoff_factor', 'llm_default_timeout', 'llm_initial_backoff', 'llm_max_retries', 'messages', 'method_name', 'model', 'none', 'openai/', 'openai_key', 'openrouter_key', 'openrouter_referer', 'openrouter_title', 'prompt', 'prompt_summary', 'response', 'retry_simplified', 'role', 'scratchpad_manager', 'semantic_hits', 'success', 'timeout', 'used_fallback', 'user']
