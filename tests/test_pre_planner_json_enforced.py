@@ -14,14 +14,14 @@ from agent_s3.pre_planner_json_enforced import (
     get_openrouter_params,
     validate_json_schema,
     repair_json_structure,
-    extract_json_from_text,
     create_fallback_json,
     integrate_with_coordinator,
     _parse_structured_modifications,
     regenerate_pre_planning_with_modifications,
     JSONValidationError,
-    pre_planning_workflow
+    pre_planning_workflow,
 )
+from agent_s3.json_utils import extract_json_from_text
 
 
 class TestPrePlannerJsonEnforced:
