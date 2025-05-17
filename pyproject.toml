@@ -24,7 +24,12 @@ dependencies = [
     "requests>=2.25.0",
     "pytest>=6.2.0",
     "gptcache>=1.0.0",
+    "sqlalchemy>=2.0.0",
 ]
+
+[project.optional-dependencies]
+postgresql = ["psycopg2-binary>=2.9.0"]
+mysql = ["pymysql>=1.0.0"]
 
 [project.scripts]
 agent-s3 = "agent_s3.cli:main"

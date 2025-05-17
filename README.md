@@ -155,6 +155,9 @@ See `docs/summarization.md` for details.
 - Python 3.10+ installed
 - VS Code 1.60+ for extension features
 - Git installed
+- Required packages: `sqlalchemy` with optional adapters
+  - `psycopg2-binary` for PostgreSQL
+  - `pymysql` for MySQL
 - GitHub account and relevant tokens or app credentials
 
 ## Installation
