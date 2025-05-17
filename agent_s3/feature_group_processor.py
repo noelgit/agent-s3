@@ -237,7 +237,8 @@ class FeatureGroupProcessor:
                         implementation_plan,
                         tests,
                         task_description,
-                        plan_discussion
+                        plan_discussion,
+                        system_design,
                     )
                     
                     # Add semantic validation results
@@ -392,7 +393,16 @@ class FeatureGroupProcessor:
         
         return context
     
-    def _create_consolidated_plan(self, feature_group: Dict[str, Any], architecture_review: Dict[str, Any], implementation_plan: Dict[str, Any], tests: Dict[str, Any], task_description: str, plan_discussion: str) -> Dict[str, Any]:
+    def _create_consolidated_plan(
+        self,
+        feature_group: Dict[str, Any],
+        architecture_review: Dict[str, Any],
+        implementation_plan: Dict[str, Any],
+        tests: Dict[str, Any],
+        task_description: str,
+        plan_discussion: str,
+        system_design: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """Create the final consolidated plan structure for a feature group."""
         import uuid
         plan_id = f"plan_{uuid.uuid4()}"
@@ -405,6 +415,7 @@ class FeatureGroupProcessor:
             "implementation_plan": implementation_plan,
             "tests": tests,
             "discussion": plan_discussion,
+            "system_design": system_design or {},
             "dependencies": feature_group.get("dependencies", {}),
             "risk_assessment": feature_group.get("risk_assessment", {}),
             # The semantic_validation field will be added later if available
@@ -554,18 +565,63 @@ class FeatureGroupProcessor:
                 # Run simple validation to ensure it has required keys
                 required_keys = {"architecture_review", "tests", "implementation_plan"}
                 missing_keys = required_keys - set(updated_plan.keys())
+                issues = []
                 if missing_keys:
-                    # Add revalidation_status with issues
+                    issues.append(f"Missing required keys: {', '.join(missing_keys)}")
+
+                # Validate element IDs against system design
+                from agent_s3.test_spec_validator import extract_element_ids_from_system_design
+
+                system_design = updated_plan.get("system_design") or plan.get("system_design", {})
+                valid_ids = extract_element_ids_from_system_design(system_design)
+
+                invalid_test_ids = set()
+                tests = updated_plan.get("tests", {})
+                for t in tests.get("unit_tests", []):
+                    tid = t.get("target_element_id")
+                    if tid and tid not in valid_ids:
+                        invalid_test_ids.add(tid)
+                for t in tests.get("property_based_tests", []):
+                    tid = t.get("target_element_id")
+                    if tid and tid not in valid_ids:
+                        invalid_test_ids.add(tid)
+                for t in tests.get("integration_tests", []):
+                    for tid in t.get("target_element_ids", []):
+                        if tid not in valid_ids:
+                            invalid_test_ids.add(tid)
+                for t in tests.get("acceptance_tests", []):
+                    for tid in t.get("target_element_ids", []):
+                        if tid not in valid_ids:
+                            invalid_test_ids.add(tid)
+
+                if invalid_test_ids:
+                    issues.append(
+                        f"Invalid test element IDs: {', '.join(sorted(invalid_test_ids))}"
+                    )
+
+                invalid_impl_ids = set()
+                for funcs in updated_plan.get("implementation_plan", {}).values():
+                    if isinstance(funcs, list):
+                        for func in funcs:
+                            eid = func.get("element_id")
+                            if eid and eid not in valid_ids:
+                                invalid_impl_ids.add(eid)
+
+                if invalid_impl_ids:
+                    issues.append(
+                        f"Invalid implementation element IDs: {', '.join(sorted(invalid_impl_ids))}"
+                    )
+
+                if issues:
                     updated_plan["revalidation_status"] = {
                         "is_valid": False,
-                        "issues_found": [f"Missing required keys: {', '.join(missing_keys)}"],
-                        "timestamp": str(uuid.uuid4())
+                        "issues_found": issues,
+                        "timestamp": str(uuid.uuid4()),
                     }
                 else:
-                    # Add positive revalidation status
                     updated_plan["revalidation_status"] = {
                         "is_valid": True,
-                        "timestamp": str(uuid.uuid4())
+                        "timestamp": str(uuid.uuid4()),
                     }
                     
                 return updated_plan
