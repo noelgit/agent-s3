@@ -8,6 +8,8 @@ import logging
 import os
 import uuid
 import traceback
+from datetime import datetime
+from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
@@ -411,8 +413,31 @@ class FeatureGroupProcessor:
             "success": True,
             "timestamp": str(uuid.uuid4())  # Timestamp for reference
         }
-        
+
         return consolidated_plan
+
+    def _save_consolidated_plan(self, consolidated_plan: Dict[str, Any], user_decision: str, modification_text: Optional[str] = None) -> str:
+        """Save the consolidated plan to ``plans/<plan_id>.json`` with metadata."""
+        plans_dir = Path("plans")
+        plans_dir.mkdir(exist_ok=True)
+
+        plan_id = consolidated_plan.get("plan_id") or f"plan_{uuid.uuid4()}"
+        file_path = plans_dir / f"{plan_id}.json"
+
+        data = {
+            "plan_id": plan_id,
+            "timestamp": datetime.now().isoformat(),
+            "user_decision": "modified" if modification_text else (
+                "accepted" if user_decision == "yes" else user_decision
+            ),
+            "modification_text": modification_text,
+            "consolidated_plan": consolidated_plan,
+        }
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+
+        return str(file_path)
     
     def present_consolidated_plan_to_user(self, consolidated_plan: Dict[str, Any]) -> Tuple[str, Optional[str]]:
         """
@@ -568,6 +593,33 @@ class FeatureGroupProcessor:
                         "timestamp": str(uuid.uuid4())
                     }
                     
+                # Save to disk
+                try:
+                    self._save_consolidated_plan(
+                        updated_plan,
+                        user_decision="modify",
+                        modification_text=modifications,
+                    )
+                except Exception as e:
+                    self.coordinator.scratchpad.log(
+                        "FeatureGroupProcessor",
+                        f"Error saving modified plan: {e}",
+                        level="WARNING",
+                    )
+
+                # Record in context manager if available
+                if hasattr(self.coordinator, "context_manager"):
+                    self.coordinator.context_manager.add_to_context(
+                        "plan_modifications",
+                        {
+                            "plan_id": updated_plan.get("plan_id"),
+                            "feature_group": updated_plan.get("group_name", ""),
+                            "modification_text": modifications,
+                            "timestamp": datetime.now().isoformat(),
+                            "diff_summary": "N/A",
+                        },
+                    )
+
                 return updated_plan
             else:
                 # If regeneration failed, return original plan with error status

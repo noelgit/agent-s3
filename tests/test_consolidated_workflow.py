@@ -253,7 +253,7 @@ class TestConsolidatedWorkflow(unittest.TestCase):
         )
         
         # Check that a plan file was saved
-        plan_files = list(self.plans_dir.glob("*.log"))
+        plan_files = list(self.plans_dir.glob("*.json"))
         self.assertEqual(len(plan_files), 1)
         
         # Read the plan file and verify it contains the user modification
@@ -261,6 +261,7 @@ class TestConsolidatedWorkflow(unittest.TestCase):
             plan_data = json.load(f)
             self.assertEqual(plan_data["user_decision"], "modified")
             self.assertEqual(plan_data["modification_text"], "Add two-factor authentication")
+            self.assertIn("timestamp", plan_data)
             
             # Verify modification was added to architecture review
             considerations = plan_data["consolidated_plan"]["architecture_review"]["additional_considerations"]
@@ -409,7 +410,7 @@ class TestConsolidatedWorkflow(unittest.TestCase):
             mock_present.assert_called_once_with(modified_plan)
             
             # Check that the plan file was saved with revalidation results
-            plan_files = list(self.plans_dir.glob("*.log"))
+            plan_files = list(self.plans_dir.glob("*.json"))
             self.assertGreaterEqual(len(plan_files), 1)
             
             # Verify the file contains revalidation results
@@ -417,6 +418,7 @@ class TestConsolidatedWorkflow(unittest.TestCase):
                 plan_data = json.load(f)
                 self.assertIn("revalidation_results", plan_data["consolidated_plan"])
                 self.assertIn("revalidation_status", plan_data["consolidated_plan"])
+                self.assertIn("timestamp", plan_data)
 
 if __name__ == "__main__":
     unittest.main()

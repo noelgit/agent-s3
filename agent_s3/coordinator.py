@@ -825,6 +825,18 @@ class Coordinator:
                             if decision == "yes":
                                 self.scratchpad.log("Coordinator", f"User accepted the plan for feature group: {feature_group_name}")
                                 approved_consolidated_plans.append(group_plan)
+                                # Save approved plan
+                                try:
+                                    self.feature_group_processor._save_consolidated_plan(
+                                        group_plan,
+                                        user_decision="yes",
+                                    )
+                                except Exception as e:
+                                    self.scratchpad.log(
+                                        "Coordinator",
+                                        f"Failed to save approved plan {feature_group_name}: {e}",
+                                        level=LogLevel.WARNING,
+                                    )
                             elif decision == "no":
                                 self.scratchpad.log("Coordinator", f"User rejected the plan for feature group: {feature_group_name}")
                                 print(f"Implementation of feature group '{feature_group_name}' cancelled.")
@@ -865,6 +877,18 @@ class Coordinator:
                                                  f"Plan updated with user modifications for feature group: {feature_group_name}" +
                                                  (" (with validation warnings)" if has_critical_issues else ""))
                                 approved_consolidated_plans.append(updated_plan)
+                                try:
+                                    self.feature_group_processor._save_consolidated_plan(
+                                        updated_plan,
+                                        user_decision="modify",
+                                        modification_text=modification_text,
+                                    )
+                                except Exception as e:
+                                    self.scratchpad.log(
+                                        "Coordinator",
+                                        f"Failed to save modified plan {feature_group_name}: {e}",
+                                        level=LogLevel.WARNING,
+                                    )
                         else:
                             self.scratchpad.log("Coordinator", f"No consolidated plan available for feature group: {feature_group_name}", level=LogLevel.WARNING)
                     else:
