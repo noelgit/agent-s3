@@ -534,40 +534,61 @@ class FeatureGroupProcessor:
         self.coordinator.scratchpad.log("FeatureGroupProcessor", f"Updating plan with user modifications")
         
         try:
-            # Import both base and specialized planner modules to maintain consistency
-            from .planner import Planner
+            # Import planner helper for modification regeneration
             from .planner_json_enforced import regenerate_consolidated_plan_with_modifications
+            # Validator used during plan generation
+            from agent_s3.tools.implementation_validator import validate_implementation_plan
 
-            # Use the specialized JSON-enforced version for plan regeneration
+            # Regenerate the plan with the user's modifications
             updated_plan = regenerate_consolidated_plan_with_modifications(
                 self.coordinator.router_agent,
                 plan,
-                modifications
+                modifications,
             )
-            
-            # Validate the updated plan to confirm it meets requirements
+
             if updated_plan:
-                # Mark as modified
                 updated_plan["is_modified_by_user"] = True
                 updated_plan["modification_text"] = modifications
-                
-                # Run simple validation to ensure it has required keys
+
                 required_keys = {"architecture_review", "tests", "implementation_plan"}
                 missing_keys = required_keys - set(updated_plan.keys())
+
+                # Perform implementation plan validation
+                validated_impl, validation_issues, needs_repair = validate_implementation_plan(
+                    updated_plan.get("implementation_plan", {}),
+                    updated_plan.get("system_design", {}),
+                    updated_plan.get("architecture_review", {}),
+                    updated_plan.get("tests", {}),
+                )
+                updated_plan["implementation_plan"] = validated_impl
+
+                revalidation_results = {
+                    "implementation_plan_validation": {
+                        "is_valid": not needs_repair and not validation_issues,
+                        "issues": validation_issues,
+                    }
+                }
+
+                is_valid_overall = not needs_repair and not validation_issues and not missing_keys
                 if missing_keys:
-                    # Add revalidation_status with issues
-                    updated_plan["revalidation_status"] = {
+                    revalidation_results["plan_structure"] = {
                         "is_valid": False,
-                        "issues_found": [f"Missing required keys: {', '.join(missing_keys)}"],
-                        "timestamp": str(uuid.uuid4())
+                        "issues": [f"Missing required keys: {', '.join(missing_keys)}"],
                     }
-                else:
-                    # Add positive revalidation status
-                    updated_plan["revalidation_status"] = {
-                        "is_valid": True,
-                        "timestamp": str(uuid.uuid4())
-                    }
-                    
+
+                updated_plan["revalidation_results"] = revalidation_results
+                updated_plan["revalidation_status"] = {
+                    "is_valid": is_valid_overall,
+                    "issues_found": [
+                        *(revalidation_results["implementation_plan_validation"]["issues"]),
+                        *revalidation_results.get("plan_structure", {}).get("issues", [])
+                    ],
+                    "timestamp": str(uuid.uuid4()),
+                }
+
+                # Present validation results to the user
+                self._present_revalidation_results(updated_plan)
+
                 return updated_plan
             else:
                 # If regeneration failed, return original plan with error status
@@ -609,6 +630,20 @@ class FeatureGroupProcessor:
             if decision in ["yes", "no", "modify"]:
                 return decision
             print("Invalid input. Please enter 'yes', 'no', or 'modify'.")
+
+    def _present_revalidation_results(self, updated_plan: Dict[str, Any]) -> None:
+        """Present revalidation results to the user.
+
+        This basic implementation simply logs a summary. It can be
+        overridden or patched in tests to verify that results are
+        communicated correctly.
+        """
+        results = updated_plan.get("revalidation_results", {})
+        status = updated_plan.get("revalidation_status", {})
+        self.coordinator.scratchpad.log(
+            "FeatureGroupProcessor",
+            f"Revalidation complete. Overall valid: {status.get('is_valid', False)}",
+        )
             
 # Import here to avoid circular references
 def generate_refined_test_specifications(router_agent, feature_group, architecture_review, task_description, context=None):

@@ -18,7 +18,8 @@ from pathlib import Path
 import warnings
 from collections import defaultdict
 
-from agent_s3.json_utils import extract_json_from_text, validate_json_schema, repair_json_structure
+from agent_s3.json_utils import extract_json_from_text, repair_json_structure
+from agent_s3.schemas import PLANNING_REQUIRED_TOP_LEVEL_KEYS
 # Add import for implementation validator
 from agent_s3.tools.implementation_validator import validate_implementation_plan, repair_implementation_plan
 
@@ -1191,7 +1192,7 @@ def _parse_and_validate_json(response_text: str, schema: Optional[Dict[str, Any]
     except json.JSONDecodeError as e:
         raise JSONPlannerError(f"Invalid JSON received from LLM: {e}\nResponse Text: {response_text[:500]}...")
 
-    required_top_level_keys = {"architecture_review", "tests", "implementation_plan", "discussion"}
+    required_top_level_keys = PLANNING_REQUIRED_TOP_LEVEL_KEYS
     missing_keys = required_top_level_keys - data.keys()
     if missing_keys:
         raise JSONPlannerError(f"JSON response missing required top-level keys: {missing_keys}")

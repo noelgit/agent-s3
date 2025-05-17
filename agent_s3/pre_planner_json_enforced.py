@@ -24,38 +24,67 @@ from agent_s3.pre_planner import (
     PrePlanningError,
     get_base_system_prompt,
     get_base_user_prompt,
-    create_fallback_pre_planning_output
+    create_fallback_pre_planning_output,
 )
 
-from agent_s3.planner_json_enforced import get_openrouter_params, validate_json_schema, repair_json_structure
+from agent_s3.planner_json_enforced import repair_json_structure
 from agent_s3.json_utils import extract_json_from_text
+from agent_s3.schemas import (
+    PREPLANNING_REQUIRED_SCHEMA as REQUIRED_SCHEMA,
+    PREPLANNING_FEATURE_GROUP_SCHEMA as FEATURE_GROUP_SCHEMA,
+    PREPLANNING_FEATURE_SCHEMA as FEATURE_SCHEMA,
+)
 
 logger = logging.getLogger(__name__)
 
-# JSON schema for validation
-REQUIRED_SCHEMA = {
-    "original_request": str,
-    "feature_groups": list,  # Will validate each feature group separately
-}
-
-FEATURE_GROUP_SCHEMA = {
-    "group_name": str,
-    "group_description": str,
-    "features": list  # Will validate each feature separately
-}
-
-FEATURE_SCHEMA = {
-    "name": str,
-    "description": str,
-    "files_affected": list,
-    "test_requirements": dict,
-    "dependencies": dict,
-    "risk_assessment": dict,
-    "system_design": dict
-}
-
 # Use the base PrePlanningError as JSONValidationError for backward compatibility
 JSONValidationError = PrePlanningError
+
+def get_openrouter_params() -> Dict[str, Any]:
+    """Compatibility wrapper returning OpenRouter parameters."""
+    from .json_utils import get_openrouter_json_params
+
+    return get_openrouter_json_params()
+
+def validate_json_schema(data: Dict[str, Any]) -> Tuple[bool, str, List[int]]:
+    """Validate pre-planning JSON structure."""
+    if not isinstance(data, dict):
+        return False, "Data must be a dictionary", []
+
+    errors = []
+    valid_indices: List[int] = []
+
+    # Top-level validation
+    for key, expected in REQUIRED_SCHEMA.items():
+        if key not in data:
+            errors.append(f"Missing required key: {key}")
+        elif not isinstance(data[key], expected):
+            errors.append(
+                f"Key '{key}' should be {expected.__name__}, got {type(data[key]).__name__}"
+            )
+
+    feature_groups = data.get("feature_groups")
+    if isinstance(feature_groups, list):
+        for idx, group in enumerate(feature_groups):
+            if not isinstance(group, dict):
+                errors.append(f"feature_groups[{idx}] should be object")
+                continue
+            group_errors = []
+            for k, t in FEATURE_GROUP_SCHEMA.items():
+                if k not in group:
+                    group_errors.append(f"missing key: {k}")
+                elif not isinstance(group[k], t):
+                    group_errors.append(
+                        f"{k} should be {t.__name__}, got {type(group[k]).__name__}"
+                    )
+            if group_errors:
+                errors.extend(f"feature_group[{idx}] {msg}" for msg in group_errors)
+            else:
+                valid_indices.append(idx)
+    elif "feature_groups" in data:
+        errors.append("feature_groups should be list")
+
+    return len(errors) == 0, "; ".join(errors), valid_indices
 
 def get_json_system_prompt() -> str:
     """
@@ -271,7 +300,6 @@ def get_json_user_prompt(task_description: str) -> str:
 
     # Combine them while avoiding duplicate content
     return f"{base_prompt}\n\n{json_specific}"
-    return None
 
 def process_response(response: str, original_request: str) -> Tuple[str, Dict[str, Any], Optional[str]]:
     """
