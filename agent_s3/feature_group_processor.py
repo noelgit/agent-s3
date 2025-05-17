@@ -413,6 +413,34 @@ class FeatureGroupProcessor:
         }
         
         return consolidated_plan
+
+    def _save_consolidated_plan(
+        self,
+        consolidated_plan: Dict[str, Any],
+        user_decision: str,
+        modification_text: Optional[str] = None,
+    ) -> str:
+        """Save the consolidated plan to ``plans/<plan_id>.log`` with metadata."""
+        plans_dir = Path("plans")
+        plans_dir.mkdir(exist_ok=True)
+
+        plan_id = consolidated_plan.get("plan_id") or f"plan_{uuid.uuid4()}"
+        file_path = plans_dir / f"{plan_id}.log"
+
+        data = {
+            "plan_id": plan_id,
+            "timestamp": datetime.now().isoformat(),
+            "user_decision": (
+                "modified" if modification_text else ("accepted" if user_decision == "yes" else user_decision)
+            ),
+            "modification_text": modification_text,
+            "consolidated_plan": consolidated_plan,
+        }
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+
+        return str(file_path)
     
     def present_consolidated_plan_to_user(self, consolidated_plan: Dict[str, Any]) -> Tuple[str, Optional[str]]:
         """
@@ -562,32 +590,109 @@ class FeatureGroupProcessor:
                 )
                 updated_plan["implementation_plan"] = validated_impl
 
-                revalidation_results = {
-                    "implementation_plan_validation": {
-                        "is_valid": not needs_repair and not validation_issues,
-                        "issues": validation_issues,
-                    }
+                from agent_s3.tools.phase_validator import (
+                    validate_user_modifications,
+                    validate_architecture_implementation,
+                    validate_test_coverage_against_risk,
+                )
+
+                revalidation_results = {}
+
+                # Validate the modification text itself
+                mod_valid, mod_msg = validate_user_modifications(modifications)
+                revalidation_results["user_modifications"] = {
+                    "is_valid": mod_valid,
+                    "message": mod_msg,
                 }
 
-                is_valid_overall = not needs_repair and not validation_issues and not missing_keys
+                # Validate architecture vs implementation
+                arch_valid, arch_msg, arch_details = validate_architecture_implementation(
+                    updated_plan.get("architecture_review", {}),
+                    updated_plan.get("implementation_plan", {}),
+                )
+                revalidation_results["architecture_implementation"] = {
+                    "is_valid": arch_valid,
+                    "message": arch_msg,
+                    "details": arch_details,
+                }
+
+                # Validate test coverage against risk assessment
+                test_valid, test_msg, test_details = validate_test_coverage_against_risk(
+                    updated_plan.get("tests", {}),
+                    updated_plan.get("risk_assessment", {}),
+                )
+                revalidation_results["test_coverage"] = {
+                    "is_valid": test_valid,
+                    "message": test_msg,
+                    "details": test_details,
+                }
+
+                # Implementation plan validation results
+                revalidation_results["implementation_plan_validation"] = {
+                    "is_valid": not needs_repair and not validation_issues,
+                    "issues": validation_issues,
+                }
+
                 if missing_keys:
                     revalidation_results["plan_structure"] = {
                         "is_valid": False,
                         "issues": [f"Missing required keys: {', '.join(missing_keys)}"],
                     }
 
+                is_valid_overall = (
+                    mod_valid
+                    and arch_valid
+                    and test_valid
+                    and not needs_repair
+                    and not validation_issues
+                    and not missing_keys
+                )
+
+                issues_found = [
+                    *revalidation_results.get("plan_structure", {}).get("issues", []),
+                    *(revalidation_results["implementation_plan_validation"]["issues"]),
+                ]
+                if not mod_valid and mod_msg:
+                    issues_found.append(mod_msg)
+                if not arch_valid and arch_msg:
+                    issues_found.append(arch_msg)
+                if not test_valid and test_msg:
+                    issues_found.append(test_msg)
+
                 updated_plan["revalidation_results"] = revalidation_results
                 updated_plan["revalidation_status"] = {
                     "is_valid": is_valid_overall,
-                    "issues_found": [
-                        *(revalidation_results["implementation_plan_validation"]["issues"]),
-                        *revalidation_results.get("plan_structure", {}).get("issues", [])
-                    ],
+                    "issues_found": issues_found,
                     "timestamp": str(uuid.uuid4()),
                 }
 
                 # Present validation results to the user
                 self._present_revalidation_results(updated_plan)
+
+                try:
+                    self._save_consolidated_plan(
+                        updated_plan,
+                        user_decision="modify",
+                        modification_text=modifications,
+                    )
+                except Exception as e:
+                    self.coordinator.scratchpad.log(
+                        "FeatureGroupProcessor",
+                        f"Error saving modified plan: {e}",
+                        level="WARNING",
+                    )
+
+                if hasattr(self.coordinator, "context_manager"):
+                    self.coordinator.context_manager.add_to_context(
+                        "plan_modifications",
+                        {
+                            "plan_id": updated_plan.get("plan_id"),
+                            "feature_group": updated_plan.get("group_name", ""),
+                            "modification_text": modifications,
+                            "timestamp": datetime.now().isoformat(),
+                            "diff_summary": "N/A",
+                        },
+                    )
 
                 return updated_plan
             else:
