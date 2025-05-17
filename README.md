@@ -2,6 +2,10 @@
 
 Agent-S3 is a modern AI coding agent designed to empower engineers by emphasizing transparency, control, and strict adherence to guidelines. Recognizing that AI can and will make mistakes, Agent-S3 ensures that the engineer remains in control at every stage of the development process.
 
+This README and the companion `STORIES.md` file serve as the canonical project
+documentation. Both documents provide authoritative information on setup,
+workflows, and design decisions.
+
 ## Overview
 
 Agent-S3 automates feature planning, code generation, and execution while maintaining a step-by-step approach to prioritize correctness over convenience. Key features include:
