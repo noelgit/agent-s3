@@ -181,43 +181,6 @@ class Config:
                 "debug": "debug_log.json",
                 "error": "error_log.json"
             },
-            # Context Management Configuration
-            "context_management": {
-                "enabled": True,
-                "background_enabled": True,
-                "optimization_interval": 60,
-                "embedding": {
-                    "chunk_size": 1000,
-                    "chunk_overlap": 200,
-                },
-                "search": {
-                    "bm25": {
-                        "k1": 1.2, 
-                        "b": 0.75
-                    },
-                },
-                "summarization": {
-                    "threshold": 2000,
-                    "compression_ratio": 0.5
-                },
-                "importance_scoring": {
-                    "code_weight": 1.0,
-                    "comment_weight": 0.8,
-                    "metadata_weight": 0.7,
-                    "framework_weight": 0.9
-                }
-            },
-            # Adaptive Configuration Settings
-            "adaptive_config": {
-                "enabled": ADAPTIVE_CONFIG_ENABLED,
-                "repo_path": ADAPTIVE_CONFIG_REPO_PATH,
-                "config_dir": ADAPTIVE_CONFIG_DIR,
-                "metrics_dir": ADAPTIVE_METRICS_DIR,
-                "optimization_interval": ADAPTIVE_OPTIMIZATION_INTERVAL,
-                "auto_adjust": True,
-                "profile_repo_on_start": True,
-                "metrics_collection": True
-            },
             # Default flags
             "check_auth": True,
             "interactive": True,
