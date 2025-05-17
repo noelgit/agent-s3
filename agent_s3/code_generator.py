@@ -19,6 +19,7 @@ import threading
 
 from .enhanced_scratchpad_manager import LogLevel
 from .tools.test_critic.core import TestType, TestVerdict
+from .config import CONTEXT_WINDOW_GENERATOR
 
 
 class CodeGenerator:
@@ -630,5 +631,234 @@ Please fix the code to address all these issues. Return only the fixed code.
         
         # Critical issues are syntax errors and test failures
         debug_info["critical_issues"] = syntax_issues + test_issues
-        
+
         return debug_info
+
+    def _get_context_cache_key(self, file_path: str, details: Any) -> str:
+        """Return a cache key for context based on file path and details."""
+        try:
+            serialized = json.dumps(details, sort_keys=True, default=str)
+        except Exception:
+            serialized = str(details)
+        return f"{file_path}:{hash(serialized)}"
+
+    def _is_context_cache_valid(self, file_path: str, cached_context: Dict[str, Any]) -> bool:
+        """Check if the cached context for a file is still valid."""
+        cache_key = self._get_context_cache_key(file_path, cached_context.get("functions_to_implement", []))
+        dep_info = self._context_dependency_map.get(cache_key)
+        if not dep_info:
+            return False
+
+        for path, mtime in dep_info.get("timestamps", {}).items():
+            try:
+                if os.path.exists(path) and os.path.getmtime(path) > mtime:
+                    return False
+            except Exception:
+                return False
+        return True
+
+    def _cache_context(self, file_path: str, context: Dict[str, Any], dependencies: List[str]) -> None:
+        """Cache prepared context for a file."""
+        cache_key = self._get_context_cache_key(file_path, context.get("functions_to_implement", []))
+
+        if len(self._context_cache) >= self._context_cache_max_size:
+            oldest_key = next(iter(self._context_cache))
+            self._context_cache.pop(oldest_key, None)
+            self._context_dependency_map.pop(oldest_key, None)
+
+        self._context_cache[cache_key] = context
+        timestamps = {}
+        for p in [file_path] + list(dependencies):
+            if os.path.exists(p):
+                try:
+                    timestamps[p] = os.path.getmtime(p)
+                except Exception:
+                    pass
+        self._context_dependency_map[cache_key] = {"paths": dependencies, "timestamps": timestamps}
+
+    def _extract_imports_and_dependencies(self, file_path: str, imports: List[str]) -> List[str]:
+        """Return paths of modules imported by the file within the workspace."""
+        dep_paths: List[str] = []
+        base_dir = os.path.dirname(file_path)
+        for imp in imports:
+            module_path = os.path.join(base_dir, imp.replace(".", os.sep) + ".py")
+            if os.path.exists(module_path):
+                dep_paths.append(module_path)
+            else:
+                alt_path = imp.replace(".", os.sep) + ".py"
+                if os.path.exists(alt_path):
+                    dep_paths.append(alt_path)
+        return dep_paths
+
+    def _prioritize_context(self, context: Dict[str, Any], token_budget: int) -> Dict[str, Any]:
+        """Trim context information so it fits within the token budget."""
+        approx_tokens = lambda s: len(s) // 4
+
+        prioritized = {
+            "existing_code": context.get("existing_code", ""),
+            "related_files": dict(context.get("related_files", {})),
+            "imports": context.get("imports", []),
+            "functions_to_implement": context.get("functions_to_implement", []),
+        }
+
+        def total_tokens(ctx: Dict[str, Any]) -> int:
+            tokens = approx_tokens(ctx.get("existing_code", ""))
+            for content in ctx.get("related_files", {}).values():
+                tokens += approx_tokens(content)
+            return tokens
+
+        while total_tokens(prioritized) > token_budget and prioritized["related_files"]:
+            # Drop the largest related file
+            largest = max(prioritized["related_files"].items(), key=lambda x: len(x[1]))[0]
+            prioritized["related_files"].pop(largest)
+
+        if total_tokens(prioritized) > token_budget and prioritized.get("existing_code"):
+            excess = total_tokens(prioritized) - token_budget
+            cut_chars = excess * 4
+            prioritized["existing_code"] = prioritized["existing_code"][:-cut_chars]
+
+        return prioritized
+
+    def _validate_generated_code(self, file_path: str, generated_code: str) -> Tuple[bool, List[str]]:
+        """Validate generated code with syntax, linting and type checks."""
+        issues: List[str] = []
+
+        # Syntax check
+        try:
+            ast.parse(generated_code)
+        except SyntaxError as e:
+            issues.append(f"Syntax error: {e.msg}")
+
+        # Write code to a temporary file for tooling
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".py")
+        try:
+            tmp.write(generated_code.encode())
+            tmp.flush()
+            if hasattr(self.coordinator, "bash_tool") and self.coordinator.bash_tool:
+                rc, output = self.coordinator.bash_tool.run_command(f"flake8 {tmp.name}")
+                if rc != 0 and output:
+                    issues.extend([f"Linting: {l}" for l in output.splitlines() if l.strip()])
+
+                rc, output = self.coordinator.bash_tool.run_command(f"python -m mypy {tmp.name}")
+                if rc != 0 and output:
+                    issues.extend([f"Type checking: {l}" for l in output.splitlines() if l.strip()])
+        finally:
+            tmp.close()
+            os.unlink(tmp.name)
+
+        return len(issues) == 0, issues
+
+    def _run_tests(self, file_path: str, generated_code: str) -> Dict[str, Any]:
+        """Run project tests and return structured results."""
+        if hasattr(self.coordinator, "test_runner_tool") and self.coordinator.test_runner_tool:
+            try:
+                return self.coordinator.test_runner_tool.run_tests()
+            except Exception as e:
+                return {"success": False, "issues": [str(e)]}
+        elif hasattr(self.coordinator, "bash_tool") and self.coordinator.bash_tool:
+            rc, output = self.coordinator.bash_tool.run_command("python -m pytest -v")
+            success = rc == 0
+            result = {"success": success, "output": output}
+            if not success:
+                result["issues"] = output.splitlines()
+            return result
+        return {"success": True, "message": "No test runner available"}
+
+    def _debug_generation_issue(self, file_path: str, info: Any, issues: Any) -> Dict[str, Any]:
+        """Provide diagnostics for generation issues and integrate with debugging manager."""
+        if isinstance(info, dict) and isinstance(issues, str):
+            debug_info = info
+        else:
+            generated_code = info
+            issues_list = issues if isinstance(issues, list) else [issues]
+            debug_info = self._collect_debug_info(file_path, generated_code, issues_list)
+
+        debug_info["categorized_issues"] = list(debug_info.get("issue_categories", {}).keys())
+
+        suggested = []
+        for issue in debug_info.get("issues", []):
+            suggestion = "Review the issue"
+            if "No module named" in issue:
+                mod = re.search(r"No module named '([^']+)'", issue)
+                if mod:
+                    suggestion = f"Install or add module '{mod.group(1)}'"
+            elif "not defined" in issue or "undefined" in issue:
+                name_match = re.search(r"'([^']+)'", issue)
+                if name_match:
+                    suggestion = f"Define '{name_match.group(1)}' before use"
+            elif "Syntax error" in issue or "invalid syntax" in issue:
+                suggestion = "Fix the syntax near the referenced line"
+            elif "Incompatible" in issue or "type" in issue.lower():
+                suggestion = "Check type annotations and return values"
+            suggested.append({"issue": issue, "suggestion": suggestion})
+
+        debug_info["suggested_fixes"] = suggested
+
+        if self.debugging_manager:
+            if hasattr(self.debugging_manager, "register_generation_issues"):
+                self.debugging_manager.register_generation_issues(file_path, debug_info)
+            if hasattr(self.debugging_manager, "log_diagnostic_result"):
+                self.debugging_manager.log_diagnostic_result()
+
+        return debug_info
+
+    def _refine_based_on_test_results(self, file_path: str, code: str, test_results: Dict[str, Any]) -> str:
+        """Refine generated code based on failing test results."""
+        failures = test_results.get("failure_info") or test_results.get("issues", [])
+        details = json.dumps(failures, indent=2)
+        system_prompt = "You are a developer fixing code to satisfy failing tests."
+        user_prompt = f"""The following code for '{file_path}' fails tests:
+```python
+{code}
+```
+
+Test failures:
+{details}
+
+Please update the code so that the tests pass. Return only the fixed code."""
+
+        response = self.coordinator.router_agent.call_llm_by_role(
+            role='generator',
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            config={'temperature': 0.1}
+        )
+        refined = self._extract_code_from_response(response, file_path)
+        return refined if refined else code
+
+    def _estimate_file_complexity(self, implementation_details: List[Dict[str, Any]], file_path: str | None = None) -> float:
+        """Estimate file complexity based on implementation details and existing code."""
+        complexity = 1.0
+        if not implementation_details:
+            return complexity
+
+        funcs = sum(1 for d in implementation_details if "function" in d)
+        classes = sum(1 for d in implementation_details if "class" in d)
+        imports = sum(len(d.get("imports", [])) for d in implementation_details)
+
+        complexity += 0.2 * funcs + 0.3 * classes + 0.05 * imports
+
+        for d in implementation_details:
+            sig = d.get("signature", "")
+            complexity += 0.02 * sig.count(",")
+            if re.search(r"thread|async|process", sig, re.IGNORECASE):
+                complexity += 0.3
+
+        if file_path and ("tests" in file_path or os.path.basename(file_path).startswith("test_")):
+            complexity += 0.3
+
+        if file_path and hasattr(self.coordinator, "file_tool") and self.coordinator.file_tool:
+            try:
+                if os.path.exists(file_path):
+                    existing = self.coordinator.file_tool.read_file(file_path)
+                    defs = len(re.findall(r"^def\s", existing, re.MULTILINE)) + len(re.findall(r"^class\s", existing, re.MULTILINE))
+                    complexity += 0.1 * min(defs, 10)
+            except Exception:
+                pass
+
+        return complexity
+
+    def _get_model_token_capacity(self) -> int:
+        """Return the approximate token capacity of the generator model."""
+        return CONTEXT_WINDOW_GENERATOR
+
