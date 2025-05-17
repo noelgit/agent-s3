@@ -8,6 +8,8 @@ import logging
 import os
 import uuid
 import traceback
+from datetime import datetime
+from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
@@ -241,7 +243,7 @@ class FeatureGroupProcessor:
                     )
                     
                     # Add semantic validation results
-                    consolidated_plan["semantic_validation"] = semantic_validation
+                    consolidated_plan["semantic_validation_results"] = semantic_validation
                     
                     # Add test critic results
                     if test_critic_results:
@@ -407,12 +409,35 @@ class FeatureGroupProcessor:
             "discussion": plan_discussion,
             "dependencies": feature_group.get("dependencies", {}),
             "risk_assessment": feature_group.get("risk_assessment", {}),
-            # The semantic_validation field will be added later if available
+            # The semantic_validation_results field will be added later if available
             "success": True,
             "timestamp": str(uuid.uuid4())  # Timestamp for reference
         }
-        
+
         return consolidated_plan
+
+    def _save_consolidated_plan(self, consolidated_plan: Dict[str, Any], user_decision: str, modification_text: Optional[str] = None) -> str:
+        """Save the consolidated plan to ``plans/<plan_id>.json`` with metadata."""
+        plans_dir = Path("plans")
+        plans_dir.mkdir(exist_ok=True)
+
+        plan_id = consolidated_plan.get("plan_id") or f"plan_{uuid.uuid4()}"
+        file_path = plans_dir / f"{plan_id}.json"
+
+        data = {
+            "plan_id": plan_id,
+            "timestamp": datetime.now().isoformat(),
+            "user_decision": "modified" if modification_text else (
+                "accepted" if user_decision == "yes" else user_decision
+            ),
+            "modification_text": modification_text,
+            "consolidated_plan": consolidated_plan,
+        }
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+
+        return str(file_path)
     
     def present_consolidated_plan_to_user(self, consolidated_plan: Dict[str, Any]) -> Tuple[str, Optional[str]]:
         """
@@ -491,7 +516,7 @@ class FeatureGroupProcessor:
             print("- No implementation details")
             
         # Show semantic validation results if available
-        semantic_validation = consolidated_plan.get("semantic_validation", {})
+        semantic_validation = consolidated_plan.get("semantic_validation_results", {})
         if semantic_validation and "error" not in semantic_validation:
             print("\nSEMANTIC VALIDATION:")
             coherence_score = semantic_validation.get("coherence_score", 0)
@@ -550,24 +575,101 @@ class FeatureGroupProcessor:
                 # Mark as modified
                 updated_plan["is_modified_by_user"] = True
                 updated_plan["modification_text"] = modifications
-                
+
                 # Run simple validation to ensure it has required keys
                 required_keys = {"architecture_review", "tests", "implementation_plan"}
                 missing_keys = required_keys - set(updated_plan.keys())
+
+                from agent_s3.tools.phase_validator import (
+                    validate_user_modifications,
+                    validate_architecture_implementation,
+                    validate_test_coverage_against_risk,
+                )
+
+                revalidation_results = {}
+
+                # Validate the modification text itself
+                mod_valid, mod_msg = validate_user_modifications(modifications)
+                revalidation_results["user_modifications"] = {
+                    "is_valid": mod_valid,
+                    "message": mod_msg,
+                }
+
+                # Validate architecture vs implementation
+                arch_valid, arch_msg, arch_details = validate_architecture_implementation(
+                    updated_plan.get("architecture_review", {}),
+                    updated_plan.get("implementation_plan", {}),
+                )
+                revalidation_results["architecture_implementation"] = {
+                    "is_valid": arch_valid,
+                    "message": arch_msg,
+                    "details": arch_details,
+                }
+
+                # Validate test coverage against risk assessment
+                test_valid, test_msg, test_details = validate_test_coverage_against_risk(
+                    updated_plan.get("tests", {}),
+                    updated_plan.get("risk_assessment", {}),
+                )
+                revalidation_results["test_coverage"] = {
+                    "is_valid": test_valid,
+                    "message": test_msg,
+                    "details": test_details,
+                }
+
+                # Include simple structural validation of required keys
                 if missing_keys:
-                    # Add revalidation_status with issues
-                    updated_plan["revalidation_status"] = {
+                    revalidation_results["plan_structure"] = {
                         "is_valid": False,
-                        "issues_found": [f"Missing required keys: {', '.join(missing_keys)}"],
-                        "timestamp": str(uuid.uuid4())
+                        "issues": [f"Missing required keys: {', '.join(missing_keys)}"],
                     }
-                else:
-                    # Add positive revalidation status
-                    updated_plan["revalidation_status"] = {
-                        "is_valid": True,
-                        "timestamp": str(uuid.uuid4())
-                    }
+
+                is_valid_overall = (
+                    mod_valid and arch_valid and test_valid and not missing_keys
+                )
+
+                updated_plan["revalidation_results"] = revalidation_results
+                updated_plan["revalidation_status"] = {
+                    "is_valid": is_valid_overall,
+                    "issues_found": [
+                        *(revalidation_results.get("plan_structure", {}).get("issues", [])),
+                        *([] if mod_valid or not mod_msg else [mod_msg]),
+                        *([] if arch_valid or not arch_msg else [arch_msg]),
+                        *([] if test_valid or not test_msg else [test_msg]),
+                    ],
+                    "timestamp": str(uuid.uuid4()),
+                }
+
+                # Present validation results to the user
+                self._present_revalidation_results(updated_plan)
                     
+                # Save to disk
+                try:
+                    self._save_consolidated_plan(
+                        updated_plan,
+                        user_decision="modify",
+                        modification_text=modifications,
+                    )
+                except Exception as e:
+                    self.coordinator.scratchpad.log(
+                        "FeatureGroupProcessor",
+                        f"Error saving modified plan: {e}",
+                        level="WARNING",
+                    )
+
+                # Record in context manager if available
+                if hasattr(self.coordinator, "context_manager"):
+                    self.coordinator.context_manager.add_to_context(
+                        "plan_modifications",
+                        {
+                            "plan_id": updated_plan.get("plan_id"),
+                            "feature_group": updated_plan.get("group_name", ""),
+                            "modification_text": modifications,
+                            "timestamp": datetime.now().isoformat(),
+                            "diff_summary": "N/A",
+                        },
+                    )
+
                 return updated_plan
             else:
                 # If regeneration failed, return original plan with error status
@@ -609,6 +711,19 @@ class FeatureGroupProcessor:
             if decision in ["yes", "no", "modify"]:
                 return decision
             print("Invalid input. Please enter 'yes', 'no', or 'modify'.")
+
+    def _present_revalidation_results(self, updated_plan: Dict[str, Any]) -> None:
+        """Present revalidation results to the user.
+
+        This default implementation logs a short summary. Tests may patch
+        this method to verify that results are communicated.
+        """
+        results = updated_plan.get("revalidation_results", {})
+        status = updated_plan.get("revalidation_status", {})
+        self.coordinator.scratchpad.log(
+            "FeatureGroupProcessor",
+            f"Revalidation complete. Overall valid: {status.get('is_valid', False)}",
+        )
             
 # Import here to avoid circular references
 def generate_refined_test_specifications(router_agent, feature_group, architecture_review, task_description, context=None):
