@@ -74,15 +74,36 @@ export const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
           const isExpanded = expandedStep === step.id;
           
           return (
-            <div 
+            <div
               key={step.id}
               className={`progress-step ${step.status} ${isExpanded ? 'expanded' : ''}`}
               onClick={() => handleToggleStepDetails(step.id)}
+              role="button"
+              tabIndex={0}
+              aria-label={`Toggle details for ${step.name}`}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleToggleStepDetails(step.id);
+                }
+              }}
             >
               <div className="step-header">
-                <div className="step-status-icon">
-                  {step.status === 'completed' ? '✓' : 
-                   step.status === 'failed' ? '✗' : 
+                <div
+                  className="step-status-icon"
+                  role="img"
+                  aria-label={
+                    step.status === 'completed'
+                      ? 'completed'
+                      : step.status === 'failed'
+                      ? 'failed'
+                      : step.status === 'in_progress'
+                      ? 'in progress'
+                      : 'pending'
+                  }
+                >
+                  {step.status === 'completed' ? '✓' :
+                   step.status === 'failed' ? '✗' :
                    step.status === 'in_progress' ? '→' : '○'}
                 </div>
                 <div className="step-name">{step.name}</div>
@@ -102,7 +123,11 @@ export const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
       </div>
       
       <div className="progress-actions">
-        <button className="cancel-task" onClick={handleCancel}>
+        <button
+          className="cancel-task"
+          onClick={handleCancel}
+          aria-label="Cancel current task"
+        >
           Cancel Task
         </button>
       </div>

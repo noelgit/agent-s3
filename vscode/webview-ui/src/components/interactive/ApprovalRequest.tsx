@@ -76,10 +76,19 @@ export const ApprovalRequest: React.FC<ApprovalRequestProps> = ({
       
       <div className="approval-options">
         {options.map(option => (
-          <div 
-            key={option.id} 
+          <div
+            key={option.id}
             className={`approval-option ${selectedOption === option.id ? 'selected' : ''}`}
             onClick={() => setSelectedOption(option.id)}
+            role="button"
+            tabIndex={0}
+            aria-label={option.label}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setSelectedOption(option.id);
+              }
+            }}
           >
             <div className="option-label">{option.label}</div>
             {option.description && (
@@ -90,10 +99,11 @@ export const ApprovalRequest: React.FC<ApprovalRequestProps> = ({
       </div>
       
       <div className="approval-actions">
-        <button 
+        <button
           className="approval-submit"
-          disabled={!selectedOption} 
+          disabled={!selectedOption}
           onClick={() => selectedOption && handleSubmit(selectedOption)}
+          aria-label="Submit approval request"
         >
           Submit
         </button>
