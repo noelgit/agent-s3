@@ -35,9 +35,19 @@ class TestSemanticValidationWorkflow(unittest.TestCase):
                     "group_description": "User authentication features",
                     "features": [
                         {
-                            "name": "Login", 
-                            "description": "User login", 
-                            "files_affected": ["src/auth.js"]
+                            "name": "Login",
+                            "description": "User login",
+                            "files_affected": ["src/auth.js"],
+                            "system_design": {
+                                "code_elements": [
+                                    {
+                                        "element_id": "element1",
+                                        "name": "login",
+                                        "type": "function",
+                                        "target_file": "src/auth.js",
+                                    }
+                                ]
+                            }
                         }
                     ],
                     "risk_assessment": {
@@ -77,6 +87,7 @@ class TestSemanticValidationWorkflow(unittest.TestCase):
                     {
                         "function": "async function login(username, password)",
                         "description": "Authenticate user",
+                        "element_id": "element1",
                         "steps": [
                             "Validate input",
                             "Call API endpoint",
@@ -101,6 +112,7 @@ class TestSemanticValidationWorkflow(unittest.TestCase):
                     "implementation_file": "src/auth.js",
                     "test_name": "test_login_success",
                     "description": "Test successful login",
+                    "target_element_id": "element1",
                     "code": "test code",
                     "setup_requirements": "Mock API"
                 }
@@ -371,11 +383,46 @@ class TestSemanticValidationWorkflow(unittest.TestCase):
         
         # Verify low coherence score is flagged as a critical issue
         self.assertTrue(any(
-            warning.get("type") == "semantic_validation" and 
+            warning.get("type") == "semantic_validation" and
             "Low coherence score: 3/10" in warning.get("message", "") and
             warning.get("severity") == "critical"
             for warning in warnings
         ))
+
+    def test_inconsistent_element_ids_detection(self):
+        """Ensure invalid element IDs are flagged after modifications."""
+        self.coordinator.router_agent.route_query.side_effect = [
+            json.dumps(self.architecture_review),
+            json.dumps(self.implementation_plan),
+            json.dumps(self.tests),
+            json.dumps(self.semantic_validation_results),
+        ]
+
+        result = self.processor.process_pre_planning_output(
+            self.pre_planning_data,
+            "Implement authentication",
+        )
+
+        feature_group_result = list(result["feature_group_results"].values())[0]
+        consolidated_plan = feature_group_result["consolidated_plan"]
+
+        invalid_plan = json.loads(json.dumps(consolidated_plan))
+        invalid_plan["implementation_plan"]["src/auth.js"][0]["element_id"] = "invalid_element"
+        invalid_plan["tests"]["unit_tests"][0]["target_element_id"] = "invalid_element"
+
+        with patch(
+            "agent_s3.planner_json_enforced.regenerate_consolidated_plan_with_modifications",
+            return_value=invalid_plan,
+        ):
+            modified_plan = self.processor.update_plan_with_modifications(
+                consolidated_plan,
+                "Add invalid id",
+            )
+
+        self.assertFalse(modified_plan["revalidation_status"]["is_valid"])
+        issues = modified_plan["revalidation_status"].get("issues_found", [])
+        self.assertTrue(any("Invalid test element IDs" in issue for issue in issues))
+        self.assertTrue(any("Invalid implementation element IDs" in issue for issue in issues))
 
 
 if __name__ == "__main__":
