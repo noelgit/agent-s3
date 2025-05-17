@@ -33,6 +33,7 @@ from agent_s3.tech_stack_detector import TechStackDetector
 from agent_s3.file_history_analyzer import FileHistoryAnalyzer
 from agent_s3.task_resumer import TaskResumer
 from agent_s3.command_processor import CommandProcessor
+from agent_s3.workflows import PlanningWorkflow, ImplementationWorkflow
 # Import new standardized error handling
 from agent_s3.errors import (
     AgentError,
@@ -594,6 +595,33 @@ class Coordinator:
                 "error": error_msg,
                 "traceback": traceback.format_exc()
             })
+
+    def process_change_request(self, request_text: str, skip_planning: bool = False) -> None:
+        """Facade for processing a change request through the workflow stack.
+
+        If ``skip_planning`` is False the request text is treated as a new task
+        description and passed to :func:`run_task`. When ``skip_planning`` is
+        True the text is assumed to already contain a plan and the implementation
+        workflow is invoked directly.
+
+        Args:
+            request_text: The feature request or plan text.
+            skip_planning: Whether to bypass planning and jump straight to
+                implementation.
+        """
+        try:
+            self.scratchpad.log("Coordinator", f"Processing change request: {request_text[:50]}")
+            if skip_planning:
+                implementation = ImplementationWorkflow(self)
+                implementation.execute([{"plan": request_text}])
+            else:
+                self.run_task(request_text)
+        except Exception as e:
+            self.error_handler.handle_exception(
+                exc=e,
+                operation="process_change_request",
+                level=logging.ERROR
+            )
 
     def _planning_workflow(self, task: str, pre_planning_input: Dict[str, Any] | None = None, from_design: bool = False) -> List[Dict[str, Any]]:
         """Execute planning phases and return approved consolidated plans."""

@@ -200,7 +200,27 @@ class TestCommandProcessor:
         """Test execute_help_command with a specific command."""
         # Exercise
         result = command_processor.execute_help_command("init")
-        
+
         # Verify
         assert "/init:" in result
         assert "Initialize workspace" in result
+
+    @patch('pathlib.Path.exists')
+    @patch('pathlib.Path.read_text')
+    def test_generate_command_fallback_to_process_change_request(self, mock_read_text, mock_exists, command_processor, mock_coordinator):
+        """Ensure generate command uses process_change_request when execute_generate is unavailable."""
+        mock_exists.return_value = True
+        mock_read_text.return_value = "Plan"
+        if hasattr(mock_coordinator, 'execute_generate'):
+            delattr(mock_coordinator, 'execute_generate')
+        mock_coordinator.process_change_request = MagicMock()
+
+        command_processor.execute_generate_command("")
+
+        mock_coordinator.process_change_request.assert_called_once_with("Plan", skip_planning=True)
+
+    def test_execute_request_command(self, command_processor, mock_coordinator):
+        """Test execute_request_command routes to process_change_request."""
+        result = command_processor.execute_request_command("Add feature")
+        mock_coordinator.process_change_request.assert_called_once_with("Add feature")
+        assert result == ""

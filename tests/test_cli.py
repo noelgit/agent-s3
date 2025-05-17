@@ -43,6 +43,12 @@ class TestCliProcessCommand(unittest.TestCase):
         mock_print.assert_any_call("Executing terminal command: echo hi")
 
     @patch('builtins.print')
+    def test_request_command(self, mock_print):
+        process_command(self.mock_coordinator, "/request add login")
+        self.mock_coordinator.process_change_request.assert_called_once_with("add login")
+        mock_print.assert_not_called()
+
+    @patch('builtins.print')
     def test_unknown_command(self, mock_print):
         process_command(self.mock_coordinator, "/unknown")
         mock_print.assert_called_once_with("Unknown command: /unknown")
