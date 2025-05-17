@@ -156,7 +156,7 @@ def temp_class_file(tmp_path, sample_class_with_methods):
     return file_path
 
 
-def test_call_pre_planner_with_enforced_json(router_agent, mock_context):
+def test_call_pre_planner_with_enforced_json(router_agent, mock_context, tmp_path):
     """Test that pre_planning_workflow returns valid data."""
     # Mock the router agent's call_llm_by_role to return a valid JSON
     router_agent.call_llm_by_role.return_value = """
@@ -200,8 +200,12 @@ def test_call_pre_planner_with_enforced_json(router_agent, mock_context):
     """
     # Call function
     from agent_s3.pre_planner_json_enforced import pre_planning_workflow
+    preplan_file = tmp_path / "preplan.json"
     success, result = pre_planning_workflow(
-        router_agent, "Create a calculator", context=mock_context
+        router_agent,
+        "Create a calculator",
+        context=mock_context,
+        preplan_path=str(preplan_file),
     )
     # Verify success
     assert success

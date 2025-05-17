@@ -574,7 +574,8 @@ class Coordinator:
                     success, pre_plan_data = pre_planning_workflow(
                         self.router_agent,
                         task,
-                        context=context
+                        context=context,
+                        preplan_path="preplan.json",
                     )
 
                 # Handle pre-planning failure

@@ -500,7 +500,12 @@ def validate_preplan_all(data) -> Tuple[bool, str]:
         errors.append(f"Planner compatibility check exception: {e}")
     return (len(errors) == 0), "\n".join(errors)
 
-def pre_planning_workflow(router_agent, initial_request: str, context: Dict[str, Any] = None) -> Tuple[bool, Dict[str, Any]]:
+def pre_planning_workflow(
+    router_agent,
+    initial_request: str,
+    context: Dict[str, Any] = None,
+    preplan_path: str = "preplan.json",
+) -> Tuple[bool, Dict[str, Any]]:
     """
     Canonical pre-planning workflow: user request, LLM (question or preplan JSON), user clarification loop, then extensive JSON validation.
     Now includes retry on JSON validation failure, appending error feedback to the prompt and always requesting the full JSON schema.
@@ -508,7 +513,8 @@ def pre_planning_workflow(router_agent, initial_request: str, context: Dict[str,
         router_agent: The router agent with call_llm_by_role capability
         initial_request: The original user request
         context: Optional context dictionary
-    Returns:
+        preplan_path: Path to write/read the intermediate pre-plan JSON
+        Returns:
         Tuple of (success, result_data)
     """
     request_text = initial_request
@@ -544,7 +550,6 @@ def pre_planning_workflow(router_agent, initial_request: str, context: Dict[str,
                 last_error_msg = all_errors
                 continue  # Retry LLM with combined error feedback
             # --- Write preplan.json for human review ---
-            preplan_path = "preplan.json"
             try:
                 with open(preplan_path, "w", encoding="utf-8") as f:
                     json.dump(data, f, indent=2, ensure_ascii=False)
