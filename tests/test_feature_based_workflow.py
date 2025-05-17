@@ -41,7 +41,6 @@ class TestFeatureBasedWorkflow:
         }
         
         # Mock the methods used in the new consolidated workflow
-        coordinator._execute_pre_planning_phase = MagicMock()
         coordinator._validate_pre_planning_data = MagicMock(return_value=True)
         coordinator._regenerate_pre_planning_with_modifications = MagicMock()
         coordinator._present_pre_planning_results_to_user = MagicMock(return_value=("yes", None))
