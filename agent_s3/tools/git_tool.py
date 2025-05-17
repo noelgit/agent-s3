@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import time
+import shlex
 from datetime import datetime
 from typing import Optional, Tuple, Dict, Any, List, Union
 
@@ -78,7 +79,7 @@ class GitTool:
         
         while retries <= max_retries:
             try:
-                full_command = f"git {command}"
+                full_command = ['git'] + shlex.split(command)
                 
                 # If terminal executor is provided, use it for secure execution
                 if self.terminal_executor:
@@ -87,7 +88,6 @@ class GitTool:
                     # Otherwise fall back to subprocess
                     process = subprocess.Popen(
                         full_command,
-                        shell=True,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT,
                         text=True

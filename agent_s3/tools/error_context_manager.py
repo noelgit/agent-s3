@@ -3,6 +3,7 @@ import re
 import time
 import json
 import logging
+import shlex
 
 class ErrorContextManager:
     """Manages error context collection and caching for the debugger role.
@@ -323,7 +324,8 @@ class ErrorContextManager:
             for fix in fixes:
                 if fix.get("type") == "shell_command":
                     try:
-                        result = subprocess.run(fix["command"], shell=True, capture_output=True, text=True, timeout=30)
+                        cmd_list = shlex.split(fix["command"])
+                        result = subprocess.run(cmd_list, capture_output=True, text=True, timeout=30)
                         if result.returncode == 0:
                             return True, f"Automated fix applied: {fix['command']}\nOutput: {result.stdout}"
                         else:
@@ -359,7 +361,10 @@ class ErrorContextManager:
                     package = fix.get("package")
                     if package:
                         try:
-                            result = subprocess.run(f"pip install {package}", shell=True, capture_output=True, text=True, timeout=60)
+                            if re.match(r"^[a-zA-Z0-9._-]+$", package):
+                                result = subprocess.run(["pip", "install", package], capture_output=True, text=True, timeout=60)
+                            else:
+                                return True, f"Invalid package name: {package}"
                             if result.returncode == 0:
                                 return True, f"Installed dependency: {package}\nOutput: {result.stdout}"
                             else:
@@ -379,7 +384,8 @@ class ErrorContextManager:
                     migration_cmd = fix.get("command")
                     if migration_cmd:
                         try:
-                            result = subprocess.run(migration_cmd, shell=True, capture_output=True, text=True, timeout=60)
+                            cmd_list = shlex.split(migration_cmd)
+                            result = subprocess.run(cmd_list, capture_output=True, text=True, timeout=60)
                             if result.returncode == 0:
                                 return True, f"Database migration succeeded.\nOutput: {result.stdout}"
                             else:
@@ -397,7 +403,10 @@ class ErrorContextManager:
             if match:
                 package = match.group(1)
                 try:
-                    result = subprocess.run(f"pip install {package}", shell=True, capture_output=True, text=True, timeout=60)
+                    if re.match(r"^[a-zA-Z0-9._-]+$", package):
+                        result = subprocess.run(["pip", "install", package], capture_output=True, text=True, timeout=60)
+                    else:
+                        return True, f"Invalid package name: {package}"
                     if result.returncode == 0:
                         return True, f"Automated recovery: Installed missing package '{package}'.\nOutput: {result.stdout}"
                     else:
@@ -418,7 +427,8 @@ class ErrorContextManager:
             migration_cmd = context.get("db_migration_command")
             if migration_cmd:
                 try:
-                    result = subprocess.run(migration_cmd, shell=True, capture_output=True, text=True, timeout=60)
+                    cmd_list = shlex.split(migration_cmd)
+                    result = subprocess.run(cmd_list, capture_output=True, text=True, timeout=60)
                     if result.returncode == 0:
                         return True, f"Automated recovery: Ran DB migration.\nOutput: {result.stdout}"
                     else:

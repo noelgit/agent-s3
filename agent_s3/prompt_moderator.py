@@ -5,6 +5,7 @@ import sys
 import re
 import tempfile
 import subprocess
+import shlex
 from typing import Dict, Optional, Union, List, Tuple, Any, Set, Literal
 
 from .communication.vscode_bridge import VSCodeBridge
@@ -87,9 +88,10 @@ class PromptModerator:
         
         # Open the file
         try:
-            if ' ' in editor:  # Handle editors with arguments
-                command = f"{editor} {file_path}"
-                subprocess.run(command, shell=True, check=True)
+            if ' ' in editor:
+                # Split editor command safely to avoid shell=True
+                command = shlex.split(editor) + [file_path]
+                subprocess.run(command, check=True)
             else:
                 subprocess.run([editor, file_path], check=True)
         except subprocess.CalledProcessError as e:
