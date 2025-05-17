@@ -1,6 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { vscode } from '../../utilities/vscode';
+import { marked } from 'marked';
+import hljs from 'highlight.js';
+import DOMPurify from 'dompurify';
 import './ChatView.css';
+
+// Configure markdown parser with syntax highlighting
+marked.setOptions({
+  highlight: (code: string, lang: string) => {
+    if (lang && hljs.getLanguage(lang)) {
+      return hljs.highlight(code, { language: lang }).value;
+    }
+    return hljs.highlightAuto(code).value;
+  },
+});
 
 // Define types for our chat components
 interface ChatMessage {
@@ -305,9 +318,9 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
    * Render message content with format (including code blocks, links, etc)
    */
   const renderMessageContent = (content: string) => {
-    // For now, just render plain text
-    // TODO: Add markdown rendering with syntax highlighting for code blocks
-    return content;
+    const rawHtml = marked.parse(content);
+    const cleanHtml = DOMPurify.sanitize(rawHtml);
+    return <span dangerouslySetInnerHTML={{ __html: cleanHtml }} />;
   };
   
   return (
