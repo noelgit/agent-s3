@@ -479,8 +479,10 @@ class DeploymentManager:
             if "SECRET_KEY" not in env_vars:
                 env_vars["SECRET_KEY"] = self._generate_secret_key()
                 
-            # Format .env file content
-            env_content = "\n".join([f"{key}={value}" for key, value in env_vars.items()])
+            # Format .env file content with quoting for special characters
+            env_content = "\n".join([
+                f"{key}={self._format_env_value(value)}" for key, value in env_vars.items()
+            ])
             
             # Write to .env file
             if self.file_tool:
@@ -499,7 +501,20 @@ class DeploymentManager:
             if self.scratchpad:
                 self.scratchpad.log("DeploymentManager", f"Failed to create .env file: {e}", level="error")
             return {"success": False, "error": f"Failed to create .env file: {str(e)}"}
-            
+
+    def _format_env_value(self, value: str) -> str:
+        """Quote or escape environment variable values as needed."""
+        if not isinstance(value, str):
+            value = str(value)
+
+        # Safe characters without quoting
+        if re.fullmatch(r"[A-Za-z0-9_./@:+-]+", value) and " " not in value:
+            return value
+
+        # Escape backslashes and quotes, then wrap in double quotes
+        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{escaped}"'
+
     def _setup_database(self, db_config: DatabaseConfig) -> Dict[str, Any]:
         """Set up and initialize the database.
         
