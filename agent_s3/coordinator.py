@@ -597,11 +597,149 @@ class Coordinator:
 
     def _planning_workflow(self, task: str, pre_planning_input: Dict[str, Any] | None = None, from_design: bool = False) -> List[Dict[str, Any]]:
         """Execute planning phases and return approved consolidated plans."""
-        raise NotImplementedError
+        with self.error_handler.error_context(
+            phase="planning",
+            operation="planning_workflow",
+            inputs={"task": task}
+        ):
+            self.progress_tracker.update_progress({"phase": "pre_planning", "status": "started"})
+
+            context = self._prepare_context(task)
+
+            if pre_planning_input is not None:
+                pre_plan_data = pre_planning_input
+            else:
+                from agent_s3.pre_planner_json_enforced import pre_planning_workflow
+                success, pre_plan_data = pre_planning_workflow(self.router_agent, task, context=context)
+                if not success:
+                    raise PlanningError("Pre-planning failed")
+
+            # Static validation of the pre-planning structure
+            from agent_s3.tools.plan_validator import validate_pre_plan
+            self._validate_pre_planning_data(pre_plan_data)
+            validate_pre_plan(pre_plan_data, context_registry=self.context_registry)
+
+            complexity_score = pre_plan_data.get("complexity_score", 0)
+            is_complex = pre_plan_data.get("is_complex", False) or complexity_score >= self.config.config.get("complexity_threshold", 7)
+
+            if is_complex:
+                self.scratchpad.log("Coordinator", f"Task assessed as complex (Score: {complexity_score})")
+                decision = self.prompt_moderator.ask_ternary_question("How would you like to proceed?")
+                if decision == "modify":
+                    self.scratchpad.log("Coordinator", "User chose to refine the request.")
+                    return []
+                if decision == "no":
+                    self.scratchpad.log("Coordinator", "User cancelled the complex task.")
+                    return []
+
+            decision, modification = self._present_pre_planning_results_to_user(pre_plan_data)
+            while decision == "modify":
+                pre_plan_data = self._regenerate_pre_planning_with_modifications(pre_plan_data, modification)
+                decision, modification = self._present_pre_planning_results_to_user(pre_plan_data)
+
+            if decision == "no":
+                self.scratchpad.log("Coordinator", "User terminated the workflow at pre-planning handoff.", level=LogLevel.WARNING)
+                return []
+
+            self.progress_tracker.update_progress({"phase": "feature_group_processing", "status": "started"})
+            fg_result = self.feature_group_processor.process_pre_planning_output(pre_plan_data, task)
+            self.progress_tracker.update_progress({"phase": "feature_group_processing", "status": "completed"})
+
+            if not fg_result.get("success"):
+                self.scratchpad.log("Coordinator", f"Feature group processing failed: {fg_result.get('error')}", level=LogLevel.ERROR)
+                return []
+
+            approved_plans: List[Dict[str, Any]] = []
+            for fg_data in fg_result.get("feature_group_results", {}).values():
+                if not fg_data.get("success"):
+                    self.scratchpad.log(
+                        "Coordinator",
+                        f"Feature group {fg_data.get('feature_group', {}).get('group_name')} processing failed: {fg_data.get('error')}",
+                        level=LogLevel.WARNING,
+                    )
+                    continue
+
+                plan = fg_data.get("consolidated_plan", {})
+                decision, mod_text = self.feature_group_processor.present_consolidated_plan_to_user(plan)
+                while decision == "modify":
+                    plan = self.feature_group_processor.update_plan_with_modifications(plan, mod_text)
+                    decision, mod_text = self.feature_group_processor.present_consolidated_plan_to_user(plan)
+                if decision == "yes":
+                    approved_plans.append(plan)
+
+            return approved_plans
 
     def _implementation_workflow(self, approved_plans: List[Dict[str, Any]]) -> Tuple[Dict[str, str], bool]:
         """Run implementation loop for approved plans."""
-        raise NotImplementedError
+        with self.error_handler.error_context(
+            phase="implementation",
+            operation="implementation_workflow",
+        ):
+            all_changes: Dict[str, str] = {}
+            overall_success = True
+
+            max_attempts = self.config.config.get("max_attempts", 3)
+
+            for plan in approved_plans:
+                plan_id = plan.get("plan_id")
+                group_name = plan.get("group_name", "group")
+                attempt = 0
+                plan_success = False
+
+                while attempt < max_attempts and not plan_success:
+                    attempt += 1
+                    self.progress_tracker.update_progress({
+                        "phase": "generation",
+                        "status": "started",
+                        "attempt": attempt,
+                        "plan_id": plan_id,
+                    })
+
+                    self.scratchpad.log(
+                        "Coordinator",
+                        f"Generating code for {group_name} (attempt {attempt})",
+                    )
+
+                    changes = self.code_generator.generate_code(plan)
+                    if not changes:
+                        continue
+
+                    if not self._apply_changes_and_manage_dependencies(changes):
+                        continue
+
+                    validation = self._run_validation_phase()
+                    if validation.get("success"):
+                        all_changes.update(changes)
+                        plan_success = True
+                        break
+
+                    if hasattr(self, "debugging_manager") and self.debugging_manager:
+                        debug_res = self.debugging_manager.handle_error(
+                            error_message=validation.get("output", ""),
+                            traceback_text=validation.get("output", ""),
+                        )
+                        if debug_res.get("success"):
+                            dbg_changes = debug_res.get("changes", {})
+                            if dbg_changes:
+                                self._apply_changes_and_manage_dependencies(dbg_changes)
+                                changes.update(dbg_changes)
+                            validation = self._run_validation_phase()
+                            if validation.get("success"):
+                                all_changes.update(changes)
+                                plan_success = True
+                                break
+
+                self.progress_tracker.update_progress({
+                    "phase": "generation",
+                    "status": "completed",
+                    "plan_id": plan_id,
+                    "success": plan_success,
+                })
+
+                if not plan_success:
+                    overall_success = False
+
+            return all_changes, overall_success
 
     def _run_validation_phase(self) -> Dict[str, Any]:
         """Runs the validation phase and returns the result.
