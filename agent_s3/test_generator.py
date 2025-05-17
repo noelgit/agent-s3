@@ -15,7 +15,7 @@ import uuid
 import traceback
 from collections import defaultdict
 
-from .pre_planner_json_enforced import get_openrouter_params
+from .pre_planner_json_enforced import get_openrouter_json_params
 
 logger = logging.getLogger(__name__)
 
@@ -596,7 +596,7 @@ Each test must include complete runnable code - not stubs or pseudocode.
 """
 
     # Get LLM parameters
-    llm_params = get_openrouter_params()
+    llm_params = get_openrouter_json_params()
     llm_params["temperature"] = 0.2  # Lower temperature for more reliable code generation
     
     # Call the LLM
