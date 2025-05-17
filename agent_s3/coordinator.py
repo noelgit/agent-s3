@@ -580,7 +580,7 @@ class Coordinator:
                 operation="run_task",
                 level=logging.CRITICAL,
                 reraise=False,
-                inputs={"request_text": request_text}
+                inputs={"request_text": task}
             )
             
             error_msg = f"Unexpected error during task execution: {str(e)}"
