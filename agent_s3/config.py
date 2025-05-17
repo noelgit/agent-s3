@@ -259,25 +259,55 @@ class Config:
             'adaptive_metrics_dir': ADAPTIVE_METRICS_DIR,
             'adaptive_optimization_interval': ADAPTIVE_OPTIMIZATION_INTERVAL,
         }
-        
-        # If we have a GitHub token in environment, store it
-        if runtime_config.get('dev_github_token'):
-            self.github_token = runtime_config.get('dev_github_token')
-            
-        self.config.update(runtime_config)
-        
-        # Load optional llm.json if available
+
+    def load(self, config_path: Optional[str] = None) -> None:
+        """Load configuration from environment, optional JSON, and guidelines."""
+
+        # Determine if the provided guidelines_path actually points to a JSON
+        # configuration file for backward compatibility with older tests.
+        json_path = config_path
+        if json_path is None and self.guidelines_path and self.guidelines_path.endswith('.json'):
+            if os.path.isfile(self.guidelines_path):
+                json_path = self.guidelines_path
+                # Reset guidelines path to the default location
+                self.guidelines_path = str(Path(os.getcwd()) / '.github' / 'copilot-instructions.md')
+
+        # Start with defaults populated from environment variables
+        runtime_config: Dict[str, Any] = self.get_default_config()
+
+        # Merge user supplied JSON configuration if provided
+        if json_path and os.path.exists(json_path):
+            try:
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    user_config = json.load(f)
+                    if isinstance(user_config, dict):
+                        runtime_config.update(user_config)
+            except json.JSONDecodeError:
+                logger.error(f"Invalid JSON in {json_path}")
+            except Exception as e:
+                logger.error(f"Error loading {json_path}: {e}")
+
+        # Load additional llm model configuration if available
         llm_config_path = os.path.join(os.getcwd(), 'llm.json')
         if os.path.exists(llm_config_path):
             try:
-                with open(llm_config_path, 'r') as f:
-                    self.config['llm_models'] = json.load(f)
+                with open(llm_config_path, 'r', encoding='utf-8') as f:
+                    runtime_config['llm_models'] = json.load(f)
                     logger.info("Loaded LLM model configuration from llm.json")
             except json.JSONDecodeError:
                 logger.error("Invalid JSON in llm.json")
             except Exception as e:
                 logger.error(f"Error loading llm.json: {e}")
-                
+
+        self.config.update(runtime_config)
+
+        # Extract coding guidelines
+        self.guidelines = self._extract_guidelines_from_md()
+
+        # Store GitHub token if present
+        if self.config.get('dev_github_token'):
+            self.github_token = self.config.get('dev_github_token')
+
         logger.info("Configuration loaded")
 
     def reload(self):
