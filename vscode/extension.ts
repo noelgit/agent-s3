@@ -177,8 +177,89 @@ export function activate(context: vscode.ExtensionContext) {
    * Open the chat window
    */
   function openChatWindow() {
-    // Implementation would go here
-    vscode.window.showInformationMessage('Chat window will be implemented with WebSocket streaming');
+    // Create or show the shared interactive webview panel
+    const panel = interactiveWebviewManager.createOrShowPanel();
+
+    // Load persisted chat history from workspace state
+    const messageHistory: any[] = context.workspaceState.get(
+      'agent-s3.chatHistory',
+      []
+    );
+
+    // Save history when the panel is disposed
+    panel.onDidDispose(() => {
+      context.workspaceState.update('agent-s3.chatHistory', messageHistory);
+    });
+
+    // Set up message handler for chat and interactive messages
+    interactiveWebviewManager.setMessageHandler((message) => {
+      console.log('Received message from chat webview:', message);
+
+      if (!message.type) {
+        return;
+      }
+
+      switch (message.type) {
+        case 'webview-ready':
+          // Send existing history to the webview
+          interactiveWebviewManager.postMessage({
+            type: 'LOAD_HISTORY',
+            history: messageHistory,
+          });
+          break;
+
+        case 'send':
+          if (!message.text) {
+            break;
+          }
+
+          // Record the user message in history
+          messageHistory.push({
+            id: `user-${Date.now()}`,
+            type: 'user',
+            content: message.text,
+            timestamp: new Date(),
+            isComplete: true,
+          });
+
+          // Persist updated history
+          context.workspaceState.update('agent-s3.chatHistory', messageHistory);
+
+          // Forward the message to the backend for processing
+          backendConnection.sendMessage({
+            type: 'user_input',
+            content: { text: message.text },
+          });
+          break;
+
+        case 'APPROVAL_RESPONSE':
+          backendConnection.sendMessage({
+            type: 'interactive_response',
+            response_type: 'approval',
+            request_id: message.content.request_id,
+            selected_option: message.content.selected_option,
+          });
+          break;
+
+        case 'DIFF_RESPONSE':
+          backendConnection.sendMessage({
+            type: 'interactive_response',
+            response_type: 'diff',
+            action: message.content.action,
+            files: message.content.files,
+            file: message.content.file,
+          });
+          break;
+
+        case 'PROGRESS_RESPONSE':
+          backendConnection.sendMessage({
+            type: 'interactive_response',
+            response_type: 'progress',
+            action: message.content.action,
+          });
+          break;
+      }
+    });
   }
   
   /**
