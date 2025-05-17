@@ -4,7 +4,8 @@ and that pruning decisions respect these scores (i.e., high-importance files are
 """
 import pytest
 from unittest.mock import Mock
-from agent_s3.tools.context_management.context_manager import ContextManager, ContentPruningManager
+from agent_s3.tools.context_management.context_manager import ContextManager
+from agent_s3.tools.context_management.content_pruning_manager import ContentPruningManager
 from agent_s3.tools.context_management.token_budget import TokenBudgetAnalyzer
 
 class DummyEstimator:
