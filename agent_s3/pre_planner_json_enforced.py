@@ -271,7 +271,6 @@ def get_json_user_prompt(task_description: str) -> str:
 
     # Combine them while avoiding duplicate content
     return f"{base_prompt}\n\n{json_specific}"
-    return None
 
 def process_response(response: str, original_request: str) -> Tuple[str, Dict[str, Any], Optional[str]]:
     """
