@@ -28,6 +28,7 @@ from agent_s3.pre_planner import (
 )
 
 from agent_s3.planner_json_enforced import get_openrouter_params, validate_json_schema, repair_json_structure
+from agent_s3.json_utils import extract_json_from_text
 
 logger = logging.getLogger(__name__)
 
@@ -270,54 +271,6 @@ def get_json_user_prompt(task_description: str) -> str:
 
     # Combine them while avoiding duplicate content
     return f"{base_prompt}\n\n{json_specific}"
-
-def extract_json_from_text(text: str) -> Optional[str]:
-    """
-    Extract JSON from text that might contain markdown or other formatting.
-
-    Args:
-        text: Text that might contain JSON
-
-    Returns:
-        Extracted JSON string or None if no valid JSON found
-    """
-    # Try to extract JSON from code blocks first
-    code_block_pattern = r"```(?:json)?\s*([\s\S]*?)\s*```"
-    matches = re.findall(code_block_pattern, text)
-
-    for potential_json in matches:
-        try:
-            # Test if it's valid JSON
-            json.loads(potential_json)
-            return potential_json
-        except json.JSONDecodeError:
-            continue
-
-    # If no code blocks found or none contained valid JSON,
-    # try to extract JSON directly (looking for outer braces)
-    direct_json_pattern = r"(\{[\s\S]*\})"
-    matches = re.findall(direct_json_pattern, text)
-
-    if matches:
-        # Try to find the most likely JSON object (often the last one or largest one)
-        potential_jsons = []
-        for potential_json in matches:
-            try:
-                json.loads(potential_json) # Test if valid
-                potential_jsons.append(potential_json)
-            except json.JSONDecodeError:
-                continue
-        if potential_jsons:
-            return max(potential_jsons, key=len) # Return largest valid JSON found
-
-    # Last resort: try parsing the whole text if it looks like JSON
-    if text.strip().startswith('{') and text.strip().endswith('}'):
-        try:
-            json.loads(text.strip())
-            return text.strip()
-        except json.JSONDecodeError:
-            pass # Fall through if parsing whole text fails
-
     return None
 
 def process_response(response: str, original_request: str) -> Tuple[str, Dict[str, Any], Optional[str]]:
