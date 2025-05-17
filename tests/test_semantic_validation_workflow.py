@@ -425,7 +425,68 @@ class TestSemanticValidationWorkflow(unittest.TestCase):
 
             self.assertIn("revalidation_status", modified_plan)
             self.assertFalse(modified_plan["revalidation_status"]["is_valid"])
-            self.assertIn("Implementation plan is empty", ''.join(modified_plan["revalidation_status"].get("issues_found", [])))
+        self.assertIn("Implementation plan is empty", ''.join(modified_plan["revalidation_status"].get("issues_found", [])))
+
+    def test_invalid_element_ids_trigger_validation_error(self):
+        """Ensure invalid element IDs are reported during plan modification."""
+
+        self.coordinator.router_agent.route_query.side_effect = [
+            json.dumps(self.architecture_review),
+            json.dumps(self.implementation_plan),
+            json.dumps(self.tests),
+            json.dumps(self.semantic_validation_results),
+        ]
+
+        self.coordinator.prompt_moderator.ask_ternary_question.return_value = "modify"
+        self.coordinator.prompt_moderator.ask_for_modification.return_value = "Change plan"
+
+        invalid_plan = {
+            "architecture_review": self.architecture_review,
+            "tests": {
+                "unit_tests": [
+                    {"target_element_id": "invalid_id"}
+                ],
+                "integration_tests": [],
+                "property_based_tests": [],
+                "acceptance_tests": []
+            },
+            "implementation_plan": {
+                "file.py": [
+                    {"function": "f", "element_id": "invalid_id", "steps": []}
+                ]
+            },
+            "system_design": {
+                "code_elements": [
+                    {"element_id": "valid_id"}
+                ]
+            }
+        }
+
+        with patch(
+            'agent_s3.feature_group_processor.regenerate_consolidated_plan_with_modifications',
+            return_value=invalid_plan,
+        ) as mock_regen, patch(
+            'agent_s3.tools.implementation_validator.validate_implementation_plan'
+        ) as mock_validate, patch(
+            'agent_s3.feature_group_processor.FeatureGroupProcessor._present_revalidation_results'
+        ) as mock_present:
+
+            mock_validate.return_value = (invalid_plan["implementation_plan"], [], False)
+
+            result = self.processor.process_pre_planning_output(self.pre_planning_data, "Implement authentication")
+            self.assertTrue(result["success"])
+            consolidated_plan = list(result["feature_group_results"].values())[0]["consolidated_plan"]
+
+            modified_plan = self.processor.update_plan_with_modifications(consolidated_plan, "Change plan")
+
+            mock_regen.assert_called_once()
+            mock_validate.assert_called_once()
+            mock_present.assert_called_once_with(modified_plan)
+
+            self.assertIn("revalidation_status", modified_plan)
+            self.assertFalse(modified_plan["revalidation_status"]["is_valid"])
+            issues = ''.join(modified_plan["revalidation_status"].get("issues_found", []))
+            self.assertIn("Invalid test element IDs", issues)
 
 
 if __name__ == "__main__":
