@@ -342,10 +342,14 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
           <div key={stream.id} className="message agent streaming">
             <div className="message-content">
               {stream.isThinking ? (
-                <div className="thinking-indicator">
-                  <span className="dot"></span>
-                  <span className="dot"></span>
-                  <span className="dot"></span>
+                <div
+                  className="thinking-indicator"
+                  role="status"
+                  aria-label="Agent is thinking"
+                >
+                  <span className="dot" aria-hidden="true"></span>
+                  <span className="dot" aria-hidden="true"></span>
+                  <span className="dot" aria-hidden="true"></span>
                 </div>
               ) : (
                 renderMessageContent(stream.content)
@@ -365,10 +369,12 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
           onKeyPress={handleKeyPress}
           placeholder="Type a message..."
           disabled={isAgentResponding}
+          aria-label="Chat message input"
         />
         <button
           onClick={sendMessage}
           disabled={!inputText.trim() || isAgentResponding}
+          aria-label="Send message"
         >
           Send
         </button>
