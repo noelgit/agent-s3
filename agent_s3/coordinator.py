@@ -832,10 +832,8 @@ class Coordinator:
             # Lint
             with self.error_handler.error_context(phase="validation_run", operation="lint"):
                 self.scratchpad.log("Coordinator", "Running linter...")
-                lint_cmd = "flake8 ." # Example, could be configurable
-                lint_result = self.bash_tool.run_command(lint_cmd, timeout=120)
-                lint_code = lint_result.get('exit_code', 1)
-                lint_out = lint_result.get('output', '')
+                lint_cmd = "flake8 ."  # Example, could be configurable
+                lint_code, lint_out = self.bash_tool.run_command(lint_cmd, timeout=120)
                 validation_result["metadata"]["lint_exit_code"] = lint_code
 
                 if lint_code != 0:
@@ -849,10 +847,8 @@ class Coordinator:
             # Type-check
             with self.error_handler.error_context(phase="validation_run", operation="type_check"):
                 self.scratchpad.log("Coordinator", "Running type checker...")
-                type_cmd = "mypy ." # Example, could be configurable
-                type_result = self.bash_tool.run_command(type_cmd, timeout=120)
-                type_code = type_result.get('exit_code', 1)
-                type_out = type_result.get('output', '')
+                type_cmd = "mypy ."  # Example, could be configurable
+                type_code, type_out = self.bash_tool.run_command(type_cmd, timeout=120)
                 validation_result["metadata"]["type_check_exit_code"] = type_code
 
                 if type_code != 0:
@@ -956,8 +952,8 @@ class Coordinator:
                 # Install dependencies if requirements.txt changed
                 if os.path.exists('requirements.txt'):
                     self.scratchpad.log("Coordinator", "Installing dependencies...")
-                    result = self.bash_tool.run_command("pip install -r requirements.txt", timeout=300)
-                    self.scratchpad.log("Coordinator", f"Dependency installation result: exit_code={result.get('exit_code', 1)}")
+                    exit_code, _ = self.bash_tool.run_command("pip install -r requirements.txt", timeout=300)
+                    self.scratchpad.log("Coordinator", f"Dependency installation result: exit_code={exit_code}")
                 
                 # Execute SQL scripts if any and database_tool is available
                 if sql_scripts and hasattr(self, 'database_tool') and self.database_tool:

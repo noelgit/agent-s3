@@ -76,9 +76,8 @@ class TestRunnerTool:
             cmd += " --cov --cov-report=json:.coverage.json"
             
         # Run the test command
-        result = self.bash_tool.run_command(cmd, timeout=timeout)
-        success = result.get("return_code", 1) == 0
-        output = result.get("output", "")
+        exit_code, output = self.bash_tool.run_command(cmd, timeout=timeout)
+        success = exit_code == 0
         
         # Parse the test output for structured information
         test_results = {
@@ -123,9 +122,8 @@ class TestRunnerTool:
             cmd = "python -m pytest -v"
             
         # Run the tests
-        result = self.bash_tool.run_command(cmd, timeout=300)
-        success = result.get("return_code", 1) == 0
-        output = result.get("output", "")
+        exit_code, output = self.bash_tool.run_command(cmd, timeout=300)
+        success = exit_code == 0
         
         # Parse for structured information
         regression_results = {
@@ -433,9 +431,8 @@ class TestRunnerTool:
         cmd = f"python -m pytest --ignore={fixed_test_file} -v"
         
         # Run the tests
-        result = self.bash_tool.run_command(cmd, timeout=300)
-        success = result.get("return_code", 1) == 0
-        output = result.get("output", "")
+        exit_code, output = self.bash_tool.run_command(cmd, timeout=300)
+        success = exit_code == 0
         
         # If successful, no regressions
         if success:

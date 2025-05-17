@@ -84,6 +84,7 @@ Agent-S3 is not just a tool for automation; it is a partner in development that 
 - Retrieval-Augmented Generation (RAG) context: embedding-based search (`agent_s3.tools.embedding_client`) and hierarchical summarization (`agent_s3.tools.memory_manager`)
 - Tech stack detection with versioning and best practice identification (`agent_s3.tools.tech_stack_manager`)
 - Secure file operations (`FileTool`), sandboxed shell execution (`BashTool`, `TerminalExecutor`), and database interactions (`DatabaseTool`)
+- `BashTool.run_command` returns `(exit_code, output)` for consistent error handling
 - Database Tool Features (`DatabaseTool`):
   - Query execution with SQLAlchemy (primary) and BashTool (fallback)
   - Parameterized queries (SQLAlchemy) and basic parameter substitution (BashTool)
