@@ -553,10 +553,59 @@ class FeatureGroupProcessor:
                 required_keys = {"architecture_review", "tests", "implementation_plan"}
                 missing_keys = required_keys - set(updated_plan.keys())
 
+                structural_issues = []
+                if missing_keys:
+                    structural_issues.append(
+                        f"Missing required keys: {', '.join(missing_keys)}"
+                    )
+
+                # Validate element IDs against system design
+                from agent_s3.test_spec_validator import extract_element_ids_from_system_design
+
+                system_design = updated_plan.get("system_design") or plan.get("system_design", {})
+                valid_ids = extract_element_ids_from_system_design(system_design)
+
+                invalid_test_ids = set()
+                tests = updated_plan.get("tests", {})
+                for t in tests.get("unit_tests", []):
+                    tid = t.get("target_element_id")
+                    if tid and tid not in valid_ids:
+                        invalid_test_ids.add(tid)
+                for t in tests.get("property_based_tests", []):
+                    tid = t.get("target_element_id")
+                    if tid and tid not in valid_ids:
+                        invalid_test_ids.add(tid)
+                for t in tests.get("integration_tests", []):
+                    for tid in t.get("target_element_ids", []):
+                        if tid not in valid_ids:
+                            invalid_test_ids.add(tid)
+                for t in tests.get("acceptance_tests", []):
+                    for tid in t.get("target_element_ids", []):
+                        if tid not in valid_ids:
+                            invalid_test_ids.add(tid)
+
+                if invalid_test_ids:
+                    structural_issues.append(
+                        f"Invalid test element IDs: {', '.join(sorted(invalid_test_ids))}"
+                    )
+
+                invalid_impl_ids = set()
+                for funcs in updated_plan.get("implementation_plan", {}).values():
+                    if isinstance(funcs, list):
+                        for func in funcs:
+                            eid = func.get("element_id")
+                            if eid and eid not in valid_ids:
+                                invalid_impl_ids.add(eid)
+
+                if invalid_impl_ids:
+                    structural_issues.append(
+                        f"Invalid implementation element IDs: {', '.join(sorted(invalid_impl_ids))}"
+                    )
+
                 # Perform implementation plan validation
                 validated_impl, validation_issues, needs_repair = validate_implementation_plan(
                     updated_plan.get("implementation_plan", {}),
-                    updated_plan.get("system_design", {}),
+                    system_design,
                     updated_plan.get("architecture_review", {}),
                     updated_plan.get("tests", {}),
                 )
@@ -569,20 +618,22 @@ class FeatureGroupProcessor:
                     }
                 }
 
-                is_valid_overall = not needs_repair and not validation_issues and not missing_keys
-                if missing_keys:
+                if structural_issues:
                     revalidation_results["plan_structure"] = {
                         "is_valid": False,
-                        "issues": [f"Missing required keys: {', '.join(missing_keys)}"],
+                        "issues": structural_issues,
                     }
+
+                is_valid_overall = (
+                    not needs_repair
+                    and not validation_issues
+                    and not structural_issues
+                )
 
                 updated_plan["revalidation_results"] = revalidation_results
                 updated_plan["revalidation_status"] = {
                     "is_valid": is_valid_overall,
-                    "issues_found": [
-                        *(revalidation_results["implementation_plan_validation"]["issues"]),
-                        *revalidation_results.get("plan_structure", {}).get("issues", [])
-                    ],
+                    "issues_found": validation_issues + structural_issues,
                     "timestamp": str(uuid.uuid4()),
                 }
 
