@@ -11,6 +11,7 @@ import shutil
 import json
 import uuid
 import platform
+import shlex
 from pathlib import Path
 from typing import Tuple, Optional, Dict, Any, List
 
@@ -205,9 +206,9 @@ class BashTool:
                 for key, value in self.env_vars.items():
                     env[key] = value
                     
-                process = subprocess.Popen(
-                    script_path,
-                    shell=True,
+                process = subprocess.Popen([
+                    script_path
+                ],
                     env=env
                 )
                 
@@ -471,24 +472,12 @@ class BashTool:
             for key, value in self.env_vars.items():
                 env[key] = value
             
-            # OS-specific command execution
-            shell = True
-            shell_executable = None
-            
-            # Windows-specific adjustments
-            if self.host_os_type == 'windows':
-                # Use cmd.exe explicitly on Windows
-                shell_executable = 'cmd.exe'
-                # If the command doesn't use cmd.exe syntax (like dir, echo, etc.),
-                # prefix it with 'cmd /c' to ensure it runs correctly
-                if not any(cmd in command for cmd in ['cmd', 'powershell']):
-                    command = f'cmd /c {command}'
-            
-            # Run the command with the appropriate shell based on OS
+            command_list = shlex.split(command)
+            if self.host_os_type == 'windows' and not any(cmd in command for cmd in ['cmd', 'powershell']):
+                command_list = ['cmd', '/c'] + command_list
+
             process = subprocess.Popen(
-                command,
-                shell=shell,
-                executable=shell_executable,
+                command_list,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 env=env,
