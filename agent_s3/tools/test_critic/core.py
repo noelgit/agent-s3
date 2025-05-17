@@ -151,8 +151,14 @@ def select_adapter(workspace: Path, lang_hint: Optional[str] = None) -> 'Adapter
             return adapter
     
     # If no adapter detected, try to use a default based on common file patterns
-    if (workspace / "setup.py").exists() or list(workspace.glob("**/*.py")):
-        logger.info("Defaulting to Python test adapter based on .py files")
+    if (
+        (workspace / "pyproject.toml").exists()
+        or (workspace / "setup.py").exists()
+        or list(workspace.glob("**/*.py"))
+    ):
+        logger.info(
+            "Defaulting to Python test adapter based on pyproject.toml or .py files"
+        )
         return adapters[0]  # Python adapter
     elif (workspace / "package.json").exists() or list(workspace.glob("**/*.js")) or list(workspace.glob("**/*.ts")):
         logger.info("Defaulting to JavaScript test adapter based on package.json or .js/.ts files")
