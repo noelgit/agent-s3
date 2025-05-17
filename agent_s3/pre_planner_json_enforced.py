@@ -15,8 +15,6 @@ Key responsibilities:
 import json
 import logging
 import re
-import time # Added for potential delays in retry
-import sys
 from typing import Dict, Any, Optional, Tuple, List
 
 # Import base pre-planner functionality
@@ -60,6 +58,147 @@ FEATURE_SCHEMA = {
 
 # Use the base PrePlanningError as JSONValidationError for backward compatibility
 JSONValidationError = PrePlanningError
+
+
+def get_openrouter_params() -> Dict[str, Any]:
+    """Return OpenRouter parameters enforcing JSON output."""
+    return get_openrouter_json_params()
+
+
+def create_fallback_json(original_request: str) -> Dict[str, Any]:
+    """Create a simplified fallback JSON structure."""
+    fallback = create_fallback_pre_planning_output(original_request)
+    features: List[Dict[str, Any]] = []
+    for group in fallback.get("feature_groups", []):
+        features.extend(group.get("features", []))
+    return {"original_request": original_request, "features": features}
+
+
+def _parse_structured_modifications(modification_text: str) -> List[Dict[str, str]]:
+    """Parse structured modification instructions from moderator output."""
+    if not modification_text:
+        return []
+
+    def _parse_block(block: str) -> Optional[Dict[str, str]]:
+        data: Dict[str, str] = {}
+        for line in block.strip().splitlines():
+            if ":" in line:
+                key, value = line.split(":", 1)
+                key = key.strip().upper()
+                if key in {"COMPONENT", "LOCATION", "CHANGE_TYPE", "DESCRIPTION"}:
+                    data[key] = value.strip()
+        return data if len(data) == 4 else None
+
+    structured_match = re.search(
+        r"STRUCTURED_MODIFICATIONS:\s*(.*?)(?:\nRAW_INPUT:|$)",
+        modification_text,
+        re.DOTALL,
+    )
+    if structured_match:
+        section = structured_match.group(1)
+        blocks = [b for b in re.split(r"Modification\s+\d+:", section) if b.strip()]
+    else:
+        blocks = [b for b in re.split(r"\n---\s*\n", modification_text.strip()) if b.strip()]
+
+    modifications: List[Dict[str, str]] = []
+    for block in blocks:
+        parsed = _parse_block(block)
+        if parsed:
+            modifications.append(parsed)
+    return modifications
+
+
+def regenerate_pre_planning_with_modifications(
+    router_agent,
+    original_results: Dict[str, Any],
+    modification_text: str,
+) -> Dict[str, Any]:
+    """Regenerate pre-planning JSON based on user modifications."""
+
+    structured_mods = _parse_structured_modifications(modification_text)
+    openrouter_params = get_openrouter_params()
+    system_prompt = get_json_system_prompt()
+
+    base_json = json.dumps(original_results, indent=2)
+    if structured_mods:
+        mod_lines = []
+        for mod in structured_mods:
+            mod_lines.append(
+                f"Component: {mod['COMPONENT']}\n"
+                f"Location: {mod['LOCATION']}\n"
+                f"Change Type: {mod['CHANGE_TYPE']}\n"
+                f"Description: {mod['DESCRIPTION']}"
+            )
+        mods_section = "\n\n".join(mod_lines)
+        user_prompt = (
+            f"Here is the previous pre-planning JSON:\n```json\n{base_json}\n```\n"
+            "User's Structured Modifications:\n"
+            f"{mods_section}\n"
+            "Apply each modification precisely as specified and return the updated JSON."
+        )
+    else:
+        user_prompt = (
+            f"Here is the previous pre-planning JSON:\n```json\n{base_json}\n```\n"
+            "User's Modification Request:\n"
+            f"{modification_text}\n"
+            "Please update the JSON accordingly and return the full result."
+        )
+
+    response = router_agent.call_llm_by_role(
+        role="pre_planner",
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        config=openrouter_params,
+    )
+
+    status, data, _ = process_response(response, original_results.get("original_request", ""))
+    if status != "success":
+        raise JSONValidationError("Failed to regenerate pre-planning JSON")
+    return data
+
+
+def call_pre_planner_with_enforced_json(
+    router_agent, task_description: str, context: Optional[Dict[str, Any]] = None
+) -> Tuple[bool, Dict[str, Any]]:
+    """Wrapper to call the JSON-enforced pre-planning workflow."""
+
+    return pre_planning_workflow(router_agent, task_description, context=context)
+
+
+def integrate_with_coordinator(coordinator, task_description: str) -> Dict[str, Any]:
+    """Run JSON-enforced pre-planning within the coordinator workflow."""
+
+    success, data = call_pre_planner_with_enforced_json(
+        coordinator.router_agent, task_description
+    )
+    if not success:
+        raise JSONValidationError("Pre-planning failed")
+
+    complexity_score = data.get("complexity_score")
+    try:
+        assess = coordinator.pre_planner.assess_complexity(task_description)
+        complexity_score = complexity_score or assess.get("score")
+        is_complex = assess.get("is_complex", False)
+    except Exception:
+        is_complex = False
+
+    threshold = coordinator.config.config.get("complexity_threshold", 0)
+    if complexity_score is not None:
+        is_complex = is_complex or complexity_score >= threshold
+
+    result = dict(data)
+    result.update(
+        {
+            "success": True,
+            "status": "completed",
+            "uses_enforced_json": True,
+            "complexity_score": complexity_score,
+            "is_complex": bool(is_complex),
+            "edge_cases": result.get("edge_cases", []),
+        }
+    )
+
+    return result
 
 def get_json_system_prompt() -> str:
     """
@@ -503,7 +642,12 @@ def validate_preplan_all(data) -> Tuple[bool, str]:
         errors.append(f"Planner compatibility check exception: {e}")
     return (len(errors) == 0), "\n".join(errors)
 
-def pre_planning_workflow(router_agent, initial_request: str, context: Dict[str, Any] = None) -> Tuple[bool, Dict[str, Any]]:
+def pre_planning_workflow(
+    router_agent,
+    initial_request: str,
+    context: Dict[str, Any] = None,
+    preplan_path: str = "preplan.json",
+) -> Tuple[bool, Dict[str, Any]]:
     """
     Canonical pre-planning workflow: user request, LLM (question or preplan JSON), user clarification loop, then extensive JSON validation.
     Now includes retry on JSON validation failure, appending error feedback to the prompt and always requesting the full JSON schema.
@@ -547,7 +691,6 @@ def pre_planning_workflow(router_agent, initial_request: str, context: Dict[str,
                 last_error_msg = all_errors
                 continue  # Retry LLM with combined error feedback
             # --- Write preplan.json for human review ---
-            preplan_path = "preplan.json"
             try:
                 with open(preplan_path, "w", encoding="utf-8") as f:
                     json.dump(data, f, indent=2, ensure_ascii=False)
@@ -567,12 +710,12 @@ def pre_planning_workflow(router_agent, initial_request: str, context: Dict[str,
             valid, all_errors = validate_preplan_all(preplan_data)
             if not valid:
                 logger.warning(f"Human-edited preplan.json is invalid: {all_errors}")
-                print(f"\n\033[91mError: preplan.json is invalid after human edit. Please fix the file and rerun.\033[0m")
+                print("\n\033[91mError: preplan.json is invalid after human edit. Please fix the file and rerun.\033[0m")
                 return False, {}
             # Only return the data loaded from preplan.json, not the in-memory data
             return True, preplan_data
         elif status == "question":
-            print(f"\nThe pre-planner needs clarification before proceeding:")
+            print("\nThe pre-planner needs clarification before proceeding:")
             print(f"\033[93m{msg}\033[0m")
             user_answer = input("Your answer: ").strip()
             conversation_history.append({"request": request_text, "question": msg, "answer": user_answer})
