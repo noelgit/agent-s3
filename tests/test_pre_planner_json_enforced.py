@@ -22,6 +22,7 @@ from agent_s3.pre_planner_json_enforced import (
     pre_planning_workflow,
 )
 from agent_s3.json_utils import extract_json_from_text
+from agent_s3 import schemas
 
 
 class TestPrePlannerJsonEnforced:
@@ -51,6 +52,11 @@ class TestPrePlannerJsonEnforced:
         assert "response_format" in params
         assert params["response_format"]["type"] == "json_object"
         assert params["temperature"] < 0.2  # Low temperature for consistent JSON
+
+    def test_schema_module_exports(self):
+        """Ensure schema constants are available via the shared module."""
+        assert "original_request" in schemas.PREPLANNING_REQUIRED_SCHEMA
+        assert "discussion" in schemas.PLANNING_REQUIRED_TOP_LEVEL_KEYS
 
     def test_extract_json_from_text_with_code_block(self):
         """Test extracting JSON from markdown code blocks."""
