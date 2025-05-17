@@ -163,6 +163,12 @@ See `docs/summarization.md` for details.
    ```bash
    pip install agent-s3
    ```
+
+   For development from source, Agent-S3 uses PEP 621 metadata defined in
+   `pyproject.toml`:
+   ```bash
+   pip install -e .
+   ```
 2. **VS Code Extension:**
    - Open the `vscode` folder in VS Code
    - Press `F5` to launch the extension in Extension Development Host, or

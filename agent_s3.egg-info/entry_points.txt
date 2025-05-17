@@ -1,2 +1,0 @@
-[console_scripts]
-agent-s3 = agent_s3.cli:main
