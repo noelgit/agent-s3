@@ -4,7 +4,6 @@ Unit tests for pre_planner_json_enforced module.
 Tests the JSON enforcement, validation, repair and coordinator integration.
 """
 
-import json
 import pytest
 from unittest.mock import MagicMock, patch
 
@@ -287,8 +286,8 @@ class TestPrePlannerJsonEnforced:
     @patch('agent_s3.pre_planner_json_enforced.get_json_system_prompt')
     @patch('agent_s3.pre_planner_json_enforced.get_json_user_prompt')
     @patch('agent_s3.pre_planner_json_enforced.get_openrouter_json_params')
-    def test_call_pre_planner_with_enforced_json_success(self, mock_params, mock_user_prompt, 
-                                                        mock_system_prompt, mock_process):
+    def test_call_pre_planner_with_enforced_json_success(self, mock_params, mock_user_prompt,
+                                                        mock_system_prompt, mock_process, tmp_path):
         """Test successful call to pre-planner with enforced JSON."""
         # Setup mocks
         mock_system_prompt.return_value = "System prompt"
@@ -304,7 +303,12 @@ class TestPrePlannerJsonEnforced:
         mock_agent.call_llm_by_role.return_value = "{}"
         
         # Call the function
-        success, data = pre_planning_workflow(mock_agent, "Test request")
+        preplan_file = tmp_path / "preplan.json"
+        success, data = pre_planning_workflow(
+            mock_agent,
+            "Test request",
+            preplan_path=str(preplan_file),
+        )
         
         # Verify results
         assert success is True
@@ -315,8 +319,8 @@ class TestPrePlannerJsonEnforced:
     @patch('agent_s3.pre_planner_json_enforced.get_json_system_prompt')
     @patch('agent_s3.pre_planner_json_enforced.get_json_user_prompt')
     @patch('agent_s3.pre_planner_json_enforced.get_openrouter_json_params')
-    def test_call_pre_planner_with_enforced_json_retry(self, mock_params, mock_user_prompt, 
-                                                       mock_system_prompt, mock_process):
+    def test_call_pre_planner_with_enforced_json_retry(self, mock_params, mock_user_prompt,
+                                                       mock_system_prompt, mock_process, tmp_path):
         """Test retry mechanism for pre-planner with enforced JSON."""
         # Setup mocks
         mock_system_prompt.return_value = "System prompt"
@@ -332,7 +336,12 @@ class TestPrePlannerJsonEnforced:
         mock_agent.call_llm_by_role.return_value = "{}"
         
         # Call the function
-        success, data = pre_planning_workflow(mock_agent, "Test request")
+        preplan_file = tmp_path / "preplan.json"
+        success, data = pre_planning_workflow(
+            mock_agent,
+            "Test request",
+            preplan_path=str(preplan_file),
+        )
         
         # Verify results
         assert success is True
@@ -344,9 +353,9 @@ class TestPrePlannerJsonEnforced:
     @patch('agent_s3.pre_planner_json_enforced.get_json_user_prompt')
     @patch('agent_s3.pre_planner_json_enforced.get_openrouter_json_params')
     @patch('agent_s3.pre_planner_json_enforced.create_fallback_json')
-    def test_call_pre_planner_with_enforced_json_fallback(self, mock_fallback, mock_params, 
-                                                          mock_user_prompt, mock_system_prompt, 
-                                                          mock_process):
+    def test_call_pre_planner_with_enforced_json_fallback(self, mock_fallback, mock_params,
+                                                          mock_user_prompt, mock_system_prompt,
+                                                          mock_process, tmp_path):
         """Test fallback mechanism for pre-planner with enforced JSON."""
         # Setup mocks
         mock_system_prompt.return_value = "System prompt"
@@ -365,7 +374,12 @@ class TestPrePlannerJsonEnforced:
         
         # Call the function and expect an exception
         with pytest.raises(JSONValidationError):
-            pre_planning_workflow(mock_agent, "Test request")
+            preplan_file = tmp_path / "preplan.json"
+            pre_planning_workflow(
+                mock_agent,
+                "Test request",
+                preplan_path=str(preplan_file),
+            )
         
         # Verify results
         assert mock_agent.call_llm_by_role.call_count == 2  # Both attempts fail
