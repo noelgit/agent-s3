@@ -36,6 +36,17 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('agent-s3.openChatWindow', openChatWindow),
     vscode.commands.registerCommand('agent-s3.openInteractiveView', openInteractiveView)
   );
+
+  // Create status bar item to trigger change requests or open chat
+  const statusBarItem = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Left,
+    100
+  );
+  statusBarItem.text = '$(sparkle) Agent-S3';
+  statusBarItem.command = 'agent-s3.request';
+  statusBarItem.tooltip = 'Start a change request';
+  statusBarItem.show();
+  context.subscriptions.push(statusBarItem);
   
   // Initialize the WebSocket tester
   const wsocketTester = initializeWebSocketTester(context);
