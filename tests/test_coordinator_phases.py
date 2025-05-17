@@ -455,3 +455,23 @@ def test_feature_group_processor_error_handling(coordinator):
         "Feature group processing failed: Failed to process feature groups", 
         level=LogLevel.ERROR
     )
+
+def test_implementation_retry_requests_user_guidance(coordinator):
+    coordinator.config.config["max_attempts"] = 1
+    plan = {"plan_id": "1", "group_name": "auth"}
+
+    coordinator.code_generator.generate_code.return_value = {"auth.py": "code"}
+    coordinator._apply_changes_and_manage_dependencies = MagicMock(return_value=True)
+    coordinator._run_validation_phase.side_effect = [
+        {"success": False, "output": "fail"},
+        {"success": True},
+    ]
+    coordinator.debugging_manager.handle_error.return_value = {"success": False}
+    coordinator.prompt_moderator.request_debugging_guidance.return_value = "Fix plan"
+    coordinator.feature_group_processor.update_plan_with_modifications.return_value = plan
+
+    changes, success = coordinator._implementation_workflow([plan])
+
+    coordinator.prompt_moderator.request_debugging_guidance.assert_called_once_with("auth", 1)
+    coordinator.feature_group_processor.update_plan_with_modifications.assert_called_once_with(plan, "Fix plan")
+    assert success is True
