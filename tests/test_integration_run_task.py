@@ -2,14 +2,56 @@
 Integration test for Coordinator.run_task simulating a simple feature request.
 """
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from agent_s3.coordinator import Coordinator
+
+# Minimal pre-planning result used for mocking
+SIMPLE_PREPLAN = {
+    "feature_groups": [
+        {
+            "group_name": "Misc",
+            "group_description": "Simple group",
+            "features": [
+                {
+                    "name": "PrintHello",
+                    "description": "Add hello world",
+                    "files_affected": ["agent_s3/cli.py"],
+                    "test_requirements": {
+                        "unit_tests": [],
+                        "integration_tests": [],
+                        "property_based_tests": [],
+                        "acceptance_tests": [],
+                        "test_strategy": {},
+                    },
+                    "dependencies": {
+                        "internal": [],
+                        "external": [],
+                        "feature_dependencies": [],
+                    },
+                    "risk_assessment": {},
+                    "system_design": {"code_elements": []},
+                }
+            ],
+            "risk_assessment": {},
+            "dependencies": {},
+        }
+    ],
+    "complexity_score": 10.0,
+}
 
 def test_run_task_simple(monkeypatch):
     # Patch all external effects
-    monkeypatch.setattr("agent_s3.coordinator.PrePlanningManager.collect_impacted_files", lambda self, req: ["agent_s3/cli.py"])
-    monkeypatch.setattr("agent_s3.coordinator.PrePlanningManager.estimate_complexity", lambda self, files: 10.0)
-    monkeypatch.setattr("agent_s3.coordinator.PrePlanningManager.identify_arch_implications", lambda self, files: {})
+    monkeypatch.setattr(
+        "agent_s3.pre_planner_json_enforced.pre_planning_workflow",
+        lambda router, task, context=None: (True, SIMPLE_PREPLAN),
+    )
+    monkeypatch.setattr(
+        "agent_s3.pre_planner_json_enforced.regenerate_pre_planning_with_modifications",
+        lambda router, results, mod: results,
+    )
+    monkeypatch.setattr(
+        "agent_s3.tools.plan_validator.validate_pre_plan", lambda data, **_: (True, {})
+    )
     monkeypatch.setattr("agent_s3.coordinator.Planner.create_plan", lambda self, req: "# Plan\nDo X\n")
     monkeypatch.setattr("agent_s3.coordinator.PromptModerator.present_plan", lambda self, plan, summary: (True, plan))
     monkeypatch.setattr("agent_s3.coordinator.Planner.generate_prompt", lambda self: "Prompt")

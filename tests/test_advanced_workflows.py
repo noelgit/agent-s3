@@ -104,14 +104,16 @@ def mock_coordinator(setup_test_files):
     with patch('agent_s3.coordinator.Config') as mock_config_cls, \
          patch('agent_s3.coordinator.EnhancedScratchpadManager') as mock_scratchpad_cls, \
          patch('agent_s3.coordinator.ProgressTracker') as mock_progress_tracker_cls, \
-         patch('agent_s3.coordinator.PrePlanningManager') as mock_pre_planner_cls, \
+         patch('agent_s3.pre_planner_json_enforced.pre_planning_workflow') as mock_preplan_workflow, \
+         patch('agent_s3.pre_planner_json_enforced.regenerate_pre_planning_with_modifications') as mock_regen_preplan, \
          patch('agent_s3.coordinator.Planner') as mock_planner_cls, \
          patch('agent_s3.coordinator.CodeGenerator') as mock_code_generator_cls, \
          patch('agent_s3.coordinator.PromptModerator') as mock_prompt_moderator_cls, \
          patch('agent_s3.coordinator.TaskStateManager') as mock_task_state_manager_cls, \
          patch('agent_s3.coordinator.ErrorContextManager') as mock_error_context_cls, \
          patch('os.path.dirname') as mock_dirname, \
-         patch('builtins.open', new_callable=MagicMock):
+         patch('builtins.open', new_callable=MagicMock), \
+         patch('agent_s3.tools.plan_validator.validate_pre_plan') as mock_validate_pre_plan:
         
         # Set up mock config
         mock_config = MagicMock()
@@ -129,7 +131,6 @@ def mock_coordinator(setup_test_files):
         # Set up other mocks
         mock_scratchpad = MagicMock()
         mock_progress_tracker = MagicMock()
-        mock_pre_planner = MagicMock()
         mock_planner = MagicMock()
         mock_code_generator = MagicMock()
         mock_prompt_moderator = MagicMock()
@@ -139,7 +140,6 @@ def mock_coordinator(setup_test_files):
         # Set up class return values
         mock_scratchpad_cls.return_value = mock_scratchpad
         mock_progress_tracker_cls.return_value = mock_progress_tracker
-        mock_pre_planner_cls.return_value = mock_pre_planner
         mock_planner_cls.return_value = mock_planner
         mock_code_generator_cls.return_value = mock_code_generator
         mock_prompt_moderator_cls.return_value = mock_prompt_moderator
@@ -150,11 +150,40 @@ def mock_coordinator(setup_test_files):
         mock_dirname.return_value = test_dir
         
         # Default pre-planning setup
-        mock_pre_planner.collect_impacted_files.return_value = [
-            f"{test_dir}/data_processor.py",
-            f"{test_dir}/auth_service.py"
-        ]
-        mock_pre_planner.estimate_complexity.return_value = 65.0
+        default_preplan = {
+            "feature_groups": [
+                {
+                    "group_name": "Group",
+                    "group_description": "desc",
+                    "features": [
+                        {
+                            "name": "Feat",
+                            "description": "desc",
+                            "files_affected": [
+                                f"{test_dir}/data_processor.py",
+                                f"{test_dir}/auth_service.py",
+                            ],
+                            "test_requirements": {
+                                "unit_tests": [],
+                                "integration_tests": [],
+                                "property_based_tests": [],
+                                "acceptance_tests": [],
+                                "test_strategy": {},
+                            },
+                            "dependencies": {"internal": [], "external": [], "feature_dependencies": []},
+                            "risk_assessment": {},
+                            "system_design": {},
+                        }
+                    ],
+                    "risk_assessment": {},
+                    "dependencies": {},
+                }
+            ],
+            "complexity_score": 65.0,
+        }
+        mock_preplan_workflow.return_value = (True, default_preplan)
+        mock_regen_preplan.return_value = default_preplan
+        mock_validate_pre_plan.return_value = (True, {})
         
         # Create coordinator with mocks
         coordinator = Coordinator(config=mock_config)
@@ -168,7 +197,8 @@ def mock_coordinator(setup_test_files):
         yield coordinator, {
             'scratchpad': mock_scratchpad,
             'progress_tracker': mock_progress_tracker,
-            'pre_planner': mock_pre_planner,
+            'pre_plan_workflow': mock_preplan_workflow,
+            'regen_pre_plan': mock_regen_preplan,
             'planner': mock_planner,
             'code_generator': mock_code_generator,
             'prompt_moderator': mock_prompt_moderator,
@@ -193,7 +223,9 @@ class TestRefactoringWorkflows:
         # Target file in the test directory
         test_dir = mocks['test_dir']
         target_file = f"{test_dir}/data_processor.py"
-        mocks['pre_planner'].collect_impacted_files.return_value = [target_file]
+        plan = mocks['pre_plan_workflow'].return_value[1]
+        plan['feature_groups'][0]['features'][0]['files_affected'] = [target_file]
+        mocks['pre_plan_workflow'].return_value = (True, plan)
         
         # Execute task
         task_description = "Optimize the data processing code for better performance"
@@ -256,7 +288,9 @@ class TestDebuggingWorkflows:
         # Target file in the test directory
         test_dir = mocks['test_dir']
         target_file = f"{test_dir}/auth_service.py"
-        mocks['pre_planner'].collect_impacted_files.return_value = [target_file]
+        plan = mocks['pre_plan_workflow'].return_value[1]
+        plan['feature_groups'][0]['features'][0]['files_affected'] = [target_file]
+        mocks['pre_plan_workflow'].return_value = (True, plan)
         
         # Set up error context for debugging
         mocks['error_context'].collect_error_context.return_value = {
