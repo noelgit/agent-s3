@@ -648,7 +648,6 @@ def pre_planning_workflow(router_agent, initial_request: str, context: Dict[str,
         Tuple of (success, result_data)
     """
     request_text = initial_request
-    conversation_history = []
     max_rounds = 5
     last_error_msg = None
 
@@ -708,7 +707,6 @@ def pre_planning_workflow(router_agent, initial_request: str, context: Dict[str,
             print(f"\nThe pre-planner needs clarification before proceeding:")
             print(f"\033[93m{msg}\033[0m")
             user_answer = input("Your answer: ").strip()
-            conversation_history.append({"request": request_text, "question": msg, "answer": user_answer})
             request_text = f"{request_text}\n\nClarification: {msg}\nUser answer: {user_answer}"
             last_error_msg = None  # Reset error on clarification
             continue
