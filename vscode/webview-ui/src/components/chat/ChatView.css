@@ -64,6 +64,17 @@
   line-height: 1.4;
 }
 
+.message-content pre {
+  background-color: var(--vscode-editor-background);
+  padding: 8px;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.message-content code {
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
 .message-timestamp {
   font-size: 0.7em;
   opacity: 0.6;
