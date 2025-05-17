@@ -27,8 +27,12 @@ from agent_s3.pre_planner import (
     create_fallback_pre_planning_output
 )
 
-from agent_s3.planner_json_enforced import get_openrouter_params, validate_json_schema, repair_json_structure
-from agent_s3.json_utils import extract_json_from_text
+from agent_s3.json_utils import (
+    extract_json_from_text,
+    get_openrouter_json_params,
+    validate_json_schema,
+    repair_json_structure,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -518,7 +522,7 @@ def pre_planning_workflow(router_agent, initial_request: str, context: Dict[str,
 
     for round_num in range(max_rounds):
         system_prompt = get_json_system_prompt()
-        openrouter_params = get_openrouter_params()
+        openrouter_params = get_openrouter_json_params()
         router_agent.reload_config()
 
         # If there was a JSON error, append it to the user prompt for feedback
