@@ -711,61 +711,81 @@ class Coordinator:
             for plan in approved_plans:
                 plan_id = plan.get("plan_id")
                 group_name = plan.get("group_name", "group")
-                attempt = 0
                 plan_success = False
 
-                while attempt < max_attempts and not plan_success:
-                    attempt += 1
+                while True:
+                    attempt = 0
+                    while attempt < max_attempts and not plan_success:
+                        attempt += 1
+                        self.progress_tracker.update_progress({
+                            "phase": "generation",
+                            "status": "started",
+                            "attempt": attempt,
+                            "plan_id": plan_id,
+                        })
+
+                        self.scratchpad.log(
+                            "Coordinator",
+                            f"Generating code for {group_name} (attempt {attempt})",
+                        )
+
+                        changes = self.code_generator.generate_code(plan)
+                        if not changes:
+                            continue
+
+                        if not self._apply_changes_and_manage_dependencies(changes):
+                            continue
+
+                        validation = self._run_validation_phase()
+                        if validation.get("success"):
+                            all_changes.update(changes)
+                            plan_success = True
+                            break
+
+                        if hasattr(self, "debugging_manager") and self.debugging_manager:
+                            debug_res = self.debugging_manager.handle_error(
+                                error_message=validation.get("output", ""),
+                                traceback_text=validation.get("output", ""),
+                            )
+                            if debug_res.get("success"):
+                                dbg_changes = debug_res.get("changes", {})
+                                if dbg_changes:
+                                    self._apply_changes_and_manage_dependencies(dbg_changes)
+                                    changes.update(dbg_changes)
+                                validation = self._run_validation_phase()
+                                if validation.get("success"):
+                                    all_changes.update(changes)
+                                    plan_success = True
+                                    break
+
                     self.progress_tracker.update_progress({
                         "phase": "generation",
-                        "status": "started",
-                        "attempt": attempt,
+                        "status": "completed",
                         "plan_id": plan_id,
+                        "success": plan_success,
                     })
+
+                    if plan_success:
+                        break
 
                     self.scratchpad.log(
                         "Coordinator",
-                        f"Generating code for {group_name} (attempt {attempt})",
+                        f"Implementation for {group_name} failed after {max_attempts} attempts",
+                        level=LogLevel.WARNING,
                     )
 
-                    changes = self.code_generator.generate_code(plan)
-                    if not changes:
-                        continue
+                    if hasattr(self, "prompt_moderator") and self.prompt_moderator:
+                        guidance = self.prompt_moderator.request_debugging_guidance(group_name, max_attempts)
+                        if guidance:
+                            plan = self.feature_group_processor.update_plan_with_modifications(plan, guidance)
+                            self.scratchpad.log(
+                                "Coordinator",
+                                "Engineer provided modifications; retrying implementation",
+                            )
+                            continue
 
-                    if not self._apply_changes_and_manage_dependencies(changes):
-                        continue
-
-                    validation = self._run_validation_phase()
-                    if validation.get("success"):
-                        all_changes.update(changes)
-                        plan_success = True
-                        break
-
-                    if hasattr(self, "debugging_manager") and self.debugging_manager:
-                        debug_res = self.debugging_manager.handle_error(
-                            error_message=validation.get("output", ""),
-                            traceback_text=validation.get("output", ""),
-                        )
-                        if debug_res.get("success"):
-                            dbg_changes = debug_res.get("changes", {})
-                            if dbg_changes:
-                                self._apply_changes_and_manage_dependencies(dbg_changes)
-                                changes.update(dbg_changes)
-                            validation = self._run_validation_phase()
-                            if validation.get("success"):
-                                all_changes.update(changes)
-                                plan_success = True
-                                break
-
-                self.progress_tracker.update_progress({
-                    "phase": "generation",
-                    "status": "completed",
-                    "plan_id": plan_id,
-                    "success": plan_success,
-                })
-
-                if not plan_success:
                     overall_success = False
+                    break
 
             return all_changes, overall_success
 

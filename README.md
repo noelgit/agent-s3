@@ -104,6 +104,7 @@ Agent-S3 is not just a tool for automation; it is a partner in development that 
   - Enhanced scratchpad with structured CoT logging (`agent_s3.enhanced_scratchpad_manager`)
   - Specialized error categorization and handling for 12+ error types (`agent_s3.debugging_manager`)
   - Context-aware error resolution with historical reasoning extraction
+  - Requests engineer guidance if automated debugging fails after repeated attempts
   - See [DEBUGGING.md](DEBUGGING.md) for details
 - Comprehensive test framework:
   - TestCritic for analyzing test quality and coverage (`agent_s3.tools.test_critic`)
