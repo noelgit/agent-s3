@@ -18,7 +18,7 @@ from typing import Dict, Any, Optional, List, Tuple, Union
 from datetime import datetime
 
 # Import pre-planning compatibility functionality
-from agent_s3.pre_planner import PrePlanningError
+from agent_s3.pre_planning_errors import PrePlanningError
 
 from agent_s3.json_utils import (
     validate_and_repair_json,
@@ -30,7 +30,7 @@ from agent_s3.errors import PlanningError
 
 # Re-export PrePlanningError for backward compatibility
 # This helps maintain symmetry with planner_json_enforced importing from pre_planner_json_enforced
-from agent_s3.pre_planner import validate_pre_planning_output
+from agent_s3.pre_planner_json_enforced import validate_pre_planning_output
 
 # To maintain architectural consistency, include a method for validating pre-planning output
 # from the planner's perspective for symmetry with planner_json_enforced

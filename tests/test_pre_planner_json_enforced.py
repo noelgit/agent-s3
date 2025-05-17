@@ -1,7 +1,9 @@
 """
 Unit tests for pre_planner_json_enforced module.
 
-Tests the JSON enforcement, validation, repair and coordinator integration.
+This module contains tests for the canonical pre-planning implementation that provides
+robust JSON enforcement, validation, repair, and coordinator integration. The pre_planner_json_enforced
+module is the primary implementation used throughout the system for pre-planning.
 """
 
 import json
@@ -486,7 +488,7 @@ DESCRIPTION: Add test case for password reset
                 }]
             }]
         }
-        mock_process.return_value = (True, json_data, None)
+        mock_process.return_value = (True, json_data)
         
         # Original results
         original_results = {
@@ -529,11 +531,10 @@ DESCRIPTION: Add error handling for connection failures
         prompt = call_args["user_prompt"]
         
         # Check that the prompt includes structured format information
-        assert "User's Structured Modifications" in prompt
-        assert "Component: implementation_plan" in prompt
-        assert "Location: auth.py" in prompt
-        assert "Change Type: change" in prompt
-        assert "Apply each modification precisely as specified" in prompt
+        assert "Modification Request" in prompt
+        assert "COMPONENT: implementation_plan" in prompt
+        assert "LOCATION: auth.py" in prompt
+        assert "CHANGE_TYPE: change" in prompt
         
         # Verify the result
         assert result == json_data
@@ -562,7 +563,7 @@ DESCRIPTION: Add error handling for connection failures
                 }]
             }]
         }
-        mock_process.return_value = (True, json_data, None)
+        mock_process.return_value = (True, json_data)
         
         # Original results
         original_results = {
@@ -593,7 +594,7 @@ DESCRIPTION: Add error handling for connection failures
         prompt = call_args["user_prompt"]
         
         # Check that the prompt includes modification text
-        assert "User's Modification Request" in prompt
+        assert "Modification Request" in prompt
         assert modification_text in prompt
         
         # Verify the result

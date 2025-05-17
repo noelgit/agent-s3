@@ -1,0 +1,45 @@
+{
+  "architecture_review": {
+    "logical_gaps": [
+      {
+        "description": "Description of the logical gap in the provided system design from pre-planning",
+        "impact": "Potential impact of the gap on functionality, security, or maintainability",
+        "recommendation": "Specific, actionable recommendation to address the gap",
+        "target_element_ids": ["string (The element_ids from system_design.code_elements affected by this gap)"],
+        "priority": "string (Critical | High | Medium | Low) - Classify based on risk and implementation urgency"
+      }
+      // Example: "Authentication system lacks CSRF protection mechanism"
+    ],
+    "optimization_suggestions": [
+      {
+        "description": "Description of the optimization opportunity",
+        "benefit": "Potential benefit of the optimization (performance, security, maintainability)",
+        "implementation_approach": "Suggested technical approach for implementation",
+        "target_element_ids": ["string (The element_ids from system_design.code_elements affected by this suggestion)"],
+        "priority": "string (Critical | High | Medium | Low) - Classify based on performance impact and implementation effort"
+      }
+      // Example: "Database queries not optimized for pagination in the user listing component"
+    ],
+    "security_concerns": [
+      {
+        "vulnerability": "Description of the potential security vulnerability",
+        "severity": "string (Critical | High | Medium | Low)",
+        "mitigation": "Specific mitigation strategy", 
+        "target_element_ids": ["string (The element_ids from system_design.code_elements affected by this concern)"],
+        "priority": "string (Critical | High | Medium | Low) - Classify based on security risk and remediation urgency"
+      }
+      // Example: "User input in search function is passed directly to SQL query"
+    ],
+    "additional_considerations": [
+      {
+        "topic": "Topic of consideration (e.g., Scalability, Maintainability, Testability)",
+        "description": "Detailed description of the consideration",
+        "recommendation": "Recommendation addressing the consideration",
+        "target_element_ids": ["string (Affected element_ids from system_design)"],
+        "priority": "string (Critical | High | Medium | Low) - Classify based on architectural impact"
+      }
+      // Example: "Scalability considerations for high traffic loads"
+    ]
+  },
+  "discussion": "Overall assessment of the architecture, explaining key findings and recommendations, specifically building upon the system design from pre-planning"
+}

@@ -25,6 +25,7 @@ class PromptModerator:
         self.scratchpad = coordinator.scratchpad if coordinator else None
         self.ui_mode = "terminal"  # Default to terminal UI mode
         self.vscode_bridge = None  # Will be set by set_vscode_bridge
+        self.max_plan_iterations = 5  # Maximum number of plan modification iterations
         
     def set_vscode_bridge(self, vscode_bridge: VSCodeBridge):
         """Set the VS Code bridge integration for chat UI communication.
@@ -1170,6 +1171,210 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
                 print(f"{i:4d} | {line}")
         print()
 
+    def present_consolidated_plan(self, plan: Dict[str, Any]) -> Tuple[str, Optional[str]]:
+        """Present the consolidated plan to the user, grouped by feature.
+        
+        This method displays the plan in a structured way, highlighting architecture
+        and tests for each feature group for clarity. It also handles pagination
+        for large plans to manage information overload.
+        
+        Args:
+            plan: The consolidated plan to present
+            
+        Returns:
+            Tuple of (decision, modification_text)
+        """
+        if self.scratchpad:
+            self.scratchpad.log("Moderator", "Presenting consolidated plan to user")
+        
+        if not plan:
+            return "no", "No consolidated plan provided"
+        
+        group_name = plan.get("group_name", "Unnamed Group")
+        
+        # Format plan for display
+        print(f"\n{'='*30}")
+        print(f"FEATURE GROUP: {group_name}")
+        print(f"{'='*30}")
+        print(f"\nDescription: {plan.get('group_description', 'No description')}")
+        
+        # Show architecture review summary
+        print("\nARCHITECTURE REVIEW:")
+        architecture_review = plan.get("architecture_review", {})
+        
+        logical_gaps = architecture_review.get("logical_gaps", [])
+        if logical_gaps:
+            print(f"- Logical Gaps: {len(logical_gaps)}")
+            for i, gap in enumerate(logical_gaps[:3], 1):
+                print(f"  {i}. {gap.get('description', 'No description')}")
+            if len(logical_gaps) > 3:
+                print(f"  ... and {len(logical_gaps) - 3} more gaps.")
+        else:
+            print("- No logical gaps identified")
+            
+        optimizations = architecture_review.get("optimization_suggestions", [])
+        if optimizations:
+            print(f"- Optimization Suggestions: {len(optimizations)}")
+            for i, opt in enumerate(optimizations[:3], 1):
+                print(f"  {i}. {opt.get('description', 'No description')}")
+            if len(optimizations) > 3:
+                print(f"  ... and {len(optimizations) - 3} more suggestions.")
+        else:
+            print("- No optimization suggestions")
+        
+        # Show test summary
+        print("\nTESTS:")
+        tests = plan.get("tests", {})
+        
+        unit_tests = tests.get("unit_tests", [])
+        if unit_tests:
+            print(f"- Unit Tests: {len(unit_tests)}")
+            for i, test in enumerate(unit_tests[:3], 1):
+                print(f"  {i}. {test.get('test_name', 'Unnamed test')}")
+            if len(unit_tests) > 3:
+                print(f"  ... and {len(unit_tests) - 3} more unit tests.")
+        else:
+            print("- No unit tests")
+            
+        integration_tests = tests.get("integration_tests", [])
+        if integration_tests:
+            print(f"- Integration Tests: {len(integration_tests)}")
+        
+        # Show implementation summary
+        print("\nIMPLEMENTATION PLAN:")
+        implementation_plan = plan.get("implementation_plan", {})
+        if implementation_plan:
+            print(f"- Files to modify: {len(implementation_plan)}")
+            for i, (file_path, funcs) in enumerate(list(implementation_plan.items())[:3], 1):
+                print(f"  {i}. {file_path} ({len(funcs)} functions)")
+            if len(implementation_plan) > 3:
+                print(f"  ... and {len(implementation_plan) - 3} more files.")
+        else:
+            print("- No implementation details")
+        
+        # Show semantic validation results if available
+        semantic_validation = plan.get("semantic_validation", {})
+        if semantic_validation and "error" not in semantic_validation:
+            print("\nSEMANTIC VALIDATION:")
+            coherence_score = semantic_validation.get("coherence_score", 0)
+            consistency_score = semantic_validation.get("technical_consistency_score", 0)
+            print(f"- Coherence Score: {coherence_score:.2f}")
+            print(f"- Technical Consistency Score: {consistency_score:.2f}")
+            
+            critical_issues = semantic_validation.get("critical_issues", [])
+            if critical_issues:
+                print(f"- Critical Issues: {len(critical_issues)}")
+                for i, issue in enumerate(critical_issues[:3], 1):
+                    print(f"  {i}. {issue.get('category', 'Issue')}: {issue.get('description', 'No description')}")
+                if len(critical_issues) > 3:
+                    print(f"  ... and {len(critical_issues) - 3} more issues.")
+            else:
+                print("- No critical issues identified")
+        
+        # Ask for user decision
+        print("\nDECISION:")
+        decision = self.ask_ternary_question(
+            "Do you want to proceed with this plan? (yes/no/modify)"
+        )
+        
+        modification_text = None
+        if decision == "modify":
+            modification_text = self.handle_user_modification(plan)
+        
+        return decision, modification_text
+    
+    def handle_user_modification(self, plan: Dict[str, Any]) -> str:
+        """Handle user modifications to the plan in a structured way.
+        
+        This method parses user input for modifications, maps them to the
+        corresponding JSON node or text section in the plan, and applies
+        the changes to a copy of the plan.
+        
+        Args:
+            plan: The plan to modify
+            
+        Returns:
+            The modification text
+        """
+        print("\nPlease enter your modification instructions:")
+        print("Be specific about what should be added, removed, or changed.")
+        print("\nYou can use structured format for precise modifications:")
+        print("COMPONENT: architecture_review")
+        print("LOCATION: logical_gaps")
+        print("CHANGE_TYPE: add")
+        print("DESCRIPTION: Add a logical gap for error handling in the authentication flow")
+        print("\nOr provide free-form instructions for general modifications.")
+        print("Type 'done' on a new line when finished.")
+        
+        lines = []
+        while True:
+            line = input()
+            if line.strip().lower() == 'done':
+                break
+            lines.append(line)
+        
+        # Process the modification text
+        modification_text = "\n".join(lines)
+        
+        # Try to parse structured modifications
+        structured_mods = self._parse_structured_modifications(modification_text)
+        
+        if structured_mods and self.scratchpad:
+            self.scratchpad.log("Moderator", f"Parsed {len(structured_mods)} structured modifications")
+            
+            # Create a standardized format for easier processing
+            formatted_text = "STRUCTURED_MODIFICATIONS:\n"
+            for i, mod in enumerate(structured_mods):
+                formatted_text += f"Modification {i+1}:\n"
+                for key, value in mod.items():
+                    formatted_text += f"  {key}: {value}\n"
+                formatted_text += "\n"
+            
+            # Append the raw input for reference
+            formatted_text += "RAW_INPUT:\n" + modification_text
+            
+            return formatted_text
+        
+        return modification_text
+    
+    def _parse_structured_modifications(self, text: str) -> List[Dict[str, str]]:
+        """Parse structured modifications from text.
+        
+        Args:
+            text: The modification text
+            
+        Returns:
+            List of structured modifications
+        """
+        modifications = []
+        current_mod = {}
+        expected_keys = ["COMPONENT", "LOCATION", "CHANGE_TYPE", "DESCRIPTION"]
+        
+        # Split by lines and process
+        lines = text.split('\n')
+        for line in lines:
+            # Check for section separator
+            if line.strip() == "---":
+                if current_mod:
+                    modifications.append(current_mod)
+                    current_mod = {}
+                continue
+            
+            # Try to parse key-value pairs
+            parts = line.split(':', 1)
+            if len(parts) == 2:
+                key = parts[0].strip().upper()
+                value = parts[1].strip()
+                
+                if key in expected_keys:
+                    current_mod[key] = value
+        
+        # Add the last modification if not empty
+        if current_mod:
+            modifications.append(current_mod)
+        
+        return modifications
+    
     def display_discussion_and_plan(self, discussion: str, plan: str) -> None:
         """Display the discussion transcript and the implementation plan to the user."""
         if self.scratchpad:

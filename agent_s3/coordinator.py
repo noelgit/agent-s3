@@ -479,6 +479,141 @@ class Coordinator:
                     "Please describe your modifications:"
                 )
                 return "modify", modification
+                
+    def plan_approval_loop(self, plan: Dict[str, Any], original_plan: Optional[Dict[str, Any]] = None) -> Tuple[str, Dict[str, Any]]:
+        """Run the plan approval loop to get user approval for a plan.
+        
+        This method presents the plan to the user, handles modifications, validates
+        the modified plan, and continues the loop until the user approves or rejects
+        the plan or the maximum number of iterations is reached.
+        
+        Args:
+            plan: The plan to approve
+            original_plan: Optional original plan for comparison in validation
+            
+        Returns:
+            Tuple of (decision, final_plan)
+        """
+        # Use error context manager for consistent error handling
+        with self.error_handler.error_context(
+            phase="plan_approval",
+            operation="plan_approval_loop"
+        ):
+            self.scratchpad.log("Coordinator", "Starting plan approval loop")
+            
+            # Initialize loop variables
+            current_plan = plan
+            iteration = 0
+            max_iterations = self.prompt_moderator.max_plan_iterations
+            
+            # Create a static plan checker for validation
+            from agent_s3.tools.static_plan_checker import StaticPlanChecker
+            plan_checker = StaticPlanChecker(context_registry=self.context_registry)
+            
+            while iteration < max_iterations:
+                iteration += 1
+                self.scratchpad.log("Coordinator", f"Plan approval iteration {iteration}/{max_iterations}")
+                
+                # Present the plan to the user
+                decision, modification_text = self.prompt_moderator.present_consolidated_plan(current_plan)
+                
+                if decision == "yes":
+                    self.scratchpad.log("Coordinator", "User approved the plan")
+                    return "yes", current_plan
+                elif decision == "no":
+                    self.scratchpad.log("Coordinator", "User rejected the plan")
+                    return "no", current_plan
+                elif decision == "modify":
+                    self.scratchpad.log("Coordinator", "User chose to modify the plan")
+                    
+                    # Handle user modification
+                    try:
+                        # Import the regeneration function from planner_json_enforced
+                        from agent_s3.planner_json_enforced import regenerate_consolidated_plan_with_modifications
+                        
+                        # Regenerate the plan with modifications
+                        modified_plan = regenerate_consolidated_plan_with_modifications(
+                            self.router_agent,
+                            current_plan,
+                            modification_text
+                        )
+                        
+                        # Validate the modified plan
+                        is_valid, validation_results = plan_checker.validate_plan(modified_plan, original_plan or current_plan)
+                        
+                        if is_valid:
+                            self.scratchpad.log("Coordinator", "Modified plan validation successful")
+                            current_plan = modified_plan
+                        else:
+                            # Display validation errors
+                            critical_errors = validation_results.get("critical", [])
+                            if critical_errors:
+                                print("\n❌ VALIDATION ERRORS:")
+                                for error in critical_errors[:5]:  # Show only first 5 errors
+                                    error_msg = error.get("message", str(error)) if isinstance(error, dict) else str(error)
+                                    print(f"  - {error_msg}")
+                                
+                                # Ask if user wants to proceed anyway
+                                proceed_anyway = self.prompt_moderator.ask_yes_no_question(
+                                    "The modified plan has validation errors. Do you want to proceed anyway?"
+                                )
+                                
+                                if proceed_anyway:
+                                    self.scratchpad.log("Coordinator", "User chose to proceed with invalid plan")
+                                    current_plan = modified_plan
+                                else:
+                                    self.scratchpad.log("Coordinator", "User chose not to proceed with invalid plan")
+                                    # Continue with the original plan for this iteration
+                            else:
+                                # No critical errors, just warnings
+                                warnings = validation_results.get("warnings", [])
+                                if warnings:
+                                    print("\n⚠️ VALIDATION WARNINGS:")
+                                    for warning in warnings[:5]:  # Show only first 5 warnings
+                                        warning_msg = warning.get("message", str(warning)) if isinstance(warning, dict) else str(warning)
+                                        print(f"  - {warning_msg}")
+                                
+                                # Proceed with the modified plan
+                                self.scratchpad.log("Coordinator", "Modified plan has warnings but no critical errors")
+                                current_plan = modified_plan
+                    except Exception as e:
+                        self.error_handler.handle_exception(
+                            exc=e,
+                            phase="plan_approval",
+                            operation="handle_modification",
+                            level=logging.ERROR,
+                            reraise=False
+                        )
+                        
+                        print(f"\n❌ ERROR: Failed to apply modifications: {str(e)}")
+                        
+                        # Ask if user wants to try again
+                        try_again = self.prompt_moderator.ask_yes_no_question(
+                            "Do you want to try modifying the plan again?"
+                        )
+                        
+                        if not try_again:
+                            self.scratchpad.log("Coordinator", "User chose not to try modifying again")
+                            return "no", current_plan
+                
+                # Check if we've reached the maximum number of iterations
+                if iteration >= max_iterations:
+                    print(f"\n⚠️ Maximum number of modification iterations ({max_iterations}) reached.")
+                    
+                    # Ask if user wants to proceed with the current plan
+                    proceed = self.prompt_moderator.ask_yes_no_question(
+                        "Do you want to proceed with the current plan?"
+                    )
+                    
+                    if proceed:
+                        self.scratchpad.log("Coordinator", "User chose to proceed after max iterations")
+                        return "yes", current_plan
+                    else:
+                        self.scratchpad.log("Coordinator", "User chose not to proceed after max iterations")
+                        return "no", current_plan
+            
+            # Default return if loop exits unexpectedly
+            return "no", current_plan
 
     def _regenerate_pre_planning_with_modifications(self, original_results: Dict[str, Any], modification_text: str) -> Dict[str, Any]:
         """Regenerate pre-planning results based on user modifications.
@@ -563,7 +698,6 @@ class Coordinator:
                     pre_plan_data = pre_planning_input
                 else:
                     # First, import both base and specialized pre-planner modules to maintain architecture consistency
-                    from agent_s3.pre_planner import call_pre_planner
                     from agent_s3.pre_planner_json_enforced import pre_planning_workflow
 
                     # Collect context for the pre-planner
@@ -590,7 +724,7 @@ class Coordinator:
             # --- PHASE 2: Validation - Validate pre-planning output ---
             with self.error_handler.error_context(phase="validation", operation="validate_pre_planning"):
                 # Validate the pre-planning output structure and content
-                self.scratchpad.log("Coordinator", "Validating pre-planning output...")
+                self.scratchpad.log("Coordinator", "Validating pre-planning output with enhanced validation...")
 
                 # Use the plan validator for comprehensive static validation
                 from agent_s3.tools.plan_validator import validate_pre_plan
@@ -603,12 +737,48 @@ class Coordinator:
                 # Display and handle critical errors
                 critical_errors = validation_results.get("critical", [])
                 warnings = validation_results.get("warnings", [])
+                missing_sections = validation_results.get("summary", {}).get("missing_sections", [])
+
+                # Log validation summary
+                self.scratchpad.log("Coordinator", 
+                                  f"Validation summary: {len(critical_errors)} critical errors, " +
+                                  f"{len(warnings)} warnings, " +
+                                  f"{len(missing_sections)} missing sections")
 
                 if critical_errors:
+                    # Group errors by category for better organization
+                    errors_by_category = {}
                     for error in critical_errors:
-                        self.scratchpad.log("Coordinator", f"Critical validation error: {error}", level=LogLevel.ERROR)
-                        print(f"\n❌ CRITICAL ERROR: {error}")
+                        if isinstance(error, dict):
+                            category = error.get("category", "general")
+                            if category not in errors_by_category:
+                                errors_by_category[category] = []
+                            errors_by_category[category].append(error)
+                        else:
+                            # Handle string errors for backward compatibility
+                            if "general" not in errors_by_category:
+                                errors_by_category["general"] = []
+                            errors_by_category["general"].append({"message": error})
+                    
+                    # Display errors by category
+                    for category, errors in errors_by_category.items():
+                        print(f"\n❌ CRITICAL ERRORS ({category.upper()}):")
+                        for error in errors:
+                            error_msg = error.get("message", str(error)) if isinstance(error, dict) else str(error)
+                            self.scratchpad.log("Coordinator", f"Critical validation error ({category}): {error_msg}", level=LogLevel.ERROR)
+                            print(f"  - {error_msg}")
+                            
+                            # Display suggestion if available
+                            if isinstance(error, dict) and error.get("suggestion"):
+                                print(f"    Suggestion: {error['suggestion']}")
 
+                    # Special handling for missing sections
+                    if missing_sections:
+                        print("\n❌ MISSING REQUIRED SECTIONS:")
+                        for section in missing_sections:
+                            print(f"  - {section.capitalize()}")
+                        print("\nA complete plan must include Architecture, Implementation, and Tests sections.")
+                    
                     proceed_anyway = self.prompt_moderator.ask_yes_no_question(
                         "Critical validation errors were found. Proceed anyway?"
                     )

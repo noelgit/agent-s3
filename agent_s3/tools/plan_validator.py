@@ -191,6 +191,11 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
     """
     Validate Pre-Planner JSON output with fast, deterministic checks.
     
+    This function performs comprehensive validation of the pre-planning JSON output,
+    including schema validation, code syntax checking, identifier hygiene, path validity,
+    token budget compliance, duplicate symbol detection, and content scanning for
+    dangerous operations.
+    
     Args:
         data: The Pre-Planner JSON data structure to validate
         repo_root: Optional repository root path for file glob validation
@@ -206,8 +211,85 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
     validation_results = {
         "critical": [],  # Critical errors that should block workflow
         "warnings": [],  # Warnings that can be addressed but don't block
-        "suggestions": []  # Optimization suggestions
+        "suggestions": [],  # Optimization suggestions
+        "sections": {
+            "architecture": False,
+            "implementation": False,
+            "tests": False
+        }
     }
+    
+    # Scan for dangerous content patterns
+    dangerous_patterns = [
+        "rm -rf", "deltree", "format", "DROP TABLE", "DROP DATABASE", 
+        "DELETE FROM", "TRUNCATE TABLE", "sudo", "chmod 777", 
+        "eval(", "exec(", "system(", "shell_exec", "os.system"
+    ]
+    
+    # Check for dangerous content in descriptions, signatures, etc.
+    for group_idx, group in enumerate(data.get("feature_groups", [])):
+        if not isinstance(group, dict):
+            continue
+            
+        for feature_idx, feature in enumerate(group.get("features", [])):
+            if not isinstance(feature, dict):
+                continue
+                
+            # Check feature description for dangerous content
+            description = feature.get("description", "")
+            for pattern in dangerous_patterns:
+                if pattern.lower() in description.lower():
+                    validation_results["critical"].append({
+                        "message": f"Feature '{feature.get('name', f'at index {feature_idx}')}' contains potentially dangerous operation '{pattern}' in description",
+                        "category": "security",
+                        "suggestion": f"Remove or replace the dangerous operation '{pattern}'"
+                    })
+            
+            # Check system_design elements
+            if "system_design" in feature and isinstance(feature["system_design"], dict):
+                # Mark architecture section as present
+                validation_results["sections"]["architecture"] = True
+                
+                # Check code elements
+                for el_idx, element in enumerate(feature["system_design"].get("code_elements", [])):
+                    if not isinstance(element, dict):
+                        continue
+                        
+                    # Check signature and description
+                    for field in ["signature", "description"]:
+                        content = element.get(field, "")
+                        for pattern in dangerous_patterns:
+                            if pattern.lower() in content.lower():
+                                validation_results["critical"].append({
+                                    "message": f"Code element '{element.get('name', f'at index {el_idx}')}' contains potentially dangerous operation '{pattern}' in {field}",
+                                    "category": "security",
+                                    "suggestion": f"Remove or replace the dangerous operation '{pattern}'"
+                                })
+            
+            # Check test_requirements
+            if "test_requirements" in feature and isinstance(feature["test_requirements"], dict):
+                # Mark tests section as present
+                validation_results["sections"]["tests"] = True
+            
+            # Check implementation steps if present
+            if "implementation_steps" in feature and isinstance(feature["implementation_steps"], list):
+                # Mark implementation section as present
+                validation_results["sections"]["implementation"] = True
+                
+                for step_idx, step in enumerate(feature["implementation_steps"]):
+                    if not isinstance(step, dict):
+                        continue
+                        
+                    # Check step description and code
+                    for field in ["description", "code"]:
+                        content = step.get(field, "")
+                        for pattern in dangerous_patterns:
+                            if pattern.lower() in content.lower():
+                                validation_results["critical"].append({
+                                    "message": f"Implementation step {step_idx} contains potentially dangerous operation '{pattern}' in {field}",
+                                    "category": "security",
+                                    "suggestion": f"Remove or replace the dangerous operation '{pattern}'"
+                                })
     
     # Run all validation checks with severity classification
     # Schema validation - critical if basic structure is invalid
@@ -303,11 +385,23 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
             "suggestion": None
         })
     
+    # Check for missing sections
+    missing_sections = []
+    for section, present in validation_results["sections"].items():
+        if not present:
+            missing_sections.append(section)
+            validation_results["critical"].append({
+                "message": f"Missing required section: {section.capitalize()}",
+                "category": "completeness",
+                "suggestion": f"Add the {section.capitalize()} section to ensure a complete plan"
+            })
+    
     # Calculate summary counts
     validation_results["summary"] = {
         "critical_count": len(validation_results["critical"]),
         "warning_count": len(validation_results["warnings"]),
-        "suggestion_count": len(validation_results["suggestions"])
+        "suggestion_count": len(validation_results["suggestions"]),
+        "missing_sections": missing_sections
     }
     
     # Plan is invalid if there are any critical errors
@@ -321,11 +415,40 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
             # Don't fail validation if context registry update fails
             pass
     
+    # Generate a more detailed error report
+    if not is_valid:
+        error_report = {
+            "timestamp": datetime.datetime.now().isoformat(),
+            "validation_status": "failed",
+            "critical_errors": validation_results["critical"],
+            "warnings": validation_results["warnings"],
+            "suggestions": validation_results["suggestions"],
+            "sections_status": {
+                section: "missing" if section in missing_sections else "present"
+                for section in validation_results["sections"]
+            }
+        }
+        
+        # Save error report to file for debugging
+        try:
+            report_path = "validation_error_report.json"
+            with open(report_path, "w", encoding="utf-8") as f:
+                json.dump(error_report, f, indent=2)
+            logger.info(f"Validation error report saved to {report_path}")
+        except Exception as e:
+            logger.error(f"Failed to save validation error report: {e}")
+    
     return is_valid, validation_results
 
 
 def validate_schema(data: Dict[str, Any]) -> List[str]:
-    """Validate basic schema structure and types."""
+    """
+    Validate basic schema structure and types.
+    
+    This function performs comprehensive validation of the pre-planning JSON schema,
+    ensuring all required sections (Architecture, Implementation, Tests) are present
+    and properly structured.
+    """
     errors = []
     
     # Basic type checks
@@ -452,36 +575,50 @@ def validate_schema(data: Dict[str, Any]) -> List[str]:
             elif not isinstance(feature["risk_assessment"], dict):
                 errors.append(f"{feature_prefix} field 'risk_assessment' must be a dictionary")
             
-            # Check system_design
+            # Check system_design (Architecture section)
             if "system_design" not in feature:
-                errors.append(f"{feature_prefix} missing required field 'system_design'")
+                errors.append(f"{feature_prefix} missing required field 'system_design' (Architecture section)")
             elif not isinstance(feature["system_design"], dict):
                 errors.append(f"{feature_prefix} field 'system_design' must be a dictionary")
             else:
                 system_design_data = feature["system_design"]
-                if "code_elements" not in system_design_data:
-                    errors.append(f"{feature_prefix} system_design missing required field 'code_elements'")
-                elif not isinstance(system_design_data["code_elements"], list):
+                # Check for required architecture components
+                for arch_field in ["overview", "code_elements", "data_flow"]:
+                    if arch_field not in system_design_data:
+                        errors.append(f"{feature_prefix} system_design missing required field '{arch_field}'")
+                
+                if "code_elements" in system_design_data and not isinstance(system_design_data["code_elements"], list):
                     errors.append(f"{feature_prefix} system_design field 'code_elements' must be a list")
-                else:
+                elif "code_elements" in system_design_data and len(system_design_data["code_elements"]) == 0:
+                    errors.append(f"{feature_prefix} system_design must have at least one code element")
+                # Validate code elements in detail
+                if "code_elements" in system_design_data and isinstance(system_design_data["code_elements"], list):
                     for ce_idx, code_el in enumerate(system_design_data["code_elements"]):
                         ce_prefix = f"{feature_prefix} system_design.code_elements[{ce_idx}]"
                         if not isinstance(code_el, dict):
                             errors.append(f"{ce_prefix} must be a dictionary")
                             continue
                         # Required fields in each code_element
-                        required_str_fields = ["name", "element_type", "signature", "description", "target_file"]
+                        required_str_fields = ["name", "element_type", "signature", "description", "target_file", "element_id"]
                         for field in required_str_fields:
                             if field not in code_el:
                                 errors.append(f"{ce_prefix} missing required field '{field}'")
                             elif not isinstance(code_el[field], str):
                                 errors.append(f"{ce_prefix} field '{field}' must be a string")
+                            elif field == "element_id" and not code_el[field].strip():
+                                errors.append(f"{ce_prefix} field 'element_id' cannot be empty")
+                        
+                        # Validate element_type values
+                        valid_element_types = {"class", "function", "interface", "enum_type", "struct", "method", "module"}
+                        if "element_type" in code_el and code_el["element_type"] not in valid_element_types:
+                            errors.append(f"{ce_prefix} field 'element_type' must be one of: {', '.join(valid_element_types)}")
                         
                         # Optional fields and their types
                         optional_fields = {
                             "params": list, # list of strings
                             "start_line": int,
-                            "end_line": int
+                            "end_line": int,
+                            "key_attributes_or_methods": list
                         }
                         for field, expected_type in optional_fields.items():
                             if field in code_el and not isinstance(code_el[field], expected_type):
@@ -490,6 +627,10 @@ def validate_schema(data: Dict[str, Any]) -> List[str]:
                                 for p_idx, param_val in enumerate(code_el[field]):
                                     if not isinstance(param_val, str):
                                         errors.append(f"{ce_prefix} field 'params[{p_idx}]' must be a string")
+                            elif field == "key_attributes_or_methods" and isinstance(code_el.get(field), list):
+                                for p_idx, attr_val in enumerate(code_el[field]):
+                                    if not isinstance(attr_val, str):
+                                        errors.append(f"{ce_prefix} field 'key_attributes_or_methods[{p_idx}]' must be a string")
     
     return errors
 
