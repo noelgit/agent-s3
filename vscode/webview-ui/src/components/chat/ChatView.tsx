@@ -29,6 +29,7 @@ interface StreamState {
   content: string;
   source: string;
   isThinking: boolean;
+  components: any[];
 }
 
 // Types are defined at the top of the file
@@ -46,6 +47,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
   const [inputText, setInputText] = useState('');
   const [isAgentResponding, setIsAgentResponding] = useState(false);
   const [activeStreams, setActiveStreams] = useState<Record<string, StreamState>>({});
+  const [hasMore, setHasMore] = useState(false);
   
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -59,7 +61,8 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
       switch (message.type) {
         case 'LOAD_HISTORY':
           if (Array.isArray(message.history)) {
-            setMessages(message.history);
+            setMessages(prev => [...message.history, ...prev]);
+            setHasMore(message.has_more);
           }
           break;
           
@@ -73,6 +76,14 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
           
         case 'STREAM_CONTENT':
           handleStreamContent(message.content);
+          break;
+
+        case 'STREAM_INTERACTIVE':
+          handleStreamInteractive(message.content);
+          break;
+
+        case 'STREAM_INTERACTIVE':
+          handleStreamInteractive(message.content);
           break;
           
         case 'STREAM_END':
@@ -172,7 +183,8 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
         id: stream_id,
         content: '',
         source: source || 'agent',
-        isThinking: false
+        isThinking: false,
+        components: []
       }
     }));
     
@@ -197,6 +209,23 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
           ...stream,
           content: stream.content + streamContent,
           isThinking: false
+        }
+      };
+    });
+  };
+
+  const handleStreamInteractive = (content: any) => {
+    const { stream_id, component } = content;
+    setActiveStreams(prev => {
+      const stream = prev[stream_id];
+      if (!stream) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [stream_id]: {
+          ...stream,
+          components: [...stream.components, component]
         }
       };
     });
@@ -319,13 +348,24 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
    */
   const renderMessageContent = (content: string) => {
     const rawHtml = marked.parse(content);
-    const cleanHtml = DOMPurify.sanitize(rawHtml);
+    const cleanHtml = DOMPurify.sanitize(rawHtml, {
+      ADD_TAGS: ['button', 'input'],
+      ADD_ATTR: ['data-action', 'type', 'placeholder']
+    });
     return <span dangerouslySetInnerHTML={{ __html: cleanHtml }} />;
   };
   
   return (
     <div className="chat-container">
       <div className="messages-container">
+        {hasMore && (
+          <button
+            className="load-more"
+            onClick={() => vscode.postMessage({ type: 'REQUEST_MORE_HISTORY', already: messages.length })}
+          >
+            Load More
+          </button>
+        )}
         {messages.map((message) => (
           <div key={message.id} className={`message ${message.type}`}>
             <div className="message-content">
@@ -352,7 +392,23 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
                   <span className="dot" aria-hidden="true"></span>
                 </div>
               ) : (
-                renderMessageContent(stream.content)
+                <>
+                  {renderMessageContent(stream.content)}
+                  {stream.components.map((comp, idx) => (
+                    <button
+                      key={idx}
+                      data-action={comp.action}
+                      onClick={() =>
+                        vscode.postMessage({
+                          type: 'interactive_component',
+                          component: comp
+                        })
+                      }
+                    >
+                      {comp.label || comp.placeholder}
+                    </button>
+                  ))}
+                </>
               )}
             </div>
           </div>

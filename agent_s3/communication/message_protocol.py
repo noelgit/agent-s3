@@ -42,6 +42,7 @@ class MessageType(Enum):
     STREAM_START = "stream_start"
     STREAM_CONTENT = "stream_content"
     STREAM_END = "stream_end"
+    STREAM_INTERACTIVE = "stream_interactive"
     
     # UI-specific messages
     NOTIFICATION = "notification"
@@ -198,6 +199,24 @@ MESSAGE_SCHEMAS = {
             "estimated_time_remaining": {"type": "number"},
             "started_at": {"type": "string"},
             "cancelable": {"type": "boolean"}
+        }
+    },
+    MessageType.STREAM_INTERACTIVE.value: {
+        "type": "object",
+        "required": ["stream_id", "component"],
+        "properties": {
+            "stream_id": {"type": "string"},
+            "component": {
+                "type": "object",
+                "required": ["type", "id"],
+                "properties": {
+                    "type": {"type": "string", "enum": ["button", "input"]},
+                    "id": {"type": "string"},
+                    "label": {"type": "string"},
+                    "action": {"type": "string"},
+                    "placeholder": {"type": "string"}
+                }
+            }
         }
     }
 }
@@ -499,6 +518,24 @@ class MessageBus:
                 "stream_id": stream_id
             },
             session_id=session_id
+        )
+        self.publish(message)
+
+    def publish_stream_interactive(self, stream_id: str, component: Dict[str, Any], session_id: Optional[str] = None) -> None:
+        """Publish an interactive component for a stream.
+
+        Args:
+            stream_id: The stream ID to attach the component to
+            component: The component definition
+            session_id: Optional session ID
+        """
+        message = Message(
+            type=MessageType.STREAM_INTERACTIVE,
+            content={
+                "stream_id": stream_id,
+                "component": component,
+            },
+            session_id=session_id,
         )
         self.publish(message)
 

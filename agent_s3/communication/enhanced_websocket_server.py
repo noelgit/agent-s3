@@ -122,6 +122,8 @@ class EnhancedWebSocketServer:
                                           self._handle_stream_content)
         self.message_bus.register_handler(MessageType.STREAM_END,
                                           self._handle_stream_end)
+        self.message_bus.register_handler(MessageType.STREAM_INTERACTIVE,
+                                          self._handle_stream_interactive)
     
     def _handle_terminal_output(self, message: Message):
         """Handle terminal output messages.
@@ -314,8 +316,13 @@ class EnhancedWebSocketServer:
         self._active_streams = getattr(self, "_active_streams", set())
         if stream_id in self._active_streams:
             self._active_streams.remove(stream_id)
-        
+
         # Broadcast the stream end to all clients
+        asyncio.create_task(self.broadcast_message(message))
+
+    def _handle_stream_interactive(self, message: Message):
+        """Handle interactive component messages within a stream."""
+
         asyncio.create_task(self.broadcast_message(message))
     
     def _handle_code_snippet(self, message: Message):
@@ -596,7 +603,15 @@ class EnhancedWebSocketServer:
                     return True
                 
                 # Fall back to direct send if no batching
-                await self.clients[client_id].send(json.dumps(message.to_dict()))
+                payload = json.dumps(message.to_dict())
+                if len(payload) > 4096:
+                    import gzip, base64
+                    compressed = gzip.compress(payload.encode("utf-8"))
+                    payload = json.dumps({
+                        "encoding": "gzip",
+                        "payload": base64.b64encode(compressed).decode("utf-8")
+                    })
+                await self.clients[client_id].send(payload)
                 return True
             except Exception as e:
                 logger.error(f"Error sending to client {client_id}: {e}")
