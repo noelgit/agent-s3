@@ -117,7 +117,7 @@ Agent-S3 is not just a tool for automation; it is a partner in development that 
   - Comprehensive test validation including unit, integration, property-based, and acceptance tests
   - Test quality metrics including coverage ratio and diversity score
   - Warning system for uncovered critical files and missing test types
-- Progress tracking in `progress_log.json` (`agent_s3.progress_tracker`) and detailed chain-of-thought logs via enhanced scratchpad management (`agent_s3.enhanced_scratchpad_manager`)
+- Progress tracking in `progress_log.jsonl` (`agent_s3.progress_tracker`) and detailed chain-of-thought logs via enhanced scratchpad management (`agent_s3.enhanced_scratchpad_manager`)
 - Interactive user prompts, plan reviews, patch diffs, and explanations via `agent_s3.prompt_moderator`
 - Workspace initialization (`/init`): Validates workspace (checks for `README.md`), creates default `.github/copilot-instructions.md`, `personas.md`, and `llm.json` if missing
 - Task State Management & Resumption (`TaskStateManager`):
@@ -149,7 +149,7 @@ See `docs/summarization.md` for details.
 - Command Palette integration: Initialize workspace, Make change request, Show help, Show config, Reload LLM config, Explain last LLM interaction, Open Chat Window
 - Status bar item (`$(sparkle) Agent-S3`) to start change requests
 - Dedicated terminal panel for backend interactions
-- Real-time progress monitoring by polling `progress_log.json`
+- Real-time progress monitoring by polling `progress_log.jsonl`
 - Optional Copilot-style chat UI for input; terminal shows actual outputs
 - WebView panels for structured information display:
   - Code change plan reviews
