@@ -100,7 +100,7 @@ class ModelsConfig(BaseModel):
 class LogFilesConfig(BaseModel):
     """Paths to log files relative to workspace."""
 
-    development: str = "progress_log.json"
+    development: str = "progress_log.jsonl"
     debug: str = "debug_log.json"
     error: str = "error_log.json"
 
