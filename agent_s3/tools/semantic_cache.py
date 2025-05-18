@@ -23,7 +23,7 @@ import stat
 
 # Import our embedding client for vector similarity
 from agent_s3.tools.embedding_client import EmbeddingClient
-from agent_s3.config import get_config
+from agent_s3.config import get_config, ConfigModel
 
 # Type variables for generic function signatures
 T = TypeVar('T')
@@ -50,7 +50,7 @@ class SemanticCache:
     _lock = threading.Lock()
     
     @classmethod
-    def get_instance(cls, config: Optional[Dict[str, Any]] = None) -> 'SemanticCache':
+    def get_instance(cls, config: Optional[Union[Dict[str, Any], 'ConfigModel']] = None) -> 'SemanticCache':
         """
         Get the singleton instance of the semantic cache.
         
@@ -64,11 +64,10 @@ class SemanticCache:
             if cls._instance is None:
                 cls._instance = cls(config)
             elif config is not None:
-                # Update config if provided
                 cls._instance.update_config(config)
             return cls._instance
     
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[Union[Dict[str, Any], 'ConfigModel']] = None):
         """
         Initialize the semantic cache.
         
@@ -76,21 +75,26 @@ class SemanticCache:
             config: Configuration dictionary with cache settings
         """
         # Use provided config or get from global config
-        self.config = config or get_config()
+        if config is None:
+            self.config: ConfigModel = get_config()
+        elif isinstance(config, dict):
+            self.config = ConfigModel(**config)
+        else:
+            self.config = config
         
         # Cache directory configuration
-        workspace_path = Path(self.config.get("workspace_path", ".")).resolve()
-        cache_dir_name = self.config.get("semantic_cache_dir", DEFAULT_CACHE_DIR)
+        workspace_path = Path(getattr(self.config, "workspace_path", ".")).resolve()
+        cache_dir_name = getattr(self.config, "semantic_cache_dir", DEFAULT_CACHE_DIR)
         self.cache_dir = workspace_path / cache_dir_name
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
         # Cache parameters
-        self.ttl = self.config.get("semantic_cache_ttl", DEFAULT_CACHE_TTL)
-        self.similarity_threshold = self.config.get("semantic_similarity_threshold", DEFAULT_SIMILARITY_THRESHOLD)
-        self.max_cache_entries = self.config.get("semantic_cache_max_entries", 10000)
+        self.ttl = getattr(self.config, "semantic_cache_ttl", DEFAULT_CACHE_TTL)
+        self.similarity_threshold = getattr(self.config, "semantic_similarity_threshold", DEFAULT_SIMILARITY_THRESHOLD)
+        self.max_cache_entries = getattr(self.config, "semantic_cache_max_entries", 10000)
         
         # Embedding dimension from config or default
-        self.embedding_dim = self.config.get("embedding_dim", 768)
+        self.embedding_dim = getattr(self.config, "embedding_dim", 768)
         
         # Cache statistics
         self.hits = 0
@@ -111,17 +115,21 @@ class SemanticCache:
         
         logger.info(f"Initialized semantic cache in {self.cache_dir} with threshold {self.similarity_threshold}")
 
-    def update_config(self, config: Dict[str, Any]) -> None:
+    def update_config(self, config: Union[Dict[str, Any], ConfigModel]) -> None:
         """
         Update the cache configuration.
         
         Args:
             config: New configuration dictionary
         """
-        self.config.update(config)
-        self.ttl = self.config.get("semantic_cache_ttl", self.ttl)
-        self.similarity_threshold = self.config.get("semantic_similarity_threshold", self.similarity_threshold)
-        self.max_cache_entries = self.config.get("semantic_cache_max_entries", self.max_cache_entries)
+        if isinstance(config, dict):
+            self.config = ConfigModel(**{**self.config.dict(), **config})
+        else:
+            self.config = config
+
+        self.ttl = getattr(self.config, "semantic_cache_ttl", self.ttl)
+        self.similarity_threshold = getattr(self.config, "semantic_similarity_threshold", self.similarity_threshold)
+        self.max_cache_entries = getattr(self.config, "semantic_cache_max_entries", self.max_cache_entries)
         
         logger.info(f"Updated semantic cache config: ttl={self.ttl}s, threshold={self.similarity_threshold}")
 
