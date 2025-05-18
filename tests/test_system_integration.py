@@ -22,7 +22,7 @@ MOCK_LLM_RESPONSES = {
     # Basic feature implementation mock responses
     "feature_implementation": {
         "planning": {
-            "create_plan": """
+            "create_plan": '''
             # Implementation Plan: Add User Authentication Feature
             
             ## Overview
@@ -44,11 +44,11 @@ MOCK_LLM_RESPONSES = {
             ## Dependencies
             - bcrypt - Password hashing
             - pyjwt - JWT token management
-            """
+            '''
         },
         "code_generation": {
             "code": {
-                "models/user.py": """
+                "models/user.py": '''
                 from datetime import datetime
                 
                 class User:
@@ -66,7 +66,7 @@ MOCK_LLM_RESPONSES = {
                             'created_at': self.created_at.isoformat(),
                             'last_login': self.last_login.isoformat() if self.last_login else None
                         }
-                """
+                '''
             }
         }
     },
@@ -74,7 +74,7 @@ MOCK_LLM_RESPONSES = {
     # Refactoring task mock responses
     "refactoring": {
         "planning": {
-            "create_plan": """
+            "create_plan": '''
             # Refactoring Plan: Improve Code Organization
             
             ## Overview
@@ -95,27 +95,27 @@ MOCK_LLM_RESPONSES = {
             ## Tests
             - Update existing tests to reflect new structure
             - Add tests for new utility functions
-            """
+            '''
         },
         "code_generation": {
             "code": {
-                "utils/common.py": """
+                "utils/common.py": '''
                 import re
                 import json
                 import hashlib
                 from typing import Dict, Any, List, Optional
                 
                 def validate_email(email: str) -> bool:
-                    '''Validate email format.'''
+                    """Validate email format."""
                     pattern = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
                     return bool(re.match(pattern, email))
                 
                 def generate_hash(data: str) -> str:
-                    '''Generate SHA-256 hash of input data.'''
+                    """Generate SHA-256 hash of input data."""
                     return hashlib.sha256(data.encode()).hexdigest()
                 
                 def safe_get(data: Dict[str, Any], key_path: str, default: Any = None) -> Any:
-                    '''Safely get a value from a nested dictionary using dot notation.'''
+                    """Safely get a value from a nested dictionary using dot notation."""
                     keys = key_path.split('.')
                     result = data
                     
@@ -126,7 +126,7 @@ MOCK_LLM_RESPONSES = {
                             return default
                     
                     return result
-                """
+                '''
             }
         }
     },
@@ -134,7 +134,7 @@ MOCK_LLM_RESPONSES = {
     # Debugging task mock responses
     "debugging": {
         "planning": {
-            "create_plan": """
+            "create_plan": '''
             # Debugging Plan: Fix Authentication Token Expiration Issue
             
             ## Overview
@@ -152,11 +152,11 @@ MOCK_LLM_RESPONSES = {
             
             ## Root Cause Analysis
             The token validation does not properly check the 'exp' claim in the JWT token.
-            """
+            '''
         },
         "code_generation": {
             "code": {
-                "services/auth_service.py": """
+                "services/auth_service.py": '''
                 import jwt
                 import datetime
                 from typing import Dict, Any, Optional
@@ -166,7 +166,7 @@ MOCK_LLM_RESPONSES = {
                 TOKEN_EXPIRY = 3600  # 1 hour in seconds
                 
                 def generate_token(user_id: str) -> str:
-                    '''Generate a JWT token for a user.'''
+                    """Generate a JWT token for a user."""
                     payload = {
                         'user_id': user_id,
                         'exp': datetime.datetime.utcnow() + datetime.timedelta(seconds=TOKEN_EXPIRY),
@@ -175,7 +175,7 @@ MOCK_LLM_RESPONSES = {
                     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
                 
                 def validate_token(token: str) -> Optional[Dict[str, Any]]:
-                    '''Validate a JWT token and return payload if valid.'''
+                    """Validate a JWT token and return payload if valid."""
                     try:
                         # Fix: Add verification of exp claim
                         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM], options={'verify_exp': True})
@@ -186,7 +186,7 @@ MOCK_LLM_RESPONSES = {
                     except jwt.InvalidTokenError:
                         # Handle invalid token
                         return None
-                """
+                '''
             }
         }
     },
@@ -194,7 +194,7 @@ MOCK_LLM_RESPONSES = {
     # Multi-step task mock responses
     "multi_step": {
         "planning": {
-            "create_plan": """
+            "create_plan": '''
             # Implementation Plan: Data Analytics Pipeline
             
             ## Overview
@@ -219,11 +219,11 @@ MOCK_LLM_RESPONSES = {
             - pandas - Data processing
             - matplotlib - Visualization
             - SQLAlchemy - Data storage
-            """
+            '''
         },
         "code_generation": {
             "code": {
-                "pipeline/collector.py": """
+                "pipeline/collector.py": '''
                 import requests
                 import json
                 import logging
@@ -238,7 +238,7 @@ MOCK_LLM_RESPONSES = {
                         self.headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
                     
                     def collect_data(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-                        '''Collect data from specified API endpoint.'''
+                        """Collect data from specified API endpoint."""
                         url = f"{self.api_url}/{endpoint}"
                         logger.info(f"Collecting data from {url}")
                         
@@ -249,7 +249,7 @@ MOCK_LLM_RESPONSES = {
                         except requests.RequestException as e:
                             logger.error(f"Error collecting data: {str(e)}")
                             return []
-                """
+                '''
             }
         }
     }
