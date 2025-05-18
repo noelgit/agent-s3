@@ -6,6 +6,8 @@
 import * as vscode from 'vscode';
 import { WebSocketClient } from './websocket-client';
 import { InteractiveWebviewManager } from './webview-ui-loader';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * Manages the connection to the Agent-S3 backend, integrating terminal and WebSocket communication
@@ -52,6 +54,7 @@ export class BackendConnection implements vscode.Disposable {
     const connected = await this.webSocketClient.connect();
     if (connected) {
       this.flushOfflineQueue();
+      this.monitorProgress();
     }
     return connected;
   }
@@ -370,6 +373,67 @@ export class BackendConnection implements vscode.Disposable {
     this.offlineQueue = [];
     queue.forEach(msg => this.sendMessage(msg));
     this.persistOfflineQueue();
+  }
+
+  /**
+   * Monitor progress updates written to progress_log.jsonl
+   */
+  private monitorProgress(): void {
+    if (this.progressInterval) {
+      return;
+    }
+
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders || !folders.length) {
+      return;
+    }
+
+    const progressPath = path.join(folders[0].uri.fsPath, 'progress_log.jsonl');
+    let position = 0;
+    this.progressInterval = setInterval(() => {
+      fs.stat(progressPath, (err, stats) => {
+        if (err) {
+          this.outputChannel.appendLine(`Error reading progress log: ${err.message}`);
+          return;
+        }
+
+        if (stats.size <= position) {
+          return;
+        }
+
+        const stream = fs.createReadStream(progressPath, {
+          start: position,
+          end: stats.size - 1
+        });
+
+        let buffer = '';
+        stream.on('data', chunk => {
+          buffer += chunk.toString();
+        });
+
+        stream.on('error', streamErr => {
+          this.outputChannel.appendLine(`Progress stream error: ${streamErr.message}`);
+        });
+
+        stream.on('end', () => {
+          position = stats.size;
+          const lines = buffer.split(/\r?\n/).filter(l => l);
+          for (const line of lines) {
+            try {
+              const entry = JSON.parse(line);
+              if (this.interactiveWebviewManager) {
+                this.interactiveWebviewManager.postMessage({
+                  type: 'PROGRESS_ENTRY',
+                  content: entry
+                });
+              }
+            } catch (e) {
+              this.outputChannel.appendLine(`Progress parse error: ${(e as Error).message}`);
+            }
+          }
+        });
+      });
+    }, 2000);
   }
 
   /**
