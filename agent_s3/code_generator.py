@@ -545,6 +545,7 @@ class CodeGenerator:
         system_prompt = """You are an expert software engineer fixing code that has validation issues.
         Review the code and the reported issues carefully.
         Your task is to fix all the issues while preserving the core functionality and structure.
+        Ensure the fixes maintain security best practices and do not degrade performance.
         Return only the fixed code with no explanations or markdown.
         """
         
@@ -557,7 +558,7 @@ class CodeGenerator:
 These are the validation issues that need to be fixed:
 {json.dumps(validation_issues, indent=2)}
 
-Please fix the code to address all these issues. Return only the fixed code.
+Please fix the code to address all these issues while maintaining security best practices and performance considerations. Return only the fixed code.
 """
         
         response = self.coordinator.router_agent.call_llm_by_role(
