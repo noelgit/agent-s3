@@ -13,6 +13,8 @@ import platform
 from pathlib import Path
 from typing import Optional, Dict, List, Any, Union
 
+from pydantic import BaseModel, ValidationError
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -85,6 +87,123 @@ SUMMARIZER_MAX_CHUNK_SIZE = int(os.getenv('SUMMARIZER_MAX_CHUNK_SIZE', '2048'))
 SUMMARIZER_TIMEOUT       = float(os.getenv('SUMMARIZER_TIMEOUT',      '45.0'))
 
 
+class ModelsConfig(BaseModel):
+    """Model names for various agent components."""
+
+    scaffolder: str = "openai/gpt-4.1-nano"
+    planner: str = "meta-llama/llama-4-scout-17b-16e-instruct"
+    code_generator: str = "google/gemini-2.5-flash-preview"
+    fallback_planner: str = "openai/gpt-4.1-nano"
+    fallback_generator: str = "openai/gpt-4.1-nano"
+
+
+class LogFilesConfig(BaseModel):
+    """Paths to log files relative to workspace."""
+
+    development: str = "progress_log.json"
+    debug: str = "debug_log.json"
+    error: str = "error_log.json"
+
+
+class EmbeddingConfig(BaseModel):
+    chunk_size: int = 1000
+    chunk_overlap: int = 200
+
+
+class SearchBm25Config(BaseModel):
+    k1: float = 1.2
+    b: float = 0.75
+
+
+class SearchConfig(BaseModel):
+    bm25: SearchBm25Config = SearchBm25Config()
+
+
+class SummarizationConfig(BaseModel):
+    threshold: int = 2000
+    compression_ratio: float = 0.5
+
+
+class ImportanceScoringConfig(BaseModel):
+    code_weight: float = 1.0
+    comment_weight: float = 0.8
+    metadata_weight: float = 0.7
+    framework_weight: float = 0.9
+
+
+class ContextManagementConfig(BaseModel):
+    enabled: bool = True
+    background_enabled: bool = True
+    optimization_interval: int = 60
+    embedding: EmbeddingConfig = EmbeddingConfig()
+    search: SearchConfig = SearchConfig()
+    summarization: SummarizationConfig = SummarizationConfig()
+    importance_scoring: ImportanceScoringConfig = ImportanceScoringConfig()
+
+
+class AdaptiveConfig(BaseModel):
+    enabled: bool = ADAPTIVE_CONFIG_ENABLED
+    repo_path: str = ADAPTIVE_CONFIG_REPO_PATH
+    config_dir: str = ADAPTIVE_CONFIG_DIR
+    metrics_dir: str = ADAPTIVE_METRICS_DIR
+    optimization_interval: int = ADAPTIVE_OPTIMIZATION_INTERVAL
+    auto_adjust: bool = True
+    profile_repo_on_start: bool = True
+    metrics_collection: bool = True
+
+
+class ConfigModel(BaseModel):
+    """Typed configuration validated by Pydantic."""
+
+    models: ModelsConfig = ModelsConfig()
+    max_iterations: int = 5
+    complexity_threshold: int = 250
+    complexity_scale_factor: float = 0.15
+    complexity_scale_exponent: float = 0.8
+    workspace_path: str = "."
+    log_files: LogFilesConfig = LogFilesConfig()
+    context_management: ContextManagementConfig = ContextManagementConfig()
+    adaptive_config: AdaptiveConfig = AdaptiveConfig()
+    logs: LogFilesConfig = LogFilesConfig()
+    check_auth: bool = True
+    interactive: bool = True
+    sandbox_environment: bool = True
+    openrouter_key: str = os.environ.get("OPENROUTER_KEY", "")
+    openai_key: str = os.environ.get("OPENAI_KEY", "")
+    dev_github_token: str = DEV_GITHUB_TOKEN
+    llm_max_retries: int = LLM_MAX_RETRIES
+    llm_initial_backoff: float = LLM_INITIAL_BACKOFF
+    llm_backoff_factor: float = LLM_BACKOFF_FACTOR
+    llm_fallback_strategy: str = LLM_FALLBACK_STRATEGY
+    llm_default_timeout: float = LLM_DEFAULT_TIMEOUT
+    llm_explain_prompt_max_len: int = LLM_EXPLAIN_PROMPT_MAX_LEN
+    llm_explain_response_max_len: int = LLM_EXPLAIN_RESPONSE_MAX_LEN
+    cli_command_warnings: bool = CLI_COMMAND_WARNINGS
+    cli_command_max_size: int = CLI_COMMAND_MAX_SIZE
+    query_cache_ttl_seconds: int = QUERY_CACHE_TTL_SECONDS
+    cache_debounce_delay: float = CACHE_DEBOUNCE_DELAY
+    max_query_themes: int = MAX_QUERY_THEMES
+    min_size_for_llm_summarization: int = MIN_SIZE_FOR_LLM_SUMMARIZATION
+    summary_cache_max_size: int = SUMMARY_CACHE_MAX_SIZE
+    enable_llm_summarization: bool = ENABLE_LLM_SUMMARIZATION
+    embedding_retry_count: int = EMBEDDING_RETRY_COUNT
+    embedding_backoff_initial: float = EMBEDDING_BACKOFF_INITIAL
+    embedding_backoff_factor: float = EMBEDDING_BACKOFF_FACTOR
+    embedding_timeout: float = EMBEDDING_TIMEOUT
+    embedder_role_name: str = EMBEDDER_ROLE_NAME
+    summarizer_role_name: str = SUMMARIZER_ROLE_NAME
+    summarizer_max_chunk_size: int = SUMMARIZER_MAX_CHUNK_SIZE
+    summarizer_timeout: float = SUMMARIZER_TIMEOUT
+    adaptive_config_enabled: bool = ADAPTIVE_CONFIG_ENABLED
+    adaptive_config_repo_path: str = ADAPTIVE_CONFIG_REPO_PATH
+    adaptive_config_dir: str = ADAPTIVE_CONFIG_DIR
+    adaptive_metrics_dir: str = ADAPTIVE_METRICS_DIR
+    adaptive_optimization_interval: int = ADAPTIVE_OPTIMIZATION_INTERVAL
+
+    class Config:
+        extra = "allow"
+
+
 class Config:
     """Configuration manager for Agent-S3.
     
@@ -111,117 +230,27 @@ class Config:
         # GitHub token placeholder
         self.github_token = None
         
-        # Default values
         self.guidelines: List[str] = []
-        self.config = self.get_default_config()
-        
+        self.settings: ConfigModel = ConfigModel()
+        self._config_dict = self.settings.dict()
+
+    @property
+    def config(self) -> Dict[str, Any]:
+        """Dictionary representation for backward compatibility."""
+        return self._config_dict
+
+    @config.setter
+    def config(self, new_config: Dict[str, Any]) -> None:
+        try:
+            self.settings = ConfigModel(**new_config)
+            self._config_dict = self.settings.dict()
+        except ValidationError as exc:
+            self.load_failed = True
+            raise ValueError(f"Invalid configuration: {exc}") from exc
+
     def get_default_config(self) -> Dict[str, Any]:
-        """Get default configuration values.
-        
-        Returns:
-            Dictionary containing default configuration.
-        """
-        return {
-            "models": {
-                # Update default model names
-                "scaffolder": "openai/gpt-4.1-nano",
-                "planner": "meta-llama/llama-4-scout-17b-16e-instruct",
-                "code_generator": "google/gemini-2.5-flash-preview",
-                # Assuming scaffolder acts as fallback
-                "fallback_planner": "openai/gpt-4.1-nano",
-                "fallback_generator": "openai/gpt-4.1-nano"
-            },
-            "max_iterations": 5,
-            "complexity_threshold": 250,
-            "complexity_scale_factor": 0.15,
-            "complexity_scale_exponent": 0.8,
-            # Default paths
-            "workspace_path": ".",
-            "log_files": {
-                "development": "progress_log.json",
-            },
-            # Context Management Configuration
-            "context_management": {
-                "enabled": True,
-                "background_enabled": True,
-                "optimization_interval": 60,
-                "embedding": {
-                    "chunk_size": 1000,
-                    "chunk_overlap": 200,
-                },
-                "search": {
-                    "bm25": {
-                        "k1": 1.2, 
-                        "b": 0.75
-                    },
-                },
-                "summarization": {
-                    "threshold": 2000,
-                    "compression_ratio": 0.5
-                },
-                "importance_scoring": {
-                    "code_weight": 1.0,
-                    "comment_weight": 0.8,
-                    "metadata_weight": 0.7,
-                    "framework_weight": 0.9
-                }
-            },
-            # Adaptive Configuration Settings
-            "adaptive_config": {
-                "enabled": ADAPTIVE_CONFIG_ENABLED,
-                "repo_path": ADAPTIVE_CONFIG_REPO_PATH,
-                "config_dir": ADAPTIVE_CONFIG_DIR,
-                "metrics_dir": ADAPTIVE_METRICS_DIR,
-                "optimization_interval": ADAPTIVE_OPTIMIZATION_INTERVAL,
-                "auto_adjust": True,
-                "profile_repo_on_start": True,
-                "metrics_collection": True
-            },
-            "logs": {
-                "debug": "debug_log.json",
-                "error": "error_log.json"
-            },
-            # Default flags
-            "check_auth": True,
-            "interactive": True,
-            "sandbox_environment": True,
-            # Context optimization settings
-            'openrouter_key': os.environ.get('OPENROUTER_KEY', ''),
-            # New LLM error recovery configuration
-            'llm_max_retries': LLM_MAX_RETRIES,
-            'llm_initial_backoff': LLM_INITIAL_BACKOFF, 
-            'llm_backoff_factor': LLM_BACKOFF_FACTOR,
-            'llm_fallback_strategy': LLM_FALLBACK_STRATEGY,
-            'llm_default_timeout': LLM_DEFAULT_TIMEOUT,
-            'llm_explain_prompt_max_len': LLM_EXPLAIN_PROMPT_MAX_LEN,
-            'llm_explain_response_max_len': LLM_EXPLAIN_RESPONSE_MAX_LEN,
-            # New CLI command configuration
-            'cli_command_warnings': CLI_COMMAND_WARNINGS,
-            'cli_command_max_size': CLI_COMMAND_MAX_SIZE,
-            # Cache configuration settings
-            'query_cache_ttl_seconds': QUERY_CACHE_TTL_SECONDS,
-            'cache_debounce_delay': CACHE_DEBOUNCE_DELAY,
-            'max_query_themes': MAX_QUERY_THEMES,
-            'min_size_for_llm_summarization': MIN_SIZE_FOR_LLM_SUMMARIZATION,
-            'summary_cache_max_size': SUMMARY_CACHE_MAX_SIZE,
-            'enable_llm_summarization': ENABLE_LLM_SUMMARIZATION,
-            # Embedding configuration settings
-            'embedding_retry_count': EMBEDDING_RETRY_COUNT,
-            'embedding_backoff_initial': EMBEDDING_BACKOFF_INITIAL,
-            'embedding_backoff_factor': EMBEDDING_BACKOFF_FACTOR,
-            'embedding_timeout': EMBEDDING_TIMEOUT,
-            # Specialized LLM roles configuration
-            'embedder_role_name': EMBEDDER_ROLE_NAME,
-            'summarizer_role_name': SUMMARIZER_ROLE_NAME,
-            'summarizer_max_chunk_size': SUMMARIZER_MAX_CHUNK_SIZE,
-            'summarizer_timeout': SUMMARIZER_TIMEOUT,
-            # Adaptive Configuration settings
-            'adaptive_config_enabled': ADAPTIVE_CONFIG_ENABLED,
-            'adaptive_config_repo_path': ADAPTIVE_CONFIG_REPO_PATH,
-            'adaptive_config_dir': ADAPTIVE_CONFIG_DIR,
-            'adaptive_metrics_dir': ADAPTIVE_METRICS_DIR,
-            'adaptive_optimization_interval': ADAPTIVE_OPTIMIZATION_INTERVAL,
-        }
+        """Return default configuration as dictionary."""
+        return ConfigModel().dict()
 
     def load(self, config_path: Optional[str] = None) -> None:
         """Load configuration from environment, optional JSON, and guidelines."""
@@ -262,7 +291,11 @@ class Config:
             except Exception as e:
                 logger.error(f"Error loading llm.json: {e}")
 
-        self.config.update(runtime_config)
+        try:
+            self.config = runtime_config
+        except ValueError as exc:
+            logger.error(exc)
+            raise
 
         # Extract coding guidelines
         self.guidelines = self._extract_guidelines_from_md()
@@ -338,8 +371,8 @@ class Config:
         Returns:
             Absolute path to the log file
         """
-        if log_type in self.config.get("log_files", {}):
-            return os.path.join(os.getcwd(), self.config["log_files"][log_type])
+        if log_type in self.settings.log_files.dict():
+            return os.path.join(os.getcwd(), self.settings.log_files.dict()[log_type])
         else:
             return os.path.join(os.getcwd(), f"{log_type}_log.json")
 
@@ -365,4 +398,4 @@ def get_config():
             _config_instance.config = _config_instance.get_default_config()
             # Set load failure flag to allow callers to detect this condition
             _config_instance.load_failed = True
-    return _config_instance.config
+    return _config_instance.settings

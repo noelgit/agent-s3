@@ -220,7 +220,7 @@ def integrate_with_llm_utils():
         # Handle potential import issues gracefully
         try:
             import agent_s3.llm_utils as llm_utils
-            from agent_s3.config import get_config
+            from agent_s3.config import get_config, ConfigModel
         except ImportError as e:
             logger.warning(f"Could not import llm_utils: {e}")
             return False
@@ -228,27 +228,14 @@ def integrate_with_llm_utils():
         # Create context manager with config
         try:
             config = get_config()
-            if not config:
-                # Use default config if get_config returns None/empty
-                config = {
-                    'context_management': {
-                        'enabled': True,
-                        'background_enabled': True,
-                        'optimization_interval': 60,
-                        'compression_threshold': 8000
-                    }
-                }
         except Exception as e:
             logger.warning(f"Error loading config, using defaults: {e}")
-            config = {
-                'context_management': {
-                    'enabled': True,
-                    'background_enabled': True 
-                }
-            }
+            config = ConfigModel()
+
+        cm_cfg = getattr(config, "context_management", {})
             
         # Create context manager and integration
-        context_manager = ContextManager(config.get('context_management', {}))
+        context_manager = ContextManager(cm_cfg if isinstance(cm_cfg, dict) else cm_cfg.dict())
         integration = LLMContextIntegration(context_manager)
         
         # Check if cached_call_llm exists

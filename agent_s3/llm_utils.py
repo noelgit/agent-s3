@@ -326,10 +326,10 @@ def get_embedding(
         config = app_config.get_config()
     
     # Try to use OpenRouter API for embeddings
-    api_key = config.get('openrouter_key')
+    api_key = getattr(config, 'openrouter_key', None)
     if not api_key:
         # Try OpenAI API key if OpenRouter is not available
-        api_key = config.get('openai_key')
+        api_key = getattr(config, 'openai_key', None)
         
     if not api_key:
         # No API keys available, return None
