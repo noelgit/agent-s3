@@ -267,7 +267,7 @@ Agent-S3. Refer to both documents for a complete understanding of the project.
     *   `main` parses arguments and identifies `/explain`.
     *   `process_command` handles it and prints "Explaining the last LLM interaction with context...".
     *   It initializes the `Coordinator`.
-    *   It gathers context via `coordinator._gather_context()` to provide tech stack and code snippets for better explanation context.
+    *   It gathers context via `coordinator._gather_context()` (a wrapper around `_prepare_context`) to provide tech stack details and relevant code snippets for context.
     *   It calls `coordinator.explain_last_llm_interaction(context)`, passing in the gathered context.
 3.  **Explanation Content (Enhanced with Tech Stack and Code Context):**
     *   The `role` (model identifier used, e.g., "gemini-2.5-pro" or "mistral-7b-instruct") is shown.

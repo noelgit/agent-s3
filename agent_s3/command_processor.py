@@ -821,7 +821,7 @@ Type /help <command> for more information on a specific command."""
 
         try:
             # Gather context: tech stack and code snippets
-            context = self.coordinator._gather_context() if hasattr(self.coordinator, '_gather_context') else {}
+            context = self.coordinator._gather_context()
             self.coordinator.explain_last_llm_interaction(context)
             return ""  # Return empty string as output is already printed by the explain method
         except Exception as e:

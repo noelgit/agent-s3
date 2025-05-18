@@ -452,6 +452,57 @@ class Coordinator:
             except Exception as e:
                 self.scratchpad.log("Coordinator", f"Error preparing context: {e}\n{traceback.format_exc()}", level=LogLevel.WARNING)
             return context
+
+    def _gather_context(self) -> Dict[str, Any]:
+        """Gather context snippets for explaining the last LLM interaction."""
+        # Use error context manager for consistent error handling
+        with self.error_handler.error_context(
+            phase="context",
+            operation="gather_context",
+        ):
+            raw_context = self._prepare_context("explain last interaction")
+            snippets = {}
+
+            if "tech_stack" in raw_context:
+                snippets["tech_stack"] = raw_context["tech_stack"]
+
+            focused = raw_context.get("focused_context", {})
+            if focused:
+                item_limit = self.config.config.get("llm_explain_context_items_limit", 3)
+                snippets["focused_context"] = dict(list(focused.items())[:item_limit])
+
+            return snippets
+
+    def explain_last_llm_interaction(self, context: Dict[str, Any]) -> None:
+        """Print a formatted explanation of the last LLM interaction."""
+        interaction = self.scratchpad.get_last_llm_interaction()
+        if not interaction:
+            print("No LLM interaction has been logged yet.")
+            return
+
+        print("\n# Last LLM Interaction Explanation\n")
+        print(f"Role: {interaction.get('role', 'unknown')}")
+        print(f"Status: {interaction.get('status', 'unknown')}")
+        print(f"Timestamp: {interaction.get('timestamp', 'unknown')}\n")
+
+        print("## Prompt\n" + interaction.get("prompt", "") + "\n")
+        print("## Response\n" + interaction.get("response", "") + "\n")
+
+        if context.get("tech_stack"):
+            print("## Tech Stack")
+            print(json.dumps(context["tech_stack"], indent=2))
+            print()
+
+        focused = context.get("focused_context", {})
+        if focused:
+            print("## Code Snippets")
+            for name, data in focused.items():
+                snippet = data.get("content", "")
+                print(f"### {name}\n{snippet}\n")
+
+        if interaction.get("error"):
+            print("## Error")
+            print(interaction.get("error"))
     
     # _execute_pre_planning_phase method removed as it's redundant with inline implementation in run_task
     
