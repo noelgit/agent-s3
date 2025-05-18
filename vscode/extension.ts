@@ -15,7 +15,7 @@ export function activate(context: vscode.ExtensionContext) {
   const interactiveWebviewManager = new InteractiveWebviewManager(context.extensionUri);
   
   // Create backend connection
-  const backendConnection = new BackendConnection();
+  const backendConnection = new BackendConnection(context.workspaceState);
   backendConnection.setInteractiveWebviewManager(interactiveWebviewManager);
   
   // Try to connect to the backend
@@ -212,10 +212,21 @@ export function activate(context: vscode.ExtensionContext) {
 
       switch (message.type) {
         case 'webview-ready':
-          // Send existing history to the webview
+          const initial = messageHistory.slice(-20);
           interactiveWebviewManager.postMessage({
             type: 'LOAD_HISTORY',
-            history: messageHistory,
+            history: initial,
+            has_more: messageHistory.length > initial.length
+          });
+          break;
+
+        case 'REQUEST_MORE_HISTORY':
+          const alreadySent = message.already || 0;
+          const more = messageHistory.slice(Math.max(0, messageHistory.length - alreadySent - 20), messageHistory.length - alreadySent);
+          interactiveWebviewManager.postMessage({
+            type: 'LOAD_HISTORY',
+            history: more,
+            has_more: messageHistory.length > alreadySent + more.length
           });
           break;
 
@@ -267,6 +278,13 @@ export function activate(context: vscode.ExtensionContext) {
             type: 'interactive_response',
             response_type: 'progress',
             action: message.content.action,
+          });
+          break;
+
+        case 'interactive_component':
+          backendConnection.sendMessage({
+            type: 'interactive_component',
+            component: message.component
           });
           break;
       }

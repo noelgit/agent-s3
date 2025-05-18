@@ -15,11 +15,14 @@ export class BackendConnection implements vscode.Disposable {
   private interactiveWebviewManager: InteractiveWebviewManager | undefined;
   private activeStreams: Map<string, StreamingContent> = new Map();
   private outputChannel: vscode.OutputChannel;
+  private offlineQueue: any[] = [];
+  private workspaceState: vscode.Memento | undefined;
   
   /**
    * Create a new backend connection
    */
-  constructor() {
+  constructor(workspaceState?: vscode.Memento) {
+    this.workspaceState = workspaceState;
     // Create WebSocket client
     this.webSocketClient = new WebSocketClient();
     
@@ -28,6 +31,10 @@ export class BackendConnection implements vscode.Disposable {
     
     // Set up WebSocket message handlers
     this.setupMessageHandlers();
+
+    if (this.workspaceState) {
+      this.offlineQueue = this.workspaceState.get('agent-s3.offlineQueue', []);
+    }
   }
   
   /**
@@ -41,7 +48,11 @@ export class BackendConnection implements vscode.Disposable {
    * Connect to the backend
    */
   public async connect(): Promise<boolean> {
-    return this.webSocketClient.connect();
+    const connected = await this.webSocketClient.connect();
+    if (connected) {
+      this.flushOfflineQueue();
+    }
+    return connected;
   }
   
   /**
@@ -55,7 +66,12 @@ export class BackendConnection implements vscode.Disposable {
    * Send a message to the backend
    */
   public sendMessage(message: any): boolean {
-    return this.webSocketClient.sendMessage(message);
+    const sent = this.webSocketClient.sendMessage(message);
+    if (!sent) {
+      this.offlineQueue.push(message);
+      this.persistOfflineQueue();
+    }
+    return sent;
   }
   
   /**
@@ -67,6 +83,7 @@ export class BackendConnection implements vscode.Disposable {
     this.webSocketClient.registerMessageHandler('stream_start', this.handleStreamStart.bind(this));
     this.webSocketClient.registerMessageHandler('stream_content', this.handleStreamContent.bind(this));
     this.webSocketClient.registerMessageHandler('stream_end', this.handleStreamEnd.bind(this));
+    this.webSocketClient.registerMessageHandler('stream_interactive', this.handleStreamInteractive.bind(this));
     
     // Set up handlers for interactive components
     this.webSocketClient.registerMessageHandler('interactive_approval', this.handleInteractiveApproval.bind(this));
@@ -217,6 +234,18 @@ export class BackendConnection implements vscode.Disposable {
     // Cleanup
     this.activeStreams.delete(streamId);
   }
+
+  /**
+   * Handle interactive component messages within a stream
+   */
+  private handleStreamInteractive(message: any): void {
+    if (this.interactiveWebviewManager) {
+      this.interactiveWebviewManager.postMessage({
+        type: 'STREAM_INTERACTIVE',
+        content: message.content
+      });
+    }
+  }
   
   /**
    * Handle terminal output messages
@@ -316,6 +345,29 @@ export class BackendConnection implements vscode.Disposable {
         content: message.content
       });
     }
+  }
+
+  /**
+   * Persist offline queue to workspace state
+   */
+  private persistOfflineQueue(): void {
+    if (this.workspaceState) {
+      this.workspaceState.update('agent-s3.offlineQueue', this.offlineQueue);
+    }
+  }
+
+  /**
+   * Flush queued messages when reconnected
+   */
+  private flushOfflineQueue(): void {
+    if (!this.offlineQueue.length) {
+      return;
+    }
+
+    const queue = [...this.offlineQueue];
+    this.offlineQueue = [];
+    queue.forEach(msg => this.sendMessage(msg));
+    this.persistOfflineQueue();
   }
   
   /**
