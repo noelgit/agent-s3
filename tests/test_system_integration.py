@@ -264,14 +264,16 @@ def mock_coordinator():
          patch('agent_s3.coordinator.EnhancedScratchpadManager') as mock_scratchpad_cls, \
          patch('agent_s3.coordinator.ProgressTracker') as mock_progress_tracker_cls, \
          patch('agent_s3.coordinator.TaskStateManager') as mock_task_state_manager_cls, \
-         patch('agent_s3.coordinator.PrePlanningManager') as mock_pre_planner_cls, \
+         patch('agent_s3.pre_planner_json_enforced.pre_planning_workflow') as mock_preplan_workflow, \
+         patch('agent_s3.pre_planner_json_enforced.regenerate_pre_planning_with_modifications') as mock_regen_preplan, \
          patch('agent_s3.coordinator.Planner') as mock_planner_cls, \
          patch('agent_s3.coordinator.TestPlanner') as mock_test_planner_cls, \
          patch('agent_s3.coordinator.CodeGenerator') as mock_code_generator_cls, \
          patch('agent_s3.coordinator.PromptModerator') as mock_prompt_moderator_cls, \
          patch('agent_s3.coordinator.os.makedirs') as mock_makedirs, \
          patch('builtins.open', new_callable=MagicMock), \
-         patch('agent_s3.coordinator.BashTool') as mock_bash_tool_cls:
+         patch('agent_s3.coordinator.BashTool') as mock_bash_tool_cls, \
+         patch('agent_s3.tools.plan_validator.validate_pre_plan') as mock_validate_pre_plan:
         
         # Set up return values for core mocks
         mock_config = MagicMock()
@@ -289,7 +291,6 @@ def mock_coordinator():
         mock_scratchpad = MagicMock()
         mock_progress_tracker = MagicMock()
         mock_task_state_manager = MagicMock()
-        mock_pre_planner = MagicMock()
         mock_planner = MagicMock()
         mock_test_planner = MagicMock()
         mock_code_generator = MagicMock()
@@ -300,7 +301,6 @@ def mock_coordinator():
         mock_scratchpad_cls.return_value = mock_scratchpad
         mock_progress_tracker_cls.return_value = mock_progress_tracker
         mock_task_state_manager_cls.return_value = mock_task_state_manager
-        mock_pre_planner_cls.return_value = mock_pre_planner
         mock_planner_cls.return_value = mock_planner
         mock_test_planner_cls.return_value = mock_test_planner
         mock_code_generator_cls.return_value = mock_code_generator
@@ -308,8 +308,38 @@ def mock_coordinator():
         mock_bash_tool_cls.return_value = mock_bash_tool
         
         # Pre-planning default setup
-        mock_pre_planner.collect_impacted_files.return_value = ["test_file.py"]
-        mock_pre_planner.estimate_complexity.return_value = 50.0
+        default_preplan = {
+            "feature_groups": [
+                {
+                    "group_name": "Default",
+                    "group_description": "desc",
+                    "features": [
+                        {
+                            "name": "Feat",
+                            "description": "desc",
+                            "files_affected": ["test_file.py"],
+                            "test_requirements": {
+                                "unit_tests": [],
+                                "integration_tests": [],
+                                "property_based_tests": [],
+                                "acceptance_tests": [],
+                                "test_strategy": {},
+                            },
+                            "dependencies": {"internal": [], "external": [], "feature_dependencies": []},
+                            "risk_assessment": {},
+                            "system_design": {},
+                        }
+                    ],
+                    "risk_assessment": {},
+                    "dependencies": {},
+                }
+            ],
+            "complexity_score": 50.0,
+        }
+
+        mock_preplan_workflow.return_value = (True, default_preplan)
+        mock_regen_preplan.return_value = default_preplan
+        mock_validate_pre_plan.return_value = (True, {})
         
         # Set up run_command for bash tool
         mock_bash_tool.run_command.return_value = (0, "Success output")
@@ -327,7 +357,8 @@ def mock_coordinator():
             'scratchpad': mock_scratchpad,
             'progress_tracker': mock_progress_tracker,
             'task_state_manager': mock_task_state_manager,
-            'pre_planner': mock_pre_planner,
+            'pre_plan_workflow': mock_preplan_workflow,
+            'regen_pre_plan': mock_regen_preplan,
             'planner': mock_planner,
             'test_planner': mock_test_planner,
             'code_generator': mock_code_generator,
@@ -446,7 +477,9 @@ class TestMultiStepTask:
         mocks['code_generator'].generate_code.return_value = {"code": mock_responses["code_generation"]["code"]}
         
         # Simulate higher complexity
-        mocks['pre_planner'].estimate_complexity.return_value = 80.0
+        complex_plan = mocks['pre_plan_workflow'].return_value[1]
+        complex_plan['complexity_score'] = 80.0
+        mocks['pre_plan_workflow'].return_value = (True, complex_plan)
         
         # Run the task
         task_description = "Create a data analytics pipeline"
