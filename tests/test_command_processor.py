@@ -245,3 +245,4 @@ class TestCommandProcessor:
 
         mock_coordinator.execute_continue.assert_called_once_with("implementation")
         assert "continued" in result
+
