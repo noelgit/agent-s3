@@ -599,5 +599,3 @@ DESCRIPTION: Add error handling for connection failures
         # Verify the result
         assert result == json_data
 
-if __name__ == "__main__":
-    pytest.main(["-xvs", "test_pre_planner_json_enforced.py"])

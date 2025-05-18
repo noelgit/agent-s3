@@ -6,14 +6,17 @@ within the Coordinator's task execution flow, with a focus on error handling,
 graceful degradation, and appropriate output formatting.
 """
 
-import os
-import json
 import pytest
 from unittest.mock import MagicMock, patch
 
 from agent_s3.coordinator import Coordinator
 from agent_s3.config import Config
 from agent_s3.enhanced_scratchpad_manager import LogLevel
+from agent_s3.pre_planner_json_enforced import (
+    integrate_with_coordinator,
+    call_pre_planner_with_enforced_json,
+    JSONValidationError,
+)
 
 # Test fixtures
 
@@ -61,6 +64,7 @@ def coordinator(mock_config):
         coordinator.file_tool = MagicMock()
         coordinator.error_context_manager = MagicMock()
         coordinator.debugging_manager = MagicMock()
+        coordinator.router_agent = MagicMock()
         
         yield coordinator
 
@@ -154,199 +158,130 @@ def test_initialize_workspace_exception(coordinator):
         assert result["errors"][0]["type"] == "exception"
         coordinator.workspace_initializer.initialize_workspace.assert_called_once()
 
-# Test _execute_pre_planning_phase method
+# Pre-planning phase tests using the JSON workflow
 
-def test_pre_planning_phase_normal_flow(coordinator):
-    """Test normal flow of pre-planning phase."""
-    # Set up mocks
-    coordinator.pre_planner.collect_impacted_files.return_value = ["file1.py", "file2.py"]
-    coordinator.pre_planner.estimate_complexity.return_value = 150.0
-    coordinator.prompt_moderator.ask_binary_question.return_value = False  # Don't switch to design
-    
-    # Execute
-    result = coordinator._execute_pre_planning_phase("Add feature X")
-    
-    # Assert
+@patch("agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json")
+def test_pre_planning_phase_normal_flow(mock_call, coordinator):
+    """Test normal flow of pre-planning phase using the new workflow."""
+    json_data = {"features": [], "complexity_score": 150.0}
+    mock_call.return_value = (True, json_data)
+    coordinator.pre_planner.assess_complexity.return_value = {"score": 150.0, "is_complex": False}
+
+    result = integrate_with_coordinator(coordinator, "Add feature X")
+
     assert result["success"] is True
     assert result["status"] == "completed"
-    assert result["switch_workflow"] is False
-    assert len(result["impacted_files"]) == 2
     assert result["complexity_score"] == 150.0
-    coordinator.pre_planner.collect_impacted_files.assert_called_once()
-    coordinator.pre_planner.estimate_complexity.assert_called_once()
+    assert result["uses_enforced_json"] is True
+    assert "features" in result
+    mock_call.assert_called_once_with(coordinator.router_agent, "Add feature X")
 
-def test_pre_planning_phase_high_complexity(coordinator):
-    """Test pre-planning phase with high complexity leading to workflow switch."""
-    # Set up mocks
-    coordinator.pre_planner.collect_impacted_files.return_value = ["file1.py", "file2.py", "file3.py", "file4.py"]
-    coordinator.pre_planner.estimate_complexity.return_value = 400.0  # Above threshold
-    coordinator.prompt_moderator.ask_binary_question.return_value = True  # Switch to design
-    
-    # Execute
-    result = coordinator._execute_pre_planning_phase("Refactor module Y")
-    
-    # Assert
+@patch("agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json")
+def test_pre_planning_phase_high_complexity(mock_call, coordinator):
+    """Test pre-planning phase handling of high complexity tasks."""
+    json_data = {"features": [], "complexity_score": 400.0}
+    mock_call.return_value = (True, json_data)
+    coordinator.pre_planner.assess_complexity.return_value = {"score": 400.0, "is_complex": True}
+
+    result = integrate_with_coordinator(coordinator, "Refactor module Y")
+
     assert result["success"] is True
     assert result["status"] == "completed"
-    assert result["switch_workflow"] is True
-    assert result["workflow"] == "design"
-    assert len(result["impacted_files"]) == 4
+    assert result["is_complex"] is True
     assert result["complexity_score"] == 400.0
-    coordinator.pre_planner.collect_impacted_files.assert_called_once()
-    coordinator.pre_planner.estimate_complexity.assert_called_once()
-    coordinator.prompt_moderator.ask_binary_question.assert_called_once()
+    mock_call.assert_called_once_with(coordinator.router_agent, "Refactor module Y")
 
-def test_pre_planning_file_collection_error(coordinator):
-    """Test pre-planning phase with file collection error."""
-    # Set up mocks
-    coordinator.pre_planner.collect_impacted_files.side_effect = Exception("File collection error")
-    coordinator.pre_planner.estimate_complexity.return_value = 100.0  # Will use empty list
-    
-    # Execute
-    result = coordinator._execute_pre_planning_phase("Add feature Z")
-    
-    # Assert
-    assert result["success"] is True  # Still succeeds with fallback
-    assert result["status"] == "completed"
-    assert "file_collection_error" in result
-    assert result["impacted_files"] == []
-    coordinator.pre_planner.collect_impacted_files.assert_called_once()
-    coordinator.pre_planner.estimate_complexity.assert_called_once_with([])
+@patch("agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json")
+def test_pre_planning_file_collection_error(mock_call, coordinator):
+    """Test that JSON validation errors surface when pre-planning fails."""
+    mock_call.return_value = (False, {})
 
-def test_pre_planning_complexity_estimation_error(coordinator):
-    """Test pre-planning phase with complexity estimation error."""
-    # Set up mocks
-    coordinator.pre_planner.collect_impacted_files.return_value = ["file1.py", "file2.py"]
-    coordinator.pre_planner.estimate_complexity.side_effect = Exception("Complexity estimation error")
-    
-    # Execute
-    result = coordinator._execute_pre_planning_phase("Add feature W")
-    
-    # Assert
-    assert result["success"] is True  # Still succeeds with fallback
-    assert result["status"] == "completed"
-    assert "complexity_error" in result
-    assert result["complexity_estimated"] is False
-    assert result["complexity_score"] == 250  # Default value
-    coordinator.pre_planner.collect_impacted_files.assert_called_once()
-    coordinator.pre_planner.estimate_complexity.assert_called_once()
+    with pytest.raises(JSONValidationError):
+        integrate_with_coordinator(coordinator, "Add feature Z")
 
-def test_pre_planning_prompt_error(coordinator):
-    """Test pre-planning phase with prompt error."""
-    # Set up mocks
-    coordinator.pre_planner.collect_impacted_files.return_value = ["file1.py", "file2.py"]
-    coordinator.pre_planner.estimate_complexity.return_value = 400.0  # Above threshold
-    coordinator.prompt_moderator.ask_binary_question.side_effect = Exception("Prompt error")
-    
-    # Execute
-    result = coordinator._execute_pre_planning_phase("Add feature V")
-    
-    # Assert
-    assert result["success"] is True  # Still succeeds
-    assert result["status"] == "completed"
-    assert result["switch_workflow"] is False  # Default to not switching
-    assert "prompt_error" in result
-    coordinator.pre_planner.collect_impacted_files.assert_called_once()
-    coordinator.pre_planner.estimate_complexity.assert_called_once()
-    coordinator.prompt_moderator.ask_binary_question.assert_called_once()
+    mock_call.assert_called_once_with(coordinator.router_agent, "Add feature Z")
 
-def test_pre_planning_complete_failure(coordinator):
-    """Test pre-planning phase with complete failure."""
-    # Set up mocks for complete failure
-    coordinator.pre_planner.collect_impacted_files.side_effect = Exception("Critical error")
-    coordinator.pre_planner.estimate_complexity.side_effect = Exception("Should not be called")
-    
-    # Make sure the error propagates to the top level
-    with patch('traceback.format_exc', return_value="Mock traceback"):
-        # Execute
-        result = coordinator._execute_pre_planning_phase("Invalid query")
-        
-        # Assert
-        assert result["success"] is False
-        assert result["status"] == "error"
-        assert "error" in result
-        assert "error_context" in result
-        assert result["error_context"]["error_type"] == "Exception"
-        coordinator.pre_planner.collect_impacted_files.assert_called_once()
-        coordinator.pre_planner.estimate_complexity.assert_not_called()
-        coordinator.progress_tracker.update_progress.assert_any_call({
-            "phase": "pre_planning", 
-            "status": "error",
-            "error": result["error"]
-        })
+@patch("agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json")
+def test_pre_planning_complexity_estimation_error(mock_call, coordinator):
+    """Test handling when complexity assessment fails."""
+    json_data = {"features": []}
+    mock_call.return_value = (True, json_data)
+    coordinator.pre_planner.assess_complexity.side_effect = Exception("Complexity estimation error")
 
-def test_pre_planning_phase_updated_requirements(coordinator):
-    """Test pre-planning phase with updated test requirements."""
-    # Set up mocks
-    coordinator.pre_planner.collect_impacted_files.return_value = ["file1.py", "file2.py"]
-    coordinator.pre_planner.estimate_complexity.return_value = 200.0
-    coordinator.pre_planner.get_test_requirements.return_value = {
-        "unit": ["Test case 1"],
-        "integration": ["Integration test 1"],
-        "property_based": ["Property-based test 1"],
-        "acceptance": [
-            {
-                "given": "Condition",
-                "when": "Action",
-                "then": "Result"
-            }
-        ],
-        "approval_baseline": ["Baseline test"]
-    }
+    result = integrate_with_coordinator(coordinator, "Add feature W")
 
-    # Execute
-    result = coordinator._execute_pre_planning_phase("Add feature X")
-
-    # Assert
     assert result["success"] is True
     assert result["status"] == "completed"
+    assert result.get("complexity_score") is None
+    assert result["is_complex"] is False
+    mock_call.assert_called_once_with(coordinator.router_agent, "Add feature W")
+
+@patch("agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json", side_effect=Exception("Prompt error"))
+def test_pre_planning_prompt_error(mock_call, coordinator):
+    """Test handling when the LLM call fails."""
+
+    with pytest.raises(Exception):
+        integrate_with_coordinator(coordinator, "Add feature V")
+
+    mock_call.assert_called_once_with(coordinator.router_agent, "Add feature V")
+
+@patch(
+    "agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json",
+    side_effect=Exception("Critical error"),
+)
+def test_pre_planning_complete_failure(mock_call, coordinator):
+    """Test that a critical failure raises an exception."""
+
+    with pytest.raises(Exception):
+        integrate_with_coordinator(coordinator, "Invalid query")
+
+    mock_call.assert_called_once_with(coordinator.router_agent, "Invalid query")
+
+@patch("agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json")
+def test_pre_planning_phase_updated_requirements(mock_call, coordinator):
+    """Test that test requirements from JSON are returned."""
+    json_data = {
+        "features": [],
+        "test_requirements": {"approval_baseline": ["Baseline test"]},
+        "complexity_score": 200.0,
+    }
+    mock_call.return_value = (True, json_data)
+    coordinator.pre_planner.assess_complexity.return_value = {"score": 200.0, "is_complex": False}
+
+    result = integrate_with_coordinator(coordinator, "Add feature X")
+
+    assert result["success"] is True
     assert result["test_requirements"]["approval_baseline"] == ["Baseline test"]
-    coordinator.pre_planner.collect_impacted_files.assert_called_once()
-    coordinator.pre_planner.estimate_complexity.assert_called_once()
-    coordinator.pre_planner.get_test_requirements.assert_called_once()
+    mock_call.assert_called_once_with(coordinator.router_agent, "Add feature X")
 
-def test_pre_planning_phase_updated_complexity(coordinator):
-    """Test pre-planning phase with updated complexity scoring."""
-    # Set up mocks
-    coordinator.pre_planner.collect_impacted_files.return_value = ["file1.py", "file2.py", "file3.py"]
-    coordinator.pre_planner.assess_complexity.return_value = {
-        "score": 55,
-        "is_complex": True
-    }
-    coordinator.prompt_moderator.ask_binary_question.return_value = True  # Switch to design
+@patch("agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json")
+def test_pre_planning_phase_updated_complexity(mock_call, coordinator):
+    """Test that complexity scoring is returned from JSON workflow."""
+    json_data = {"features": [], "complexity_score": 55}
+    mock_call.return_value = (True, json_data)
+    coordinator.pre_planner.assess_complexity.return_value = {"score": 55, "is_complex": True}
 
-    # Execute
-    result = coordinator._execute_pre_planning_phase("Add feature X")
+    result = integrate_with_coordinator(coordinator, "Add feature X")
 
-    # Assert
     assert result["success"] is True
     assert result["status"] == "completed"
-    assert result["switch_workflow"] is True
-    assert result["workflow"] == "design"
+    assert result["is_complex"] is True
     assert result["complexity_score"] == 55
-    coordinator.pre_planner.collect_impacted_files.assert_called_once()
-    coordinator.pre_planner.assess_complexity.assert_called_once()
+    mock_call.assert_called_once_with(coordinator.router_agent, "Add feature X")
 
-def test_pre_planning_phase_with_caching(coordinator):
-    """Test pre-planning phase with caching applied."""
-    # Set up mocks
-    coordinator.pre_planner.collect_impacted_files.return_value = ["file1.py", "file2.py"]
-    coordinator.pre_planner.assess_complexity.return_value = {
-        "score": 55,
-        "is_complex": True
-    }
-    coordinator.prompt_moderator.ask_binary_question.return_value = True  # Switch to design
+@patch("agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json")
+def test_pre_planning_phase_with_caching(mock_call, coordinator):
+    """Test repeated calls invoke the JSON workflow each time."""
+    json_data = {"features": [], "complexity_score": 55}
+    mock_call.return_value = (True, json_data)
+    coordinator.pre_planner.assess_complexity.return_value = {"score": 55, "is_complex": True}
 
-    # Execute twice to test caching
-    result1 = coordinator._execute_pre_planning_phase("Add feature X")
-    result2 = coordinator._execute_pre_planning_phase("Add feature X")
+    result1 = integrate_with_coordinator(coordinator, "Add feature X")
+    result2 = integrate_with_coordinator(coordinator, "Add feature X")
 
-    # Assert
     assert result1["success"] is True
     assert result2["success"] is True
-    assert result1 == result2  # Cached result should be identical
-    coordinator.pre_planner.collect_impacted_files.assert_called_once()  # Cached result used
-    coordinator.pre_planner.assess_complexity.assert_called_once()
+    assert mock_call.call_count == 2
 
 # Test consolidated workflow through feature_group_processor
 

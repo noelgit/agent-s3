@@ -538,5 +538,3 @@ class TestErrorHandling:
         assert result["phases"]["implementation"]["attempts"][1]["validation"]["success"] is True
 
 
-if __name__ == "__main__":
-    pytest.main(["-xvs", __file__])
