@@ -3,13 +3,14 @@
 import json
 import logging
 import os
-from typing import Dict, Any, Optional, List, Callable
+from typing import Dict, Any, Optional, List
 import threading
 import time
 import websockets
 import asyncio
 from queue import Queue
 import uuid  # For session IDs
+import atexit
 
 # Message Protocol Definition
 MESSAGE_TYPES = {
@@ -59,11 +60,21 @@ class VSCodeIntegration:
         self.is_running = False
         self.server_thread = None
         self.connect_file_path = self._get_connect_file_path()
+        self._atexit_registered = False
         
         # Authentication token for VS Code clients
         self.auth_token = os.getenv('VSCODE_AUTH_TOKEN', None)
         # Map websockets to session info
         self.connection_sessions: Dict[Any, Dict[str, Any]] = {}
+
+    def __enter__(self) -> "VSCodeIntegration":
+        """Start the server when entering a context."""
+        self.start_server()
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        """Ensure the server is stopped when leaving a context."""
+        self.stop_server()
         
     def _get_connect_file_path(self) -> str:
         """Get the path to the VS Code connection file."""
@@ -107,6 +118,12 @@ class VSCodeIntegration:
             
         # Write connection info to file for VS Code to discover
         self._write_connection_info()
+
+        # Ensure server shutdown on process exit
+        if not self._atexit_registered:
+            atexit.register(self.stop_server)
+            self._atexit_registered = True
+
         logger.info(f"WebSocket server started on {self.host}:{self.port}")
         return True
         
@@ -281,6 +298,9 @@ class VSCodeIntegration:
         # Wait for server thread to end
         if self.server_thread and self.server_thread.is_alive():
             self.server_thread.join(timeout=5)
+            if self.server_thread.is_alive():
+                logger.warning("WebSocket server thread did not terminate")
+            self.server_thread = None
             
         self.is_running = False
         logger.info("WebSocket server stopped")
@@ -289,6 +309,7 @@ class VSCodeIntegration:
         try:
             if os.path.exists(self.connect_file_path):
                 os.remove(self.connect_file_path)
+                logger.info("Connection file removed")
         except Exception as e:
             logger.error(f"Failed to remove connection file: {e}")
     

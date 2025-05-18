@@ -73,6 +73,7 @@ This document describes the implementation of a real-time streaming UI for Agent
    - Connection information stored in `.agent_s3_ws_connection.json`
    - Contains authentication token for secure connection
    - Created during VS Code Bridge initialization
+   - Removed automatically when the backend exits
 
 2. **Authentication Flow**
    - Client reads connection file to get authentication token
