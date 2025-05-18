@@ -502,6 +502,3 @@ class TestMultiStepDebugging:
         assert "session_manager.py" in result["changes"]
         assert "password_validator.py" in result["changes"]
 
-
-if __name__ == "__main__":
-    pytest.main(["-xvs", __file__])

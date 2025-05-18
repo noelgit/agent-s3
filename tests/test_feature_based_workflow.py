@@ -561,5 +561,3 @@ class TestFeatureBasedWorkflow:
             )
 
 
-if __name__ == "__main__":
-    pytest.main(["-xvs", "test_feature_based_workflow.py"])
