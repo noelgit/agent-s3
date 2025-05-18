@@ -26,7 +26,32 @@ class TestCommandProcessor:
         coordinator.workspace_initializer.execute_guidelines_command = MagicMock(return_value="Guidelines created")
         coordinator.bash_tool = MagicMock()
         coordinator.bash_tool.run_command = MagicMock(return_value=(0, "Command output"))
-        
+
+        # New coordinator facade methods used by additional command tests
+        coordinator.execute_design = MagicMock(return_value={
+            "success": True,
+            "design_file": "design.txt",
+            "next_action": None,
+        })
+        coordinator.execute_implementation = MagicMock(return_value={
+            "success": True,
+            "message": "Implementation completed",
+        })
+        coordinator.execute_continue = MagicMock(return_value={
+            "success": True,
+            "message": "Continuation completed",
+        })
+        coordinator.execute_deployment = MagicMock(return_value={
+            "success": True,
+            "message": "Deployment completed",
+        })
+        coordinator.implementation_manager = MagicMock()
+        coordinator.implementation_manager.continue_implementation = MagicMock(return_value={
+            "success": True,
+            "next_pending": None,
+        })
+        coordinator.deployment_manager = MagicMock()
+
         return coordinator
     
     @pytest.fixture
@@ -224,3 +249,132 @@ class TestCommandProcessor:
         result = command_processor.execute_request_command("Add feature")
         mock_coordinator.process_change_request.assert_called_once_with("Add feature")
         assert result == ""
+
+    @patch.object(CommandProcessor, "execute_implement_command", return_value="Implementation triggered")
+    def test_execute_design_command_auto_implementation(self, mock_impl, command_processor, mock_coordinator):
+        """Design command triggers implementation when coordinator requests it."""
+        mock_coordinator.execute_design.return_value = {
+            "success": True,
+            "design_file": "design.txt",
+            "next_action": "implementation",
+        }
+
+        result = command_processor.execute_design_command("Build app")
+
+        mock_coordinator.execute_design.assert_called_once_with("Build app")
+        mock_impl.assert_called_once_with("")
+        assert "Implementation triggered" in result
+
+    def test_execute_design_command_cancelled(self, command_processor, mock_coordinator):
+        """Design command handles user cancellation."""
+        mock_coordinator.execute_design.return_value = {"success": False, "cancelled": True}
+
+        result = command_processor.execute_design_command("Build app")
+
+        assert result == "Design process cancelled by user."
+
+    def test_execute_design_command_error(self, command_processor, mock_coordinator):
+        """Design command handles design errors."""
+        mock_coordinator.execute_design.return_value = {"success": False, "error": "Validation failed"}
+
+        result = command_processor.execute_design_command("Build app")
+
+        assert "Design process failed: Validation failed" == result
+
+    @patch('pathlib.Path.exists', return_value=True)
+    def test_execute_implement_command_success(self, mock_exists, command_processor, mock_coordinator):
+        """Implement command runs successfully."""
+        mock_coordinator.execute_implementation.return_value = {"success": True, "message": "Impl done"}
+
+        result = command_processor.execute_implement_command("")
+
+        mock_coordinator.execute_implementation.assert_called_once_with("design.txt")
+        assert result == "Impl done"
+
+    @patch('pathlib.Path.exists', return_value=True)
+    def test_execute_implement_command_failure(self, mock_exists, command_processor, mock_coordinator):
+        """Implement command surfaces failure message."""
+        mock_coordinator.execute_implementation.return_value = {"success": False, "error": "Oops"}
+
+        result = command_processor.execute_implement_command("")
+
+        assert result == "Implementation failed: Oops"
+
+    @patch('pathlib.Path.exists', return_value=False)
+    def test_execute_implement_command_missing_design(self, mock_exists, command_processor):
+        """Implement command validates design file presence."""
+        result = command_processor.execute_implement_command("")
+
+        assert "design.txt not found" in result
+
+    def test_execute_continue_command_success(self, command_processor, mock_coordinator):
+        """Continue command formats next task message."""
+        mock_coordinator.execute_continue.return_value = {
+            "success": True,
+            "task_completed": "task1",
+            "next_task": "task2",
+        }
+
+        result = command_processor.execute_continue_command("implementation")
+
+        mock_coordinator.execute_continue.assert_called_once_with("implementation")
+        assert result == "Task task1 completed. Next task: task2"
+
+    def test_execute_continue_command_failure(self, command_processor, mock_coordinator):
+        """Continue command surfaces errors."""
+        mock_coordinator.execute_continue.return_value = {"success": False, "error": "No tasks"}
+
+        result = command_processor.execute_continue_command("implementation")
+
+        assert result == "Continuation failed: No tasks"
+
+    def test_execute_continue_command_fallback(self, command_processor, mock_coordinator):
+        """Continue command falls back to implementation manager when facade missing."""
+        if hasattr(mock_coordinator, "execute_continue"):
+            delattr(mock_coordinator, "execute_continue")
+        mock_coordinator.implementation_manager.continue_implementation.return_value = {"success": True, "next_pending": None}
+
+        result = command_processor.execute_continue_command("implementation")
+
+        mock_coordinator.implementation_manager.continue_implementation.assert_called_once()
+        assert result == "All implementation tasks completed."
+
+    @patch('pathlib.Path.exists', return_value=True)
+    def test_execute_deploy_command_success(self, mock_exists, command_processor, mock_coordinator):
+        """Deploy command returns deployment output."""
+        mock_coordinator.execute_deployment.return_value = {
+            "success": True,
+            "message": "Deployment succeeded",
+            "access_url": "http://localhost",
+        }
+
+        result = command_processor.execute_deploy_command("design.txt")
+
+        mock_coordinator.execute_deployment.assert_called_once_with("design.txt")
+        assert "Deployment succeeded" in result
+        assert "http://localhost" in result
+
+    @patch('pathlib.Path.exists', return_value=True)
+    def test_execute_deploy_command_failure(self, mock_exists, command_processor, mock_coordinator):
+        """Deploy command surfaces deployment errors."""
+        mock_coordinator.execute_deployment.return_value = {"success": False, "error": "Bad deploy"}
+
+        result = command_processor.execute_deploy_command("design.txt")
+
+        assert result == "Deployment failed: Bad deploy"
+
+    @patch('pathlib.Path.exists', return_value=True)
+    def test_execute_deploy_command_cancelled(self, mock_exists, command_processor, mock_coordinator):
+        """Deploy command handles user cancellation."""
+        mock_coordinator.execute_deployment.return_value = {"success": False, "cancelled": True}
+
+        result = command_processor.execute_deploy_command("design.txt")
+
+        assert result == "Deployment process cancelled by user."
+
+    @patch('pathlib.Path.exists', return_value=False)
+    def test_execute_deploy_command_missing_design(self, mock_exists, command_processor):
+        """Deploy command validates design file presence."""
+        result = command_processor.execute_deploy_command("design.txt")
+
+        assert "design.txt not found" in result
