@@ -248,15 +248,17 @@ class CodeGenerator:
         system_prompt = f"""You are an expert software engineer generating code for '{file_path}'.
         Generate high-quality, idiomatic Python code based on the implementation details and tests provided.
         Your task is to generate ONLY the code for this specific file, not multiple files.
-        
-        Follow these requirements:
-        1. Include all necessary imports at the top of the file
-        2. Implement all specified functions/classes according to details
-        3. Add comprehensive docstrings for all public functions and classes
-        4. Include proper type hints for all function parameters and return values
-        5. Follow PEP 8 style guidelines
-        6. Ensure the code will pass the specified tests
-        7. Respond only with the code, no explanations
+
+        **Follow these project guidelines:**
+        *   Include all necessary imports at the top of the file.
+        *   Implement all specified functions/classes according to details.
+        *   Add comprehensive docstrings for all public functions and classes.
+        *   Provide type hints for all parameters and return values.
+        *   Follow PEP 8 style guidelines and any repo-specific conventions.
+        *   Apply OWASP Top 10 security practices and secure coding techniques.
+        *   Consider performance implications: algorithmic complexity and resource usage.
+        *   Ensure the code will pass the specified tests.
+        *   Respond only with the complete code, no explanations.
         """
         
         # Create user prompt with implementation details and test requirements
