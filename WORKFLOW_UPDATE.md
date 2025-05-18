@@ -273,7 +273,7 @@ The pre-planner to planner workflow has been improved to consolidate functionali
 - Consolidated all pre-planning functionality into `pre_planner_json_enforced.py`
 - Added `regenerate_pre_planning_with_modifications` function to handle user modifications
 - Updated Coordinator to use the consolidated functionality
-- Created a compatibility wrapper in pre_planner.py for backward compatibility with tests
+- Removed the legacy `pre_planner.py` wrapper; tests now import `pre_planner_json_enforced.py` directly
 - Removed dead code that was using the simple system prompt in planner.py
 
 ### Key Components Modified
@@ -294,10 +294,7 @@ The pre-planner to planner workflow has been improved to consolidate functionali
 
 #### pre_planner.py
 
-- Converted to a compatibility wrapper around pre_planner_json_enforced.py
-- `PrePlanningManager._call_llm` now delegates to router_agent for actual LLM calls
-- `PrePlanningManager.process_request_with_feedback` now delegates to regenerate_pre_planning_with_modifications
-- Added clear documentation that this class exists only for backward compatibility with tests
+This file has been removed. All functionality now resides in `pre_planner_json_enforced.py` and callers should reference that module directly.
 
 #### coordinator.py
 
@@ -328,7 +325,7 @@ The pre-planner to planner workflow now follows a consistent path:
 - **Consistency**: Both initial planning and modifications use the same validation and output format
 - **Reduced Code Duplication**: Pre-planning functionality concentrated in one module
 - **Clearer Code Paths**: One consistent path through the system for pre-planning
-- **Backward Compatibility**: Tests continue to work through compatibility wrapper
+- **Backward Compatibility**: Tests continue to work using `pre_planner_json_enforced.py`
 - **Improved Maintainability**: Clear documentation on what code is for compatibility only
 - **Reduced Technical Debt**: Dead code identified and removed
 - **Better Error Handling**: Consistent validation and repair of LLM outputs
@@ -337,6 +334,6 @@ The pre-planner to planner workflow now follows a consistent path:
 ### Testing
 
 - Updated test files maintain backward compatibility
-- Tests continue to function with the compatibility wrapper
+- Tests continue to function using `pre_planner_json_enforced.py`
 - Future tests should directly use pre_planner_json_enforced.py
 - Regression tests confirm that the workflow functions correctly end-to-end

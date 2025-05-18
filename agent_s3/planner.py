@@ -2,7 +2,6 @@
 
 Responsible for creating implementation plans for tasks with enforced JSON output.
 This module is part of the planning architecture consisting of:
-- pre_planner.py: Base pre-planning functionality
 - pre_planner_json_enforced.py: Enhanced JSON schema enforcement for pre-planning
 - planner.py: Base planning functionality (this module)
 - planner_json_enforced.py: Enhanced JSON schema enforcement for planning

@@ -44,17 +44,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Document the migration process in comments or docstrings
 
 ## Module Architecture Patterns
-- Base modules provide core functionality (e.g., pre_planner.py, planner.py)
-- Specialized modules extend base functionality with enforced schemas/validation (e.g., pre_planner_json_enforced.py, planner_json_enforced.py)
-- Maintain symmetrical relationships between related modules (pre_planner <-> planner, pre_planner_json_enforced <-> planner_json_enforced)
+- Base modules provide core functionality (e.g., `planner.py`)
+- Specialized modules extend base functionality with enforced schemas/validation (e.g., `pre_planner_json_enforced.py`, `planner_json_enforced.py`)
+- Maintain symmetrical relationships between related modules (`pre_planner_json_enforced` <-> `planner_json_enforced`)
 - Core imports should follow this pattern:
-  - Base modules can import from other base modules (e.g., planner.py can import from pre_planner.py)
   - Specialized modules should import from their corresponding base module
   - Avoid circular imports between similar level modules (don't create cycles)
-- When using modules, import both the base and specialized versions for architectural consistency:
+- The previous `pre_planner.py` compatibility layer has been removed. Use `pre_planner_json_enforced.py` directly:
 ```python
-from agent_s3.pre_planner import call_pre_planner  # Import base
-from agent_s3.pre_planner_json_enforced import pre_planning_workflow  # Import canonical entry point
+from agent_s3.pre_planner_json_enforced import pre_planning_workflow
 ```
 
 ## Debugging System Architecture
