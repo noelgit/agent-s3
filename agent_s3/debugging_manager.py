@@ -15,7 +15,13 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from typing import Optional, Dict, List, Any, Tuple
 
-from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager, Section, LogLevel
+from agent_s3.enhanced_scratchpad_manager import (
+    EnhancedScratchpadManager,
+    Section,
+    LogLevel,
+)
+from agent_s3.user_config import load_user_config
+from agent_s3.tools.error_pattern_learner import ErrorPatternLearner
 from agent_s3.llm_utils import cached_call_llm
 
 
@@ -193,9 +199,24 @@ class DebuggingManager:
         
         # Track debugging history
         self.debug_history: List[DebugAttempt] = []
-        
+
         # Pattern databases for error categorization
         self._initialize_error_patterns()
+
+        # ML-based error pattern learner for cross-project sharing
+        self.pattern_learner = ErrorPatternLearner()
+
+        # Per-user customization of debugging limits
+        user_cfg = load_user_config()
+        self.MAX_GENERATOR_ATTEMPTS = int(
+            user_cfg.get("max_quick_fix_attempts", self.MAX_GENERATOR_ATTEMPTS)
+        )
+        self.MAX_DEBUGGER_ATTEMPTS = int(
+            user_cfg.get("max_full_debug_attempts", self.MAX_DEBUGGER_ATTEMPTS)
+        )
+        self.MAX_RESTART_ATTEMPTS = int(
+            user_cfg.get("max_restart_attempts", self.MAX_RESTART_ATTEMPTS)
+        )
         
     def _initialize_error_patterns(self):
         """Initialize pattern databases for error categorization."""
@@ -583,7 +604,7 @@ class DebuggingManager:
                 self.logger.warning(f"Error getting additional context: {e}")
         
         # Create the error context
-        return ErrorContext(
+        context = ErrorContext(
             message=error_message,
             traceback=traceback_text,
             category=category,
@@ -594,6 +615,14 @@ class DebuggingManager:
             variables=variables or {},
             metadata=metadata or {}
         )
+
+        # Update ML learner with the categorized error
+        try:
+            self.pattern_learner.update(error_message, context.category.name)
+        except Exception:
+            pass
+
+        return context
     
     def _categorize_error(self, error_message: str, traceback_text: str) -> ErrorCategory:
         """Categorize the error based on patterns."""
@@ -604,7 +633,12 @@ class DebuggingManager:
             for pattern in patterns:
                 if re.search(pattern.lower(), combined_text):
                     return category
-                    
+
+        # Fallback to ML-based prediction
+        prediction = self.pattern_learner.predict(error_message)
+        if prediction and prediction in ErrorCategory.__members__:
+            return ErrorCategory[prediction]
+
         # No match found
         return ErrorCategory.UNKNOWN
     
