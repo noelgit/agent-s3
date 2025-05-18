@@ -60,6 +60,12 @@ Follow these general guidelines:
    - Test requirements
    - Risk assessment
    - System design components
+
+6. Address cross-cutting concerns:
+   - Mitigate OWASP Top 10 vulnerabilities
+   - Consider performance impacts and optimizations
+   - Uphold code quality standards
+   - Incorporate accessibility requirements
 """
 
 def get_base_user_prompt(task_description: str) -> str:
