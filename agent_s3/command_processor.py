@@ -943,7 +943,7 @@ Type /help <command> for more information on a specific command."""
         Returns:
             Command result message
         """
-        if not hasattr(self.coordinator, 'database_tool') or not self.coordinator.database_tool:
+        if not hasattr(self.coordinator, 'database_manager') or not self.coordinator.database_manager:
             return "Database tool is not available."
 
         # Parse db_command from args
@@ -1013,7 +1013,7 @@ Type /help <command> for more information on a specific command."""
             db_configs = self.coordinator.config.config.get("databases", {})
             for db_name in db_configs:
                 result += f"\n=== Schema for {db_name} database ===\n"
-                schema_result = self.coordinator.database_tool.get_schema_info(db_name)
+                schema_result = self.coordinator.database_manager.database_tool.get_schema_info(db_name)
                 if schema_result.get("success", False):
                     schema = schema_result.get("schema", {})
                     for table, columns in schema.items():
@@ -1025,7 +1025,7 @@ Type /help <command> for more information on a specific command."""
                     result += f"Error: {schema_result.get('error', 'Unknown error')}\n"
         else:
             # Show schema for specific database
-            schema_result = self.coordinator.database_tool.get_schema_info(db_name)
+            schema_result = self.coordinator.database_manager.database_tool.get_schema_info(db_name)
             if schema_result.get("success", False):
                 schema = schema_result.get("schema", {})
                 for table, columns in schema.items():
@@ -1047,14 +1047,14 @@ Type /help <command> for more information on a specific command."""
             db_configs = self.coordinator.config.config.get("databases", {})
             for db_name in db_configs:
                 result += f"Testing connection to {db_name}...\n"
-                test_result = self.coordinator.database_tool.test_connection(db_name)
+                test_result = self.coordinator.database_manager.setup_database(db_name)
                 if test_result.get("success", False):
                     result += f"  Success: {test_result.get('message', 'Connection successful')}\n"
                 else:
                     result += f"  Failed: {test_result.get('error', 'Unknown error')}\n"
         else:
             # Test specific database connection
-            test_result = self.coordinator.database_tool.test_connection(db_name)
+            test_result = self.coordinator.database_manager.setup_database(db_name)
             if test_result.get("success", False):
                 result += f"Connection to {db_name} successful: {test_result.get('message', 'Connection successful')}\n"
             else:
@@ -1071,7 +1071,7 @@ Type /help <command> for more information on a specific command."""
         sql = parts[1]
 
         result = f"Executing query on {db_name}...\n"
-        query_result = self.coordinator.database_tool.execute_query(sql, db_name=db_name)
+        query_result = self.coordinator.database_manager.execute_query(sql, db_name=db_name)
         if query_result.get("success", False):
             result += "\nQuery Results:\n"
             results = query_result.get("results", [])
@@ -1106,7 +1106,7 @@ Type /help <command> for more information on a specific command."""
             return f"Script file not found: {script_path}"
 
         result = f"Executing script on {db_name}...\n"
-        script_result = self.coordinator.database_tool.execute_script(script_path, db_name=db_name)
+        script_result = self.coordinator.database_manager.run_migration(script_path, db_name=db_name)
         if script_result.get("success", False):
             result += f"Script executed successfully: {script_result.get('queries_executed', 0)} queries executed\n"
         else:
@@ -1123,7 +1123,7 @@ Type /help <command> for more information on a specific command."""
         sql = parts[1]
 
         result = f"Explaining query on {db_name}...\n"
-        explain_result = self.coordinator.database_tool.explain_query(sql, db_name=db_name)
+        explain_result = self.coordinator.database_manager.database_tool.explain_query(sql, db_name=db_name)
         if explain_result.get("success", False):
             result += "\nQuery Execution Plan:\n"
             plan = explain_result.get("plan", [])

@@ -259,12 +259,14 @@ class Coordinator:
             
             # Initialize design, implementation, and deployment managers
             from agent_s3.design_manager import DesignManager
-            from agent_s3.implementation_manager import ImplementationManager
-            from agent_s3.deployment_manager import DeploymentManager
+from agent_s3.implementation_manager import ImplementationManager
+from agent_s3.deployment_manager import DeploymentManager
+from agent_s3.database_manager import DatabaseManager
             
             self.design_manager = DesignManager(self)
             self.implementation_manager = ImplementationManager(self)
             self.deployment_manager = DeploymentManager(self)
+            self.database_manager = DatabaseManager(self)
             # Initialize code generator
             self.code_generator = CodeGenerator(coordinator=self)
             # Initialize prompt moderator
@@ -616,6 +618,10 @@ class Coordinator:
                 implementation.execute([{"plan": request_text}])
             else:
                 self.run_task(request_text)
+
+            keywords = set(self._extract_keywords_from_task(request_text))
+            if {"deploy", "deployment"} & keywords:
+                self.execute_deployment()
         except Exception as e:
             self.error_handler.handle_exception(
                 exc=e,
@@ -711,61 +717,81 @@ class Coordinator:
             for plan in approved_plans:
                 plan_id = plan.get("plan_id")
                 group_name = plan.get("group_name", "group")
-                attempt = 0
                 plan_success = False
 
-                while attempt < max_attempts and not plan_success:
-                    attempt += 1
+                while True:
+                    attempt = 0
+                    while attempt < max_attempts and not plan_success:
+                        attempt += 1
+                        self.progress_tracker.update_progress({
+                            "phase": "generation",
+                            "status": "started",
+                            "attempt": attempt,
+                            "plan_id": plan_id,
+                        })
+
+                        self.scratchpad.log(
+                            "Coordinator",
+                            f"Generating code for {group_name} (attempt {attempt})",
+                        )
+
+                        changes = self.code_generator.generate_code(plan)
+                        if not changes:
+                            continue
+
+                        if not self._apply_changes_and_manage_dependencies(changes):
+                            continue
+
+                        validation = self._run_validation_phase()
+                        if validation.get("success"):
+                            all_changes.update(changes)
+                            plan_success = True
+                            break
+
+                        if hasattr(self, "debugging_manager") and self.debugging_manager:
+                            debug_res = self.debugging_manager.handle_error(
+                                error_message=validation.get("output", ""),
+                                traceback_text=validation.get("output", ""),
+                            )
+                            if debug_res.get("success"):
+                                dbg_changes = debug_res.get("changes", {})
+                                if dbg_changes:
+                                    self._apply_changes_and_manage_dependencies(dbg_changes)
+                                    changes.update(dbg_changes)
+                                validation = self._run_validation_phase()
+                                if validation.get("success"):
+                                    all_changes.update(changes)
+                                    plan_success = True
+                                    break
+
                     self.progress_tracker.update_progress({
                         "phase": "generation",
-                        "status": "started",
-                        "attempt": attempt,
+                        "status": "completed",
                         "plan_id": plan_id,
+                        "success": plan_success,
                     })
+
+                    if plan_success:
+                        break
 
                     self.scratchpad.log(
                         "Coordinator",
-                        f"Generating code for {group_name} (attempt {attempt})",
+                        f"Implementation for {group_name} failed after {max_attempts} attempts",
+                        level=LogLevel.WARNING,
                     )
 
-                    changes = self.code_generator.generate_code(plan)
-                    if not changes:
-                        continue
+                    if hasattr(self, "prompt_moderator") and self.prompt_moderator:
+                        guidance = self.prompt_moderator.request_debugging_guidance(group_name, max_attempts)
+                        if guidance:
+                            plan = self.feature_group_processor.update_plan_with_modifications(plan, guidance)
+                            self.scratchpad.log(
+                                "Coordinator",
+                                "Engineer provided modifications; retrying implementation",
+                            )
+                            continue
 
-                    if not self._apply_changes_and_manage_dependencies(changes):
-                        continue
-
-                    validation = self._run_validation_phase()
-                    if validation.get("success"):
-                        all_changes.update(changes)
-                        plan_success = True
-                        break
-
-                    if hasattr(self, "debugging_manager") and self.debugging_manager:
-                        debug_res = self.debugging_manager.handle_error(
-                            error_message=validation.get("output", ""),
-                            traceback_text=validation.get("output", ""),
-                        )
-                        if debug_res.get("success"):
-                            dbg_changes = debug_res.get("changes", {})
-                            if dbg_changes:
-                                self._apply_changes_and_manage_dependencies(dbg_changes)
-                                changes.update(dbg_changes)
-                            validation = self._run_validation_phase()
-                            if validation.get("success"):
-                                all_changes.update(changes)
-                                plan_success = True
-                                break
-
-                self.progress_tracker.update_progress({
-                    "phase": "generation",
-                    "status": "completed",
-                    "plan_id": plan_id,
-                    "success": plan_success,
-                })
-
-                if not plan_success:
                     overall_success = False
+                    break
 
             return all_changes, overall_success
 
@@ -800,13 +826,13 @@ class Coordinator:
 
             # Validate database integrity if database configurations exist
             with self.error_handler.error_context(phase="validation_run", operation="database_validation"):
-                if hasattr(self, 'database_tool') and self.database_tool:
+                if hasattr(self, 'database_manager') and self.database_manager:
                     try:
                         db_configs = self.config.config.get("databases", {})
                         if db_configs:
                             self.scratchpad.log("Coordinator", "Validating database integrity...")
                             for db_name in db_configs:
-                                test_result = self.database_tool.test_connection(db_name)
+                                test_result = self.database_manager.setup_database(db_name)
                                 if not test_result.get("success", False):
                                     error_msg = test_result.get("error", "Unknown database error")
                                     self.progress_tracker.update_progress({"phase": "validation_run", "status": "failed", "step": "database", "error": error_msg})
@@ -814,7 +840,8 @@ class Coordinator:
                                     validation_result["output"] = error_msg
                                     validation_result["metadata"]["db_name"] = db_name
                                     return validation_result
-                                self.database_tool.get_schema_info(db_name)
+                                if hasattr(self.database_manager.database_tool, 'get_schema_info'):
+                                    self.database_manager.database_tool.get_schema_info(db_name)
                                 self.scratchpad.log("Coordinator", f"Database {db_name} schema validated successfully")
                     except Exception as e:
                         # Handle database validation errors through error handler
@@ -955,19 +982,19 @@ class Coordinator:
                     exit_code, _ = self.bash_tool.run_command("pip install -r requirements.txt", timeout=300)
                     self.scratchpad.log("Coordinator", f"Dependency installation result: exit_code={exit_code}")
                 
-                # Execute SQL scripts if any and database_tool is available
-                if sql_scripts and hasattr(self, 'database_tool') and self.database_tool:
+                # Execute SQL scripts if any and database manager is available
+                if sql_scripts and hasattr(self, 'database_manager') and self.database_manager:
                     self.scratchpad.log("Coordinator", "Executing database scripts...")
                     db_configs = self.config.config.get("databases", {})
-                    
+
                     if db_configs:
                         for script_path in sql_scripts:
                             # Determine target database from script path or content
                             target_db = self._determine_target_database(script_path, db_configs)
                             if target_db:
                                 self.scratchpad.log("Coordinator", f"Executing SQL script {script_path} on database {target_db}")
-                                result = self.database_tool.execute_script(script_path, db_name=target_db)
-                                
+                                result = self.database_manager.run_migration(script_path, db_name=target_db)
+
                                 if not result.get("success", False):
                                     error_msg = result.get("error", "Unknown database error")
                                     self.scratchpad.log("Coordinator", f"SQL script execution failed: {error_msg}", level=LogLevel.ERROR)
@@ -1207,8 +1234,8 @@ class Coordinator:
             self.progress_tracker.update_progress({"phase": "finalizing", "status": "started"})
             self.scratchpad.log("Coordinator", "Finalizing task: committing changes and creating PR if configured...")
             
-            # Save database schema metadata if database tool is available
-            if hasattr(self, 'database_tool') and self.database_tool:
+            # Save database schema metadata if database manager is available
+            if hasattr(self, 'database_manager') and self.database_manager:
                 try:
                     db_configs = self.config.config.get("databases", {})
                     if db_configs:
@@ -1216,9 +1243,10 @@ class Coordinator:
                         schema_metadata = {}
                         
                         for db_name in db_configs:
-                            # Get schema info for each database
-                            schema_result = self.database_tool.get_schema_info(db_name)
-                            if schema_result.get("success", False):
+                            schema_result = None
+                            if hasattr(self.database_manager.database_tool, 'get_schema_info'):
+                                schema_result = self.database_manager.database_tool.get_schema_info(db_name)
+                            if schema_result and schema_result.get("success", False):
                                 schema_metadata[db_name] = schema_result.get("schema", {})
                             
                         # Save schema metadata to a file for reference
@@ -1266,7 +1294,7 @@ class Coordinator:
                 pr_body = f"Implements feature request.\nCloses #{str(self.current_issue_url).split('/')[-1]}"
                 
                 # Add database schema information to PR description if available
-                if hasattr(self, 'database_tool') and self.database_tool:
+                if hasattr(self, 'database_manager') and self.database_manager:
                     db_configs = self.config.config.get("databases", {})
                     if db_configs:
                         pr_body += "\n\n## Database Changes\n"
@@ -1355,3 +1383,23 @@ class Coordinator:
                 "success": False,
                 "error": str(e)
             }
+
+    def execute_deployment(self, design_file: str = "design.txt") -> Dict[str, Any]:
+        """Execute deployment using the deployment manager."""
+        try:
+            if not hasattr(self, "deployment_manager"):
+                return {"success": False, "error": "Deployment manager not available"}
+
+            result = self.deployment_manager.execute_deployment()
+            return result
+        except Exception as e:
+            self.error_handler.handle_exception(
+                exc=e,
+                operation="execute_deployment",
+                level=logging.ERROR,
+            )
+            return {"success": False, "error": str(e)}
+
+    def deploy(self, design_file: str = "design.txt") -> Dict[str, Any]:
+        """Facade used by CommandProcessor to start deployment."""
+        return self.execute_deployment(design_file)
