@@ -8,7 +8,12 @@ test priority consistency, and enhanced JSON repair capabilities.
 
 import json
 import logging
+from difflib import SequenceMatcher
 from typing import Dict, Any, List, Set, Tuple, Optional
+
+import numpy as np
+
+from agent_s3.progress_tracker import progress_tracker, Status
 
 logger = logging.getLogger(__name__)
 
@@ -375,6 +380,74 @@ def validate_test_priority_consistency(
     
     return validation_issues
 
+
+def validate_test_completeness(
+    test_specs: Dict[str, Any],
+    system_design: Dict[str, Any]
+) -> List[Dict[str, Any]]:
+    """Validate that each system design element has at least one test."""
+    validation_issues = []
+
+    valid_ids = extract_element_ids_from_system_design(system_design)
+    referenced_ids = extract_referenced_element_ids(test_specs)
+    missing = valid_ids - referenced_ids
+
+    for element_id in missing:
+        validation_issues.append(
+            {
+                "issue_type": "missing_test_coverage",
+                "severity": "Medium",
+                "message": f"No tests reference element '{element_id}'",
+                "element_id": element_id,
+            }
+        )
+
+    return validation_issues
+
+
+def generate_missing_tests_with_llm(
+    router_agent,
+    missing_issues: List[Dict[str, Any]],
+    system_design: Dict[str, Any],
+    context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Use the LLM to generate tests for missing critical issues."""
+    if not router_agent or not missing_issues:
+        return {}
+
+    try:
+        from .json_utils import get_openrouter_json_params, extract_json_from_text
+
+        system_prompt = (
+            "You are a test planner. Generate additional test specifications in JSON format "
+            "that cover the provided critical architecture issues."
+        )
+        user_prompt = json.dumps(
+            {
+                "system_design": system_design,
+                "missing_issues": missing_issues,
+                "context": context or {},
+            },
+            indent=2,
+        )
+
+        params = get_openrouter_json_params()
+        response = router_agent.call_llm_by_role(
+            role="test_planner",
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            config=params,
+            scratchpad=router_agent,
+        )
+        json_str = extract_json_from_text(response)
+        if json_str:
+            data = json.loads(json_str)
+            return data.get("refined_test_requirements", data)
+    except Exception as e:  # pragma: no cover - best effort
+        logger.error(f"LLM repair failed: {e}")
+
+    return {}
+
 def validate_priority_alignment(
     test_specs: Dict[str, Any], 
     architecture_review: Dict[str, Any]
@@ -476,7 +549,8 @@ def validate_priority_alignment(
 def repair_invalid_element_ids(
     test_specs: Dict[str, Any],
     system_design: Dict[str, Any],
-    validation_issues: List[Dict[str, Any]]
+    validation_issues: List[Dict[str, Any]],
+    embedding_client: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Attempt to repair invalid element IDs by finding closest matches.
@@ -506,18 +580,30 @@ def repair_invalid_element_ids(
         if issue["issue_type"] == "invalid_element_id":
             invalid_id = issue["element_id"]
             
-            # Try to find a match based on substring
+            # Try semantic similarity first if embedding client available
             best_match = None
-            highest_score = 0
-            
-            for valid_id in valid_element_ids:
-                # Simple scoring: common substrings
-                common_len = len(set(invalid_id.lower()) & set(valid_id.lower()))
-                score = common_len / max(len(invalid_id), len(valid_id))
-                
-                if score > highest_score:
-                    highest_score = score
-                    best_match = valid_id
+            highest_score = 0.0
+
+            if embedding_client and hasattr(embedding_client, "generate_embedding"):
+                try:
+                    invalid_vec = embedding_client.generate_embedding(invalid_id)
+                    for valid_id in valid_element_ids:
+                        valid_vec = embedding_client.generate_embedding(valid_id)
+                        if invalid_vec is not None and valid_vec is not None:
+                            sim = float(np.dot(invalid_vec, valid_vec) / (np.linalg.norm(invalid_vec) * np.linalg.norm(valid_vec) + 1e-8))
+                            if sim > highest_score:
+                                highest_score = sim
+                                best_match = valid_id
+                except Exception as e:  # pragma: no cover - best effort
+                    logger.error(f"Semantic matching failed for '{invalid_id}': {e}")
+
+            # Fallback to substring/SequenceMatcher
+            if not best_match:
+                for valid_id in valid_element_ids:
+                    ratio = SequenceMatcher(None, invalid_id.lower(), valid_id.lower()).ratio()
+                    if ratio > highest_score:
+                        highest_score = ratio
+                        best_match = valid_id
             
             # If invalid ID looks like an element name, try to map to real ID
             for name, element_id in element_name_to_id.items():
@@ -675,7 +761,10 @@ def assign_priorities_to_address_critical_issues(
 def validate_and_repair_test_specifications(
     test_specs: Dict[str, Any],
     system_design: Dict[str, Any],
-    architecture_review: Dict[str, Any]
+    architecture_review: Dict[str, Any],
+    router_agent: Optional[Any] = None,
+    embedding_client: Optional[Any] = None,
+    context: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Dict[str, Any], List[Dict[str, Any]], bool]:
     """
     Validate test specifications against system design and architecture review,
@@ -699,12 +788,16 @@ def validate_and_repair_test_specifications(
     # 2. Validate architecture issue coverage
     coverage_issues = validate_architecture_issue_coverage(test_specs, architecture_review)
     all_validation_issues.extend(coverage_issues)
-    
-    # 3. Validate test priority consistency
+
+    # 3. Validate completeness relative to system design
+    completeness_issues = validate_test_completeness(test_specs, system_design)
+    all_validation_issues.extend(completeness_issues)
+
+    # 4. Validate test priority consistency
     priority_issues = validate_test_priority_consistency(test_specs, architecture_review)
     all_validation_issues.extend(priority_issues)
-    
-    # 4. Validate priority alignment with architecture issues
+
+    # 5. Validate priority alignment with architecture issues
     priority_alignment_issues = validate_priority_alignment(test_specs, architecture_review)
     all_validation_issues.extend(priority_alignment_issues)
     
@@ -722,17 +815,44 @@ def validate_and_repair_test_specifications(
     
     # Repair invalid element IDs
     if element_id_issues:
-        repaired_specs = repair_invalid_element_ids(repaired_specs, system_design, element_id_issues)
+        repaired_specs = repair_invalid_element_ids(
+            repaired_specs,
+            system_design,
+            element_id_issues,
+            embedding_client=embedding_client,
+        )
         was_repaired = True
     
     # Update test priorities for consistency with architecture issues
-    priority_related_issues = [i for i in all_validation_issues 
-                              if i.get("issue_type") in ["priority_mismatch", "priority_alignment"]]
+    priority_related_issues = [
+        i for i in all_validation_issues if i.get("issue_type") in ["priority_mismatch", "priority_alignment"]
+    ]
     if priority_related_issues:
-        repaired_specs = assign_priorities_to_address_critical_issues(repaired_specs, architecture_review, priority_related_issues)
+        repaired_specs = assign_priorities_to_address_critical_issues(
+            repaired_specs, architecture_review, priority_related_issues
+        )
         was_repaired = True
-    
-    # Note: We don't automatically add missing tests for unaddressed critical issues,
-    # as that would require generating new test specifications, which is best handled by the LLM
-    
+
+    # If critical issues are unaddressed, attempt LLM-driven repair
+    missing_issue_data = [i for i in coverage_issues if i.get("issue_type") == "unaddressed_critical_issue"]
+    if missing_issue_data:
+        new_tests = generate_missing_tests_with_llm(router_agent, missing_issue_data, system_design, context)
+        if new_tests:
+            for key, tests in new_tests.items():
+                if key not in repaired_specs:
+                    repaired_specs[key] = []
+                if isinstance(tests, list):
+                    repaired_specs[key].extend(tests)
+            was_repaired = True
+
+    try:
+        summary = f"{len(all_validation_issues)} issues found; repaired={was_repaired}"
+        progress_tracker.update_progress({
+            "phase": "test_validation",
+            "status": Status.COMPLETED,
+            "details": summary,
+        })
+    except Exception:  # pragma: no cover - best effort
+        logger.debug("Failed to update progress tracker for validation results")
+
     return repaired_specs, all_validation_issues, was_repaired

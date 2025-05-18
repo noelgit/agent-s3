@@ -863,7 +863,10 @@ Please maintain the intent of the original test requirements while enriching the
             repaired_specs, validation_issues, was_repaired = validate_and_repair_test_specifications(
                 response_data["refined_test_requirements"],
                 system_design,
-                architecture_review
+                architecture_review,
+                router_agent=router_agent,
+                embedding_client=getattr(router_agent, "embedding_client", None),
+                context=context,
             )
             
             # Log validation summary
@@ -1562,7 +1565,12 @@ def validate_planning_semantic_coherence(
     # Validate test specifications against architecture review and system design
     if refined_test_specs and architecture_review and system_design:
         repaired_specs, validation_issues, was_repaired = validate_and_repair_test_specifications(
-            refined_test_specs, system_design, architecture_review
+            refined_test_specs,
+            system_design,
+            architecture_review,
+            router_agent=router_agent,
+            embedding_client=getattr(router_agent, "embedding_client", None),
+            context=context,
         )
         validation_details["test_specs_validation"] = {
             "has_issues": len(validation_issues) > 0,
