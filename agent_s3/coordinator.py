@@ -146,14 +146,18 @@ class Coordinator:
             from agent_s3.tools.git_tool import GitTool
             # Create a GitTool instance to be shared
             git_tool_instance = GitTool(self.config.github_token)
-            file_history_analyzer = FileHistoryAnalyzer(git_tool=git_tool_instance, config=self.config, scratchpad=self.scratchpad)
+            self.file_history_analyzer = FileHistoryAnalyzer(
+                git_tool=git_tool_instance,
+                config=self.config,
+                scratchpad=self.scratchpad,
+            )
             # Store git_tool for later use
             self.git_tool = git_tool_instance
             self.context_manager.initialize_tools(
                 tech_stack_detector=tech_stack_detector,
                 code_analysis_tool=code_analysis_tool,
-                file_history_analyzer=file_history_analyzer,
-                file_tool=file_tool
+                file_history_analyzer=self.file_history_analyzer,
+                file_tool=file_tool,
             )
             self.context_registry.register_provider("context_manager", self.context_manager)
 
@@ -177,7 +181,7 @@ class Coordinator:
             self.file_tool = file_tool
             self.memory_manager = memory_manager
             self.embedding_client = embedding_client
-            self.git_tool = file_history_analyzer.git_tool
+            self.git_tool = self.file_history_analyzer.git_tool
             self.bash_tool = BashTool(sandbox=self.config.config.get("sandbox_environment", False), host_os_type=self.config.host_os_type)
             self.database_tool = DatabaseTool(config=self.config, bash_tool=self.bash_tool)
             self.env_tool = EnvTool(self.bash_tool)
@@ -230,13 +234,6 @@ class Coordinator:
             # Initialize feature group processor
             from agent_s3.feature_group_processor import FeatureGroupProcessor
             self.feature_group_processor = FeatureGroupProcessor(coordinator=self)
-            
-            # Initialize file history analyzer
-            self.file_history_analyzer = FileHistoryAnalyzer(
-                git_tool=self.git_tool,
-                config=self.config,
-                scratchpad=self.scratchpad
-            )
             
             # Initialize debugging manager
             self.debugging_manager = DebuggingManager(
