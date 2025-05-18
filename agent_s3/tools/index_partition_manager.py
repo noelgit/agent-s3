@@ -883,3 +883,50 @@ class IndexPartitionManager:
         except Exception as e:
             logger.error(f"Error optimizing partitions: {e}")
             return False
+
+    def prune_unused_entries(self, valid_files: Set[str]) -> int:
+        """Remove index entries for files not present in ``valid_files``."""
+        removed = 0
+
+        try:
+            for pid, partition in list(self.partitions.items()):
+                for fp in list(partition.get_all_files()):
+                    if fp not in valid_files or not os.path.exists(fp):
+                        if partition.remove_file(fp):
+                            removed += 1
+                partition.commit()
+
+            if removed:
+                self._save_metadata()
+        except Exception as e:
+            logger.error(f"Error pruning unused entries: {e}")
+
+        return removed
+
+    def merge_from_path(self, other_path: str) -> bool:
+        """Merge partitions from another index manager stored at ``other_path``."""
+        try:
+            other = IndexPartitionManager(other_path)
+            for pid, part in other.partitions.items():
+                if pid not in self.partitions:
+                    # copy entire partition directory
+                    target_dir = os.path.join(self.storage_path, f"partition_{pid}")
+                    shutil.copytree(part.storage_path, target_dir, dirs_exist_ok=True)
+                    self.partitions[pid] = IndexPartition(pid, self.storage_path, part.criteria)
+                    self.partitions[pid]._load_data()
+                    for fp in part.get_all_files():
+                        self.file_to_partition[fp] = pid
+                else:
+                    target = self.partitions[pid]
+                    for fp in part.get_all_files():
+                        emb = part.file_embeddings[fp]
+                        meta = part.file_metadata[fp]
+                        target.add_file(fp, emb, meta)
+                        self.file_to_partition[fp] = pid
+                    target.commit()
+
+            self._save_metadata()
+            return True
+        except Exception as e:
+            logger.error(f"Error merging partitions from {other_path}: {e}")
+            return False

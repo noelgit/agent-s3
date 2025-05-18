@@ -31,5 +31,12 @@ def test_partition_selection_and_optimization():
         assert stats_after["total_files"] == 4
         for info in stats_after["partitions"].values():
             assert info["file_count"] <= 2
+
+        # Test pruning
+        valid_files = {"a.py", "b.py", "d.js"}
+        removed = mgr.prune_unused_entries(valid_files)
+        assert removed == 1
+        stats_pruned = mgr.get_partition_stats()
+        assert stats_pruned["total_files"] == 3
     finally:
         shutil.rmtree(tmpdir)
