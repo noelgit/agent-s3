@@ -139,7 +139,7 @@ The incremental indexing system significantly improves performance for code sear
 Several advanced features have been implemented to improve scalability:
 
 1. **Partition optimization** via `IndexPartitionManager.optimize_partitions` rebalances large or small partitions automatically.
-2. **Build system integration** uses `TechStackManager` during dependency analysis to account for tooling configuration.
+2. **Build system integration** uses `TechStackDetector` during dependency analysis to account for tooling configuration.
 3. **Unused entry pruning** removes files that no longer exist from all partitions after each index update.
 4. **Distributed indexing** is available through `IncrementalIndexer.start_distributed_indexing`, enabling multi-process indexing for very large repositories.
 

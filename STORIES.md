@@ -44,7 +44,7 @@ Agent-S3. Refer to both documents for a complete understanding of the project.
         *   Creates .github/copilot-instructions.md via `execute_guidelines_command()` if missing
         *   Creates llm.json with default LLM configuration if not present
     *   During initialization it calls `TechStackDetector.detect_tech_stack()` to:
-        *   Use `TechStackManager` to analyze the codebase
+        *   Use `TechStackDetector` to analyze the codebase
         *   Identify languages, frameworks, libraries and their versions
         *   Generate structured tech stack data with best practices
         *   Log formatted tech stack information to the scratchpad
