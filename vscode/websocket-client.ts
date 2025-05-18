@@ -74,6 +74,7 @@ export class WebSocketClient implements vscode.Disposable {
   private pendingMessages: any[] = [];
   private connectionConfig: { host: string; port: number; authToken: string } | null = null;
   private activeStreams: Map<string, { buffer: string }> = new Map();
+  private connectionListeners: Array<(connected: boolean) => void> = [];
   
   private readonly MAX_RECONNECT_ATTEMPTS = 5;
   private readonly RECONNECT_BASE_DELAY_MS = 1000;
@@ -84,6 +85,23 @@ export class WebSocketClient implements vscode.Disposable {
    */
   constructor() {
     this.initializeMessageHandlers();
+  }
+
+  /**
+   * Register a listener for connection state changes
+   */
+  public registerConnectionListener(listener: (connected: boolean) => void) {
+    this.connectionListeners.push(listener);
+  }
+
+  private notifyConnectionListeners(connected: boolean) {
+    this.connectionListeners.forEach((listener) => {
+      try {
+        listener(connected);
+      } catch (error) {
+        console.error('Connection listener error:', error);
+      }
+    });
   }
   
   /**
@@ -139,6 +157,7 @@ export class WebSocketClient implements vscode.Disposable {
     } catch (error) {
       console.error("Error connecting to WebSocket server:", error);
       this.connectionState = ConnectionState.ERROR;
+      this.notifyConnectionListeners(false);
       return false;
     }
   }
@@ -277,6 +296,8 @@ export class WebSocketClient implements vscode.Disposable {
       // Attempt to reconnect if previously connected successfully
       this.scheduleReconnect();
     }
+
+    this.notifyConnectionListeners(false);
   }
   
   /**
@@ -285,6 +306,7 @@ export class WebSocketClient implements vscode.Disposable {
   private handleError(error: Event | Error | any) {
     console.error("WebSocket error:", error);
     this.connectionState = ConnectionState.ERROR;
+    this.notifyConnectionListeners(false);
   }
   
   /**
@@ -297,12 +319,15 @@ export class WebSocketClient implements vscode.Disposable {
       console.log("Authentication successful");
       this.connectionState = ConnectionState.AUTHENTICATED;
       this.reconnectAttempts = 0;
+
+      this.notifyConnectionListeners(true);
       
       // Send any pending messages
       this.sendPendingMessages();
     } else {
       console.error("Authentication failed:", message.error || "Unknown error");
       this.connectionState = ConnectionState.ERROR;
+      this.notifyConnectionListeners(false);
     }
   }
   
