@@ -149,7 +149,7 @@ See `docs/summarization.md` for details.
 - Command Palette integration: Initialize workspace, Make change request, Show help, Show config, Reload LLM config, Explain last LLM interaction, Open Chat Window
 - Status bar item (`$(sparkle) Agent-S3`) to start change requests
 - Dedicated terminal panel for backend interactions
-- Real-time progress monitoring by polling `progress_log.jsonl`
+- Real-time status updates via WebSocket; `progress_log.jsonl` is retained only as a log file
 - Optional Copilot-style chat UI for input; terminal shows actual outputs
 - WebView panels for structured information display:
   - Code change plan reviews

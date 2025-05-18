@@ -100,7 +100,7 @@ Agent-S3. Refer to both documents for a complete understanding of the project.
     *   It shows the terminal (`terminal.show()`).
     *   It sends the developer's request (from input box or chat message) to the CLI, escaping quotes: `python -m agent_s3.cli "<user_request>"` (`terminal.sendText`).
     *   It shows an information notification: `Processing request: <user_request>` (`vscode.window.showInformationMessage`).
-    *   It starts monitoring the `progress_log.jsonl` file for updates by calling `monitorProgress`.
+    *   It opens a `BackendConnection` to stream progress updates via WebSocket.
 3.  **Backend CLI Action (`agent_s3/cli.py`):**
     *   The `main` function parses the command-line arguments, receiving the request text.
     *   It loads the configuration (`Config`).
@@ -159,7 +159,7 @@ Agent-S3. Refer to both documents for a complete understanding of the project.
             *   Includes database schema metadata in PR descriptions when database changes are involved
         *   Clears the task state and reports completion.
 5.  **VS Code Monitoring (`vscode/extension.ts`):**
-    *   The `monitorProgress` function periodically reads `progress_log.jsonl`.
+    *   Progress updates stream through `BackendConnection` via WebSocket, eliminating the file watcher.
     *   Updates the status bar with current phase and status.
     *   When a final state is reached, shows a notification with result summary.
     *   If a PR was created, includes the PR URL in the notification.
