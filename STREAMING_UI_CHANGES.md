@@ -10,7 +10,7 @@
 
 - **Eliminated File Polling Mechanism**
   - Replaced polling with WebSocket streaming
-  - The file-based log (`progress_log.json`/`progress_log.jsonl`) is still written for compatibility with existing watchers
+  - The file-based log (`progress_log.jsonl`) is still written for compatibility with existing watchers
 
 - **Removed Simulated Chat UI**
   - No explicit setTimeout simulation was found, but the architecture has been updated to use real-time streaming
