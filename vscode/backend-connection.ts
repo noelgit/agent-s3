@@ -4,6 +4,8 @@
  */
 
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { WebSocketClient } from './websocket-client';
 import { InteractiveWebviewManager } from './webview-ui-loader';
 
@@ -15,6 +17,8 @@ export class BackendConnection implements vscode.Disposable {
   private interactiveWebviewManager: InteractiveWebviewManager | undefined;
   private activeStreams: Map<string, StreamingContent> = new Map();
   private outputChannel: vscode.OutputChannel;
+  private progressPollingInterval: NodeJS.Timeout | null = null;
+  private progressFilePosition = 0;
   
   /**
    * Create a new backend connection
@@ -22,6 +26,15 @@ export class BackendConnection implements vscode.Disposable {
   constructor() {
     // Create WebSocket client
     this.webSocketClient = new WebSocketClient();
+
+    // Monitor connection state to toggle progress polling
+    this.webSocketClient.registerConnectionListener((connected) => {
+      if (connected) {
+        this.stopMonitoringProgress();
+      } else {
+        this.monitorProgress();
+      }
+    });
     
     // Create output channel for messages
     this.outputChannel = vscode.window.createOutputChannel("Agent-S3");
@@ -41,7 +54,11 @@ export class BackendConnection implements vscode.Disposable {
    * Connect to the backend
    */
   public async connect(): Promise<boolean> {
-    return this.webSocketClient.connect();
+    const result = await this.webSocketClient.connect();
+    if (!result) {
+      this.monitorProgress();
+    }
+    return result;
   }
   
   /**
@@ -308,8 +325,7 @@ export class BackendConnection implements vscode.Disposable {
   private handleProgressIndicator(message: any): void {
     // Show the interactive panel if not already visible
     if (this.interactiveWebviewManager) {
-      const panel = this.interactiveWebviewManager.createOrShowPanel();
-      
+      this.interactiveWebviewManager.createOrShowPanel();
       // Forward the message to the webview
       this.interactiveWebviewManager.postMessage({
         type: 'PROGRESS_INDICATOR',
@@ -317,11 +333,80 @@ export class BackendConnection implements vscode.Disposable {
       });
     }
   }
+
+  /**
+   * Start polling progress_log.jsonl for updates when WebSocket is unavailable
+   */
+  private monitorProgress(): void {
+    if (this.progressPollingInterval) {
+      return;
+    }
+
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+      return;
+    }
+
+    const progressFile = path.join(
+      workspaceFolders[0].uri.fsPath,
+      'progress_log.jsonl'
+    );
+
+    this.progressPollingInterval = setInterval(() => {
+      fs.stat(progressFile, (err, stats) => {
+        if (err || !stats.isFile()) {
+          return;
+        }
+
+        if (stats.size <= this.progressFilePosition) {
+          return;
+        }
+
+        const stream = fs.createReadStream(progressFile, {
+          start: this.progressFilePosition,
+          encoding: 'utf-8'
+        });
+
+        let data = '';
+        stream.on('data', chunk => {
+          data += chunk;
+        });
+
+        stream.on('error', (error) => {
+          console.error('Error reading progress file:', error);
+        });
+
+        stream.on('end', () => {
+          this.progressFilePosition = stats.size;
+          const lines = data.split(/\n/).filter(l => l.trim() !== '');
+          lines.forEach(line => {
+            try {
+              const entry = JSON.parse(line);
+              this.handleProgressIndicator({ content: entry });
+            } catch (e) {
+              console.error('Failed to parse progress log entry', e);
+            }
+          });
+        });
+      });
+    }, 2000);
+  }
+
+  /**
+   * Stop progress file polling
+   */
+  private stopMonitoringProgress(): void {
+    if (this.progressPollingInterval) {
+      clearInterval(this.progressPollingInterval);
+      this.progressPollingInterval = null;
+    }
+  }
   
   /**
    * Dispose of resources
    */
   public dispose(): void {
+    this.stopMonitoringProgress();
     this.webSocketClient.dispose();
     this.outputChannel.dispose();
   }

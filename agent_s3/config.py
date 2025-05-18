@@ -138,7 +138,7 @@ class Config:
             # Default paths
             "workspace_path": ".",
             "log_files": {
-                "development": "progress_log.json",
+                "development": "progress_log.jsonl",
             },
             # Context Management Configuration
             "context_management": {
