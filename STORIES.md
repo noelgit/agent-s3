@@ -215,9 +215,9 @@ Agent-S3. Refer to both documents for a complete understanding of the project.
 9.  **Backend Processing:**
     *   The CLI (`agent_s3/cli.py`) receives and processes the command or request exactly as described in Story 1 (for `/` commands like `/init`, `/help`, `/guidelines`) or Story 2 (for change requests).
     *   **Crucially, all interactive output from the backend (plans, persona debates, approval prompts, diffs, results) appears in the "Agent-S3" terminal, NOT directly in the chat UI bubbles.**
-10. **Chat UI Feedback (Simulated/Limited):**
-    *   The current webview JS in `getWebviewContent` includes a `setTimeout` within `sendMessage` that *simulates* an agent response after a delay (calling `removeTypingIndicator` and `addMessageToUI` with placeholder content).
-    *   **Note:** This is **not** connected to the actual backend output. The chat UI primarily serves as a convenient input method and history viewer. The user **must** monitor the "Agent-S3" terminal for the real interaction flow and agent output.
+10. **Chat UI Feedback via Streaming:**
+    *   Responses from the agent are streamed through `BackendConnection` as WebSocket messages.
+    *   `ChatView` renders these messages progressively using its streaming handlers.
 
 **Outcome:** The user can initiate Agent-S3 commands and requests via the chat interface, and the conversation history is saved. However, the actual detailed interaction (planning, approvals, code diffs, results) occurs in the associated "Agent-S3" terminal, which the user needs to monitor.
 
