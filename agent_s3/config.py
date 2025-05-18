@@ -374,7 +374,7 @@ class Config:
         if log_type in self.settings.log_files.dict():
             return os.path.join(os.getcwd(), self.settings.log_files.dict()[log_type])
         else:
-            return os.path.join(os.getcwd(), f"{log_type}_log.json")
+            return os.path.join(os.getcwd(), f"{log_type}_log.jsonl")
 
 
 def get_config():
