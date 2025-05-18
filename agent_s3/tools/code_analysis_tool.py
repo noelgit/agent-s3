@@ -180,16 +180,17 @@ class CodeAnalysisTool:
         # Check for a cached result with the theme ID
         if theme_id and theme_id in self._query_cache["themes"]:
             cache_entry = self._query_cache["themes"][theme_id]
-            
-            # Check if cache is still valid (not expired)
-            if current_time - cache_entry.get("timestamp", 0) < self.query_cache_max_age:
+
+            # Use expiry_timestamp written when the entry was cached
+            expiry = cache_entry.get("expiry_timestamp")
+            if expiry and current_time <= expiry:
                 # Update access recency for LRU cache management
                 self._update_theme_recency(theme_id)
-                
+
                 logging.info(f"Using cached results for query theme: {theme_id}")
                 return cache_entry["results"][:top_n]
             else:
-                # Cache entry is too old, remove it
+                # Cache entry is expired, remove it
                 logging.info(f"Query theme cache expired: {theme_id}")
                 self._remove_theme_from_cache(theme_id)
         
@@ -567,6 +568,22 @@ class CodeAnalysisTool:
                 self._remove_theme_from_cache(theme_id)
                 
             logging.info(f"Pruned {themes_to_remove} themes from cache")
+
+    def _clean_query_cache(self) -> None:
+        """Remove expired query themes from the cache."""
+        current_time = self._get_current_timestamp()
+        expired = []
+
+        for theme_id, cache_entry in list(self._query_cache["themes"].items()):
+            expiry = cache_entry.get("expiry_timestamp")
+            if expiry and current_time > expiry:
+                expired.append(theme_id)
+
+        for theme_id in expired:
+            self._remove_theme_from_cache(theme_id)
+
+        if expired:
+            logging.debug(f"Removed expired themes from cache: {expired}")
     
     def _get_code_files(self) -> List[str]:
         """

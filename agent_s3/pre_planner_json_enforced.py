@@ -25,126 +25,12 @@ from agent_s3.pre_planning_errors import (
     ComplexityError, RepairError, handle_pre_planning_errors
 )
 
-from agent_s3.planner_json_enforced import get_openrouter_params
-
-# Override the repair_json_structure function to work with the expected schema
-def repair_json_structure(data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Repair JSON structure to match the expected schema.
-    
-    This function overrides the one from planner_json_enforced to work with the expected schema.
-    
-    Args:
-        data: The JSON data to repair
-        
-    Returns:
-        Repaired JSON data
-    """
-    # Create a new dictionary with the required structure
-    repaired = {
-        "original_request": data.get("original_request", "Unknown request"),
-        "features": []
-    }
-    
-    # If the data has feature_groups, convert them to features
-    if "feature_groups" in data and isinstance(data["feature_groups"], list):
-        for group in data["feature_groups"]:
-            if isinstance(group, dict) and "features" in group and isinstance(group["features"], list):
-                for feature in group["features"]:
-                    if isinstance(feature, dict):
-                        # Add the feature to the features list
-                        repaired["features"].append(feature)
-    
-    # If the data already has features, use them
-    elif "features" in data and isinstance(data["features"], list):
-        repaired["features"] = data["features"]
-    
-    # Ensure each feature has the required fields
-    for feature in repaired["features"]:
-        if "name" not in feature:
-            feature["name"] = "Unnamed Feature"
-        if "description" not in feature:
-            feature["description"] = "No description provided"
-        if "files_affected" not in feature:
-            feature["files_affected"] = []
-        if "test_requirements" not in feature:
-            feature["test_requirements"] = {
-                "unit_tests": [],
-                "integration_tests": [],
-                "property_based_tests": [],
-                "acceptance_tests": [],
-                "test_strategy": {
-                    "coverage_goal": "80% line coverage",
-                    "ui_test_approach": "manual testing"
-                }
-            }
-        if "dependencies" not in feature:
-            feature["dependencies"] = {
-                "internal": [],
-                "external": [],
-                "feature_dependencies": []
-            }
-    
-    # Add complexity score and breakdown if not present
-    if "complexity_score" not in repaired:
-        repaired["complexity_score"] = 50
-    if "complexity_breakdown" not in repaired:
-        repaired["complexity_breakdown"] = {}
-    
-    return repaired
-
-# Override the validate_json_schema function to work with the "features" schema
-def validate_json_schema(data: Dict[str, Any]) -> Tuple[bool, str]:
-    """
-    Validate JSON against the pre-planning schema.
-    
-    This function validates the JSON data against the expected schema with "features" instead of "feature_groups".
-    
-    Args:
-        data: The JSON data to validate
-        
-    Returns:
-        Tuple of (is_valid, error_message)
-    """
-    # Basic structure validation
-    if not isinstance(data, dict):
-        return False, "Data is not a dictionary"
-    
-    # Check for required fields
-    if "original_request" not in data:
-        return False, "Missing required field: 'original_request'"
-    
-    if not isinstance(data.get("original_request"), str):
-        return False, "Field 'original_request' should be a string"
-    
-    # Check for features array
-    if "features" not in data:
-        return False, "Missing required field: 'features'"
-    
-    if not isinstance(data.get("features"), list):
-        return False, "Field 'features' should be a list"
-    
-    # Validate each feature
-    for i, feature in enumerate(data.get("features", [])):
-        if not isinstance(feature, dict):
-            return False, f"Feature at index {i} should be a dictionary"
-        
-        # Check for required feature fields
-        if "name" not in feature:
-            return False, f"Missing required field: 'name' in feature at index {i}"
-        
-        if not isinstance(feature.get("name"), str):
-            return False, f"Field 'name' in feature at index {i} should be a string"
-        
-        if "description" not in feature:
-            return False, f"Missing required field: 'description' in feature at index {i}"
-        
-        if not isinstance(feature.get("description"), str):
-            return False, f"Field 'description' in feature at index {i} should be a string"
-    
-    # All validations passed
-    return True, ""
-from agent_s3.complexity_analyzer import ComplexityAnalyzer
+from agent_s3.json_utils import (
+    extract_json_from_text,
+    get_openrouter_json_params,
+    validate_json_schema,
+    repair_json_structure,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -364,6 +250,50 @@ FEATURE_SCHEMA = {
 
 # Use the base PrePlanningError as JSONValidationError for backward compatibility
 JSONValidationError = PrePlanningError
+
+def get_openrouter_params() -> Dict[str, Any]:
+    """Return OpenRouter parameters enforcing JSON output."""
+    return get_openrouter_json_params()
+
+
+def create_fallback_json(original_request: str) -> Dict[str, Any]:
+    """Create a simplified fallback JSON structure."""
+    fallback = create_fallback_pre_planning_output(original_request)
+    features: List[Dict[str, Any]] = []
+    for group in fallback.get("feature_groups", []):
+        features.extend(group.get("features", []))
+    return {"original_request": original_request, "features": features}
+
+
+def _parse_structured_modifications(modification_text: str) -> List[Dict[str, str]]:
+    """Parse structured modification instructions from moderator output."""
+    if not modification_text:
+        return []
+
+    def _parse_block(block: str) -> Optional[Dict[str, str]]:
+        data: Dict[str, str] = {}
+        for line in block.strip().splitlines():
+            if ":" in line:
+                key, value = line.split(":", 1)
+                key = key.strip().upper()
+                if key in {"COMPONENT", "LOCATION", "CHANGE_TYPE", "DESCRIPTION"}:
+                    data[key] = value.strip()
+        return data if len(data) == 4 else None
+
+    structured_match = re.search(r"STRUCTURED_MODIFICATIONS:\s*(.*?)(?:\nRAW_INPUT:|$)", modification_text, re.DOTALL)
+    blocks: List[str]
+    if structured_match:
+        section = structured_match.group(1)
+        blocks = [b for b in re.split(r"Modification\s+\d+:", section) if b.strip()]
+    else:
+        blocks = [b for b in re.split(r"\n---\s*\n", modification_text.strip()) if b.strip()]
+
+    modifications: List[Dict[str, str]] = []
+    for block in blocks:
+        parsed = _parse_block(block)
+        if parsed:
+            modifications.append(parsed)
+    return modifications
 
 def get_json_system_prompt() -> str:
     """
@@ -675,7 +605,7 @@ def extract_json_from_text(text: str) -> Optional[str]:
 
     return None
 
-def process_response(response: str, original_request: str) -> Tuple[bool, Dict[str, Any]]:
+def process_response(response: str, original_request: str) -> Tuple[str, Dict[str, Any], Optional[str]]:
     """
     Process and validate the LLM response.
 
@@ -1169,6 +1099,94 @@ Return ONLY the modified JSON object.
         # If there was an error, return the original data
         logger.warning(f"Failed to regenerate pre-planning data")
         return original_data
+def regenerate_pre_planning_with_modifications(
+    router_agent,
+    original_results: Dict[str, Any],
+    modification_text: str,
+) -> Dict[str, Any]:
+    """Regenerate pre-planning JSON based on user modifications."""
+
+    structured_mods = _parse_structured_modifications(modification_text)
+    openrouter_params = get_openrouter_params()
+    system_prompt = get_json_system_prompt()
+
+    base_json = json.dumps(original_results, indent=2)
+    if structured_mods:
+        mod_lines = []
+        for mod in structured_mods:
+            mod_lines.append(
+                f"Component: {mod['COMPONENT']}\n"
+                f"Location: {mod['LOCATION']}\n"
+                f"Change Type: {mod['CHANGE_TYPE']}\n"
+                f"Description: {mod['DESCRIPTION']}"
+            )
+        mods_section = "\n\n".join(mod_lines)
+        user_prompt = (
+            f"Here is the previous pre-planning JSON:\n```json\n{base_json}\n```\n"
+            "User's Structured Modifications:\n"
+            f"{mods_section}\n"
+            "Apply each modification precisely as specified and return the updated JSON."
+        )
+    else:
+        user_prompt = (
+            f"Here is the previous pre-planning JSON:\n```json\n{base_json}\n```\n"
+            "User's Modification Request:\n"
+            f"{modification_text}\n"
+            "Please update the JSON accordingly and return the full result."
+        )
+
+    response = router_agent.call_llm_by_role(
+        role="pre_planner",
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        config=openrouter_params,
+    )
+
+    status, data, _ = process_response(response, original_results.get("original_request", ""))
+    if status != "success":
+        raise JSONValidationError("Failed to regenerate pre-planning JSON")
+    return data
+
+
+def call_pre_planner_with_enforced_json(
+    router_agent, task_description: str, context: Optional[Dict[str, Any]] = None
+) -> Tuple[bool, Dict[str, Any]]:
+    """Wrapper to call the JSON-enforced pre-planning workflow."""
+    return pre_planning_workflow(router_agent, task_description, context=context)
+
+
+def integrate_with_coordinator(coordinator, task_description: str) -> Dict[str, Any]:
+    """Run JSON-enforced pre-planning within the coordinator workflow."""
+
+    success, data = call_pre_planner_with_enforced_json(coordinator.router_agent, task_description)
+    if not success:
+        raise JSONValidationError("Pre-planning failed")
+
+    complexity_score = data.get("complexity_score")
+    try:
+        assess = coordinator.pre_planner.assess_complexity(task_description)
+        complexity_score = complexity_score or assess.get("score")
+        is_complex = assess.get("is_complex", False)
+    except Exception:
+        is_complex = False
+
+    threshold = coordinator.config.config.get("complexity_threshold", 0)
+    if complexity_score is not None:
+        is_complex = is_complex or complexity_score >= threshold
+
+    result = dict(data)
+    result.update(
+        {
+            "success": True,
+            "status": "completed",
+            "uses_enforced_json": True,
+            "complexity_score": complexity_score,
+            "is_complex": bool(is_complex),
+            "edge_cases": result.get("edge_cases", []),
+        }
+    )
+
+    return result
 
 def pre_planning_workflow(router_agent, initial_request: str, context: Dict[str, Any] = None) -> Tuple[bool, Dict[str, Any]]:
     """
@@ -1184,7 +1202,6 @@ def pre_planning_workflow(router_agent, initial_request: str, context: Dict[str,
         Tuple of (success, result_data)
     """
     request_text = initial_request
-    conversation_history = []
     max_rounds = 5
     last_error_msg = None
     repair_attempts = 0
@@ -1319,7 +1336,6 @@ def pre_planning_workflow(router_agent, initial_request: str, context: Dict[str,
             print(f"\nThe pre-planner needs clarification before proceeding:")
             print(f"\033[93m{msg}\033[0m")
             user_answer = input("Your answer: ").strip()
-            conversation_history.append({"request": request_text, "question": msg, "answer": user_answer})
             request_text = f"{request_text}\n\nClarification: {msg}\nUser answer: {user_answer}"
             last_error_msg = None  # Reset error on clarification
             continue

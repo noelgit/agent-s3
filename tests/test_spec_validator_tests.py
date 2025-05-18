@@ -5,6 +5,38 @@ import unittest
 from unittest import mock
 import logging
 from typing import Dict, Any
+import numpy as np
+import json
+
+
+class DummyEmbeddingClient:
+    """Simple embedding client for tests using letter counts."""
+
+    def generate_embedding(self, text: str) -> np.ndarray:
+        vec = np.zeros(26)
+        for ch in text.lower():
+            if "a" <= ch <= "z":
+                vec[ord(ch) - 97] += 1
+        norm = np.linalg.norm(vec)
+        return vec / norm if norm > 0 else vec
+
+
+class DummyRouterAgent:
+    def call_llm_by_role(self, *args, **kwargs):  # pragma: no cover - simple stub
+        return json.dumps(
+            {
+                "refined_test_requirements": {
+                    "unit_tests": [
+                        {
+                            "description": "Generated test for gap_3",
+                            "target_element_id": "data_validator",
+                            "architecture_issue_addressed": "gap_3",
+                            "priority": "Critical",
+                        }
+                    ]
+                }
+            }
+        )
 
 from agent_s3.test_spec_validator import (
     extract_element_ids_from_system_design,
@@ -14,7 +46,10 @@ from agent_s3.test_spec_validator import (
     validate_element_ids,
     validate_architecture_issue_coverage,
     validate_test_priority_consistency,
-    validate_and_repair_test_specifications
+    validate_and_repair_test_specifications,
+    validate_test_completeness,
+    repair_invalid_element_ids,
+    generate_missing_tests_with_llm,
 )
 
 class TestSpecValidatorTests(unittest.TestCase):
@@ -176,6 +211,37 @@ class TestSpecValidatorTests(unittest.TestCase):
         
         # Check that priority was updated from High to Critical for the security issue
         self.assertEqual(repaired_specs["unit_tests"][0]["priority"], "Critical")
+
+    def test_validate_test_completeness(self):
+        result = validate_test_completeness(self.sample_test_specs, self.sample_system_design)
+        # data_validator and frontend_component not covered
+        self.assertEqual(len(result), 2)
+        ids = {r["element_id"] for r in result}
+        self.assertIn("data_validator", ids)
+
+    def test_semantic_similarity_repair(self):
+        spec = {"unit_tests": [{"target_element_id": "auth controller", "description": "auth"}]}
+        issues = validate_element_ids(spec, self.sample_system_design)
+        repaired = repair_invalid_element_ids(spec, self.sample_system_design, issues, embedding_client=DummyEmbeddingClient())
+        self.assertEqual(repaired["unit_tests"][0]["target_element_id"], "auth_controller")
+
+    def test_llm_repair_missing_tests(self):
+        self.sample_architecture_review["logical_gaps"].append({
+            "id": "gap_3",
+            "description": "Critical issue not covered",
+            "severity": "Critical",
+        })
+
+        with mock.patch("agent_s3.test_spec_validator.generate_missing_tests_with_llm", wraps=generate_missing_tests_with_llm) as mock_gen:
+            repaired_specs, issues, was_repaired = validate_and_repair_test_specifications(
+                self.sample_test_specs,
+                self.sample_system_design,
+                self.sample_architecture_review,
+                router_agent=DummyRouterAgent(),
+            )
+            mock_gen.assert_called()
+            self.assertTrue(any(t.get("architecture_issue_addressed") == "gap_3" for t in repaired_specs["unit_tests"]))
+            self.assertTrue(was_repaired)
 
 
 if __name__ == "__main__":

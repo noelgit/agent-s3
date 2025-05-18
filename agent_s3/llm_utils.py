@@ -11,6 +11,7 @@ import json
 import os
 import threading
 import numpy as np
+import logging
 
 # Import GPTCache
 try:
@@ -131,6 +132,14 @@ def call_llm_with_retry(
         - On success: {'success': True, 'response': response_data}
         - On failure: {'success': False, 'error': error_message, 'details': error_details}
     """
+    # Allow scratchpad_manager to be optional
+    if scratchpad_manager is None:
+        class _NoOpScratchpad:
+            def log(self, category: str, message: str, **_kwargs: Any) -> None:
+                logging.info(f"[{category}] {message}")
+
+        scratchpad_manager = _NoOpScratchpad()
+
     # Wrap the LLM client method with GPTCache if available
     try:
         method_to_call = getattr(llm_client_instance, method_name)
@@ -317,10 +326,10 @@ def get_embedding(
         config = app_config.get_config()
     
     # Try to use OpenRouter API for embeddings
-    api_key = config.get('openrouter_key')
+    api_key = getattr(config, 'openrouter_key', None)
     if not api_key:
         # Try OpenAI API key if OpenRouter is not available
-        api_key = config.get('openai_key')
+        api_key = getattr(config, 'openai_key', None)
         
     if not api_key:
         # No API keys available, return None

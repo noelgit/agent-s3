@@ -11,6 +11,7 @@ import shutil
 import json
 import uuid
 import platform
+import shlex
 from pathlib import Path
 from typing import Tuple, Optional, Dict, Any, List
 
@@ -80,28 +81,20 @@ class BashTool:
         if self.sandbox and not self.docker_available:
             print("Warning: Docker not available. Falling back to restricted subprocess mode.")
     
-    def _format_error(self, error_type: str, message: str, details: Any = None) -> Dict[str, Any]:
-        """Return a standardized error object for BashTool."""
-        return {
-            "success": False,
-            "error_type": error_type,
-            "message": message,
-            "details": details
-        }
+    def run_command(self, command: str, timeout: int = 60) -> Tuple[int, str]:
+        """Run a shell command and return the exit code and output.
 
-    def run_command(self, command: str, timeout: int = 60) -> Dict[str, Any]:
-        """Run a shell command.
-        
         Args:
             command: The command to run
             timeout: Timeout in seconds
-            
+
         Returns:
-            A tuple containing (return code, output)
+            Tuple of ``(exit_code, output)``
         """
         # Check if command is blocked (applies only when Docker is unavailable)
         if not self.docker_available and self._is_blocked(command):
-            return self._format_error('blocked', f"Command '{command}' is blocked for security reasons", command)
+            return 1, f"Error: Command '{command}' is blocked for security reasons"
+
         try:
             # Run in a container if sandbox mode is enabled and Docker is available
             if self.sandbox and self.docker_available:
@@ -109,13 +102,10 @@ class BashTool:
             else:
                 # Fallback to subprocess with restrictions
                 code, output = self._run_with_subprocess(command, timeout)
-            if code == 0:
-                return {"success": True, "output": output}
-            else:
-                error_type = 'timeout' if 'timed out' in output.lower() else 'command_failed'
-                return self._format_error(error_type, f"Command failed: {output}", output)
+
+            return code, output
         except Exception as e:
-            return self._format_error('exception', f"Error executing command: {e}", str(e))
+            return 1, f"Error executing command: {e}"
     
     def run_command_async(self, command: str, timeout: int = 3600) -> str:
         """Run a shell command asynchronously.
@@ -205,9 +195,9 @@ class BashTool:
                 for key, value in self.env_vars.items():
                     env[key] = value
                     
-                process = subprocess.Popen(
-                    script_path,
-                    shell=True,
+                process = subprocess.Popen([
+                    script_path
+                ],
                     env=env
                 )
                 
@@ -471,24 +461,12 @@ class BashTool:
             for key, value in self.env_vars.items():
                 env[key] = value
             
-            # OS-specific command execution
-            shell = True
-            shell_executable = None
-            
-            # Windows-specific adjustments
-            if self.host_os_type == 'windows':
-                # Use cmd.exe explicitly on Windows
-                shell_executable = 'cmd.exe'
-                # If the command doesn't use cmd.exe syntax (like dir, echo, etc.),
-                # prefix it with 'cmd /c' to ensure it runs correctly
-                if not any(cmd in command for cmd in ['cmd', 'powershell']):
-                    command = f'cmd /c {command}'
-            
-            # Run the command with the appropriate shell based on OS
+            command_list = shlex.split(command)
+            if self.host_os_type == 'windows' and not any(cmd in command for cmd in ['cmd', 'powershell']):
+                command_list = ['cmd', '/c'] + command_list
+
             process = subprocess.Popen(
-                command,
-                shell=shell,
-                executable=shell_executable,
+                command_list,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 env=env,

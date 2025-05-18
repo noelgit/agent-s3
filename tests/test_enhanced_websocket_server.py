@@ -8,7 +8,7 @@ import tempfile
 import os
 import time
 import threading
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch, AsyncMock, call
 
 from agent_s3.communication.message_protocol import Message, MessageType, MessageBus
 from agent_s3.communication.enhanced_websocket_server import EnhancedWebSocketServer
@@ -353,10 +353,11 @@ class TestEnhancedWebSocketServer(unittest.TestCase):
         self.server.clients = {new_id: mock_client}
         
         # Queue messages for the old client
-        self.server.client_queues[old_id] = [
+        queued_messages = [
             Message(MessageType.TERMINAL_OUTPUT, {"text": "Message 1"}),
             Message(MessageType.TERMINAL_OUTPUT, {"text": "Message 2"})
         ]
+        self.server.client_queues[old_id] = queued_messages.copy()
         
         # Send queued messages
         with patch.object(self.server, "send_message", AsyncMock(return_value=True)) as mock_send:
@@ -364,6 +365,10 @@ class TestEnhancedWebSocketServer(unittest.TestCase):
             
             self.assertEqual(count, 2)
             self.assertEqual(mock_send.call_count, 2)
+            mock_send.assert_has_calls([
+                call(new_id, queued_messages[0]),
+                call(new_id, queued_messages[1])
+            ])
             self.assertEqual(len(self.server.client_queues[old_id]), 0)
 
 

@@ -1,6 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { vscode } from '../../utilities/vscode';
+import { marked } from 'marked';
+import hljs from 'highlight.js';
+import DOMPurify from 'dompurify';
 import './ChatView.css';
+
+// Configure markdown parser with syntax highlighting
+marked.setOptions({
+  highlight: (code: string, lang: string) => {
+    if (lang && hljs.getLanguage(lang)) {
+      return hljs.highlight(code, { language: lang }).value;
+    }
+    return hljs.highlightAuto(code).value;
+  },
+});
 
 // Define types for our chat components
 interface ChatMessage {
@@ -16,6 +29,7 @@ interface StreamState {
   content: string;
   source: string;
   isThinking: boolean;
+  components: any[];
 }
 
 // Types are defined at the top of the file
@@ -33,6 +47,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
   const [inputText, setInputText] = useState('');
   const [isAgentResponding, setIsAgentResponding] = useState(false);
   const [activeStreams, setActiveStreams] = useState<Record<string, StreamState>>({});
+  const [hasMore, setHasMore] = useState(false);
   
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -46,7 +61,8 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
       switch (message.type) {
         case 'LOAD_HISTORY':
           if (Array.isArray(message.history)) {
-            setMessages(message.history);
+            setMessages(prev => [...message.history, ...prev]);
+            setHasMore(message.has_more);
           }
           break;
           
@@ -60,6 +76,14 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
           
         case 'STREAM_CONTENT':
           handleStreamContent(message.content);
+          break;
+
+        case 'STREAM_INTERACTIVE':
+          handleStreamInteractive(message.content);
+          break;
+
+        case 'STREAM_INTERACTIVE':
+          handleStreamInteractive(message.content);
           break;
           
         case 'STREAM_END':
@@ -159,7 +183,8 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
         id: stream_id,
         content: '',
         source: source || 'agent',
-        isThinking: false
+        isThinking: false,
+        components: []
       }
     }));
     
@@ -184,6 +209,23 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
           ...stream,
           content: stream.content + streamContent,
           isThinking: false
+        }
+      };
+    });
+  };
+
+  const handleStreamInteractive = (content: any) => {
+    const { stream_id, component } = content;
+    setActiveStreams(prev => {
+      const stream = prev[stream_id];
+      if (!stream) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [stream_id]: {
+          ...stream,
+          components: [...stream.components, component]
         }
       };
     });
@@ -305,14 +347,25 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
    * Render message content with format (including code blocks, links, etc)
    */
   const renderMessageContent = (content: string) => {
-    // For now, just render plain text
-    // TODO: Add markdown rendering with syntax highlighting for code blocks
-    return content;
+    const rawHtml = marked.parse(content);
+    const cleanHtml = DOMPurify.sanitize(rawHtml, {
+      ADD_TAGS: ['button', 'input'],
+      ADD_ATTR: ['data-action', 'type', 'placeholder']
+    });
+    return <span dangerouslySetInnerHTML={{ __html: cleanHtml }} />;
   };
   
   return (
     <div className="chat-container">
       <div className="messages-container">
+        {hasMore && (
+          <button
+            className="load-more"
+            onClick={() => vscode.postMessage({ type: 'REQUEST_MORE_HISTORY', already: messages.length })}
+          >
+            Load More
+          </button>
+        )}
         {messages.map((message) => (
           <div key={message.id} className={`message ${message.type}`}>
             <div className="message-content">
@@ -329,13 +382,33 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
           <div key={stream.id} className="message agent streaming">
             <div className="message-content">
               {stream.isThinking ? (
-                <div className="thinking-indicator">
-                  <span className="dot"></span>
-                  <span className="dot"></span>
-                  <span className="dot"></span>
+                <div
+                  className="thinking-indicator"
+                  role="status"
+                  aria-label="Agent is thinking"
+                >
+                  <span className="dot" aria-hidden="true"></span>
+                  <span className="dot" aria-hidden="true"></span>
+                  <span className="dot" aria-hidden="true"></span>
                 </div>
               ) : (
-                renderMessageContent(stream.content)
+                <>
+                  {renderMessageContent(stream.content)}
+                  {stream.components.map((comp, idx) => (
+                    <button
+                      key={idx}
+                      data-action={comp.action}
+                      onClick={() =>
+                        vscode.postMessage({
+                          type: 'interactive_component',
+                          component: comp
+                        })
+                      }
+                    >
+                      {comp.label || comp.placeholder}
+                    </button>
+                  ))}
+                </>
               )}
             </div>
           </div>
@@ -352,10 +425,12 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
           onKeyPress={handleKeyPress}
           placeholder="Type a message..."
           disabled={isAgentResponding}
+          aria-label="Chat message input"
         />
         <button
           onClick={sendMessage}
           disabled={!inputText.trim() || isAgentResponding}
+          aria-label="Send message"
         >
           Send
         </button>

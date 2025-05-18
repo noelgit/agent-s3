@@ -5,6 +5,7 @@ import sys
 import re
 import tempfile
 import subprocess
+import shlex
 from typing import Dict, Optional, Union, List, Tuple, Any, Set, Literal
 
 from .communication.vscode_bridge import VSCodeBridge
@@ -88,9 +89,10 @@ class PromptModerator:
         
         # Open the file
         try:
-            if ' ' in editor:  # Handle editors with arguments
-                command = f"{editor} {file_path}"
-                subprocess.run(command, shell=True, check=True)
+            if ' ' in editor:
+                # Split editor command safely to avoid shell=True
+                command = shlex.split(editor) + [file_path]
+                subprocess.run(command, check=True)
             else:
                 subprocess.run([editor, file_path], check=True)
         except subprocess.CalledProcessError as e:
@@ -958,6 +960,24 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
             if self.scratchpad:
                 self.scratchpad.log("Moderator", "Free-form modification received, no apparent structure")
             return "\n".join(lines)
+
+    def request_debugging_guidance(self, group_name: str, max_attempts: int) -> Optional[str]:
+        """Request engineer guidance when automated debugging fails.
+
+        Args:
+            group_name: Name of the feature group that failed.
+            max_attempts: Number of automated attempts that were made.
+
+        Returns:
+            Modification text provided by the engineer, or None to abort.
+        """
+        question = (
+            f"Implementation for {group_name} failed after {max_attempts} attempts. "
+            "Would you like to provide modifications before retrying?"
+        )
+        if self.ask_yes_no_question(question):
+            return self.ask_for_modification("Enter your modifications:")
+        return None
 
     def show_code_snippet(self, snippet: str, title: str = "Code Snippet") -> None:
         """Display a code snippet with proper formatting.

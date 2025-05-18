@@ -33,6 +33,7 @@ from agent_s3.tech_stack_detector import TechStackDetector
 from agent_s3.file_history_analyzer import FileHistoryAnalyzer
 from agent_s3.task_resumer import TaskResumer
 from agent_s3.command_processor import CommandProcessor
+from agent_s3.workflows import PlanningWorkflow, ImplementationWorkflow
 # Import new standardized error handling
 from agent_s3.errors import (
     AgentError,
@@ -260,10 +261,12 @@ class Coordinator:
             from agent_s3.design_manager import DesignManager
             from agent_s3.implementation_manager import ImplementationManager
             from agent_s3.deployment_manager import DeploymentManager
+            from agent_s3.database_manager import DatabaseManager
             
             self.design_manager = DesignManager(self)
             self.implementation_manager = ImplementationManager(self)
             self.deployment_manager = DeploymentManager(self)
+            self.database_manager = DatabaseManager(self)
             # Initialize code generator
             self.code_generator = CodeGenerator(coordinator=self)
             # Initialize prompt moderator
@@ -449,6 +452,57 @@ class Coordinator:
             except Exception as e:
                 self.scratchpad.log("Coordinator", f"Error preparing context: {e}\n{traceback.format_exc()}", level=LogLevel.WARNING)
             return context
+
+    def _gather_context(self) -> Dict[str, Any]:
+        """Gather context snippets for explaining the last LLM interaction."""
+        # Use error context manager for consistent error handling
+        with self.error_handler.error_context(
+            phase="context",
+            operation="gather_context",
+        ):
+            raw_context = self._prepare_context("explain last interaction")
+            snippets = {}
+
+            if "tech_stack" in raw_context:
+                snippets["tech_stack"] = raw_context["tech_stack"]
+
+            focused = raw_context.get("focused_context", {})
+            if focused:
+                item_limit = self.config.config.get("llm_explain_context_items_limit", 3)
+                snippets["focused_context"] = dict(list(focused.items())[:item_limit])
+
+            return snippets
+
+    def explain_last_llm_interaction(self, context: Dict[str, Any]) -> None:
+        """Print a formatted explanation of the last LLM interaction."""
+        interaction = self.scratchpad.get_last_llm_interaction()
+        if not interaction:
+            print("No LLM interaction has been logged yet.")
+            return
+
+        print("\n# Last LLM Interaction Explanation\n")
+        print(f"Role: {interaction.get('role', 'unknown')}")
+        print(f"Status: {interaction.get('status', 'unknown')}")
+        print(f"Timestamp: {interaction.get('timestamp', 'unknown')}\n")
+
+        print("## Prompt\n" + interaction.get("prompt", "") + "\n")
+        print("## Response\n" + interaction.get("response", "") + "\n")
+
+        if context.get("tech_stack"):
+            print("## Tech Stack")
+            print(json.dumps(context["tech_stack"], indent=2))
+            print()
+
+        focused = context.get("focused_context", {})
+        if focused:
+            print("## Code Snippets")
+            for name, data in focused.items():
+                snippet = data.get("content", "")
+                print(f"### {name}\n{snippet}\n")
+
+        if interaction.get("error"):
+            print("## Error")
+            print(interaction.get("error"))
     
     # _execute_pre_planning_phase method removed as it's redundant with inline implementation in run_task
     
@@ -686,7 +740,8 @@ class Coordinator:
                 })
             else:
                 self.scratchpad.log("Coordinator", f"Starting task {self.current_task_id}: {task[:50]}...")
-                self.progress_tracker.update_progress({"phase": "pre_planner", "status": "started", "task_id": self.current_task_id})
+            planning = PlanningWorkflow(self)
+            approved_consolidated_plans = planning.execute(task, pre_planning_input, from_design)
 
             # --- PHASE 1: Pre-Planning - Generate feature groups ---
             # Use a more specific error handling context for this phase
@@ -1258,6 +1313,10 @@ class Coordinator:
                         })
 
             self.progress_tracker.update_progress({"phase": "implementation_loop", "status": "completed"})
+=======
+            implementation = ImplementationWorkflow(self)
+            all_changes_applied_successfully, task_overall_success = implementation.execute(approved_consolidated_plans)
+>>>>>>> design-workflow-cleanup
 
             # --- PHASE 8: Finalization - Commit changes ---
             if task_overall_success and all_changes_applied_successfully:
@@ -1266,7 +1325,7 @@ class Coordinator:
                 self._finalize_task(all_changes_applied_successfully)
             elif all_changes_applied_successfully:
                 self.scratchpad.log("Coordinator", "Implementation loop completed with partial success. Some groups failed.", level=LogLevel.WARNING)
-                print("\n⚠️ Task completed with partial success. Some feature groups failed implementation. Finalizing applied changes...")
+                print("\n⚠")
                 self._finalize_task(all_changes_applied_successfully)
             else:
                 self.scratchpad.log("Coordinator", "Implementation failed for all approved feature groups.", level=LogLevel.ERROR)
@@ -1282,7 +1341,7 @@ class Coordinator:
                 operation="run_task",
                 level=logging.CRITICAL,
                 reraise=False,
-                inputs={"request_text": request_text}
+                inputs={"request_text": task}
             )
             
             error_msg = f"Unexpected error during task execution: {str(e)}"
@@ -1296,6 +1355,203 @@ class Coordinator:
                 "error": error_msg,
                 "traceback": traceback.format_exc()
             })
+
+    def process_change_request(self, request_text: str, skip_planning: bool = False) -> None:
+        """Facade for processing a change request through the workflow stack.
+
+        If ``skip_planning`` is False the request text is treated as a new task
+        description and passed to :func:`run_task`. When ``skip_planning`` is
+        True the text is assumed to already contain a plan and the implementation
+        workflow is invoked directly.
+
+        Args:
+            request_text: The feature request or plan text.
+            skip_planning: Whether to bypass planning and jump straight to
+                implementation.
+        """
+        try:
+            self.scratchpad.log("Coordinator", f"Processing change request: {request_text[:50]}")
+            if skip_planning:
+                implementation = ImplementationWorkflow(self)
+                implementation.execute([{"plan": request_text}])
+            else:
+                self.run_task(request_text)
+
+            keywords = set(self._extract_keywords_from_task(request_text))
+            if {"deploy", "deployment"} & keywords:
+                self.execute_deployment()
+        except Exception as e:
+            self.error_handler.handle_exception(
+                exc=e,
+                operation="process_change_request",
+                level=logging.ERROR
+            )
+
+    def _planning_workflow(self, task: str, pre_planning_input: Dict[str, Any] | None = None, from_design: bool = False) -> List[Dict[str, Any]]:
+        """Execute planning phases and return approved consolidated plans."""
+        with self.error_handler.error_context(
+            phase="planning",
+            operation="planning_workflow",
+            inputs={"task": task}
+        ):
+            self.progress_tracker.update_progress({"phase": "pre_planning", "status": "started"})
+
+            context = self._prepare_context(task)
+
+            if pre_planning_input is not None:
+                pre_plan_data = pre_planning_input
+            else:
+                from agent_s3.pre_planner_json_enforced import pre_planning_workflow
+                success, pre_plan_data = pre_planning_workflow(self.router_agent, task, context=context)
+                if not success:
+                    raise PlanningError("Pre-planning failed")
+
+            # Static validation of the pre-planning structure
+            from agent_s3.tools.plan_validator import validate_pre_plan
+            self._validate_pre_planning_data(pre_plan_data)
+            validate_pre_plan(pre_plan_data, context_registry=self.context_registry)
+
+            complexity_score = pre_plan_data.get("complexity_score", 0)
+            is_complex = pre_plan_data.get("is_complex", False) or complexity_score >= self.config.config.get("complexity_threshold", 7)
+
+            if is_complex:
+                self.scratchpad.log("Coordinator", f"Task assessed as complex (Score: {complexity_score})")
+                decision = self.prompt_moderator.ask_ternary_question("How would you like to proceed?")
+                if decision == "modify":
+                    self.scratchpad.log("Coordinator", "User chose to refine the request.")
+                    return []
+                if decision == "no":
+                    self.scratchpad.log("Coordinator", "User cancelled the complex task.")
+                    return []
+
+            decision, modification = self._present_pre_planning_results_to_user(pre_plan_data)
+            while decision == "modify":
+                pre_plan_data = self._regenerate_pre_planning_with_modifications(pre_plan_data, modification)
+                decision, modification = self._present_pre_planning_results_to_user(pre_plan_data)
+
+            if decision == "no":
+                self.scratchpad.log("Coordinator", "User terminated the workflow at pre-planning handoff.", level=LogLevel.WARNING)
+                return []
+
+            self.progress_tracker.update_progress({"phase": "feature_group_processing", "status": "started"})
+            fg_result = self.feature_group_processor.process_pre_planning_output(pre_plan_data, task)
+            self.progress_tracker.update_progress({"phase": "feature_group_processing", "status": "completed"})
+
+            if not fg_result.get("success"):
+                self.scratchpad.log("Coordinator", f"Feature group processing failed: {fg_result.get('error')}", level=LogLevel.ERROR)
+                return []
+
+            approved_plans: List[Dict[str, Any]] = []
+            for fg_data in fg_result.get("feature_group_results", {}).values():
+                if not fg_data.get("success"):
+                    self.scratchpad.log(
+                        "Coordinator",
+                        f"Feature group {fg_data.get('feature_group', {}).get('group_name')} processing failed: {fg_data.get('error')}",
+                        level=LogLevel.WARNING,
+                    )
+                    continue
+
+                plan = fg_data.get("consolidated_plan", {})
+                decision, mod_text = self.feature_group_processor.present_consolidated_plan_to_user(plan)
+                while decision == "modify":
+                    plan = self.feature_group_processor.update_plan_with_modifications(plan, mod_text)
+                    decision, mod_text = self.feature_group_processor.present_consolidated_plan_to_user(plan)
+                if decision == "yes":
+                    approved_plans.append(plan)
+
+            return approved_plans
+
+    def _implementation_workflow(self, approved_plans: List[Dict[str, Any]]) -> Tuple[Dict[str, str], bool]:
+        """Run implementation loop for approved plans."""
+        with self.error_handler.error_context(
+            phase="implementation",
+            operation="implementation_workflow",
+        ):
+            all_changes: Dict[str, str] = {}
+            overall_success = True
+
+            max_attempts = self.config.config.get("max_attempts", 3)
+
+            for plan in approved_plans:
+                plan_id = plan.get("plan_id")
+                group_name = plan.get("group_name", "group")
+                plan_success = False
+
+                while True:
+                    attempt = 0
+                    while attempt < max_attempts and not plan_success:
+                        attempt += 1
+                        self.progress_tracker.update_progress({
+                            "phase": "generation",
+                            "status": "started",
+                            "attempt": attempt,
+                            "plan_id": plan_id,
+                        })
+
+                        self.scratchpad.log(
+                            "Coordinator",
+                            f"Generating code for {group_name} (attempt {attempt})",
+                        )
+
+                        changes = self.code_generator.generate_code(plan)
+                        if not changes:
+                            continue
+
+                        if not self._apply_changes_and_manage_dependencies(changes):
+                            continue
+
+                        validation = self._run_validation_phase()
+                        if validation.get("success"):
+                            all_changes.update(changes)
+                            plan_success = True
+                            break
+
+                        if hasattr(self, "debugging_manager") and self.debugging_manager:
+                            debug_res = self.debugging_manager.handle_error(
+                                error_message=validation.get("output", ""),
+                                traceback_text=validation.get("output", ""),
+                            )
+                            if debug_res.get("success"):
+                                dbg_changes = debug_res.get("changes", {})
+                                if dbg_changes:
+                                    self._apply_changes_and_manage_dependencies(dbg_changes)
+                                    changes.update(dbg_changes)
+                                validation = self._run_validation_phase()
+                                if validation.get("success"):
+                                    all_changes.update(changes)
+                                    plan_success = True
+                                    break
+
+                    self.progress_tracker.update_progress({
+                        "phase": "generation",
+                        "status": "completed",
+                        "plan_id": plan_id,
+                        "success": plan_success,
+                    })
+
+                    if plan_success:
+                        break
+
+                    self.scratchpad.log(
+                        "Coordinator",
+                        f"Implementation for {group_name} failed after {max_attempts} attempts",
+                        level=LogLevel.WARNING,
+                    )
+
+                    if hasattr(self, "prompt_moderator") and self.prompt_moderator:
+                        guidance = self.prompt_moderator.request_debugging_guidance(group_name, max_attempts)
+                        if guidance:
+                            plan = self.feature_group_processor.update_plan_with_modifications(plan, guidance)
+                            self.scratchpad.log(
+                                "Coordinator",
+                                "Engineer provided modifications; retrying implementation",
+                            )
+                            continue
+
+                    overall_success = False
+                    break
+
+            return all_changes, overall_success
 
     def _run_validation_phase(self) -> Dict[str, Any]:
         """Runs the validation phase and returns the result.
@@ -1328,13 +1584,13 @@ class Coordinator:
 
             # Validate database integrity if database configurations exist
             with self.error_handler.error_context(phase="validation_run", operation="database_validation"):
-                if hasattr(self, 'database_tool') and self.database_tool:
+                if hasattr(self, 'database_manager') and self.database_manager:
                     try:
                         db_configs = self.config.config.get("databases", {})
                         if db_configs:
                             self.scratchpad.log("Coordinator", "Validating database integrity...")
                             for db_name in db_configs:
-                                test_result = self.database_tool.test_connection(db_name)
+                                test_result = self.database_manager.setup_database(db_name)
                                 if not test_result.get("success", False):
                                     error_msg = test_result.get("error", "Unknown database error")
                                     self.progress_tracker.update_progress({"phase": "validation_run", "status": "failed", "step": "database", "error": error_msg})
@@ -1342,7 +1598,8 @@ class Coordinator:
                                     validation_result["output"] = error_msg
                                     validation_result["metadata"]["db_name"] = db_name
                                     return validation_result
-                                self.database_tool.get_schema_info(db_name)
+                                if hasattr(self.database_manager.database_tool, 'get_schema_info'):
+                                    self.database_manager.database_tool.get_schema_info(db_name)
                                 self.scratchpad.log("Coordinator", f"Database {db_name} schema validated successfully")
                     except Exception as e:
                         # Handle database validation errors through error handler
@@ -1360,10 +1617,8 @@ class Coordinator:
             # Lint
             with self.error_handler.error_context(phase="validation_run", operation="lint"):
                 self.scratchpad.log("Coordinator", "Running linter...")
-                lint_cmd = "flake8 ." # Example, could be configurable
-                lint_result = self.bash_tool.run_command(lint_cmd, timeout=120)
-                lint_code = lint_result.get('exit_code', 1)
-                lint_out = lint_result.get('output', '')
+                lint_cmd = "flake8 ."  # Example, could be configurable
+                lint_code, lint_out = self.bash_tool.run_command(lint_cmd, timeout=120)
                 validation_result["metadata"]["lint_exit_code"] = lint_code
 
                 if lint_code != 0:
@@ -1377,10 +1632,8 @@ class Coordinator:
             # Type-check
             with self.error_handler.error_context(phase="validation_run", operation="type_check"):
                 self.scratchpad.log("Coordinator", "Running type checker...")
-                type_cmd = "mypy ." # Example, could be configurable
-                type_result = self.bash_tool.run_command(type_cmd, timeout=120)
-                type_code = type_result.get('exit_code', 1)
-                type_out = type_result.get('output', '')
+                type_cmd = "mypy ."  # Example, could be configurable
+                type_code, type_out = self.bash_tool.run_command(type_cmd, timeout=120)
                 validation_result["metadata"]["type_check_exit_code"] = type_code
 
                 if type_code != 0:
@@ -1473,6 +1726,7 @@ class Coordinator:
                     dirpath = os.path.dirname(filepath)
                     if dirpath:
                         os.makedirs(dirpath, exist_ok=True)
+                   
                     with open(filepath, 'w', encoding='utf-8') as f:
                         f.write(content)
                     self.scratchpad.log("Coordinator", f"Wrote file: {filepath}")
@@ -1484,22 +1738,22 @@ class Coordinator:
                 # Install dependencies if requirements.txt changed
                 if os.path.exists('requirements.txt'):
                     self.scratchpad.log("Coordinator", "Installing dependencies...")
-                    result = self.bash_tool.run_command("pip install -r requirements.txt", timeout=300)
-                    self.scratchpad.log("Coordinator", f"Dependency installation result: exit_code={result.get('exit_code', 1)}")
+                    exit_code, _ = self.bash_tool.run_command("pip install -r requirements.txt", timeout=300)
+                    self.scratchpad.log("Coordinator", f"Dependency installation result: exit_code={exit_code}")
                 
-                # Execute SQL scripts if any and database_tool is available
-                if sql_scripts and hasattr(self, 'database_tool') and self.database_tool:
+                # Execute SQL scripts if any and database manager is available
+                if sql_scripts and hasattr(self, 'database_manager') and self.database_manager:
                     self.scratchpad.log("Coordinator", "Executing database scripts...")
                     db_configs = self.config.config.get("databases", {})
-                    
+
                     if db_configs:
                         for script_path in sql_scripts:
                             # Determine target database from script path or content
                             target_db = self._determine_target_database(script_path, db_configs)
                             if target_db:
                                 self.scratchpad.log("Coordinator", f"Executing SQL script {script_path} on database {target_db}")
-                                result = self.database_tool.execute_script(script_path, db_name=target_db)
-                                
+                                result = self.database_manager.run_migration(script_path, db_name=target_db)
+
                                 if not result.get("success", False):
                                     error_msg = result.get("error", "Unknown database error")
                                     self.scratchpad.log("Coordinator", f"SQL script execution failed: {error_msg}", level=LogLevel.ERROR)
@@ -1739,8 +1993,8 @@ class Coordinator:
             self.progress_tracker.update_progress({"phase": "finalizing", "status": "started"})
             self.scratchpad.log("Coordinator", "Finalizing task: committing changes and creating PR if configured...")
             
-            # Save database schema metadata if database tool is available
-            if hasattr(self, 'database_tool') and self.database_tool:
+            # Save database schema metadata if database manager is available
+            if hasattr(self, 'database_manager') and self.database_manager:
                 try:
                     db_configs = self.config.config.get("databases", {})
                     if db_configs:
@@ -1748,9 +2002,10 @@ class Coordinator:
                         schema_metadata = {}
                         
                         for db_name in db_configs:
-                            # Get schema info for each database
-                            schema_result = self.database_tool.get_schema_info(db_name)
-                            if schema_result.get("success", False):
+                            schema_result = None
+                            if hasattr(self.database_manager.database_tool, 'get_schema_info'):
+                                schema_result = self.database_manager.database_tool.get_schema_info(db_name)
+                            if schema_result and schema_result.get("success", False):
                                 schema_metadata[db_name] = schema_result.get("schema", {})
                             
                         # Save schema metadata to a file for reference
@@ -1798,7 +2053,7 @@ class Coordinator:
                 pr_body = f"Implements feature request.\nCloses #{str(self.current_issue_url).split('/')[-1]}"
                 
                 # Add database schema information to PR description if available
-                if hasattr(self, 'database_tool') and self.database_tool:
+                if hasattr(self, 'database_manager') and self.database_manager:
                     db_configs = self.config.config.get("databases", {})
                     if db_configs:
                         pr_body += "\n\n## Database Changes\n"
@@ -1887,3 +2142,65 @@ class Coordinator:
                 "success": False,
                 "error": str(e)
             }
+
+    def execute_deployment(self, design_file: str = "design.txt") -> Dict[str, Any]:
+        """Execute deployment using the deployment manager."""
+        try:
+            if not hasattr(self, "deployment_manager"):
+                return {"success": False, "error": "Deployment manager not available"}
+
+            result = self.deployment_manager.execute_deployment()
+            return result
+        except Exception as e:
+            self.error_handler.handle_exception(
+                exc=e,
+                operation="execute_deployment",
+                level=logging.ERROR,
+            )
+            return {"success": False, "error": str(e)}
+
+    def deploy(self, design_file: str = "design.txt") -> Dict[str, Any]:
+        """Facade used by CommandProcessor to start deployment."""
+        return self.execute_deployment(design_file)
+
+    def execute_implementation(self, design_file: str = "design.txt") -> Dict[str, Any]:
+        """Execute implementation using the implementation manager."""
+        try:
+            if not hasattr(self, "implementation_manager"):
+                return {"success": False, "error": "Implementation manager not available"}
+
+            if not os.path.exists(design_file):
+                return {"success": False, "error": f"Design file not found: {design_file}"}
+
+            if hasattr(self, "scratchpad"):
+                self.scratchpad.log("Coordinator", f"Starting implementation from {design_file}")
+
+            return self.implementation_manager.start_implementation(design_file)
+        except Exception as e:
+            self.error_handler.handle_exception(
+                exc=e,
+                operation="execute_implementation",
+                level=logging.ERROR,
+            )
+            return {"success": False, "error": str(e)}
+
+    def execute_continue(self, continue_type: str = "implementation") -> Dict[str, Any]:
+        """Continue a workflow such as implementation or design."""
+        try:
+            if continue_type == "implementation":
+                if not hasattr(self, "implementation_manager"):
+                    return {"success": False, "error": "Implementation manager not available"}
+
+                if hasattr(self, "scratchpad"):
+                    self.scratchpad.log("Coordinator", "Continuing implementation")
+
+                return self.implementation_manager.continue_implementation()
+
+            return {"success": False, "error": f"Unsupported continuation type: {continue_type}"}
+        except Exception as e:
+            self.error_handler.handle_exception(
+                exc=e,
+                operation="execute_continue",
+                level=logging.ERROR,
+            )
+            return {"success": False, "error": str(e)}

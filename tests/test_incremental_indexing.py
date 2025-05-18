@@ -249,11 +249,15 @@ class TestIncrementalIndexing(unittest.TestCase):
         # Test watch mode
         watch_id = adapter.enable_watch_mode(self.temp_dir)
         self.assertTrue(bool(watch_id))
-        
+
         # Test stats
         stats = adapter.get_index_stats()
         self.assertIn("partitions", stats)
-        
+
+        # Test distributed indexing
+        dist_result = adapter.indexer.start_distributed_indexing(self.temp_dir, worker_count=2)
+        self.assertEqual(dist_result["status"], "success")
+
         # Clean up
         adapter.teardown()
 

@@ -65,9 +65,10 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({ files, summary }) => {
       
       <div className="diff-controls">
         <div className="file-selector">
-          <select 
+          <select
             value={currentFileIndex}
             onChange={(e) => setCurrentFileIndex(parseInt(e.target.value))}
+            aria-label="Select file"
           >
             {files.map((file, index) => (
               <option key={file.path} value={index}>
@@ -78,15 +79,17 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({ files, summary }) => {
         </div>
         
         <div className="view-mode-selector">
-          <button 
-            className={viewMode === 'split' ? 'active' : ''} 
+          <button
+            className={viewMode === 'split' ? 'active' : ''}
             onClick={() => setViewMode('split')}
+            aria-label="Use split view"
           >
             Split View
           </button>
-          <button 
-            className={viewMode === 'unified' ? 'active' : ''} 
+          <button
+            className={viewMode === 'unified' ? 'active' : ''}
             onClick={() => setViewMode('unified')}
+            aria-label="Use unified view"
           >
             Unified View
           </button>
@@ -135,13 +138,25 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({ files, summary }) => {
       </div>
       
       <div className="diff-actions">
-        <button className="open-in-editor" onClick={handleOpenInEditor}>
+        <button
+          className="open-in-editor"
+          onClick={handleOpenInEditor}
+          aria-label="Open file in editor"
+        >
           Open in Editor
         </button>
-        <button className="reject-diff" onClick={handleReject}>
+        <button
+          className="reject-diff"
+          onClick={handleReject}
+          aria-label="Reject changes"
+        >
           Reject
         </button>
-        <button className="approve-diff" onClick={handleApprove}>
+        <button
+          className="approve-diff"
+          onClick={handleApprove}
+          aria-label="Approve changes"
+        >
           Approve
         </button>
       </div>

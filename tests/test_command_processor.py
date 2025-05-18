@@ -1,8 +1,6 @@
 """Tests for the CommandProcessor component."""
 
-import os
 import pytest
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from agent_s3.command_processor import CommandProcessor
@@ -108,8 +106,8 @@ class TestCommandProcessor:
         mock_coordinator.execute_generate = MagicMock()
         
         # Exercise
-        result = command_processor.execute_generate_command("")
-        
+        command_processor.execute_generate_command("")
+
         # Verify
         mock_coordinator.execute_generate.assert_called_once()
         mock_coordinator.progress_tracker.update_progress.assert_called()
@@ -200,7 +198,51 @@ class TestCommandProcessor:
         """Test execute_help_command with a specific command."""
         # Exercise
         result = command_processor.execute_help_command("init")
-        
+
         # Verify
         assert "/init:" in result
         assert "Initialize workspace" in result
+
+    @patch('pathlib.Path.exists')
+    @patch('pathlib.Path.read_text')
+    def test_generate_command_fallback_to_process_change_request(self, mock_read_text, mock_exists, command_processor, mock_coordinator):
+        """Ensure generate command uses process_change_request when execute_generate is unavailable."""
+        mock_exists.return_value = True
+        mock_read_text.return_value = "Plan"
+        if hasattr(mock_coordinator, 'execute_generate'):
+            delattr(mock_coordinator, 'execute_generate')
+        mock_coordinator.process_change_request = MagicMock()
+
+        command_processor.execute_generate_command("")
+
+        mock_coordinator.process_change_request.assert_called_once_with("Plan", skip_planning=True)
+
+    def test_execute_request_command(self, command_processor, mock_coordinator):
+        """Test execute_request_command routes to process_change_request."""
+        result = command_processor.execute_request_command("Add feature")
+        mock_coordinator.process_change_request.assert_called_once_with("Add feature")
+        assert result == ""
+
+    @patch('pathlib.Path.exists')
+    def test_execute_implement_command(self, mock_exists, command_processor, mock_coordinator):
+        """Test execute_implement_command calls coordinator.execute_implementation."""
+        mock_exists.return_value = True
+        mock_coordinator.execute_implementation.return_value = {"success": True, "message": "done"}
+
+        result = command_processor.execute_implement_command("design.txt")
+
+        mock_coordinator.execute_implementation.assert_called_once_with("design.txt")
+        assert "done" in result
+
+    def test_execute_continue_command(self, command_processor, mock_coordinator):
+        """Test execute_continue_command calls coordinator.execute_continue."""
+        mock_coordinator.execute_continue.return_value = {
+            "success": True,
+            "message": "continued"
+        }
+
+        result = command_processor.execute_continue_command("implementation")
+
+        mock_coordinator.execute_continue.assert_called_once_with("implementation")
+        assert "continued" in result
+

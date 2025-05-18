@@ -391,7 +391,7 @@ For troubleshooting, consider these common issues and solutions:
     "capabilities": ["fast chat","file scaffolding","simple Q&A","documentation generation","code formatting","template creation"],
     "pricing_per_million": {"input":0.15,"output":0.60},
     "api": {"endpoint":"POST https://api.openai.com/v1/chat/completions","auth_header":"Authorization: Bearer $OPENAI_KEY"},
-    "example_call": "curl https://api.openai.com/v1/chat/completions \\\\n  -H \\"Authorization: Bearer $OPENAI_KEY\\" \\\\n  -H \\"Content-Type: application/json\\" \\\\n  -d '{\\\"model\\\":\\\"gpt-4o-mini\\\",\\\"messages\\\":[{\\\"role\\\":\\\"user\\\",\\\"content\\\":\\\"Generate a Python CLI project scaffold with setup.py and README\\\"}]}'",
+    "example_call": "curl https://api.openai.com/v1/chat/completions \\\\n  -H \\"Authorization: Bearer $OPENAI_KEY\\" \\\\n  -H \\"Content-Type: application/json\\" \\\\n  -d '{\\\"model\\\":\\\"gpt-4o-mini\\\",\\\"messages\\\":[{\\\"role\\\":\\\"user\\\",\\\"content\\\":\\\"Generate a Python CLI project scaffold with pyproject.toml and README\\\"}]}'",
     "use_cases": ["Generate file/project scaffolds","Format or lint code snippets","Quick dev Q&A","Boilerplate tests","Doc stubs"]
   },
   {

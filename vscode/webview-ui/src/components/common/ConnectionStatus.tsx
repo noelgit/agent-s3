@@ -50,15 +50,27 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     <div className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`}>
       {isConnected ? (
         <span>
-          <span className="status-indicator connected"></span>
+          <span
+            className="status-indicator connected"
+            role="img"
+            aria-label="connected"
+          ></span>
           Connected to Agent-S3
         </span>
       ) : (
         <span>
-          <span className="status-indicator disconnected"></span>
+          <span
+            className="status-indicator disconnected"
+            role="img"
+            aria-label="disconnected"
+          ></span>
           Disconnected
           {onReconnect && (
-            <button className="reconnect-button" onClick={handleReconnectClick}>
+            <button
+              className="reconnect-button"
+              onClick={handleReconnectClick}
+              aria-label="Reconnect"
+            >
               Reconnect
             </button>
           )}

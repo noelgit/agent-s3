@@ -14,6 +14,7 @@ from agent_s3.task_resumer import TaskResumer
 from agent_s3.command_processor import CommandProcessor
 from agent_s3.pre_planning_validator import PrePlanningValidator
 from agent_s3.complexity_analyzer import ComplexityAnalyzer
+from agent_s3.database_manager import DatabaseManager
 from agent_s3.pre_planning_errors import (
     AgentS3BaseError, PrePlanningError, ValidationError,
     SchemaError, RepairError, ComplexityError, handle_pre_planning_errors
@@ -35,4 +36,5 @@ __all__ = [
     'ComplexityError',
     'handle_pre_planning_errors',
     'CommandProcessor',
+    'DatabaseManager',
 ]

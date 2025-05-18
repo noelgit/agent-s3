@@ -111,11 +111,11 @@ class TerminalExecutor:
         
         # Execute command with exception handling
         try:
+            cmd_list = shlex.split(command)
             proc = subprocess.Popen(
-                command, 
-                shell=True, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.STDOUT, 
+                cmd_list,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 text=True,
                 env=execution_env,
                 cwd=os.getcwd()
@@ -198,9 +198,9 @@ class TerminalExecutor:
                     if dangerous_var in execution_env:
                         del execution_env[dangerous_var]
                         
+                cmd_list = shlex.split(command)
                 proc = subprocess.Popen(
-                    command,
-                    shell=True,
+                    cmd_list,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
@@ -260,9 +260,9 @@ class TerminalExecutor:
             if dangerous_var in execution_env:
                 del execution_env[dangerous_var]
         try:
+            cmd_list = shlex.split(command)
             proc = subprocess.Popen(
-                command,
-                shell=True,
+                cmd_list,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,

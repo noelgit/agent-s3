@@ -67,7 +67,7 @@ Agent-S3 provides real-time status updates in the VS Code interface as it works 
 
 Detailed logs are available in your workspace:
 - `scratchpad.txt` - Detailed internal chain-of-thought log
-- `progress_log.json` - Structured progress updates
+- `progress_log.jsonl` - Structured progress updates
 - `development_status.json` - Overall development status tracking
 
 ## Feedback and Contributions

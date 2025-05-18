@@ -330,5 +330,3 @@ class TestPlanValidator:
         assert validation_results.get("summary", {}).get("critical_count", 0) == len(critical_errors)
 
 
-if __name__ == "__main__":
-    pytest.main(["-xvs", "tests/test_plan_validator.py"])

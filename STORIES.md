@@ -2,6 +2,9 @@
 
 This document outlines common user scenarios and provides step-by-step walkthroughs for interacting with Agent-S3, based on the actual implementation in the `agent_s3` Python package and the `vscode` extension.
 
+Together with `README.md`, this file constitutes the canonical documentation for
+Agent-S3. Refer to both documents for a complete understanding of the project.
+
 ## Story 1: Initializing Agent-S3 in a New Workspace
 
 **Goal:** Set up Agent-S3 for the first time in a project workspace and authenticate with GitHub.
@@ -40,11 +43,11 @@ This document outlines common user scenarios and provides step-by-step walkthrou
         *   Creates personas.md via `execute_personas_command()` if it doesn't exist
         *   Creates .github/copilot-instructions.md via `execute_guidelines_command()` if missing
         *   Creates llm.json with default LLM configuration if not present
-    *   It detects the tech stack via `_detect_tech_stack()` which:
-        *   Uses TechStackManager to analyze the codebase
-        *   Identifies languages, frameworks, libraries and their versions
-        *   Generates structured tech stack data with best practices
-        *   Logs formatted tech stack information to scratchpad
+    *   During initialization it calls `TechStackDetector.detect_tech_stack()` to:
+        *   Use `TechStackManager` to analyze the codebase
+        *   Identify languages, frameworks, libraries and their versions
+        *   Generate structured tech stack data with best practices
+        *   Log formatted tech stack information to the scratchpad
 6.  **GitHub Authentication Flow (`agent_s3/auth.py`, if needed):**
     *   If authentication is required and no valid token is found (checked via `check_github_auth`), `auth.authenticate_user()` is called by the `Coordinator`.
     *   `authenticate_user` determines the flow (OAuth App or GitHub App based on config).
@@ -97,7 +100,7 @@ This document outlines common user scenarios and provides step-by-step walkthrou
     *   It shows the terminal (`terminal.show()`).
     *   It sends the developer's request (from input box or chat message) to the CLI, escaping quotes: `python -m agent_s3.cli "<user_request>"` (`terminal.sendText`).
     *   It shows an information notification: `Processing request: <user_request>` (`vscode.window.showInformationMessage`).
-    *   It starts monitoring the `progress_log.json` file for updates by calling `monitorProgress`.
+    *   It opens a `BackendConnection` to stream progress updates via WebSocket.
 3.  **Backend CLI Action (`agent_s3/cli.py`):**
     *   The `main` function parses the command-line arguments, receiving the request text.
     *   It loads the configuration (`Config`).
@@ -156,7 +159,7 @@ This document outlines common user scenarios and provides step-by-step walkthrou
             *   Includes database schema metadata in PR descriptions when database changes are involved
         *   Clears the task state and reports completion.
 5.  **VS Code Monitoring (`vscode/extension.ts`):**
-    *   The `monitorProgress` function periodically reads `progress_log.json`.
+    *   Progress updates stream through `BackendConnection` via WebSocket, eliminating the file watcher.
     *   Updates the status bar with current phase and status.
     *   When a final state is reached, shows a notification with result summary.
     *   If a PR was created, includes the PR URL in the notification.
@@ -212,9 +215,9 @@ This document outlines common user scenarios and provides step-by-step walkthrou
 9.  **Backend Processing:**
     *   The CLI (`agent_s3/cli.py`) receives and processes the command or request exactly as described in Story 1 (for `/` commands like `/init`, `/help`, `/guidelines`) or Story 2 (for change requests).
     *   **Crucially, all interactive output from the backend (plans, persona debates, approval prompts, diffs, results) appears in the "Agent-S3" terminal, NOT directly in the chat UI bubbles.**
-10. **Chat UI Feedback (Simulated/Limited):**
-    *   The current webview JS in `getWebviewContent` includes a `setTimeout` within `sendMessage` that *simulates* an agent response after a delay (calling `removeTypingIndicator` and `addMessageToUI` with placeholder content).
-    *   **Note:** This is **not** connected to the actual backend output. The chat UI primarily serves as a convenient input method and history viewer. The user **must** monitor the "Agent-S3" terminal for the real interaction flow and agent output.
+10. **Chat UI Feedback via Streaming:**
+    *   Responses from the agent are streamed through `BackendConnection` as WebSocket messages.
+    *   `ChatView` renders these messages progressively using its streaming handlers.
 
 **Outcome:** The user can initiate Agent-S3 commands and requests via the chat interface, and the conversation history is saved. However, the actual detailed interaction (planning, approvals, code diffs, results) occurs in the associated "Agent-S3" terminal, which the user needs to monitor.
 
@@ -264,7 +267,7 @@ This document outlines common user scenarios and provides step-by-step walkthrou
     *   `main` parses arguments and identifies `/explain`.
     *   `process_command` handles it and prints "Explaining the last LLM interaction with context...".
     *   It initializes the `Coordinator`.
-    *   It gathers context via `coordinator._gather_context()` to provide tech stack and code snippets for better explanation context.
+    *   It gathers context via `coordinator._gather_context()` (a wrapper around `_prepare_context`) to provide tech stack details and relevant code snippets for context.
     *   It calls `coordinator.explain_last_llm_interaction(context)`, passing in the gathered context.
 3.  **Explanation Content (Enhanced with Tech Stack and Code Context):**
     *   The `role` (model identifier used, e.g., "gemini-2.5-pro" or "mistral-7b-instruct") is shown.

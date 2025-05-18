@@ -13,17 +13,17 @@ from unittest.mock import MagicMock, patch
 from agent_s3.pre_planner_json_enforced import (
     get_json_system_prompt,
     get_json_user_prompt,
-    get_openrouter_params,
+    get_openrouter_json_params,
     validate_json_schema,
     repair_json_structure,
-    extract_json_from_text,
     create_fallback_json,
     integrate_with_coordinator,
     _parse_structured_modifications,
     regenerate_pre_planning_with_modifications,
     JSONValidationError,
-    pre_planning_workflow
+    pre_planning_workflow,
 )
+from agent_s3.json_utils import extract_json_from_text
 
 
 class TestPrePlannerJsonEnforced:
@@ -46,9 +46,9 @@ class TestPrePlannerJsonEnforced:
         assert task in prompt
         assert "structured data" in prompt
 
-    def test_get_openrouter_params(self):
+    def test_get_openrouter_json_params(self):
         """Test that OpenRouter parameters are correctly configured."""
-        params = get_openrouter_params()
+        params = get_openrouter_json_params()
         assert isinstance(params, dict)
         assert "response_format" in params
         assert params["response_format"]["type"] == "json_object"
@@ -288,7 +288,7 @@ class TestPrePlannerJsonEnforced:
     @patch('agent_s3.pre_planner_json_enforced.process_response')
     @patch('agent_s3.pre_planner_json_enforced.get_json_system_prompt')
     @patch('agent_s3.pre_planner_json_enforced.get_json_user_prompt')
-    @patch('agent_s3.pre_planner_json_enforced.get_openrouter_params')
+    @patch('agent_s3.pre_planner_json_enforced.get_openrouter_json_params')
     def test_call_pre_planner_with_enforced_json_success(self, mock_params, mock_user_prompt, 
                                                         mock_system_prompt, mock_process):
         """Test successful call to pre-planner with enforced JSON."""
@@ -316,7 +316,7 @@ class TestPrePlannerJsonEnforced:
     @patch('agent_s3.pre_planner_json_enforced.process_response')
     @patch('agent_s3.pre_planner_json_enforced.get_json_system_prompt')
     @patch('agent_s3.pre_planner_json_enforced.get_json_user_prompt')
-    @patch('agent_s3.pre_planner_json_enforced.get_openrouter_params')
+    @patch('agent_s3.pre_planner_json_enforced.get_openrouter_json_params')
     def test_call_pre_planner_with_enforced_json_retry(self, mock_params, mock_user_prompt, 
                                                        mock_system_prompt, mock_process):
         """Test retry mechanism for pre-planner with enforced JSON."""
@@ -344,7 +344,7 @@ class TestPrePlannerJsonEnforced:
     @patch('agent_s3.pre_planner_json_enforced.process_response')
     @patch('agent_s3.pre_planner_json_enforced.get_json_system_prompt')
     @patch('agent_s3.pre_planner_json_enforced.get_json_user_prompt')
-    @patch('agent_s3.pre_planner_json_enforced.get_openrouter_params')
+    @patch('agent_s3.pre_planner_json_enforced.get_openrouter_json_params')
     @patch('agent_s3.pre_planner_json_enforced.create_fallback_json')
     def test_call_pre_planner_with_enforced_json_fallback(self, mock_fallback, mock_params, 
                                                           mock_user_prompt, mock_system_prompt, 
@@ -600,5 +600,3 @@ DESCRIPTION: Add error handling for connection failures
         # Verify the result
         assert result == json_data
 
-if __name__ == "__main__":
-    pytest.main(["-xvs", "test_pre_planner_json_enforced.py"])

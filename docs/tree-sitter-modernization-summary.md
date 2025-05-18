@@ -15,7 +15,7 @@
    - Removed all references to tree-sitter-languages in the code
 
 4. **Documentation Updates**
-   - Updated `/Users/noelpatron/Documents/GitHub/agent-s3/README.tree-sitter-setup.md` to reflect current supported languages only
+   - Updated `README.tree-sitter-setup.md` to reflect current supported languages only
    - Removed all references to the alternative approaches
 
 ## Current Implementation Details

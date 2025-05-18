@@ -134,20 +134,22 @@ The incremental indexing system significantly improves performance for code sear
 - **Memory usage**: More efficient due to partitioned storage
 - **Disk usage**: Slightly higher due to additional metadata storage
 
+## Recent Enhancements
+
+Several advanced features have been implemented to improve scalability:
+
+1. **Partition optimization** via `IndexPartitionManager.optimize_partitions` rebalances large or small partitions automatically.
+2. **Build system integration** uses `TechStackManager` during dependency analysis to account for tooling configuration.
+3. **Unused entry pruning** removes files that no longer exist from all partitions after each index update.
+4. **Distributed indexing** is available through `IncrementalIndexer.start_distributed_indexing`, enabling multi-process indexing for very large repositories.
+
 ## Limitations and Future Work
 
 Current limitations:
 
 1. Language-specific dependency analysis varies in accuracy
-2. Limited support for complex build systems and configuration-based dependencies
-3. Memory usage still scales with repository size for certain operations
-
-Future improvements:
-
-1. More sophisticated partition optimization strategies
-2. Better integration with build systems for dependency analysis
-3. Pruning of unused index entries for greater efficiency
-4. Distributed indexing for very large repositories
+2. Memory usage still scales with repository size for certain operations
+3. Some build systems may still require custom adapters
 
 ## Troubleshooting
 

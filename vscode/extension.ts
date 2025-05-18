@@ -15,7 +15,7 @@ export function activate(context: vscode.ExtensionContext) {
   const interactiveWebviewManager = new InteractiveWebviewManager(context.extensionUri);
   
   // Create backend connection
-  const backendConnection = new BackendConnection();
+  const backendConnection = new BackendConnection(context.workspaceState);
   backendConnection.setInteractiveWebviewManager(interactiveWebviewManager);
   
   // Try to connect to the backend
@@ -36,6 +36,17 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('agent-s3.openChatWindow', openChatWindow),
     vscode.commands.registerCommand('agent-s3.openInteractiveView', openInteractiveView)
   );
+
+  // Create status bar item to trigger change requests or open chat
+  const statusBarItem = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Left,
+    100
+  );
+  statusBarItem.text = '$(sparkle) Agent-S3';
+  statusBarItem.command = 'agent-s3.request';
+  statusBarItem.tooltip = 'Start a change request';
+  statusBarItem.show();
+  context.subscriptions.push(statusBarItem);
   
   // Initialize the WebSocket tester
   const wsocketTester = initializeWebSocketTester(context);
@@ -177,8 +188,107 @@ export function activate(context: vscode.ExtensionContext) {
    * Open the chat window
    */
   function openChatWindow() {
-    // Implementation would go here
-    vscode.window.showInformationMessage('Chat window will be implemented with WebSocket streaming');
+    // Create or show the shared interactive webview panel
+    const panel = interactiveWebviewManager.createOrShowPanel();
+
+    // Load persisted chat history from workspace state
+    const messageHistory: any[] = context.workspaceState.get(
+      'agent-s3.chatHistory',
+      []
+    );
+
+    // Save history when the panel is disposed
+    panel.onDidDispose(() => {
+      context.workspaceState.update('agent-s3.chatHistory', messageHistory);
+    });
+
+    // Set up message handler for chat and interactive messages
+    interactiveWebviewManager.setMessageHandler((message) => {
+      console.log('Received message from chat webview:', message);
+
+      if (!message.type) {
+        return;
+      }
+
+      switch (message.type) {
+        case 'webview-ready':
+          const initial = messageHistory.slice(-20);
+          interactiveWebviewManager.postMessage({
+            type: 'LOAD_HISTORY',
+            history: initial,
+            has_more: messageHistory.length > initial.length
+          });
+          break;
+
+        case 'REQUEST_MORE_HISTORY':
+          const alreadySent = message.already || 0;
+          const more = messageHistory.slice(Math.max(0, messageHistory.length - alreadySent - 20), messageHistory.length - alreadySent);
+          interactiveWebviewManager.postMessage({
+            type: 'LOAD_HISTORY',
+            history: more,
+            has_more: messageHistory.length > alreadySent + more.length
+          });
+          break;
+
+        case 'send':
+          if (!message.text) {
+            break;
+          }
+
+          // Record the user message in history
+          messageHistory.push({
+            id: `user-${Date.now()}`,
+            type: 'user',
+            content: message.text,
+            timestamp: new Date(),
+            isComplete: true,
+          });
+
+          // Persist updated history
+          context.workspaceState.update('agent-s3.chatHistory', messageHistory);
+
+          // Forward the message to the backend for processing
+          backendConnection.sendMessage({
+            type: 'user_input',
+            content: { text: message.text },
+          });
+          break;
+
+        case 'APPROVAL_RESPONSE':
+          backendConnection.sendMessage({
+            type: 'interactive_response',
+            response_type: 'approval',
+            request_id: message.content.request_id,
+            selected_option: message.content.selected_option,
+          });
+          break;
+
+        case 'DIFF_RESPONSE':
+          backendConnection.sendMessage({
+            type: 'interactive_response',
+            response_type: 'diff',
+            action: message.content.action,
+            files: message.content.files,
+            file: message.content.file,
+          });
+          break;
+
+        case 'PROGRESS_RESPONSE':
+          backendConnection.sendMessage({
+            type: 'interactive_response',
+            response_type: 'progress',
+            action: message.content.action,
+          });
+          break;
+
+        case 'interactive_component':
+          backendConnection.sendMessage({
+            type: 'interactive_component',
+            component: message.component
+          });
+          break;
+      }
+    });
   }
   
   /**

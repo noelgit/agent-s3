@@ -2,6 +2,10 @@
 
 Agent-S3 is a modern AI coding agent designed to empower engineers by emphasizing transparency, control, and strict adherence to guidelines. Recognizing that AI can and will make mistakes, Agent-S3 ensures that the engineer remains in control at every stage of the development process.
 
+This README and the companion `STORIES.md` file serve as the canonical project
+documentation. Both documents provide authoritative information on setup,
+workflows, and design decisions.
+
 ## Overview
 
 Agent-S3 automates feature planning, code generation, and execution while maintaining a step-by-step approach to prioritize correctness over convenience. Key features include:
@@ -18,7 +22,7 @@ Agent-S3 automates feature planning, code generation, and execution while mainta
 
 - **Complexity Management:** For complex tasks, the system provides an explicit warning and requires user confirmation, improving transparency and user control rather than automatic workflow switching.
 
-- **Test Critic Integration:** The system analyzes test quality, coverage, and diversity, providing warnings and suggestions for comprehensive testing strategies.
+- **Test Critic Integration:** The system analyzes test quality and coverage, providing warnings and suggestions for comprehensive testing strategies.
 
 - **Multi-LLM Solution:** To prevent runaway costs, Agent-S3 implements a multi-LLM strategy, using state-of-the-art context and cache management to optimize token usage and response times.
 
@@ -84,6 +88,7 @@ Agent-S3 is not just a tool for automation; it is a partner in development that 
 - Retrieval-Augmented Generation (RAG) context: embedding-based search (`agent_s3.tools.embedding_client`) and hierarchical summarization (`agent_s3.tools.memory_manager`)
 - Tech stack detection with versioning and best practice identification (`agent_s3.tools.tech_stack_manager`)
 - Secure file operations (`FileTool`), sandboxed shell execution (`BashTool`, `TerminalExecutor`), and database interactions (`DatabaseTool`)
+- `BashTool.run_command` returns `(exit_code, output)` for consistent error handling
 - Database Tool Features (`DatabaseTool`):
   - Query execution with SQLAlchemy (primary) and BashTool (fallback)
   - Parameterized queries (SQLAlchemy) and basic parameter substitution (BashTool)
@@ -103,15 +108,16 @@ Agent-S3 is not just a tool for automation; it is a partner in development that 
   - Enhanced scratchpad with structured CoT logging (`agent_s3.enhanced_scratchpad_manager`)
   - Specialized error categorization and handling for 12+ error types (`agent_s3.debugging_manager`)
   - Context-aware error resolution with historical reasoning extraction
+  - Requests engineer guidance if automated debugging fails after repeated attempts
   - See [DEBUGGING.md](DEBUGGING.md) for details
 - Comprehensive test framework:
   - TestCritic for analyzing test quality and coverage (`agent_s3.tools.test_critic`)
   - TestFrameworks for framework-agnostic test generation (`agent_s3.tools.test_frameworks`)
   - Integrated test coverage enforcement within feature group processing
   - Comprehensive test validation including unit, integration, property-based, and acceptance tests
-  - Test quality metrics including coverage ratio and diversity score
+  - Test quality metrics including coverage ratio
   - Warning system for uncovered critical files and missing test types
-- Progress tracking in `progress_log.json` (`agent_s3.progress_tracker`) and detailed chain-of-thought logs via enhanced scratchpad management (`agent_s3.enhanced_scratchpad_manager`)
+- Progress tracking in `progress_log.jsonl` (`agent_s3.progress_tracker`) and detailed chain-of-thought logs via enhanced scratchpad management (`agent_s3.enhanced_scratchpad_manager`)
 - Interactive user prompts, plan reviews, patch diffs, and explanations via `agent_s3.prompt_moderator`
 - Workspace initialization (`/init`): Validates workspace (checks for `README.md`), creates default `.github/copilot-instructions.md`, `personas.md`, and `llm.json` if missing
 - Task State Management & Resumption (`TaskStateManager`):
@@ -143,7 +149,7 @@ See `docs/summarization.md` for details.
 - Command Palette integration: Initialize workspace, Make change request, Show help, Show config, Reload LLM config, Explain last LLM interaction, Open Chat Window
 - Status bar item (`$(sparkle) Agent-S3`) to start change requests
 - Dedicated terminal panel for backend interactions
-- Real-time progress monitoring by polling `progress_log.json`
+- Real-time status updates via WebSocket; `progress_log.jsonl` is retained only as a log file
 - Optional Copilot-style chat UI for input; terminal shows actual outputs
 - WebView panels for structured information display:
   - Code change plan reviews
@@ -155,6 +161,9 @@ See `docs/summarization.md` for details.
 - Python 3.10+ installed
 - VS Code 1.60+ for extension features
 - Git installed
+- Required packages: `sqlalchemy` with optional adapters
+  - `psycopg2-binary` for PostgreSQL
+  - `pymysql` for MySQL
 - GitHub account and relevant tokens or app credentials
 
 ## Installation
@@ -162,6 +171,12 @@ See `docs/summarization.md` for details.
 1. **Python package:**
    ```bash
    pip install agent-s3
+   ```
+
+   For development from source, Agent-S3 uses PEP 621 metadata defined in
+   `pyproject.toml`:
+   ```bash
+   pip install -e .
    ```
 2. **VS Code Extension:**
    - Open the `vscode` folder in VS Code

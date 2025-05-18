@@ -29,6 +29,7 @@ export enum MessageType {
   STREAM_START = "stream_start",
   STREAM_CONTENT = "stream_content",
   STREAM_END = "stream_end",
+  STREAM_INTERACTIVE = "stream_interactive",
   
   // UI-specific messages
   NOTIFICATION = "notification",
@@ -117,6 +118,20 @@ export interface StreamEndMessage extends Message {
   type: MessageType.STREAM_END;
   content: {
     stream_id: string;
+  };
+}
+
+export interface StreamInteractiveMessage extends Message {
+  type: MessageType.STREAM_INTERACTIVE;
+  content: {
+    stream_id: string;
+    component: {
+      type: 'button' | 'input';
+      id: string;
+      label?: string;
+      action?: string;
+      placeholder?: string;
+    };
   };
 }
 

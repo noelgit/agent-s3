@@ -69,6 +69,10 @@ class IncrementalIndexer:
         self.config = config or {}
         self.max_workers = self.config.get('max_indexing_workers', 4)
         self.extensions = self.config.get('extensions', [".py", ".js", ".ts", ".jsx", ".tsx", ".html", ".css", ".java"])
+        self.auto_optimize = self.config.get('auto_optimize_partitions', True)
+        self.build_system_integration = self.config.get('build_system_integration', False)
+        self.prune_unused = self.config.get('prune_unused', True)
+        self.distributed_workers = self.config.get('distributed_workers', 0)
         
         # State
         self.is_indexing = False
@@ -120,10 +124,18 @@ class IncrementalIndexer:
             dependency_graph_updated = False
             if self.static_analyzer and hasattr(self.static_analyzer, 'analyze_project'):
                 try:
+                    tech_stack = None
+                    if self.build_system_integration:
+                        try:
+                            from agent_s3.tools.tech_stack_manager import TechStackManager
+                            tech_stack = TechStackManager(repo_path).detect_tech_stack()
+                        except Exception as e:
+                            logger.error(f"Error detecting tech stack: {e}")
+
                     # Only update dependency graph if this is a full reindex or it doesn't exist
                     if force_full or not hasattr(self.dependency_analyzer, 'forward_deps') or not self.dependency_analyzer.forward_deps:
                         self._report_progress("Analyzing project dependencies...", 0, 1)
-                        dependency_graph = self.static_analyzer.analyze_project(repo_path)
+                        dependency_graph = self.static_analyzer.analyze_project(repo_path, tech_stack=tech_stack)
                         self.dependency_analyzer.build_from_dependency_graph(dependency_graph)
                         dependency_graph_updated = True
                         self._report_progress("Dependency analysis complete", 1, 1)
@@ -185,6 +197,16 @@ class IncrementalIndexer:
             # Save all changes
             self._report_progress("Saving index...", total_files, total_files)
             self.partition_manager.commit_all()
+            if self.prune_unused:
+                valid_files = set(self.file_change_tracker._file_state.keys())
+                self.partition_manager.prune_unused_entries(valid_files)
+            if self.auto_optimize:
+                self.partition_manager.optimize_partitions()
+            if self.prune_unused:
+                valid_files = set(self.file_change_tracker._file_state.keys())
+                self.partition_manager.prune_unused_entries(valid_files)
+            if self.auto_optimize:
+                self.partition_manager.optimize_partitions()
             
             # Calculate statistics
             end_time = time.time()
@@ -340,6 +362,11 @@ class IncrementalIndexer:
             
             # Save all changes
             self.partition_manager.commit_all()
+            if self.prune_unused:
+                valid_files = set(self.file_change_tracker._file_state.keys())
+                self.partition_manager.prune_unused_entries(valid_files)
+            if self.auto_optimize:
+                self.partition_manager.optimize_partitions()
             
             return {
                 "status": "success",
@@ -652,3 +679,40 @@ class IncrementalIndexer:
             return {
                 "error": str(e)
             }
+
+    def start_distributed_indexing(self, repo_path: str, worker_count: int = 2) -> Dict[str, Any]:
+        """Run indexing in multiple processes and merge results."""
+        from multiprocessing import Process
+        job_id = f"dist_{int(time.time())}"
+        worker_paths = []
+        processes = []
+
+        all_files = self._get_all_files(repo_path)
+        if not all_files:
+            return {"status": "error", "message": "no files"}
+
+        chunk_size = max(1, len(all_files) // worker_count)
+        for i in range(worker_count):
+            subset = all_files[i*chunk_size:(i+1)*chunk_size]
+            worker_storage = os.path.join(self.storage_path, "distributed", job_id, f"worker_{i}")
+            worker_paths.append(worker_storage)
+
+            def worker(files, path):
+                idx = IncrementalIndexer(path, self.embedding_client, self.file_tool, self.static_analyzer, self.config)
+                idx.update_files(files, progress_callback=None)
+
+            p = Process(target=worker, args=(subset, worker_storage))
+            p.start()
+            processes.append(p)
+
+        for p in processes:
+            p.join()
+
+        for p_path in worker_paths:
+            self.partition_manager.merge_from_path(os.path.join(p_path, "partitions"))
+
+        self.partition_manager.commit_all()
+        if self.auto_optimize:
+            self.partition_manager.optimize_partitions()
+
+        return {"status": "success", "workers": worker_count, "files": len(all_files)}

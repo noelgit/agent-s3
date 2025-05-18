@@ -6,8 +6,6 @@ Tests the new feature-based iterative approach to task execution.
 
 import pytest
 from unittest.mock import MagicMock, patch
-import json
-from datetime import datetime
 
 from agent_s3.coordinator import Coordinator
 from agent_s3.enhanced_scratchpad_manager import LogLevel
@@ -41,7 +39,6 @@ class TestFeatureBasedWorkflow:
         }
         
         # Mock the methods used in the new consolidated workflow
-        coordinator._execute_pre_planning_phase = MagicMock()
         coordinator._validate_pre_planning_data = MagicMock(return_value=True)
         coordinator._regenerate_pre_planning_with_modifications = MagicMock()
         coordinator._present_pre_planning_results_to_user = MagicMock(return_value=("yes", None))
@@ -562,5 +559,3 @@ class TestFeatureBasedWorkflow:
             )
 
 
-if __name__ == "__main__":
-    pytest.main(["-xvs", "test_feature_based_workflow.py"])

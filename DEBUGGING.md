@@ -166,8 +166,8 @@ The debugging system works closely with the test framework:
 
 ## Future Enhancements
 
-Planned improvements include:
-- Pre-emptive error detection during planning
-- Enhanced pattern learning with ML-based prediction
-- Personalized debugging based on user preferences
-- Cross-project error pattern sharing
+Implemented enhancements include:
+- **Pre-emptive planning error detection** via `preemptive_planning_detector.detect_preemptive_errors`.
+- **ML-based pattern learning** using `ErrorPatternLearner` with cross-project storage.
+- **Per-user customization** loaded from `~/.agent_s3/user_config.json`.
+- **Cross-project error pattern sharing** through the shared pattern database.

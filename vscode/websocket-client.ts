@@ -216,7 +216,20 @@ export class WebSocketClient implements vscode.Disposable {
         dataString = String(event);
       }
       
-      const message = JSON.parse(dataString);
+      let messageData: any = JSON.parse(dataString);
+
+      if (messageData.encoding === 'gzip' && messageData.payload) {
+        try {
+          const buffer = Buffer.from(messageData.payload, 'base64');
+          const decompressed = require('zlib').gunzipSync(buffer).toString('utf-8');
+          messageData = JSON.parse(decompressed);
+        } catch (err) {
+          console.error('Failed to decompress message:', err);
+          return;
+        }
+      }
+
+      const message = messageData;
       const type = message.type;
       
       // Handle authentication response
@@ -432,6 +445,7 @@ export class WebSocketClient implements vscode.Disposable {
     this.registerMessageHandler("stream_start", this.handleStreamStart.bind(this));
     this.registerMessageHandler("stream_content", this.handleStreamContent.bind(this));
     this.registerMessageHandler("stream_end", this.handleStreamEnd.bind(this));
+    this.registerMessageHandler("stream_interactive", this.handleStreamInteractive.bind(this));
     
     // Default handlers for other message types 
     // (can be overridden or extended by external registrations)
@@ -519,6 +533,28 @@ export class WebSocketClient implements vscode.Disposable {
     
     // Clean up
     this.activeStreams.delete(streamId);
+  }
+
+  /**
+   * Handle interactive component messages
+   */
+  private handleStreamInteractive(message: any) {
+    const streamId = message.content?.stream_id;
+    const component = message.content?.component;
+    if (!streamId || !component) {
+      console.warn('Invalid interactive message');
+      return;
+    }
+
+    const stream = this.activeStreams.get(streamId);
+    if (!stream) {
+      this.activeStreams.set(streamId, { buffer: '' });
+    }
+    // forward to registered handlers
+    const handlers = this.messageHandlers.get('stream_interactive');
+    if (handlers) {
+      handlers.forEach(h => h(message));
+    }
   }
   
   /**

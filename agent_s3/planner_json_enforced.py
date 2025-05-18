@@ -1137,7 +1137,10 @@ Please maintain the intent of the original test requirements while enriching the
             repaired_specs, validation_issues, was_repaired = validate_and_repair_test_specifications(
                 response_data["refined_test_requirements"],
                 system_design,
-                architecture_review
+                architecture_review,
+                router_agent=router_agent,
+                embedding_client=getattr(router_agent, "embedding_client", None),
+                context=context,
             )
             
             # Log validation summary
@@ -1836,7 +1839,12 @@ def validate_planning_semantic_coherence(
     # Validate test specifications against architecture review and system design
     if refined_test_specs and architecture_review and system_design:
         repaired_specs, validation_issues, was_repaired = validate_and_repair_test_specifications(
-            refined_test_specs, system_design, architecture_review
+            refined_test_specs,
+            system_design,
+            architecture_review,
+            router_agent=router_agent,
+            embedding_client=getattr(router_agent, "embedding_client", None),
+            context=context,
         )
         validation_details["test_specs_validation"] = {
             "has_issues": len(validation_issues) > 0,
@@ -2142,7 +2150,7 @@ def _calculate_syntax_validation_percentage(validation_issues: List[Dict[str, An
     # Assuming each issue affects one test and there's no duplication
     unique_affected_tests = set()
     for issue in syntax_issues:
-        test_key = f"{issue.get("category", "")}-{issue.get("test_index", "")}"
+        test_key = f"{issue.get('category', '')}-{issue.get('test_index', '')}"
         unique_affected_tests.add(test_key)
     
     # Estimate total tests as roughly 3x the number of affected tests
@@ -2176,7 +2184,7 @@ def _calculate_traceability_coverage(validation_issues: List[Dict[str, Any]]) ->
     # Similar approach to syntax validation
     unique_affected_tests = set()
     for issue in traceability_issues:
-        test_key = f"{issue.get("category", "")}-{issue.get("test_index", "")}"
+        test_key = f"{issue.get('category', '')}-{issue.get('test_index', '')}" 
         unique_affected_tests.add(test_key)
     
     # Estimate total tests

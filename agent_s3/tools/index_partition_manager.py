@@ -721,9 +721,32 @@ class IndexPartitionManager:
         Returns:
             List of partition IDs that might contain relevant results
         """
-        # For now, search all partitions
-        # TODO: Implement more sophisticated partition selection
-        return list(self.partitions.keys())
+        query_l = query.lower()
+        selected: List[str] = []
+
+        language_hints = []
+        if any(tok in query_l for tok in ["python", ".py", "def "]):
+            language_hints.append("python")
+        if any(tok in query_l for tok in ["javascript", ".js", "console."]):
+            language_hints.append("javascript")
+        if any(tok in query_l for tok in ["typescript", ".ts"]):
+            language_hints.append("typescript")
+        if any(tok in query_l for tok in ["php", ".php"]):
+            language_hints.append("php")
+
+        for pid, partition in self.partitions.items():
+            crit = partition.criteria
+            lang = crit.get("language")
+            if language_hints and lang and lang.lower() in language_hints:
+                selected.append(pid)
+                continue
+            if "directory" in crit and crit["directory"] and crit["directory"].lower() in query_l:
+                selected.append(pid)
+
+        if not selected:
+            selected = list(self.partitions.keys())
+
+        return selected
     
     def get_partition_stats(self) -> Dict[str, Any]:
         """
@@ -810,7 +833,100 @@ class IndexPartitionManager:
         Returns:
             True if optimization was successful, False otherwise
         """
-        # TODO: Implement partition optimization
-        # This would involve potentially splitting large partitions
-        # and merging small ones. For now, this is a placeholder.
-        return True
+        try:
+            changed = False
+
+            # Split large partitions
+            for pid in list(self.partitions.keys()):
+                partition = self.partitions[pid]
+                if partition.get_file_count() > max_files_per_partition:
+                    files = partition.get_all_files()
+                    half = len(files) // 2
+                    new_pid = self.create_partition(partition.criteria)
+                    new_part = self.partitions[new_pid]
+                    for fp in files[half:]:
+                        emb = partition.file_embeddings.pop(fp)
+                        meta = partition.file_metadata.pop(fp)
+                        new_part.add_file(fp, emb, meta)
+                        self.file_to_partition[fp] = new_pid
+                    partition.commit()
+                    new_part.commit()
+                    changed = True
+
+            # Merge small partitions with identical criteria
+            ids = list(self.partitions.keys())
+            for pid in ids:
+                if pid not in self.partitions:
+                    continue
+                p = self.partitions[pid]
+                if p.get_file_count() >= max_files_per_partition // 2:
+                    continue
+                for pid2 in ids:
+                    if pid2 == pid or pid2 not in self.partitions:
+                        continue
+                    p2 = self.partitions[pid2]
+                    if p2.criteria == p.criteria and p2.get_file_count() + p.get_file_count() <= max_files_per_partition:
+                        for fp in p.get_all_files():
+                            emb = p.file_embeddings[fp]
+                            meta = p.file_metadata[fp]
+                            p2.add_file(fp, emb, meta)
+                            self.file_to_partition[fp] = pid2
+                        p2.commit()
+                        del self.partitions[pid]
+                        changed = True
+                        break
+
+            if changed:
+                self._save_metadata()
+
+            return True
+        except Exception as e:
+            logger.error(f"Error optimizing partitions: {e}")
+            return False
+
+    def prune_unused_entries(self, valid_files: Set[str]) -> int:
+        """Remove index entries for files not present in ``valid_files``."""
+        removed = 0
+
+        try:
+            for pid, partition in list(self.partitions.items()):
+                for fp in list(partition.get_all_files()):
+                    if fp not in valid_files or not os.path.exists(fp):
+                        if partition.remove_file(fp):
+                            removed += 1
+                partition.commit()
+
+            if removed:
+                self._save_metadata()
+        except Exception as e:
+            logger.error(f"Error pruning unused entries: {e}")
+
+        return removed
+
+    def merge_from_path(self, other_path: str) -> bool:
+        """Merge partitions from another index manager stored at ``other_path``."""
+        try:
+            other = IndexPartitionManager(other_path)
+            for pid, part in other.partitions.items():
+                if pid not in self.partitions:
+                    # copy entire partition directory
+                    target_dir = os.path.join(self.storage_path, f"partition_{pid}")
+                    shutil.copytree(part.storage_path, target_dir, dirs_exist_ok=True)
+                    self.partitions[pid] = IndexPartition(pid, self.storage_path, part.criteria)
+                    self.partitions[pid]._load_data()
+                    for fp in part.get_all_files():
+                        self.file_to_partition[fp] = pid
+                else:
+                    target = self.partitions[pid]
+                    for fp in part.get_all_files():
+                        emb = part.file_embeddings[fp]
+                        meta = part.file_metadata[fp]
+                        target.add_file(fp, emb, meta)
+                        self.file_to_partition[fp] = pid
+                    target.commit()
+
+            self._save_metadata()
+            return True
+        except Exception as e:
+            logger.error(f"Error merging partitions from {other_path}: {e}")
+            return False
