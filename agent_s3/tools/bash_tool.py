@@ -147,7 +147,28 @@ class BashTool:
                     docker_cmd.extend(["-e", f"{key}={value}"])
                 
                 # Add network restrictions
-                docker_cmd.extend(["--network", "host"])  # Could use bridge network with specific DNS
+                # PATCH: Use restricted network instead of host
+                if self.allowed_domains:
+                    docker_cmd.extend(["--network", "bridge", "--cap-add", "NET_ADMIN"])
+                    allowed_ips: List[str] = []
+                    import socket
+                    for domain in self.allowed_domains:
+                        try:
+                            infos = socket.getaddrinfo(domain, None)
+                            for info in infos:
+                                ip = info[4][0]
+                                if ip not in allowed_ips:
+                                    allowed_ips.append(ip)
+                        except socket.gaierror:
+                            continue
+                    firewall_cmds = ["iptables -P OUTPUT DROP", "iptables -A OUTPUT -d 127.0.0.1 -j ACCEPT"]
+                    for ip in allowed_ips:
+                        firewall_cmds.append(f"iptables -A OUTPUT -d {ip} -j ACCEPT")
+                    firewall_cmds.append("/script.sh > /tmp/output.log 2>&1")
+                    command_wrapper = " && ".join(firewall_cmds)
+                else:
+                    docker_cmd.extend(["--network", "none"])
+                    command_wrapper = "/script.sh > /tmp/output.log 2>&1"
                 
                 # Add volume mount for the script
                 docker_cmd.extend(["-v", f"{script_path}:/script.sh"])
@@ -155,7 +176,7 @@ class BashTool:
                 # Specify the image and command
                 docker_cmd.extend([
                     self.container_image,
-                    "/bin/bash", "-c", f"/script.sh > /tmp/output.log 2>&1"
+                    "/bin/bash", "-c", command_wrapper
                 ])
                 
                 # Start the container
@@ -411,15 +432,33 @@ class BashTool:
                 docker_cmd.extend(["-e", f"{key}={value}"])
             
             # Add network restrictions
-            docker_cmd.extend(["--network", "host"])  # Could use bridge network with specific DNS
-            
-            # Add the current directory as a volume
-            docker_cmd.extend(["-v", f"{os.getcwd()}:/workspace", "-w", "/workspace"])
+            # PATCH: Use restricted network instead of host
+            if self.allowed_domains:
+                docker_cmd.extend(["--network", "bridge", "--cap-add", "NET_ADMIN"])
+                allowed_ips: List[str] = []
+                import socket
+                for domain in self.allowed_domains:
+                    try:
+                        infos = socket.getaddrinfo(domain, None)
+                        for info in infos:
+                            ip = info[4][0]
+                            if ip not in allowed_ips:
+                                allowed_ips.append(ip)
+                    except socket.gaierror:
+                        continue
+                firewall_cmds = ["iptables -P OUTPUT DROP", "iptables -A OUTPUT -d 127.0.0.1 -j ACCEPT"]
+                for ip in allowed_ips:
+                    firewall_cmds.append(f"iptables -A OUTPUT -d {ip} -j ACCEPT")
+                firewall_cmds.append("/script.sh")
+                command_wrapper = " && ".join(firewall_cmds)
+            else:
+                docker_cmd.extend(["--network", "none"])
+                command_wrapper = "/script.sh"
             
             # Specify the image and command
             docker_cmd.extend([
                 self.container_image,
-                "/bin/bash", "/script.sh"
+                "/bin/bash", "-c", command_wrapper
             ])
             
             # Run the container with timeout

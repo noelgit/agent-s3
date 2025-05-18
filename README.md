@@ -156,6 +156,18 @@ See `docs/summarization.md` for details.
   - Diff visualization
   - Design documentation
 
+## Streaming UI
+
+Agent-S3 features a real-time streaming UI for chat and progress updates, powered by a WebSocket-based architecture:
+
+- **WebSocket Client/Server:** The backend and VS Code extension communicate via enhanced WebSocket protocols, supporting streaming message types (e.g., `stream_start`, `stream_content`, `stream_end`, `thinking`).
+- **Streaming Chat UI:** The `ChatView` React component in the extension displays real-time agent responses, partial message rendering, and thinking indicators.
+- **Backend Integration:** The backend emits streaming updates for progress, terminal output, and chat, eliminating the need for file polling.
+- **Robust Error Handling:** Includes reconnection logic, buffering, and error logging for reliable user experience.
+- **Extensible Protocol:** The message protocol supports future UI features like syntax highlighting, progress bars, and operation cancellation.
+
+This architecture enables a Copilot-like, interactive experience with immediate feedback and smooth agent interaction.
+
 ## Prerequisites
 
 - Python 3.10+ installed
@@ -165,6 +177,77 @@ See `docs/summarization.md` for details.
   - `psycopg2-binary` for PostgreSQL
   - `pymysql` for MySQL
 - GitHub account and relevant tokens or app credentials
+
+## Tree-sitter Grammar Setup
+
+Agent-S3 uses [tree-sitter](https://tree-sitter.github.io/tree-sitter/) for code parsing in supported languages. This setup is required for all developers and CI environments running Agent-S3 with JS/PHP parsing support.
+
+### Supported Languages
+- JavaScript
+- TypeScript
+- PHP
+- Python
+
+### Required Packages
+
+```bash
+# Install the core tree-sitter library (minimum version 0.22.0)
+pip install --upgrade tree-sitter>=0.22.0
+
+# Install language-specific packages
+pip install tree-sitter-python tree-sitter-javascript tree-sitter-php tree-sitter-typescript
+```
+
+### Implementation Approach
+
+Agent-S3 uses the direct capsule-based API for each language parser:
+
+```python
+# JavaScript Parser
+from tree_sitter import Language, Parser
+import tree_sitter_javascript
+
+js_grammar = Language(tree_sitter_javascript.language())
+parser = Parser()
+parser.set_language(js_grammar)
+
+# PHP Parser
+import tree_sitter_php
+php_grammar = Language(tree_sitter_php.language())
+parser = Parser()
+parser.set_language(php_grammar)
+
+# TypeScript Parser
+import tree_sitter_typescript
+ts_grammar = Language(tree_sitter_typescript.language_typescript())
+parser = Parser()
+parser.set_language(ts_grammar)
+
+# Python Parser
+import tree_sitter_python
+python_grammar = Language(tree_sitter_python.language())
+parser = Parser()
+parser.set_language(python_grammar)
+```
+
+### Testing
+
+To verify the parser implementations are working correctly:
+
+```zsh
+pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
+```
+
+---
+
+**Troubleshooting:**
+- If you see `AttributeError: type object 'tree_sitter.Language' has no attribute 'build_library'`, ensure you are using the latest `tree_sitter` Python package.
+- If you see `OSError: ... .so: file too short`, ensure the build step completed successfully and the grammar repos are not empty.
+
+---
+
+**Security Note:**
+- Only use official tree-sitter grammars or review third-party grammars for malicious code before building.
 
 ## Installation
 
@@ -294,3 +377,58 @@ Contributions welcome! Please:
 ## License
 
 MIT License. See `LICENSE` or `pyproject.toml` for details.
+
+## Static Plan Checker
+
+The Static Plan Checker is a critical validation component that ensures Pre-Planner outputs are structurally sound and logically consistent before they reach the Planner phase. This validation happens in milliseconds with zero token consumption.
+
+### Key Benefits
+- **Fast & Token-Free**: All checks run in milliseconds without consuming any LLM tokens
+- **Early Error Detection**: Catches structural and logical issues before they reach expensive LLM phases
+- **CI Integration**: Generates JUnit XML reports for CI/CD pipeline integration
+- **GitHub Annotations**: Creates annotation-compatible output for PR reviews
+
+### Validation Checks
+The Static Plan Checker performs several deterministic checks:
+
+| Check category          | Purpose                                                                                                |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Schema & types**      | Ensures all objects match the JSON schema (arrays, enums, required keys) with proper types             |
+| **Identifier hygiene**  | Verifies IDs are unique and function names follow naming conventions and aren't reserved keywords      |
+| **Path validity**       | Confirms file paths refer to existing files or are clearly marked as new files to be created           |
+| **Token budget**        | Checks that feature token estimates don't exceed complexity-based budgets                              |
+| **Duplicate symbols**   | Ensures no function/route/environment key is defined in multiple features                              |
+| **Reserved prefixes**   | Validates environment variables follow conventions (uppercase) and don't override system variables      |
+| **Stub/test coherence** | Confirms every stub function has corresponding test coverage                                           |
+| **Complexity sanity**   | Verifies complexity levels correlate logically with token estimates                                    |
+| **Test-Risk alignment** | Validates tests include required types, keywords, and libraries based on risk assessment characteristics |
+
+### Integration
+The Static Plan Checker is integrated into the workflow between the Pre-Planner and Planner phases:
+
+```
+Pre‑Planner ──> Static Plan Checker ──> Planner
+                 ▲
+   fail-fast:    └─ fix or retry
+```
+
+When validation fails, the Pre-Planner may be retried or a human can intervene to fix issues before proceeding to the Planner phase.
+
+### Implementation Details
+- Uses standard Python libraries (`jsonschema`, regex, `glob`) for maximum portability
+- Optionally produces JUnit XML output for CI/CD integration
+- Can be extended with additional custom validation rules
+- Error messages include enough context to identify and fix issues
+
+### Test Coverage vs. Risk Assessment
+The Static Plan Checker includes an enhanced validation of test coverage against risk assessment through the `validate_test_coverage_against_risk` function in `phase_validator.py`. This validation ensures that:
+
+1. **Critical Files Coverage**: All files marked as "critical" in the risk assessment have associated tests
+2. **High-Risk Areas Coverage**: All high-risk areas identified in the risk assessment have adequate test coverage
+3. **Test Types Alignment**: Required test types match the risk profile (e.g., property-based for edge cases, integration for component interactions)
+4. **Risk-Specific Test Characteristics**: Tests meet the specific characteristics required by the risk assessment:
+   - **Required Test Types**: Verifies that all required test types (e.g., security, performance) are included
+   - **Required Keywords**: Ensures test names, descriptions, or code contain required keywords (e.g., "injection", "unauthorized", "benchmark")
+   - **Suggested Libraries**: Checks that the suggested testing libraries are used in the appropriate tests
+
+The validation provides detailed reporting on missing test characteristics, enabling developers to pinpoint exactly which risk mitigation strategies are not adequately covered by tests.

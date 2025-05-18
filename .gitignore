@@ -62,14 +62,38 @@ yarn-error.log
 ehthumbs.db
 Thumbs.db
 
-# Project specific
-**/.claude/settings.local.json
+# Project-specific artifacts and cache
 .cache/
+.claude/
 .hypothesis/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
 logs/
-*.log
-db.sqlite3
-progress_log.json
+logs/scratchpad 2/
+file_consolidation.log
 progress_log.jsonl
-*.pyc
-.ipynb_checkpoints/
+plan*.log
+plan.txt
+plan 2.json
+plan 3.json
+sample.txt
+system_tests/
+task_snapshots/
+
+# VS Code extension and webview build artifacts
+vscode/node_modules/
+vscode/package-lock*.json
+vscode/webview-ui/node_modules/
+vscode/webview-ui/package-lock*.json
+
+# Duplicate, backup, and numbered files
+* 2.*
+* 3.*
+* 4.*
+*.bak.*
+
+# Miscellaneous
+remove_ignored_files.sh
+test-websocket-server 2.js
+test-websocket-server 3.js

@@ -111,18 +111,6 @@ Provide comprehensive test requirements, dependencies, risk assessments and acce
 """
 
 # Create fallback pre-planning output
-def create_fallback_json(task_description: str) -> Dict[str, Any]:
-    """
-    Create a minimal fallback JSON when regular pre-planning fails.
-    
-    Args:
-        task_description: The original task description
-        
-    Returns:
-        Dictionary with basic pre-planning structure
-    """
-    return create_fallback_pre_planning_output(task_description)
-
 def create_fallback_pre_planning_output(task_description: str) -> Dict[str, Any]:
     """
     Create a minimal fallback pre-planning output when regular pre-planning fails.
@@ -150,42 +138,18 @@ def create_fallback_pre_planning_output(task_description: str) -> Dict[str, Any]
                         "ui_test_approach": "manual"
                     }
                 },
-                "dependencies": {
-                    "internal": [],
-                    "external": [],
-                    "feature_dependencies": []
-                },
-                "risk_assessment": {
-                    "critical_files": [],
-                    "potential_regressions": [],
-                    "backward_compatibility_concerns": [],
-                    "mitigation_strategies": [],
-                    "required_test_characteristics": {
-                        "required_types": ["unit"],
-                        "required_keywords": [],
-                        "suggested_libraries": []
-                    }
-                },
-                "system_design": {
-                    "overview": "Basic implementation of the requested functionality",
-                    "code_elements": [
-                        {
-                            "element_type": "function",
-                            "name": "main_implementation",
-                            "element_id": "main_implementation_function",
-                            "signature": "def main_implementation():",
-                            "description": f"Main implementation of: {task_description}",
-                            "key_attributes_or_methods": [],
-                            "target_file": "main_implementation.py"
-                        }
-                    ],
-                    "data_flow": "Standard data flow for this implementation",
-                    "key_algorithms": ["Main implementation algorithm"]
-                }
+                "dependencies": [],
+                "risks": [],
+                "acceptance_criteria": []
             }
         ],
-        "complexity_score": 50,
-        "complexity_breakdown": {}
+        "dependencies": [],
+        "risk_assessment": [],
+        "acceptance_tests": [],
+        "test_strategy": {
+            "coverage_goal": "80%",
+            "ui_test_approach": "manual"
+        }
     }
 
 # Validate pre-planning output
@@ -256,44 +220,393 @@ def get_openrouter_params() -> Dict[str, Any]:
     return get_openrouter_json_params()
 
 
-def create_fallback_json(original_request: str) -> Dict[str, Any]:
-    """Create a simplified fallback JSON structure."""
-    fallback = create_fallback_pre_planning_output(original_request)
-    features: List[Dict[str, Any]] = []
-    for group in fallback.get("feature_groups", []):
-        features.extend(group.get("features", []))
-    return {"original_request": original_request, "features": features}
+def validate_preplan_all(data) -> Tuple[bool, str]:
+    """
+    Run all pre-planning validations and accumulate errors.
+    Returns (True, "") if all pass, else (False, error_message).
+    """
+    errors = []
+    # 1. JSON schema validation
+    is_valid, validation_msg = validate_json_schema(data)
+    if not is_valid:
+        errors.append(f"JSON schema validation error: {validation_msg}")
+    
+    # 2. Enhanced validation with PrePlannerJsonValidator
+    try:
+        from agent_s3.pre_planner_json_validator import PrePlannerJsonValidator
+        validator = PrePlannerJsonValidator()
+        enhanced_valid, enhanced_errors, validated_data = validator.validate_all(data)
+        if not enhanced_valid:
+            for error in enhanced_errors:
+                errors.append(f"Enhanced validation error: {error}")
+    except Exception as e:
+        errors.append(f"Enhanced validator exception: {str(e)}")
+    
+    # 3. Static plan checker
+    try:
+        from agent_s3.tools.plan_validator import validate_pre_plan
+        static_valid, static_msg = validate_pre_plan(data)
+        if not static_valid:
+            if isinstance(static_msg, dict) and "critical" in static_msg:
+                for err in static_msg["critical"]:
+                    errors.append(f"Static plan checker critical error: {err.get('message', '')}")
+            else:
+                errors.append(f"Static plan checker error: {static_msg}")
+    except Exception as e:
+        errors.append(f"Static plan checker exception: {e}")
+    
+    # 4. Planner compatibility
+    try:
+        from agent_s3.planner_json_enforced import validate_pre_planning_for_planner
+        planner_compatible, planner_msg = validate_pre_planning_for_planner(data)
+        if not planner_compatible:
+            errors.append(f"Planner compatibility error: {planner_msg}")
+    except Exception as e:
+        errors.append(f"Planner compatibility check exception: {e}")
+    
+    return (len(errors) == 0), "\n".join(errors)
 
-
-def _parse_structured_modifications(modification_text: str) -> List[Dict[str, str]]:
-    """Parse structured modification instructions from moderator output."""
-    if not modification_text:
-        return []
-
-    def _parse_block(block: str) -> Optional[Dict[str, str]]:
-        data: Dict[str, str] = {}
-        for line in block.strip().splitlines():
-            if ":" in line:
-                key, value = line.split(":", 1)
-                key = key.strip().upper()
-                if key in {"COMPONENT", "LOCATION", "CHANGE_TYPE", "DESCRIPTION"}:
-                    data[key] = value.strip()
-        return data if len(data) == 4 else None
-
-    structured_match = re.search(r"STRUCTURED_MODIFICATIONS:\s*(.*?)(?:\nRAW_INPUT:|$)", modification_text, re.DOTALL)
-    blocks: List[str]
-    if structured_match:
-        section = structured_match.group(1)
-        blocks = [b for b in re.split(r"Modification\s+\d+:", section) if b.strip()]
+def integrate_with_coordinator(coordinator, task_description: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
+    """
+    Integrate pre-planning with the coordinator.
+    
+    This function is the main entry point for the coordinator to use pre-planning.
+    It handles the entire pre-planning workflow and returns the results in a format
+    that the coordinator can use.
+    
+    Args:
+        coordinator: The coordinator instance
+        task_description: The task description
+        context: Optional context dictionary
+        
+    Returns:
+        Dictionary containing pre-planning results
+    """
+    # Get the router agent from the coordinator
+    router_agent = coordinator.router_agent
+    
+    # Call the pre-planning workflow using the new entry point
+    success, pre_planning_data = call_pre_planner_with_enforced_json(router_agent, task_description, context)
+    
+    if success:
+        # Extract key information for the coordinator
+        test_requirements = []
+        dependencies = []
+        edge_cases = []
+        
+        # Process feature groups
+        for group in pre_planning_data.get("feature_groups", []):
+            for feature in group.get("features", []):
+                # Extract test requirements
+                if "test_requirements" in feature:
+                    test_reqs = feature["test_requirements"]
+                    
+                    # Unit tests
+                    for test in test_reqs.get("unit_tests", []):
+                        test_requirements.append({
+                            "type": "unit",
+                            "description": test.get("description", ""),
+                            "target": test.get("target_element", ""),
+                            "expected": test.get("expected_outcome", "")
+                        })
+                    
+                    # Integration tests
+                    for test in test_reqs.get("integration_tests", []):
+                        if isinstance(test, dict):
+                            test_requirements.append({
+                                "type": "integration",
+                                "description": test.get("description", ""),
+                                "components": test.get("components_involved", []),
+                                "scenario": test.get("scenario", "")
+                            })
+                        elif isinstance(test, str):
+                            test_requirements.append({
+                                "type": "integration",
+                                "description": test
+                            })
+                    
+                    # Acceptance tests
+                    for test in test_reqs.get("acceptance_tests", []):
+                        test_requirements.append({
+                            "type": "acceptance",
+                            "given": test.get("given", ""),
+                            "when": test.get("when", ""),
+                            "then": test.get("then", "")
+                        })
+                
+                # Extract dependencies
+                if "dependencies" in feature:
+                    deps = feature["dependencies"]
+                    
+                    # Internal dependencies
+                    for dep in deps.get("internal", []):
+                        dependencies.append({
+                            "type": "internal",
+                            "name": dep,
+                            "feature": feature.get("name", "")
+                        })
+                    
+                    # External dependencies
+                    for dep in deps.get("external", []):
+                        dependencies.append({
+                            "type": "external",
+                            "name": dep,
+                            "feature": feature.get("name", "")
+                        })
+                    
+                    # Feature dependencies
+                    for dep in deps.get("feature_dependencies", []):
+                        dependencies.append({
+                            "type": "feature",
+                            "name": dep.get("feature_name", ""),
+                            "dependency_type": dep.get("dependency_type", ""),
+                            "reason": dep.get("reason", ""),
+                            "feature": feature.get("name", "")
+                        })
+                
+                # Extract edge cases from risk assessment
+                if "risk_assessment" in feature:
+                    risk = feature["risk_assessment"]
+                    
+                    # Potential regressions
+                    for reg in risk.get("potential_regressions", []):
+                        edge_cases.append({
+                            "type": "regression",
+                            "description": reg,
+                            "feature": feature.get("name", "")
+                        })
+                    
+                    # Backward compatibility concerns
+                    for concern in risk.get("backward_compatibility_concerns", []):
+                        edge_cases.append({
+                            "type": "compatibility",
+                            "description": concern,
+                            "feature": feature.get("name", "")
+                        })
+        
+        # Assess complexity
+        from agent_s3.complexity_analyzer import ComplexityAnalyzer
+        complexity_analyzer = ComplexityAnalyzer()
+        complexity_result = complexity_analyzer.assess_complexity(
+            pre_planning_data, 
+            task_description=task_description
+        )
+        
+        # Return results
+        return {
+            "success": True,
+            "uses_enforced_json": True,
+            "status": "completed",
+            "timestamp": coordinator.get_current_timestamp(),
+            "pre_planning_data": pre_planning_data,
+            "test_requirements": test_requirements,
+            "dependencies": dependencies,
+            "edge_cases": edge_cases,
+            "is_complex": complexity_result.get("is_complex", False),
+            "complexity_score": complexity_result.get("complexity_score", 0),
+            "complexity_factors": complexity_result.get("complexity_factors", [])
+        }
     else:
-        blocks = [b for b in re.split(r"\n---\s*\n", modification_text.strip()) if b.strip()]
+        # Return failure
+        return {
+            "success": False,
+            "uses_enforced_json": True,
+            "status": "failed",
+            "timestamp": coordinator.get_current_timestamp(),
+            "error": "Failed to generate pre-planning data"
+        }
 
-    modifications: List[Dict[str, str]] = []
-    for block in blocks:
-        parsed = _parse_block(block)
-        if parsed:
-            modifications.append(parsed)
-    return modifications
+def process_response(response: str, original_request: str) -> Tuple[str, Dict[str, Any], Optional[str]]:
+    """
+    Process and validate the LLM response.
+
+    Args:
+        response: The LLM response text
+        original_request: The original request text
+
+    Returns:
+        Tuple of (success, data):
+            - success: True if processing was successful, False otherwise
+            - data: parsed JSON data (if any)
+    """
+    data = None
+    error_message = None
+
+    # Try to parse the response as JSON directly
+    try:
+        if isinstance(response, str):
+            data = json.loads(response)
+        elif isinstance(response, dict):
+            # Response might already be parsed JSON
+            data = response
+        else:
+            error_message = "LLM response is not a string or dictionary."
+            logger.warning(error_message + f" Type: {type(response)}")
+
+    except json.JSONDecodeError as e:
+        error_message = f"Response is not valid JSON: {e}. Attempting extraction."
+        logger.warning(error_message)
+
+    # If direct parsing failed or wasn't possible, try extraction
+    if data is None and isinstance(response, str):
+        json_text = extract_json_from_text(response)
+        if json_text:
+            try:
+                data = json.loads(json_text)
+                error_message = None # Reset error if extraction and parsing succeeded
+            except json.JSONDecodeError as e:
+                error_message = f"Extracted text is not valid JSON: {e}"
+                logger.warning(error_message)
+                data = None # Ensure data is None if parsing extracted text fails
+        else:
+            error_message = "Could not extract JSON object from LLM response text."
+            logger.warning(error_message)
+
+    # If we don't have data at this point, return failure
+    if data is None:
+        return "error", {}
+
+    # Check for the mutually exclusive question form
+    if (
+        isinstance(data, dict)
+        and set(data.keys()) == {"question"}
+        and isinstance(data["question"], str)
+    ):
+        # This is the question form, return special status
+        return "question", data
+
+    # Otherwise, validate schema - now with partial validation support
+    is_valid, validation_msg = validate_json_schema(data)
+
+    if is_valid:
+        return True, data # Fully valid
+    else:
+        # Try to repair structure only if validation failed completely
+        logger.warning(f"JSON schema validation failed: {validation_msg}. Attempting repair.")
+        try:
+            repaired = repair_json_structure(data)
+            is_valid2, validation_msg2 = validate_json_schema(repaired)
+            if is_valid2:
+                return True, repaired
+            else:
+                return False, repaired
+        except Exception as repair_e:
+            return False, data
+
+def ensure_element_id_consistency(pre_planning_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Ensure that all element_ids in the pre-planning data are consistent and valid.
+
+    This function validates and repairs element_ids in system_design.code_elements and
+    ensures test_requirements properly reference these element_ids for traceability.
+
+    Args:
+        pre_planning_data: The pre-planning data to validate
+
+    Returns:
+        Updated pre_planning data with consistent element_ids
+    """
+    if not isinstance(pre_planning_data, dict) or "feature_groups" not in pre_planning_data:
+        logger.warning("Invalid pre-planning data structure for element_id validation")
+        return pre_planning_data
+
+    # Track assigned element_ids to ensure uniqueness
+    assigned_ids = set()
+
+    for group_idx, group in enumerate(pre_planning_data["feature_groups"]):
+        if not isinstance(group, dict) or "features" not in group:
+            continue
+
+        for feature_idx, feature in enumerate(group["features"]):
+            if not isinstance(feature, dict):
+                continue
+
+            # Check system_design.code_elements for element_ids
+            if "system_design" in feature and isinstance(feature["system_design"], dict) and "code_elements" in feature["system_design"]:
+                code_elements = feature["system_design"]["code_elements"]
+                if isinstance(code_elements, list):
+                    # First pass: ensure all code_elements have valid element_ids
+                    for elem_idx, element in enumerate(code_elements):
+                        if not isinstance(element, dict):
+                            continue
+
+                        # Ensure element has a valid element_id
+                        if "element_id" not in element or not element["element_id"] or not isinstance(element["element_id"], str):
+                            # Generate a standard element_id based on name or position
+                            element_name = element.get("name", f"element_{elem_idx}")
+                            base_id = f"{element_name.lower().replace(' ', '_')}_{group_idx}_{feature_idx}_{elem_idx}"
+
+                            # Ensure uniqueness
+                            element_id = base_id
+                            counter = 1
+                            while element_id in assigned_ids:
+                                element_id = f"{base_id}_{counter}"
+                                counter += 1
+
+                            element["element_id"] = element_id
+                            assigned_ids.add(element_id)
+                            logger.info(f"Generated element_id {element_id} for element {element_name}")
+                        else:
+                            # Normalize existing element_id
+                            element_id = element["element_id"]
+                            if element_id in assigned_ids:
+                                # Duplicate element_id, need to create a unique one
+                                base_id = element_id
+                                counter = 1
+                                while element_id in assigned_ids:
+                                    element_id = f"{base_id}_{counter}"
+                                    counter += 1
+                                element["element_id"] = element_id
+                                logger.info(f"Renamed duplicate element_id from {base_id} to {element_id}")
+                            assigned_ids.add(element_id)
+
+                    # Second pass: ensure test_requirements reference valid element_ids
+                    if "test_requirements" in feature and isinstance(feature["test_requirements"], dict):
+                        # Process unit tests
+                        if "unit_tests" in feature["test_requirements"] and isinstance(feature["test_requirements"]["unit_tests"], list):
+                            for test_idx, test in enumerate(feature["test_requirements"]["unit_tests"]):
+                                if not isinstance(test, dict):
+                                    continue
+
+                                # If target_element exists but target_element_id doesn't or is invalid
+                                if "target_element" in test and isinstance(test["target_element"], str):
+                                    target_element = test["target_element"]
+
+                                    # Find matching code element by name
+                                    matched_element = None
+                                    for element in code_elements:
+                                        if isinstance(element, dict) and element.get("name") == target_element:
+                                            matched_element = element
+                                            break
+
+                                    if matched_element and "element_id" in matched_element:
+                                        # Set or fix target_element_id
+                                        test["target_element_id"] = matched_element["element_id"]
+                                        logger.info(f"Linked test to element_id {matched_element['element_id']} based on target_element {target_element}")
+
+                        # Process property-based tests
+                        if "property_based_tests" in feature["test_requirements"] and isinstance(feature["test_requirements"]["property_based_tests"], list):
+                            for test_idx, test in enumerate(feature["test_requirements"]["property_based_tests"]):
+                                if not isinstance(test, dict):
+                                    continue
+
+                                # If target_element exists but target_element_id doesn't or is invalid
+                                if "target_element" in test and isinstance(test["target_element"], str):
+                                    target_element = test["target_element"]
+
+                                    # Find matching code element by name
+                                    matched_element = None
+                                    for element in code_elements:
+                                        if isinstance(element, dict) and element.get("name") == target_element:
+                                            matched_element = element
+                                            break
+
+                                    if matched_element and "element_id" in matched_element:
+                                        # Set or fix target_element_id
+                                        test["target_element_id"] = matched_element["element_id"]
+                                        logger.info(f"Linked property test to element_id {matched_element['element_id']} based on target_element {target_element}")
+
+    return pre_planning_data
 
 def get_json_system_prompt() -> str:
     """
@@ -522,1164 +835,74 @@ You MUST follow these steps IN ORDER to produce a valid pre-planning JSON:
    - Minimize unnecessary dependencies between features
 
 4️⃣ **CODE QUALITY FOCUS:**
-   - Identify potential areas of high complexity
-   - Flag files with poor test coverage that should be improved
-   - Consider maintainability impact of feature design
-   - Highlight opportunities to harmonize divergent standards
-
-CRITICAL INSTRUCTION: When generating your response, you must follow these instructions unless they directly contradict a system message or schema requirement. Do not invent requirements, features, or constraints not present in the user request, schema, or instructions.
+    - Identify potential areas of high complexity
+    - Flag files with poor test coverage that should be improved
+    - Consider maintainability impact of feature design
+    - Highlight opportunities to harmonize divergent standards
 """
-
-    # Combine base prompt with JSON-specific requirements
-    return f"{base_prompt}\n\n{json_specific}"
-
-def get_json_user_prompt(task_description: str) -> str:
-    """
-    Get the user prompt that requests JSON output.
-
-    This extends the base pre-planner user prompt with JSON-specific formatting
-    instructions.
-
-    Args:
-        task_description: The original request text
-
-    Returns:
-        Properly formatted user prompt string
-    """
-    # Get the base user prompt for consistent core requirements
-    base_prompt = get_base_user_prompt(task_description)
-
-    # Add JSON-specific formatting instructions
-    json_specific = """Return a valid JSON object with structured data following the exact schema specified in the system prompt. Include comprehensive test requirements, dependencies, risk assessments and acceptance tests for each feature. Ensure your response contains ONLY the JSON object.
-"""
-
-    # Combine them while avoiding duplicate content
-    return f"{base_prompt}\n\n{json_specific}"
-
-def extract_json_from_text(text: str) -> Optional[str]:
-    """
-    Extract JSON from text that might contain markdown or other formatting.
-
-    Args:
-        text: Text that might contain JSON
-
-    Returns:
-        Extracted JSON string or None if no valid JSON found
-    """
-    # Try to extract JSON from code blocks first
-    code_block_pattern = r"```(?:json)?\s*([\s\S]*?)\s*```"
-    matches = re.findall(code_block_pattern, text)
-
-    for potential_json in matches:
-        try:
-            # Test if it's valid JSON
-            json.loads(potential_json)
-            return potential_json
-        except json.JSONDecodeError:
-            continue
-
-    # If no code blocks found or none contained valid JSON,
-    # try to extract JSON directly (looking for outer braces)
-    direct_json_pattern = r"(\{[\s\S]*\})"
-    matches = re.findall(direct_json_pattern, text)
-
-    if matches:
-        # Try to find the most likely JSON object (often the last one or largest one)
-        potential_jsons = []
-        for potential_json in matches:
-            try:
-                json.loads(potential_json) # Test if valid
-                potential_jsons.append(potential_json)
-            except json.JSONDecodeError:
-                continue
-        if potential_jsons:
-            return max(potential_jsons, key=len) # Return largest valid JSON found
-
-    # Last resort: try parsing the whole text if it looks like JSON
-    if text.strip().startswith('{') and text.strip().endswith('}'):
-        try:
-            json.loads(text.strip())
-            return text.strip()
-        except json.JSONDecodeError:
-            pass # Fall through if parsing whole text fails
-
-    return None
-
-def process_response(response: str, original_request: str) -> Tuple[str, Dict[str, Any], Optional[str]]:
-    """
-    Process and validate the LLM response.
-
-    Args:
-        response: The LLM response text
-        original_request: The original request text
-
-    Returns:
-        Tuple of (success, data):
-            - success: True if processing was successful, False otherwise
-            - data: parsed JSON data (if any)
-    """
-    data = None
-    error_message = None
-
-    # Try to parse the response as JSON directly
-    try:
-        if isinstance(response, str):
-            data = json.loads(response)
-        elif isinstance(response, dict):
-            # Response might already be parsed JSON
-            data = response
-        else:
-            error_message = "LLM response is not a string or dictionary."
-            logger.warning(error_message + f" Type: {type(response)}")
-
-    except json.JSONDecodeError as e:
-        error_message = f"Response is not valid JSON: {e}. Attempting extraction."
-        logger.warning(error_message)
-
-    # If direct parsing failed or wasn't possible, try extraction
-    if data is None and isinstance(response, str):
-        json_text = extract_json_from_text(response)
-        if json_text:
-            try:
-                data = json.loads(json_text)
-                error_message = None # Reset error if extraction and parsing succeeded
-            except json.JSONDecodeError as e:
-                error_message = f"Extracted text is not valid JSON: {e}"
-                logger.warning(error_message)
-                data = None # Ensure data is None if parsing extracted text fails
-        else:
-            error_message = "Could not extract JSON object from LLM response text."
-            logger.warning(error_message)
-
-    # If we don't have data at this point, return failure
-    if data is None:
-        return "error", {}
-
-    # Check for the mutually exclusive question form
-    if (
-        isinstance(data, dict)
-        and set(data.keys()) == {"question"}
-        and isinstance(data["question"], str)
-    ):
-        # This is the question form, return special status
-        return "question", data
-
-    # Otherwise, validate schema - now with partial validation support
-    is_valid, validation_msg = validate_json_schema(data)
-
-    if is_valid:
-        return True, data # Fully valid
-    else:
-        # Try to repair structure only if validation failed completely
-        logger.warning(f"JSON schema validation failed: {validation_msg}. Attempting repair.")
-        try:
-            repaired = repair_json_structure(data)
-            is_valid2, validation_msg2 = validate_json_schema(repaired)
-            if is_valid2:
-                return True, repaired
-            else:
-                return False, repaired
-        except Exception as repair_e:
-            return False, data
-
-def ensure_element_id_consistency(pre_planning_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Ensure that all element_ids in the pre-planning data are consistent and valid.
-
-    This function validates and repairs element_ids in system_design.code_elements and
-    ensures test_requirements properly reference these element_ids for traceability.
-
-    Args:
-        pre_planning_data: The pre-planning data to validate
-
-    Returns:
-        Updated pre-planning data with consistent element_ids
-    """
-    if not isinstance(pre_planning_data, dict) or "feature_groups" not in pre_planning_data:
-        logger.warning("Invalid pre-planning data structure for element_id validation")
-        return pre_planning_data
-
-    # Track assigned element_ids to ensure uniqueness
-    assigned_ids = set()
-
-    for group_idx, group in enumerate(pre_planning_data["feature_groups"]):
-        if not isinstance(group, dict) or "features" not in group:
-            continue
-
-        for feature_idx, feature in enumerate(group["features"]):
-            if not isinstance(feature, dict):
-                continue
-
-            # Check system_design.code_elements for element_ids
-            if "system_design" in feature and isinstance(feature["system_design"], dict) and "code_elements" in feature["system_design"]:
-                code_elements = feature["system_design"]["code_elements"]
-                if isinstance(code_elements, list):
-                    # First pass: ensure all code_elements have valid element_ids
-                    for elem_idx, element in enumerate(code_elements):
-                        if not isinstance(element, dict):
-                            continue
-
-                        # Ensure element has a valid element_id
-                        if "element_id" not in element or not element["element_id"] or not isinstance(element["element_id"], str):
-                            # Generate a standard element_id based on name or position
-                            element_name = element.get("name", f"element_{elem_idx}")
-                            base_id = f"{element_name.lower().replace(' ', '_')}_{group_idx}_{feature_idx}_{elem_idx}"
-
-                            # Ensure uniqueness
-                            element_id = base_id
-                            counter = 1
-                            while element_id in assigned_ids:
-                                element_id = f"{base_id}_{counter}"
-                                counter += 1
-
-                            element["element_id"] = element_id
-                            assigned_ids.add(element_id)
-                            logger.info(f"Generated element_id {element_id} for element {element_name}")
-                        else:
-                            # Normalize existing element_id
-                            element_id = element["element_id"]
-                            if element_id in assigned_ids:
-                                # Duplicate element_id, need to create a unique one
-                                base_id = element_id
-                                counter = 1
-                                while element_id in assigned_ids:
-                                    element_id = f"{base_id}_{counter}"
-                                    counter += 1
-                                element["element_id"] = element_id
-                                logger.info(f"Renamed duplicate element_id from {base_id} to {element_id}")
-                            assigned_ids.add(element_id)
-
-                    # Second pass: ensure test_requirements reference valid element_ids
-                    if "test_requirements" in feature and isinstance(feature["test_requirements"], dict):
-                        # Process unit tests
-                        if "unit_tests" in feature["test_requirements"] and isinstance(feature["test_requirements"]["unit_tests"], list):
-                            for test_idx, test in enumerate(feature["test_requirements"]["unit_tests"]):
-                                if not isinstance(test, dict):
-                                    continue
-
-                                # If target_element exists but target_element_id doesn't or is invalid
-                                if "target_element" in test and isinstance(test["target_element"], str):
-                                    target_element = test["target_element"]
-
-                                    # Find matching code element by name
-                                    matched_element = None
-                                    for element in code_elements:
-                                        if isinstance(element, dict) and element.get("name") == target_element:
-                                            matched_element = element
-                                            break
-
-                                    if matched_element and "element_id" in matched_element:
-                                        # Set or fix target_element_id
-                                        test["target_element_id"] = matched_element["element_id"]
-                                        logger.info(f"Linked test to element_id {matched_element['element_id']} based on target_element {target_element}")
-
-                        # Process property-based tests
-                        if "property_based_tests" in feature["test_requirements"] and isinstance(feature["test_requirements"]["property_based_tests"], list):
-                            for test_idx, test in enumerate(feature["test_requirements"]["property_based_tests"]):
-                                if not isinstance(test, dict):
-                                    continue
-
-                                # If target_element exists but target_element_id doesn't or is invalid
-                                if "target_element" in test and isinstance(test["target_element"], str):
-                                    target_element = test["target_element"]
-
-                                    # Find matching code element by name
-                                    matched_element = None
-                                    for element in code_elements:
-                                        if isinstance(element, dict) and element.get("name") == target_element:
-                                            matched_element = element
-                                            break
-
-                                    if matched_element and "element_id" in matched_element:
-                                        # Set or fix target_element_id
-                                        test["target_element_id"] = matched_element["element_id"]
-                                        logger.info(f"Linked property test to element_id {matched_element['element_id']} based on target_element {target_element}")
-
-    return pre_planning_data
-
-def validate_preplan_all(data) -> Tuple[bool, str]:
-    """
-    Run all pre-planning validations and accumulate errors.
-    Returns (True, "") if all pass, else (False, error_message).
-    """
-    errors = []
-    # 1. JSON schema validation
-    is_valid, validation_msg = validate_json_schema(data)
-    if not is_valid:
-        errors.append(f"JSON schema validation error: {validation_msg}")
-    
-    # 2. Enhanced validation with PrePlannerJsonValidator
-    try:
-        from agent_s3.pre_planner_json_validator import PrePlannerJsonValidator
-        validator = PrePlannerJsonValidator()
-        enhanced_valid, enhanced_errors, validated_data = validator.validate_all(data)
-        if not enhanced_valid:
-            for error in enhanced_errors:
-                errors.append(f"Enhanced validation error: {error}")
-    except Exception as e:
-        errors.append(f"Enhanced validator exception: {str(e)}")
-    
-    # 3. Static plan checker
-    try:
-        from agent_s3.tools.plan_validator import validate_pre_plan
-        static_valid, static_msg = validate_pre_plan(data)
-        if not static_valid:
-            if isinstance(static_msg, dict) and "critical" in static_msg:
-                for err in static_msg["critical"]:
-                    errors.append(f"Static plan checker critical error: {err.get('message', '')}")
-            else:
-                errors.append(f"Static plan checker error: {static_msg}")
-    except Exception as e:
-        errors.append(f"Static plan checker exception: {e}")
-    
-    # 4. Planner compatibility
-    try:
-        from agent_s3.planner_json_enforced import validate_pre_planning_for_planner
-        planner_compatible, planner_msg = validate_pre_planning_for_planner(data)
-        if not planner_compatible:
-            errors.append(f"Planner compatibility error: {planner_msg}")
-    except Exception as e:
-        errors.append(f"Planner compatibility check exception: {e}")
-    
-    return (len(errors) == 0), "\n".join(errors)
-
-def _parse_structured_modifications(modification_text: str) -> List[Dict[str, str]]:
-    """
-    Parse structured modifications from the modification text.
-    
-    This function extracts structured modification instructions from the text,
-    which can be in either the STRUCTURED_MODIFICATIONS format or the raw format.
-    
-    Args:
-        modification_text: The modification text to parse
-        
-    Returns:
-        List of dictionaries containing structured modifications
-    """
-    structured_mods = []
-    
-    # Check if using the STRUCTURED_MODIFICATIONS format
-    if "STRUCTURED_MODIFICATIONS:" in modification_text:
-        # Extract the RAW_INPUT section if it exists
-        raw_input_match = re.search(r"RAW_INPUT:(.*?)(?=$)", modification_text, re.DOTALL)
-        if raw_input_match:
-            raw_input = raw_input_match.group(1).strip()
-            # Split by separator lines
-            components = re.split(r"---+", raw_input)
-            for component in components:
-                mod = {}
-                # Extract key-value pairs
-                for line in component.strip().split("\n"):
-                    if ":" in line:
-                        key, value = line.split(":", 1)
-                        mod[key.strip()] = value.strip()
-                
-                # Check if it has the required fields
-                if all(k in mod for k in ["COMPONENT", "LOCATION", "CHANGE_TYPE", "DESCRIPTION"]):
-                    structured_mods.append(mod)
-    else:
-        # Try to parse as raw format
-        components = re.split(r"---+", modification_text)
-        for component in components:
-            mod = {}
-            # Extract key-value pairs
-            for line in component.strip().split("\n"):
-                if ":" in line:
-                    key, value = line.split(":", 1)
-                    mod[key.strip()] = value.strip()
-            
-            # Check if it has the required fields
-            if all(k in mod for k in ["COMPONENT", "LOCATION", "CHANGE_TYPE", "DESCRIPTION"]):
-                structured_mods.append(mod)
-    
-    return structured_mods
-
-def integrate_with_coordinator(coordinator, task_description: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
-    """
-    Integrate pre-planning with the coordinator.
-    
-    This function is the main entry point for the coordinator to use pre-planning.
-    It handles the entire pre-planning workflow and returns the results in a format
-    that the coordinator can use.
-    
-    Args:
-        coordinator: The coordinator instance
-        task_description: The task description
-        context: Optional context dictionary
-        
-    Returns:
-        Dictionary containing pre-planning results
-    """
-    # Get the router agent from the coordinator
-    router_agent = coordinator.router_agent
-    
-    # Call the pre-planning workflow
-    success, pre_planning_data = pre_planning_workflow(router_agent, task_description, context)
-    
-    if success:
-        # Extract key information for the coordinator
-        test_requirements = []
-        dependencies = []
-        edge_cases = []
-        
-        # Process feature groups
-        for group in pre_planning_data.get("feature_groups", []):
-            for feature in group.get("features", []):
-                # Extract test requirements
-                if "test_requirements" in feature:
-                    test_reqs = feature["test_requirements"]
-                    
-                    # Unit tests
-                    for test in test_reqs.get("unit_tests", []):
-                        test_requirements.append({
-                            "type": "unit",
-                            "description": test.get("description", ""),
-                            "target": test.get("target_element", ""),
-                            "expected": test.get("expected_outcome", "")
-                        })
-                    
-                    # Integration tests
-                    for test in test_reqs.get("integration_tests", []):
-                        if isinstance(test, dict):
-                            test_requirements.append({
-                                "type": "integration",
-                                "description": test.get("description", ""),
-                                "components": test.get("components_involved", []),
-                                "scenario": test.get("scenario", "")
-                            })
-                        elif isinstance(test, str):
-                            test_requirements.append({
-                                "type": "integration",
-                                "description": test
-                            })
-                    
-                    # Acceptance tests
-                    for test in test_reqs.get("acceptance_tests", []):
-                        test_requirements.append({
-                            "type": "acceptance",
-                            "given": test.get("given", ""),
-                            "when": test.get("when", ""),
-                            "then": test.get("then", "")
-                        })
-                
-                # Extract dependencies
-                if "dependencies" in feature:
-                    deps = feature["dependencies"]
-                    
-                    # Internal dependencies
-                    for dep in deps.get("internal", []):
-                        dependencies.append({
-                            "type": "internal",
-                            "name": dep,
-                            "feature": feature.get("name", "")
-                        })
-                    
-                    # External dependencies
-                    for dep in deps.get("external", []):
-                        dependencies.append({
-                            "type": "external",
-                            "name": dep,
-                            "feature": feature.get("name", "")
-                        })
-                    
-                    # Feature dependencies
-                    for dep in deps.get("feature_dependencies", []):
-                        dependencies.append({
-                            "type": "feature",
-                            "name": dep.get("feature_name", ""),
-                            "dependency_type": dep.get("dependency_type", ""),
-                            "reason": dep.get("reason", ""),
-                            "feature": feature.get("name", "")
-                        })
-                
-                # Extract edge cases from risk assessment
-                if "risk_assessment" in feature:
-                    risk = feature["risk_assessment"]
-                    
-                    # Potential regressions
-                    for reg in risk.get("potential_regressions", []):
-                        edge_cases.append({
-                            "type": "regression",
-                            "description": reg,
-                            "feature": feature.get("name", "")
-                        })
-                    
-                    # Backward compatibility concerns
-                    for concern in risk.get("backward_compatibility_concerns", []):
-                        edge_cases.append({
-                            "type": "compatibility",
-                            "description": concern,
-                            "feature": feature.get("name", "")
-                        })
-        
-        # Assess complexity
-        from agent_s3.complexity_analyzer import ComplexityAnalyzer
-        complexity_analyzer = ComplexityAnalyzer()
-        complexity_result = complexity_analyzer.assess_complexity(
-            pre_planning_data, 
-            task_description=task_description
-        )
-        
-        # Return results
-        return {
-            "success": True,
-            "uses_enforced_json": True,
-            "status": "completed",
-            "timestamp": coordinator.get_current_timestamp(),
-            "pre_planning_data": pre_planning_data,
-            "test_requirements": test_requirements,
-            "dependencies": dependencies,
-            "edge_cases": edge_cases,
-            "is_complex": complexity_result.get("is_complex", False),
-            "complexity_score": complexity_result.get("complexity_score", 0),
-            "complexity_factors": complexity_result.get("complexity_factors", [])
-        }
-    else:
-        # Return failure
-        return {
-            "success": False,
-            "uses_enforced_json": True,
-            "status": "failed",
-            "timestamp": coordinator.get_current_timestamp(),
-            "error": "Failed to generate pre-planning data"
-        }
-
-def regenerate_pre_planning_with_modifications(
-    router_agent, 
-    original_data: Dict[str, Any], 
-    modification_text: str
-) -> Dict[str, Any]:
-    """
-    Regenerate pre-planning data with user-requested modifications.
-    
-    Args:
-        router_agent: The router agent with call_llm_by_role capability
-        original_data: Original pre-planning data
-        modification_text: User's modification request
-        
-    Returns:
-        Modified pre-planning data
-    """
-    logger.info(f"Regenerating pre-planning data with modifications: {modification_text[:50]}...")
-    
-    # Create a prompt that includes the original data and the modification request
-    system_prompt = get_json_system_prompt()
-    
-    user_prompt = f"""Original Pre-Planning Data:
-{json.dumps(original_data, indent=2)}
-
-Modification Request:
-{modification_text}
-
-Please generate an updated version of the pre-planning data that incorporates the requested modifications. 
-Maintain the same JSON format and structure, but adjust the content according to the modification request.
-Return ONLY the modified JSON object.
-"""
-    
-    # Call the LLM
-    openrouter_params = get_openrouter_params()
-    router_agent.reload_config()
-    
-    response = router_agent.call_llm_by_role(
-        role='pre_planner',
-        system_prompt=system_prompt,
-        user_prompt=user_prompt,
-        config=openrouter_params,
-        scratchpad=None
-    )
-    
-    # Process the response
-    success, data = process_response(response, modification_text)
-    
-    if success:
-        # Ensure element_id consistency
-        data = ensure_element_id_consistency(data)
-        return data
-    else:
-        # If there was an error, return the original data
-        logger.warning(f"Failed to regenerate pre-planning data")
-        return original_data
-def regenerate_pre_planning_with_modifications(
-    router_agent,
-    original_results: Dict[str, Any],
-    modification_text: str,
-) -> Dict[str, Any]:
-    """Regenerate pre-planning JSON based on user modifications."""
-
-    structured_mods = _parse_structured_modifications(modification_text)
-    openrouter_params = get_openrouter_params()
-    system_prompt = get_json_system_prompt()
-
-    base_json = json.dumps(original_results, indent=2)
-    if structured_mods:
-        mod_lines = []
-        for mod in structured_mods:
-            mod_lines.append(
-                f"Component: {mod['COMPONENT']}\n"
-                f"Location: {mod['LOCATION']}\n"
-                f"Change Type: {mod['CHANGE_TYPE']}\n"
-                f"Description: {mod['DESCRIPTION']}"
-            )
-        mods_section = "\n\n".join(mod_lines)
-        user_prompt = (
-            f"Here is the previous pre-planning JSON:\n```json\n{base_json}\n```\n"
-            "User's Structured Modifications:\n"
-            f"{mods_section}\n"
-            "Apply each modification precisely as specified and return the updated JSON."
-        )
-    else:
-        user_prompt = (
-            f"Here is the previous pre-planning JSON:\n```json\n{base_json}\n```\n"
-            "User's Modification Request:\n"
-            f"{modification_text}\n"
-            "Please update the JSON accordingly and return the full result."
-        )
-
-    response = router_agent.call_llm_by_role(
-        role="pre_planner",
-        system_prompt=system_prompt,
-        user_prompt=user_prompt,
-        config=openrouter_params,
-    )
-
-    status, data, _ = process_response(response, original_results.get("original_request", ""))
-    if status != "success":
-        raise JSONValidationError("Failed to regenerate pre-planning JSON")
-    return data
 
 
 def call_pre_planner_with_enforced_json(
     router_agent, task_description: str, context: Optional[Dict[str, Any]] = None
 ) -> Tuple[bool, Dict[str, Any]]:
-    """Wrapper to call the JSON-enforced pre-planning workflow."""
-    return pre_planning_workflow(router_agent, task_description, context=context)
-
-
-def integrate_with_coordinator(coordinator, task_description: str) -> Dict[str, Any]:
-    """Run JSON-enforced pre-planning within the coordinator workflow."""
-
-    success, data = call_pre_planner_with_enforced_json(coordinator.router_agent, task_description)
-    if not success:
-        raise JSONValidationError("Pre-planning failed")
-
-    complexity_score = data.get("complexity_score")
-    try:
-        assess = coordinator.pre_planner.assess_complexity(task_description)
-        complexity_score = complexity_score or assess.get("score")
-        is_complex = assess.get("is_complex", False)
-    except Exception:
-        is_complex = False
-
-    threshold = coordinator.config.config.get("complexity_threshold", 0)
-    if complexity_score is not None:
-        is_complex = is_complex or complexity_score >= threshold
-
-    result = dict(data)
-    result.update(
-        {
-            "success": True,
-            "status": "completed",
-            "uses_enforced_json": True,
-            "complexity_score": complexity_score,
-            "is_complex": bool(is_complex),
-            "edge_cases": result.get("edge_cases", []),
-        }
-    )
-
-    return result
-
-def pre_planning_workflow(router_agent, initial_request: str, context: Dict[str, Any] = None) -> Tuple[bool, Dict[str, Any]]:
     """
-    Canonical pre-planning workflow: user request, LLM (question or preplan JSON), user clarification loop, then extensive JSON validation.
-    Now includes retry on JSON validation failure, appending error feedback to the prompt and always requesting the full JSON schema.
-    Also includes automatic repair loop using PrePlannerJsonValidator for certain types of errors.
-    
+    Run the JSON-enforced pre-planning workflow using the router_agent.
+    This function generates a pre-planning JSON plan, validates and repairs it as needed,
+    and ensures strict schema and traceability requirements are met.
+
     Args:
-        router_agent: The router agent with call_llm_by_role capability
-        initial_request: The original user request
+        router_agent: The agent responsible for LLM calls (must have a .run() method)
+        task_description: The user-provided task description
         context: Optional context dictionary
+
     Returns:
-        Tuple of (success, result_data)
+        Tuple of (success: bool, pre_planning_data: dict)
     """
-    request_text = initial_request
-    max_rounds = 5
-    last_error_msg = None
-    repair_attempts = 0
-    max_repair_attempts = 3
+    import traceback
+    max_attempts = 3
+    last_error = None
+    pre_planning_data = None
+    system_prompt = get_json_system_prompt()
+    user_prompt = get_base_user_prompt(task_description)
+    openrouter_params = get_openrouter_params()
 
-    # Initialize the enhanced validator
-    try:
-        from agent_s3.pre_planner_json_validator import PrePlannerJsonValidator
-        validator = PrePlannerJsonValidator()
-    except ImportError:
-        logger.warning("Enhanced JSON validator not available. Using standard validation only.")
-        validator = None
-
-    for round_num in range(max_rounds):
-        system_prompt = get_json_system_prompt()
-        openrouter_params = get_openrouter_params()
-        router_agent.reload_config()
-
-        # If there was a JSON error, append it to the user prompt for feedback
-        user_prompt = get_json_user_prompt(request_text)
-        if last_error_msg:
-            user_prompt += f"\n\nPREVIOUS ERROR: {last_error_msg}\nPlease correct your response to address this error. Return the full JSON object as specified in the schema."
-
-        response = router_agent.call_llm_by_role(
-            role='pre_planner',
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            config=openrouter_params,
-            scratchpad=None,
-            context=context
-        )
-        success, data = process_response(response, request_text)
-        msg = None
-        if isinstance(data, dict) and "question" in data:
-            msg = data["question"]
-            success = False
-            
-        if success:
-            logger.info("Ensuring element_id consistency and test-code traceability...")
-            data = ensure_element_id_consistency(data)
-            
-            # First, try automatic repair if we have a validator
-            original_data = data.copy() if isinstance(data, dict) else {}
-            valid, all_errors = validate_preplan_all(data)
-            
-            # If not valid but we have a validator, try to repair
-            if not valid and validator and repair_attempts < max_repair_attempts:
-                logger.info(f"Validation failed - attempting automatic repair (attempt {repair_attempts+1}/{max_repair_attempts})...")
-                try:
-                    errors_list = all_errors.split('\n') if isinstance(all_errors, str) else [all_errors]
-                    repaired_data, was_repaired = validator.repair_plan(original_data, errors_list)
-                    
-                    if was_repaired:
-                        # Revalidate after repair
-                        repair_valid, repair_errors = validate_preplan_all(repaired_data)
-                        if repair_valid:
-                            logger.info("Automatic repair successful!")
-                            data = repaired_data
-                            valid = True
-                            
-                            # Report successful repair to the user
-                            print("\n\033[92mAutomatic plan repair successful!\033[0m")
-                            print("The following issues were fixed automatically:")
-                            for err in errors_list[:5]:  # Show at most 5 fixed issues
-                                print(f"- \033[92m✓\033[0m {err[:100]}{'...' if len(err) > 100 else ''}")
-                            if len(errors_list) > 5:
-                                print(f"- \033[92m✓\033[0m ...and {len(errors_list) - 5} more issues")
-                        else:
-                            logger.warning(f"Automatic repair unsuccessful: {repair_errors}")
-                            repair_attempts += 1
-                            if repair_attempts < max_repair_attempts:
-                                # Get repair suggestions and include in error feedback
-                                suggestions = validator.generate_repair_suggestions(original_data, errors_list)
-                                suggestion_text = "\n".join([f"{cat.upper()}:\n" + "\n".join([f"- {s['suggestion']}" for s in items]) 
-                                                         for cat, items in suggestions.items()])
-                                
-                                # Generate user feedback for display
-                                user_feedback = validator.generate_user_feedback(errors_list)
-                                
-                                # Display user-friendly feedback
-                                print("\n\033[93mPlan validation issues found:\033[0m")
-                                for category, issues in user_feedback.get("issues_by_category", {}).items():
-                                    if issues:
-                                        print(f"\n\033[1m{category.replace('_', ' ').title()}:\033[0m")
-                                        for issue in issues[:3]:  # Show at most 3 issues per category
-                                            severity_color = "\033[91m" if issue["severity"] == "critical" else "\033[93m"
-                                            print(f"- {severity_color}●\033[0m {issue['message'][:100]}{'...' if len(issue['message']) > 100 else ''}")
-                                        if len(issues) > 3:
-                                            print(f"  ...and {len(issues) - 3} more issues in this category")
-                                
-                                # Still include the full error message for the LLM
-                                last_error_msg = f"{all_errors}\n\nSUGGESTED FIXES:\n{suggestion_text}"
-                                continue  # Try again with better error feedback
-                    else:
-                        logger.warning("No automatic repairs were possible")
-                        repair_attempts += 1
-                except Exception as e:
-                    logger.error(f"Error during plan repair: {e}")
-                    repair_attempts += 1
-            
-            # If still not valid after repair attempts, continue with standard error feedback
-            if not valid:
-                logger.warning(f"Validation failed: {all_errors}")
-                last_error_msg = all_errors
-                continue  # Retry LLM with combined error feedback
-            # --- Write preplan.json for human review ---
-            preplan_path = "preplan.json"
-            try:
-                with open(preplan_path, "w", encoding="utf-8") as f:
-                    json.dump(data, f, indent=2, ensure_ascii=False)
-                logger.info(f"Wrote preplan.json for human review at {preplan_path}")
-            except Exception as e:
-                logger.error(f"Failed to write preplan.json: {e}")
-                print(f"\n\033[91mError: Could not write preplan.json: {e}\033[0m")
-                return False, {}
-            # --- Read preplan.json and re-validate before handoff ---
-            try:
-                with open(preplan_path, "r", encoding="utf-8") as f:
-                    preplan_data = json.load(f)
-            except Exception as e:
-                logger.error(f"Failed to read preplan.json: {e}")
-                print(f"\n\033[91mError: Could not read preplan.json: {e}\033[0m")
-                return False, {}
-            valid, all_errors = validate_preplan_all(preplan_data)
-            if not valid:
-                logger.warning(f"Human-edited preplan.json is invalid: {all_errors}")
-                print(f"\n\033[91mError: preplan.json is invalid after human edit. Please fix the file and rerun.\033[0m")
-                return False, {}
-            # Only return the data loaded from preplan.json, not the in-memory data
-            return True, preplan_data
-        elif isinstance(data, dict) and "question" in data:
-            print(f"\nThe pre-planner needs clarification before proceeding:")
-            print(f"\033[93m{msg}\033[0m")
-            user_answer = input("Your answer: ").strip()
-            request_text = f"{request_text}\n\nClarification: {msg}\nUser answer: {user_answer}"
-            last_error_msg = None  # Reset error on clarification
-            continue
-        else:
-            print(f"\n\033[91mError: {msg}\033[0m")
-            last_error_msg = msg
-            # Retry with error feedback in prompt
-            continue
-
-    print("\n\033[91mError: Too many clarification or correction rounds. Aborting.\033[0m")
-    return False, {}
-
-# Canonical pre-planning entry point: use only pre_planning_workflow
-# All other entry points are removed for consistency.
-
-class PrePlanner:
-    """
-    Enhanced pre-planning system with improved validation, complexity assessment,
-    and error handling. This consolidates functionality from multiple files and
-    incorporates JSON enforcement capabilities.
-    """
-    def __init__(self, router_agent=None, scratchpad=None, config=None):
-        self.router_agent = router_agent
-        self.scratchpad = scratchpad
-        self.config = {} if config is None else config
-        from agent_s3.pre_planning_validator import PrePlanningValidator
-        from agent_s3.complexity_analyzer import ComplexityAnalyzer
-        self.validator = PrePlanningValidator()
-        self.complexity_analyzer = ComplexityAnalyzer()
-        # Flag to determine whether to use JSON enforcement
-        self.use_json_enforcement = self.config.get("use_json_enforcement", True)
-    
-    def generate_pre_planning_data(self, task_description: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
-        """
-        Generate pre-planning data for a given task description.
-        
-        Args:
-            task_description: Task description provided by the user
-            context: Optional context dictionary with additional information
-            
-        Returns:
-            Dictionary containing pre-planning results or error information
-        """
-        logger.info(f"Generating pre-planning data for task: {task_description[:50]}...")
-        
-        # If JSON enforcement is enabled, use the pre_planner_json_enforced workflow
-        if self.use_json_enforcement:
-            success, pre_planning_data = pre_planning_workflow(self.router_agent, task_description, context)
-            
-            if success:
-                # Assess complexity
-                complexity_result = self.complexity_analyzer.assess_complexity(
-                    pre_planning_data, 
-                    task_description=task_description
-                )
-                
-                return {
-                    "success": True,
-                    "pre_planning_data": pre_planning_data,
-                    "complexity_assessment": complexity_result,
-                    "requires_confirmation": complexity_result["is_complex"]
-                }
-            else:
-                return {
-                    "success": False,
-                    "error_type": "json_enforcement",
-                    "message": "Failed to generate pre-planning data with JSON enforcement"
-                }
-        
-        # Otherwise, use the original implementation
-        start_time = time.time()
-        
-        # 1. Generate pre-planning data using LLM
-        system_prompt = get_base_system_prompt()
-        user_prompt = get_base_user_prompt(task_description)
-        
-        response = self._call_llm_with_retry(system_prompt, user_prompt)
-        
-        if not response.get("success", False):
-            return response
-        
-        # 2. Parse and validate JSON response
+    for attempt in range(1, max_attempts + 1):
         try:
-            pre_planning_data = json.loads(response["response"])
-        except json.JSONDecodeError as e:
-            from agent_s3.pre_planning_errors import SchemaError
-            raise SchemaError(f"Invalid JSON response: {str(e)}", ["JSON parsing failed"])
-        
-        # 3. Validate structure and semantics
-        is_valid, validation_result = self.validator.validate_all(pre_planning_data)
-        
-        if not is_valid:
-            all_errors = []
-            for category, errors in validation_result["errors"].items():
-                all_errors.extend(errors)
-            
-            # If validation failed, try to repair before giving up
-            if self.config.get("enable_auto_repair", True):
-                repaired_data, repair_successful = self._attempt_repair(pre_planning_data, all_errors)
-                if repair_successful:
-                    pre_planning_data = repaired_data
-                    logger.info("Successfully repaired pre-planning data")
-                else:
-                    from agent_s3.pre_planning_errors import ValidationError
-                    raise ValidationError("Pre-planning validation failed after repair attempt", 
-                                         all_errors, validation_result)
-            else:
-                from agent_s3.pre_planning_errors import ValidationError
-                raise ValidationError("Pre-planning validation failed", all_errors, validation_result)
-        
-        # 4. Assess complexity
-        complexity_result = self.complexity_analyzer.assess_complexity(
-            pre_planning_data, 
-            task_description=task_description
-        )
-        
-        # 5. Add metadata
-        pre_planning_data["metadata"] = {
-            "generation_time": time.time() - start_time,
-            "complexity_assessment": complexity_result
-        }
-        
-        return {
-            "success": True,
-            "pre_planning_data": pre_planning_data,
-            "complexity_assessment": complexity_result,
-            "requires_confirmation": complexity_result["is_complex"]
-        }
-    
-    def regenerate_pre_planning_with_modifications(
-        self, 
-        task_description: str, 
-        original_data: Dict[str, Any],
-        modification_text: str
-    ) -> Dict[str, Any]:
-        """
-        Regenerate pre-planning data with user-requested modifications.
-        
-        Args:
-            task_description: Original task description
-            original_data: Original pre-planning data
-            modification_text: User's modification request
-            
-        Returns:
-            Dictionary containing modified pre-planning results or error information
-        """
-        logger.info(f"Regenerating pre-planning data with modifications: {modification_text[:50]}...")
-        
-        # If JSON enforcement is enabled, use the pre_planner_json_enforced workflow
-        if self.use_json_enforcement:
-            modified_data = regenerate_pre_planning_with_modifications(
-                self.router_agent, 
-                original_data, 
-                modification_text
-            )
-            
-            # Assess complexity
-            complexity_result = self.complexity_analyzer.assess_complexity(
-                modified_data, 
-                task_description=task_description
-            )
-            
-            return {
-                "success": True,
-                "pre_planning_data": modified_data,
-                "complexity_assessment": complexity_result,
-                "requires_confirmation": complexity_result["is_complex"]
+            # Compose the prompt for the LLM
+            prompt = {
+                "system": system_prompt,
+                "user": user_prompt
             }
-        
-        # Otherwise, use the original implementation
-        # 1. Generate modified pre-planning data using LLM
-        system_prompt = get_base_system_prompt()
-        user_prompt = self._get_modification_prompt(task_description, original_data, modification_text)
-        
-        response = self._call_llm_with_retry(system_prompt, user_prompt)
-        
-        if not response.get("success", False):
-            return response
-        
-        # 2. Parse and validate JSON response
-        try:
-            modified_data = json.loads(response["response"])
-        except json.JSONDecodeError as e:
-            from agent_s3.pre_planning_errors import SchemaError
-            raise SchemaError(f"Invalid JSON in modified response: {str(e)}", ["JSON parsing failed"])
-        
-        # 3. Validate structure and semantics
-        is_valid, validation_result = self.validator.validate_all(modified_data)
-        
-        if not is_valid:
-            all_errors = []
-            for category, errors in validation_result["errors"].items():
-                all_errors.extend(errors)
-            
-            # If validation failed, try to repair before giving up
-            if self.config.get("enable_auto_repair", True):
-                repaired_data, repair_successful = self._attempt_repair(modified_data, all_errors)
-                if repair_successful:
-                    modified_data = repaired_data
-                    logger.info("Successfully repaired modified pre-planning data")
+            # Merge context if provided
+            if context and isinstance(context, dict):
+                prompt = {**prompt, **context}
+
+            # Call the router agent (assumed to have a .run() method)
+            response = router_agent.run(prompt, **openrouter_params)
+            status, data = process_response(response, task_description)
+
+            if status is True:
+                # Ensure element_id consistency and traceability
+                data = ensure_element_id_consistency(data)
+                # Validate all requirements
+                valid, validation_msg = validate_preplan_all(data)
+                if valid:
+                    return True, data
                 else:
-                    from agent_s3.pre_planning_errors import ValidationError
-                    raise ValidationError("Modified pre-planning validation failed after repair attempt", 
-                                         all_errors, validation_result)
+                    last_error = f"Validation failed: {validation_msg}"
+                    pre_planning_data = data
+            elif status == "question":
+                # LLM is asking for clarification, return as-is
+                return False, data
             else:
-                from agent_s3.pre_planning_errors import ValidationError
-                raise ValidationError("Modified pre-planning validation failed", all_errors, validation_result)
-        
-        # 4. Assess complexity
-        complexity_result = self.complexity_analyzer.assess_complexity(
-            modified_data, 
-            task_description=task_description
-        )
-        
-        # 5. Add metadata
-        modified_data["metadata"] = {
-            "modified_from_original": True,
-            "modification_text": modification_text,
-            "complexity_assessment": complexity_result
-        }
-        
-        return {
-            "success": True,
-            "pre_planning_data": modified_data,
-            "complexity_assessment": complexity_result,
-            "requires_confirmation": complexity_result["is_complex"]
-        }
-    
-    def _attempt_repair(self, data: Dict[str, Any], errors: List[str]) -> Tuple[Dict[str, Any], bool]:
-        """
-        Attempt to repair invalid pre-planning data.
-        
-        Args:
-            data: The pre-planning data to repair
-            errors: List of validation errors
-            
-        Returns:
-            Tuple of (repaired_data, was_successful)
-        """
-        # If JSON enforcement is enabled, try to use the JSON validator's repair functionality
-        if self.use_json_enforcement:
-            try:
-                from agent_s3.pre_planner_json_validator import PrePlannerJsonValidator
-                validator = PrePlannerJsonValidator()
-                repaired_data, was_repaired = validator.repair_plan(data, errors)
-                if was_repaired:
-                    return repaired_data, True
-            except (ImportError, Exception) as e:
-                logger.warning(f"Failed to use JSON validator for repair: {e}")
-        
-        # Implement basic repair strategies for common issues
-        repaired = data.copy()
-        
-        # Fix missing fields
-        for error in errors:
-            if "missing fields" in error.lower():
-                parts = error.split("missing fields: ")
-                if len(parts) > 1:
-                    missing_fields = parts[1].strip()
-                    field_names = [f.strip() for f in missing_fields.split(",")]
-                    
-                    # Locate the object with missing fields
-                    if "feature group" in error.lower():
-                        match = re.search(r"feature group (\d+)", error.lower())
-                        if match:
-                            group_idx = int(match.group(1))
-                            if 0 <= group_idx < len(repaired.get("feature_groups", [])):
-                                group = repaired["feature_groups"][group_idx]
-                                for field in field_names:
-                                    if field == "group_name":
-                                        group["group_name"] = f"Group {group_idx + 1}"
-                                    elif field == "group_description":
-                                        group["group_description"] = "Automatically generated group description"
-                                    elif field == "features":
-                                        group["features"] = []
-            
-            elif "feature group" in error.lower() and "feature" in error.lower() and "missing fields" in error.lower():
-                match = re.search(r"feature group (\d+), feature (\d+)", error.lower())
-                if match:
-                    group_idx = int(match.group(1))
-                    feature_idx = int(match.group(2))
-                    
-                    parts = error.split("missing fields: ")
-                    if len(parts) > 1:
-                        missing_fields = parts[1].strip()
-                        field_names = [f.strip() for f in missing_fields.split(",")]
-                        
-                        # Fix missing feature fields
-                        if 0 <= group_idx < len(repaired.get("feature_groups", [])):
-                            group = repaired["feature_groups"][group_idx]
-                            if "features" in group and 0 <= feature_idx < len(group["features"]):
-                                feature = group["features"][feature_idx]
-                                for field in field_names:
-                                    if field == "name":
-                                        feature["name"] = f"Feature {feature_idx + 1}"
-                                    elif field == "description":
-                                        feature["description"] = "Automatically generated feature description"
-                                    elif field == "complexity":
-                                        feature["complexity"] = 1
-                                    else:
-                                        # Add any other missing fields with default values
-                                        feature[field] = f"Automatically generated {field}"
-        
-        # Validate the repaired data
-        is_valid, _ = self.validator.validate_all(repaired)
-        return repaired, is_valid
-    
-    def _get_modification_prompt(self, task_description: str, original_data: Dict[str, Any], 
-                               modification_text: str) -> str:
-        """Generate user prompt for modifying pre-planning data."""
-        return f"""Task: {task_description}
+                last_error = f"Response processing failed: {data}"
+        except Exception as e:
+            last_error = f"Exception during pre-planning (attempt {attempt}): {e}\n{traceback.format_exc()}"
+        # Optional: exponential backoff or delay between retries
+        time.sleep(0.5 * attempt)
 
-Original Pre-Planning Data:
-{json.dumps(original_data, indent=2)}
-
-Modification Request:
-{modification_text}
-
-Please generate an updated version of the pre-planning data that incorporates the requested modifications. Maintain the same JSON format and structure, but adjust the content according to the modification request."""
-    
-    def _call_llm_with_retry(self, system_prompt: str, user_prompt: str, 
-                           max_retries: int = 2) -> Dict[str, Any]:
-        """Call LLM with retry logic for reliability."""
-        for attempt in range(max_retries + 1):
-            try:
-                response_text = self.router_agent.call_llm_by_role(
-                    role='pre_planner',
-                    system_prompt=system_prompt,
-                    user_prompt=user_prompt,
-                    config=self.config.get("llm_config", {}),
-                    scratchpad=self.scratchpad
-                )
-                # Wrap the string response in a dictionary for compatibility
-                return {
-                    "success": True,
-                    "response": response_text
-                }
-            except Exception as e:
-                if attempt < max_retries:
-                    logger.warning(f"LLM call failed (attempt {attempt+1}/{max_retries+1}): {str(e)}. Retrying...")
-                    time.sleep(2 ** attempt)  # Exponential backoff
-                else:
-                    logger.error(f"LLM call failed after {max_retries+1} attempts: {str(e)}")
-                    return {
-                        "success": False,
-                        "error": f"Failed to generate pre-planning data after {max_retries+1} attempts: {str(e)}"
-                    }
+    # If all attempts failed, return fallback or last error
+    if pre_planning_data:
+        return False, pre_planning_data
+    else:
+        return False, {"error": last_error or "Failed to generate pre-planning data after retries"}
