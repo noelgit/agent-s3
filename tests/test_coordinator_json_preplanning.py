@@ -233,5 +233,3 @@ class TestCoordinatorJsonPrePlanning:
 
         assert result1 == result2
         assert mock_call.call_count == 2
-
-
