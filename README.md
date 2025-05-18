@@ -22,7 +22,7 @@ Agent-S3 automates feature planning, code generation, and execution while mainta
 
 - **Complexity Management:** For complex tasks, the system provides an explicit warning and requires user confirmation, improving transparency and user control rather than automatic workflow switching.
 
-- **Test Critic Integration:** The system analyzes test quality, coverage, and diversity, providing warnings and suggestions for comprehensive testing strategies.
+- **Test Critic Integration:** The system analyzes test quality and coverage, providing warnings and suggestions for comprehensive testing strategies.
 
 - **Multi-LLM Solution:** To prevent runaway costs, Agent-S3 implements a multi-LLM strategy, using state-of-the-art context and cache management to optimize token usage and response times.
 
@@ -115,7 +115,7 @@ Agent-S3 is not just a tool for automation; it is a partner in development that 
   - TestFrameworks for framework-agnostic test generation (`agent_s3.tools.test_frameworks`)
   - Integrated test coverage enforcement within feature group processing
   - Comprehensive test validation including unit, integration, property-based, and acceptance tests
-  - Test quality metrics including coverage ratio and diversity score
+  - Test quality metrics including coverage ratio
   - Warning system for uncovered critical files and missing test types
 - Progress tracking in `progress_log.jsonl` (`agent_s3.progress_tracker`) and detailed chain-of-thought logs via enhanced scratchpad management (`agent_s3.enhanced_scratchpad_manager`)
 - Interactive user prompts, plan reviews, patch diffs, and explanations via `agent_s3.prompt_moderator`
