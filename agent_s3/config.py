@@ -24,12 +24,17 @@ _config_instance = None
 # Adaptive Configuration settings
 ADAPTIVE_CONFIG_ENABLED = os.getenv('ADAPTIVE_CONFIG_ENABLED', 'true').lower() == 'true'
 ADAPTIVE_CONFIG_REPO_PATH = os.getenv('ADAPTIVE_CONFIG_REPO_PATH', os.getcwd())
-ADAPTIVE_CONFIG_DIR = os.getenv('ADAPTIVE_CONFIG_DIR', os.path.join(ADAPTIVE_CONFIG_REPO_PATH, '.agent_s3', 'config'))
-ADAPTIVE_METRICS_DIR = os.getenv('ADAPTIVE_METRICS_DIR', os.path.join(ADAPTIVE_CONFIG_REPO_PATH, '.agent_s3', 'metrics'))
-ADAPTIVE_OPTIMIZATION_INTERVAL = int(os.getenv('ADAPTIVE_OPTIMIZATION_INTERVAL', '3600'))  # Default: optimize hourly
-ADAPTIVE_CONFIG_DIR = os.getenv('ADAPTIVE_CONFIG_DIR', os.path.join(ADAPTIVE_CONFIG_REPO_PATH, '.agent_s3', 'config'))
-ADAPTIVE_METRICS_DIR = os.getenv('ADAPTIVE_METRICS_DIR', os.path.join(ADAPTIVE_CONFIG_REPO_PATH, '.agent_s3', 'metrics'))
-ADAPTIVE_OPTIMIZATION_INTERVAL = int(os.getenv('ADAPTIVE_OPTIMIZATION_INTERVAL', '3600'))  # Default: optimize hourly
+ADAPTIVE_CONFIG_DIR = os.getenv(
+    'ADAPTIVE_CONFIG_DIR',
+    os.path.join(ADAPTIVE_CONFIG_REPO_PATH, '.agent_s3', 'config'),
+)
+ADAPTIVE_METRICS_DIR = os.getenv(
+    'ADAPTIVE_METRICS_DIR',
+    os.path.join(ADAPTIVE_CONFIG_REPO_PATH, '.agent_s3', 'metrics'),
+)
+ADAPTIVE_OPTIMIZATION_INTERVAL = int(
+    os.getenv('ADAPTIVE_OPTIMIZATION_INTERVAL', '3600')
+)  # Default: optimize hourly
 
 # Context Window Sizes (tokens)
 CONTEXT_WINDOW_SCAFFOLDER = int(os.getenv('CONTEXT_WINDOW_SCAFFOLDER', '16384'))
