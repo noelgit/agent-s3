@@ -106,16 +106,16 @@ MOCK_LLM_RESPONSES = {
                 from typing import Dict, Any, List, Optional
                 
                 def validate_email(email: str) -> bool:
-                    """Validate email format."""
+                    '''Validate email format.'''
                     pattern = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
                     return bool(re.match(pattern, email))
                 
                 def generate_hash(data: str) -> str:
-                    """Generate SHA-256 hash of input data."""
+                    '''Generate SHA-256 hash of input data.'''
                     return hashlib.sha256(data.encode()).hexdigest()
                 
                 def safe_get(data: Dict[str, Any], key_path: str, default: Any = None) -> Any:
-                    """Safely get a value from a nested dictionary using dot notation."""
+                    '''Safely get a value from a nested dictionary using dot notation.'''
                     keys = key_path.split('.')
                     result = data
                     
@@ -166,7 +166,7 @@ MOCK_LLM_RESPONSES = {
                 TOKEN_EXPIRY = 3600  # 1 hour in seconds
                 
                 def generate_token(user_id: str) -> str:
-                    """Generate a JWT token for a user."""
+                    '''Generate a JWT token for a user.'''
                     payload = {
                         'user_id': user_id,
                         'exp': datetime.datetime.utcnow() + datetime.timedelta(seconds=TOKEN_EXPIRY),
@@ -175,7 +175,7 @@ MOCK_LLM_RESPONSES = {
                     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
                 
                 def validate_token(token: str) -> Optional[Dict[str, Any]]:
-                    """Validate a JWT token and return payload if valid."""
+                    '''Validate a JWT token and return payload if valid.'''
                     try:
                         # Fix: Add verification of exp claim
                         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM], options={'verify_exp': True})
@@ -238,7 +238,7 @@ MOCK_LLM_RESPONSES = {
                         self.headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
                     
                     def collect_data(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-                        """Collect data from specified API endpoint."""
+                        '''Collect data from specified API endpoint.'''
                         url = f"{self.api_url}/{endpoint}"
                         logger.info(f"Collecting data from {url}")
                         
