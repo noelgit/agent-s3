@@ -116,6 +116,40 @@ wss.on('connection', (ws) => {
         sendSampleStream(ws);
         return;
       }
+
+      // Handle file streaming request
+      if (data.type === 'file_stream') {
+        const filePath = path.join(__dirname, 'sample.txt');
+        fs.stat(filePath, (err, stats) => {
+          if (err) {
+            ws.send(JSON.stringify({
+              type: 'file_stream_error',
+              error: 'File not found'
+            }));
+            return;
+          }
+
+          const stream = fs.createReadStream(filePath, { start: 0, end: stats.size - 1 });
+          stream.on('data', chunk => {
+            ws.send(JSON.stringify({
+              type: 'file_stream_content',
+              content: chunk.toString()
+            }));
+          });
+          stream.on('end', () => {
+            ws.send(JSON.stringify({
+              type: 'file_stream_end'
+            }));
+          });
+          stream.on('error', (streamErr) => {
+            ws.send(JSON.stringify({
+              type: 'file_stream_error',
+              error: streamErr.message
+            }));
+          });
+        });
+        return;
+      }
       
       // Handle other messages
       console.log(`Received message of type ${data.type}`);
