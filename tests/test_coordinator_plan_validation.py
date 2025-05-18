@@ -374,5 +374,3 @@ class TestCoordinatorPlanValidation:
                 coordinator.feature_group_processor.process_pre_planning_output.assert_not_called()
 
 
-if __name__ == "__main__":
-    pytest.main(["-xvs", "tests/test_coordinator_plan_validation.py"])

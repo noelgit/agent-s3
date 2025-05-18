@@ -239,5 +239,3 @@ class TestEnforcedJsonCoordinatorIntegration:
         mock_call.assert_called_once_with(mock_coordinator.router_agent, task)
 
 
-if __name__ == "__main__":
-    pytest.main(["-xvs", "test_enforced_json_coordinator_integration.py"])

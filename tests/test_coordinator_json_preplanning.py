@@ -235,5 +235,3 @@ class TestCoordinatorJsonPrePlanning:
         assert mock_call.call_count == 2
 
 
-if __name__ == "__main__":
-    pytest.main(["-xvs", "test_coordinator_json_preplanning.py"])
