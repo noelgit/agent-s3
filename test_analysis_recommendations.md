@@ -161,7 +161,7 @@ The agent-s3 project has a substantial test suite covering various components an
 1. **Task Execution Workflow:**
    - **Pre-Planning Phase:**
      - No tests for the complexity threshold branch where /design is suggested
-     - Exception handling in _execute_pre_planning_phase isn't fully tested
+    - Exception handling in the pre-planning integration isn't fully tested
    - **Planning Phase:**
      - Missing tests for when Planner.generate_plan returns failure
      - No handling if test_planner.plan_tests returns success=False

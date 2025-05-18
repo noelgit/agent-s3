@@ -960,6 +960,24 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
                 self.scratchpad.log("Moderator", "Free-form modification received, no apparent structure")
             return "\n".join(lines)
 
+    def request_debugging_guidance(self, group_name: str, max_attempts: int) -> Optional[str]:
+        """Request engineer guidance when automated debugging fails.
+
+        Args:
+            group_name: Name of the feature group that failed.
+            max_attempts: Number of automated attempts that were made.
+
+        Returns:
+            Modification text provided by the engineer, or None to abort.
+        """
+        question = (
+            f"Implementation for {group_name} failed after {max_attempts} attempts. "
+            "Would you like to provide modifications before retrying?"
+        )
+        if self.ask_yes_no_question(question):
+            return self.ask_for_modification("Enter your modifications:")
+        return None
+
     def show_code_snippet(self, snippet: str, title: str = "Code Snippet") -> None:
         """Display a code snippet with proper formatting.
         

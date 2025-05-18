@@ -44,7 +44,8 @@ def coordinator(mock_config):
         # Mock required components for tests
         coordinator.test_runner_tool = MagicMock()
         coordinator.test_critic = MagicMock()
-        coordinator.database_tool = MagicMock()
+        coordinator.database_manager = MagicMock()
+        coordinator.database_manager.database_tool = MagicMock()
         coordinator.bash_tool = MagicMock()
         coordinator.scratchpad = MagicMock()
         coordinator.progress_tracker = MagicMock()
@@ -59,7 +60,7 @@ def coordinator(mock_config):
 def test_validation_phase_all_pass(coordinator):
     """Test validation phase with all validations passing."""
     # Set up mocks for successful validation
-    coordinator.database_tool.test_connection.return_value = {"success": True}
+    coordinator.database_manager.setup_database.return_value = {"success": True}
     coordinator.bash_tool.run_command.side_effect = [(0, "No lint errors"), (0, "No type errors")]
     coordinator.run_tests = MagicMock(return_value={"success": True, "output": "All tests passed"})
     
@@ -72,15 +73,15 @@ def test_validation_phase_all_pass(coordinator):
     assert result[2] is None  # No info about failure
     
     # Verify all validations were performed
-    coordinator.database_tool.test_connection.assert_called()
-    coordinator.database_tool.get_schema_info.assert_called()
+    coordinator.database_manager.setup_database.assert_called()
+    coordinator.database_manager.database_tool.get_schema_info.assert_called()
     assert coordinator.bash_tool.run_command.call_count == 2
     coordinator.run_tests.assert_called_once()
 
 def test_validation_phase_database_failure(coordinator):
     """Test validation phase with database connection failure."""
     # Set up mocks for database validation failure
-    coordinator.database_tool.test_connection.return_value = {
+    coordinator.database_manager.setup_database.return_value = {
         "success": False, 
         "error": "Database connection failed"
     }
@@ -94,15 +95,15 @@ def test_validation_phase_database_failure(coordinator):
     assert result[2] == "Database connection failed"  # Error info
     
     # Verify only database validation was performed
-    coordinator.database_tool.test_connection.assert_called()
-    coordinator.database_tool.get_schema_info.assert_not_called()
+    coordinator.database_manager.setup_database.assert_called()
+    coordinator.database_manager.database_tool.get_schema_info.assert_not_called()
     coordinator.bash_tool.run_command.assert_not_called()
     coordinator.run_tests.assert_not_called()
 
 def test_validation_phase_lint_failure(coordinator):
     """Test validation phase with linting failure."""
     # Set up mocks for successful database validation but linting failure
-    coordinator.database_tool.test_connection.return_value = {"success": True}
+    coordinator.database_manager.setup_database.return_value = {"success": True}
     coordinator.bash_tool.run_command.side_effect = [(1, "Lint errors found"), (0, "No type errors")]
     
     # Execute
@@ -114,15 +115,15 @@ def test_validation_phase_lint_failure(coordinator):
     assert result[2] == "Lint errors found"  # Error info
     
     # Verify validations were performed up to the failing point
-    coordinator.database_tool.test_connection.assert_called()
-    coordinator.database_tool.get_schema_info.assert_called()
+    coordinator.database_manager.setup_database.assert_called()
+    coordinator.database_manager.database_tool.get_schema_info.assert_called()
     coordinator.bash_tool.run_command.assert_called_once_with("flake8 .", timeout=120)
     coordinator.run_tests.assert_not_called()
 
 def test_validation_phase_type_check_failure(coordinator):
     """Test validation phase with type checking failure."""
     # Set up mocks for successful database and lint validation but type check failure
-    coordinator.database_tool.test_connection.return_value = {"success": True}
+    coordinator.database_manager.setup_database.return_value = {"success": True}
     coordinator.bash_tool.run_command.side_effect = [(0, "No lint errors"), (1, "Type errors found")]
     
     # Execute
@@ -134,15 +135,15 @@ def test_validation_phase_type_check_failure(coordinator):
     assert result[2] == "Type errors found"  # Error info
     
     # Verify validations were performed up to the failing point
-    coordinator.database_tool.test_connection.assert_called()
-    coordinator.database_tool.get_schema_info.assert_called()
+    coordinator.database_manager.setup_database.assert_called()
+    coordinator.database_manager.database_tool.get_schema_info.assert_called()
     assert coordinator.bash_tool.run_command.call_count == 2
     coordinator.run_tests.assert_not_called()
 
 def test_validation_phase_test_failure(coordinator):
     """Test validation phase with test execution failure."""
     # Set up mocks for successful db/lint/type validation but test failure
-    coordinator.database_tool.test_connection.return_value = {"success": True}
+    coordinator.database_manager.setup_database.return_value = {"success": True}
     coordinator.bash_tool.run_command.side_effect = [(0, "No lint errors"), (0, "No type errors")]
     coordinator.run_tests = MagicMock(return_value={
         "success": False, 
@@ -158,15 +159,15 @@ def test_validation_phase_test_failure(coordinator):
     assert result[2] == "Test failures detected"  # Error info
     
     # Verify all validations were performed up to the failing point
-    coordinator.database_tool.test_connection.assert_called()
-    coordinator.database_tool.get_schema_info.assert_called()
+    coordinator.database_manager.setup_database.assert_called()
+    coordinator.database_manager.database_tool.get_schema_info.assert_called()
     assert coordinator.bash_tool.run_command.call_count == 2
     coordinator.run_tests.assert_called_once()
 
 def test_validation_phase_database_exception(coordinator):
     """Test validation phase with database validation exception."""
     # Set up mocks for database exception
-    coordinator.database_tool.test_connection.side_effect = Exception("Database exception")
+    coordinator.database_manager.setup_database.side_effect = Exception("Database exception")
     
     # Execute
     result = coordinator._run_validation_phase()
@@ -177,7 +178,7 @@ def test_validation_phase_database_exception(coordinator):
     assert result[2] is None  # No specific error info
     
     # Verify db validation was attempted and other validations continued
-    coordinator.database_tool.test_connection.assert_called()
+    coordinator.database_manager.setup_database.assert_called()
     coordinator.bash_tool.run_command.assert_called()  # Lint was still executed
     coordinator.run_tests.assert_called()  # Tests were still executed
 
@@ -242,7 +243,7 @@ def test_run_tests_with_database_setup(coordinator):
     coordinator.env_tool.activate_virtual_env.return_value = "source venv/bin/activate &&"
     coordinator.test_runner_tool.detect_runner.return_value = "pytest"
     coordinator.test_runner_tool.run_tests.return_value = (True, "All tests passed")
-    coordinator.database_tool.test_connection.return_value = {"success": True}
+    coordinator.database_manager.setup_database.return_value = {"success": True}
     
     # Mock path exists
     with patch('os.path.exists', return_value=False):
@@ -253,7 +254,7 @@ def test_run_tests_with_database_setup(coordinator):
         assert result["success"] is True
         assert result["output"] == "All tests passed"
         coordinator.env_tool.activate_virtual_env.assert_called_once()
-        coordinator.database_tool.test_connection.assert_called()
+        coordinator.database_manager.setup_database.assert_called()
         coordinator.test_runner_tool.run_tests.assert_called_once()
 
 # Test debug_last_test method
