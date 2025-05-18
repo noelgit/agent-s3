@@ -10,6 +10,8 @@ import requests
 import traceback  # Added import
 from typing import Dict, Any, Optional, Tuple, List
 
+import jsonschema
+
 logger = logging.getLogger(__name__)
 
 # Initialize models_by_role at module level to avoid undefined global variable
@@ -23,6 +25,11 @@ COMMAND_PATTERNS = {
     "plan": r"@agent\s+Plan:?\s*(?:\"|\')?(.*?)(?:\"|\')?$",
     "execute": r"@agent\s+Execute:?\s*(?:\"|\')?(.*?)(?:\"|\')?$",
 }
+
+# Path to the JSON Schema describing a valid LLM entry
+SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "llm_entry_schema.json")
+with open(SCHEMA_PATH, "r", encoding="utf-8") as schema_file:
+    LLM_ENTRY_SCHEMA = json.load(schema_file)
 
 class MetricsTracker:
     """Collects metrics for LLM calls."""
@@ -40,22 +47,15 @@ class MetricsTracker:
         """Return recorded metrics."""
         return list(self._records)
 
-def _validate_entry(entry: Dict[str, Any]):
-    """Ensure llm.json entry has required keys/types, else raise."""
-    required = {
-        'model': str,
-        'role': (str, list),
-        'context_window': int,
-        'parameters': dict,
-        'api': dict
-    }
-    for key, typ in required.items():
-        if key not in entry or not isinstance(entry[key], typ):
-            raise ValueError(f"llm.json entry missing or invalid '{key}': {entry}")
-    api = entry['api']
-    for sub in ['endpoint', 'auth_header']:
-        if sub not in api or not isinstance(api[sub], str):
-            raise ValueError(f"llm.json 'api.{sub}' missing or invalid for model '{entry.get('model')}'")
+def _validate_entry(entry: Dict[str, Any], index: int) -> None:
+    """Validate a single llm.json entry against the schema."""
+    try:
+        jsonschema.validate(instance=entry, schema=LLM_ENTRY_SCHEMA)
+    except jsonschema.exceptions.ValidationError as e:
+        path = "->".join([str(p) for p in e.path]) or "root"
+        raise ValueError(
+            f"llm.json entry {index} validation error at {path}: {e.message}"
+        )
 
 def _load_llm_config():
     """Load the LLM configuration from llm.json."""
@@ -67,9 +67,12 @@ def _load_llm_config():
         with open(config_path, 'r') as f:
             llm_config = json.load(f)
 
-        # Validate entries
-        for model_info in llm_config:
-            _validate_entry(model_info)
+        if not isinstance(llm_config, list):
+            raise ValueError("llm.json must contain a list of model entries")
+
+        # Validate entries with schema
+        for idx, model_info in enumerate(llm_config):
+            _validate_entry(model_info, idx)
         models_by_role = {}
         for model_info in llm_config:
             roles = model_info.get("role")
