@@ -43,11 +43,11 @@ Agent-S3. Refer to both documents for a complete understanding of the project.
         *   Creates personas.md via `execute_personas_command()` if it doesn't exist
         *   Creates .github/copilot-instructions.md via `execute_guidelines_command()` if missing
         *   Creates llm.json with default LLM configuration if not present
-    *   It detects the tech stack via `_detect_tech_stack()` which:
-        *   Uses TechStackManager to analyze the codebase
-        *   Identifies languages, frameworks, libraries and their versions
-        *   Generates structured tech stack data with best practices
-        *   Logs formatted tech stack information to scratchpad
+    *   During initialization it calls `TechStackDetector.detect_tech_stack()` to:
+        *   Use `TechStackManager` to analyze the codebase
+        *   Identify languages, frameworks, libraries and their versions
+        *   Generate structured tech stack data with best practices
+        *   Log formatted tech stack information to the scratchpad
 6.  **GitHub Authentication Flow (`agent_s3/auth.py`, if needed):**
     *   If authentication is required and no valid token is found (checked via `check_github_auth`), `auth.authenticate_user()` is called by the `Coordinator`.
     *   `authenticate_user` determines the flow (OAuth App or GitHub App based on config).
