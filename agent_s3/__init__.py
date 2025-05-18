@@ -12,6 +12,7 @@ from agent_s3.tech_stack_detector import TechStackDetector
 from agent_s3.file_history_analyzer import FileHistoryAnalyzer
 from agent_s3.task_resumer import TaskResumer
 from agent_s3.command_processor import CommandProcessor
+from agent_s3.database_manager import DatabaseManager
 
 __all__ = [
     'Coordinator',
@@ -20,4 +21,5 @@ __all__ = [
     'FileHistoryAnalyzer',
     'TaskResumer',
     'CommandProcessor',
+    'DatabaseManager',
 ]

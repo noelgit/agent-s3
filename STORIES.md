@@ -2,6 +2,9 @@
 
 This document outlines common user scenarios and provides step-by-step walkthroughs for interacting with Agent-S3, based on the actual implementation in the `agent_s3` Python package and the `vscode` extension.
 
+Together with `README.md`, this file constitutes the canonical documentation for
+Agent-S3. Refer to both documents for a complete understanding of the project.
+
 ## Story 1: Initializing Agent-S3 in a New Workspace
 
 **Goal:** Set up Agent-S3 for the first time in a project workspace and authenticate with GitHub.
