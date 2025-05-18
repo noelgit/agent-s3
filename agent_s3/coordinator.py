@@ -1403,3 +1403,45 @@ class Coordinator:
     def deploy(self, design_file: str = "design.txt") -> Dict[str, Any]:
         """Facade used by CommandProcessor to start deployment."""
         return self.execute_deployment(design_file)
+
+    def execute_implementation(self, design_file: str = "design.txt") -> Dict[str, Any]:
+        """Execute implementation using the implementation manager."""
+        try:
+            if not hasattr(self, "implementation_manager"):
+                return {"success": False, "error": "Implementation manager not available"}
+
+            if not os.path.exists(design_file):
+                return {"success": False, "error": f"Design file not found: {design_file}"}
+
+            if hasattr(self, "scratchpad"):
+                self.scratchpad.log("Coordinator", f"Starting implementation from {design_file}")
+
+            return self.implementation_manager.start_implementation(design_file)
+        except Exception as e:
+            self.error_handler.handle_exception(
+                exc=e,
+                operation="execute_implementation",
+                level=logging.ERROR,
+            )
+            return {"success": False, "error": str(e)}
+
+    def execute_continue(self, continue_type: str = "implementation") -> Dict[str, Any]:
+        """Continue a workflow such as implementation or design."""
+        try:
+            if continue_type == "implementation":
+                if not hasattr(self, "implementation_manager"):
+                    return {"success": False, "error": "Implementation manager not available"}
+
+                if hasattr(self, "scratchpad"):
+                    self.scratchpad.log("Coordinator", "Continuing implementation")
+
+                return self.implementation_manager.continue_implementation()
+
+            return {"success": False, "error": f"Unsupported continuation type: {continue_type}"}
+        except Exception as e:
+            self.error_handler.handle_exception(
+                exc=e,
+                operation="execute_continue",
+                level=logging.ERROR,
+            )
+            return {"success": False, "error": str(e)}
