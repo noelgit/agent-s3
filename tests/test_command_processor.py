@@ -224,3 +224,26 @@ class TestCommandProcessor:
         result = command_processor.execute_request_command("Add feature")
         mock_coordinator.process_change_request.assert_called_once_with("Add feature")
         assert result == ""
+
+    @patch('pathlib.Path.exists')
+    def test_execute_implement_command(self, mock_exists, command_processor, mock_coordinator):
+        """Test execute_implement_command calls coordinator.execute_implementation."""
+        mock_exists.return_value = True
+        mock_coordinator.execute_implementation.return_value = {"success": True, "message": "done"}
+
+        result = command_processor.execute_implement_command("design.txt")
+
+        mock_coordinator.execute_implementation.assert_called_once_with("design.txt")
+        assert "done" in result
+
+    def test_execute_continue_command(self, command_processor, mock_coordinator):
+        """Test execute_continue_command calls coordinator.execute_continue."""
+        mock_coordinator.execute_continue.return_value = {
+            "success": True,
+            "message": "continued"
+        }
+
+        result = command_processor.execute_continue_command("implementation")
+
+        mock_coordinator.execute_continue.assert_called_once_with("implementation")
+        assert "continued" in result
