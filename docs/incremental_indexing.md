@@ -149,7 +149,14 @@ Current limitations:
 
 1. Language-specific dependency analysis varies in accuracy
 2. Memory usage still scales with repository size for certain operations
-3. Some build systems may still require custom adapters
+3. Limited support for complex build systems and configuration-based dependencies may require custom adapters
+
+Future improvements:
+
+1. More sophisticated partition optimization strategies
+2. Better integration with build systems for dependency analysis
+3. Pruning of unused index entries for greater efficiency
+4. Distributed indexing for very large repositories
 
 ## Troubleshooting
 
