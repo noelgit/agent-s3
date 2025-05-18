@@ -259,9 +259,9 @@ class Coordinator:
             
             # Initialize design, implementation, and deployment managers
             from agent_s3.design_manager import DesignManager
-from agent_s3.implementation_manager import ImplementationManager
-from agent_s3.deployment_manager import DeploymentManager
-from agent_s3.database_manager import DatabaseManager
+            from agent_s3.implementation_manager import ImplementationManager
+            from agent_s3.deployment_manager import DeploymentManager
+            from agent_s3.database_manager import DatabaseManager
             
             self.design_manager = DesignManager(self)
             self.implementation_manager = ImplementationManager(self)

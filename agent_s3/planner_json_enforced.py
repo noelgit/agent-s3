@@ -1868,7 +1868,7 @@ def _calculate_syntax_validation_percentage(validation_issues: List[Dict[str, An
     # Assuming each issue affects one test and there's no duplication
     unique_affected_tests = set()
     for issue in syntax_issues:
-        test_key = f"{issue.get("category", "")}-{issue.get("test_index", "")}"
+        test_key = f"{issue.get('category', '')}-{issue.get('test_index', '')}"
         unique_affected_tests.add(test_key)
     
     # Estimate total tests as roughly 3x the number of affected tests
@@ -1902,7 +1902,7 @@ def _calculate_traceability_coverage(validation_issues: List[Dict[str, Any]]) ->
     # Similar approach to syntax validation
     unique_affected_tests = set()
     for issue in traceability_issues:
-        test_key = f"{issue.get("category", "")}-{issue.get("test_index", "")}"
+        test_key = f"{issue.get('category', '')}-{issue.get('test_index', '')}" 
         unique_affected_tests.add(test_key)
     
     # Estimate total tests
