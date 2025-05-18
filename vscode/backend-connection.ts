@@ -337,8 +337,9 @@ export class BackendConnection implements vscode.Disposable {
   private handleProgressIndicator(message: any): void {
     // Show the interactive panel if not already visible
     if (this.interactiveWebviewManager) {
-      const panel = this.interactiveWebviewManager.createOrShowPanel();
-      
+      // Ensure the interactive panel is visible
+      this.interactiveWebviewManager.createOrShowPanel();
+
       // Forward the message to the webview
       this.interactiveWebviewManager.postMessage({
         type: 'PROGRESS_INDICATOR',
