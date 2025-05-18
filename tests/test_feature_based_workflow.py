@@ -6,8 +6,6 @@ Tests the new feature-based iterative approach to task execution.
 
 import pytest
 from unittest.mock import MagicMock, patch
-import json
-from datetime import datetime
 
 from agent_s3.coordinator import Coordinator
 from agent_s3.enhanced_scratchpad_manager import LogLevel

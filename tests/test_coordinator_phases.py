@@ -6,8 +6,6 @@ within the Coordinator's task execution flow, with a focus on error handling,
 graceful degradation, and appropriate output formatting.
 """
 
-import os
-import json
 import pytest
 from unittest.mock import MagicMock, patch
 
