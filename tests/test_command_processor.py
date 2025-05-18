@@ -1,8 +1,6 @@
 """Tests for the CommandProcessor component."""
 
-import os
 import pytest
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from agent_s3.command_processor import CommandProcessor
@@ -108,8 +106,8 @@ class TestCommandProcessor:
         mock_coordinator.execute_generate = MagicMock()
         
         # Exercise
-        result = command_processor.execute_generate_command("")
-        
+        command_processor.execute_generate_command("")
+
         # Verify
         mock_coordinator.execute_generate.assert_called_once()
         mock_coordinator.progress_tracker.update_progress.assert_called()
