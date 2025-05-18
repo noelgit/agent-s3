@@ -386,6 +386,7 @@ export class BackendConnection implements vscode.Disposable {
    * Dispose of resources
    */
   public dispose(): void {
+    // Stop the progress timer before releasing the rest of the resources
     this.stopMonitoringProgress();
     this.webSocketClient.dispose();
     this.outputChannel.dispose();
