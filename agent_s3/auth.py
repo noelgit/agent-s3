@@ -12,6 +12,7 @@ import secrets
 import hashlib
 import sys
 import logging
+from cryptography.fernet import Fernet, InvalidToken
 
 # Define required dependencies - use proper requirements.txt for actual dependency management
 try:
@@ -50,6 +51,11 @@ GITHUB_API_URL = "https://api.github.com"
 # Token storage location
 TOKEN_FILE = os.path.expanduser("~/.agent_s3/github_token.json")
 
+# Environment variable used to store the encryption key for the token file. The
+# key should be generated with ``cryptography.fernet.Fernet.generate_key`` and
+# kept secret (e.g., via an OS keyring or environment management tool).
+TOKEN_ENCRYPTION_KEY_ENV = "AGENT_S3_ENCRYPTION_KEY"
+
 
 def save_token(token_data: Dict[str, Any]) -> None:
     """Save the GitHub token data to a file.
@@ -62,22 +68,21 @@ def save_token(token_data: Dict[str, Any]) -> None:
     os.makedirs(token_dir, exist_ok=True)
     
     try:
-        # Generate a machine-specific key based on username and hostname
-        machine_id = f"{platform.node()}-{os.getlogin()}"
-        key = hashlib.sha256(machine_id.encode()).digest()[:16]  # Use first 16 bytes as AES key
-        
-        # Convert token data to JSON string
+        key = os.environ.get(TOKEN_ENCRYPTION_KEY_ENV)
         token_json = json.dumps(token_data)
-        
-        # Simple XOR-based obfuscation (not for high security, but prevents plaintext storage)
-        obfuscated = bytearray()
-        for i, char in enumerate(token_json.encode()):
-            obfuscated.append(char ^ key[i % len(key)])
-        
-        # Save with restricted permissions
-        with open(TOKEN_FILE, "wb") as f:
-            f.write(obfuscated)
-        
+
+        if key:
+            # Ensure the key is bytes for Fernet
+            fernet = Fernet(key.encode() if isinstance(key, str) else key)
+            encrypted = fernet.encrypt(token_json.encode())
+
+            with open(TOKEN_FILE, "wb") as f:
+                f.write(encrypted)
+        else:
+            print("Warning: Encryption key not set; saving token in plaintext")
+            with open(TOKEN_FILE, "w") as f:
+                json.dump(token_data, f)
+
         # Set file permissions (POSIX only)
         if os.name == 'posix':
             import stat
@@ -99,25 +104,26 @@ def load_token() -> Optional[Dict[str, Any]]:
         return None
     
     try:
-        # Check if we're using the encrypted format or the old plaintext format
         with open(TOKEN_FILE, "rb") as f:
             content = f.read()
             
         try:
-            # Try to parse as JSON (old format)
-            return json.loads(content.decode('utf-8'))
+            # Try plaintext first for backward compatibility
+            return json.loads(content.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
-            # Not valid JSON, assume encrypted format
-            # Generate key from machine-specific data
-            machine_id = f"{platform.node()}-{os.getlogin()}"
-            key = hashlib.sha256(machine_id.encode()).digest()[:16]
-            
-            # Decrypt using the same XOR method
-            decrypted = bytearray()
-            for i, byte in enumerate(content):
-                decrypted.append(byte ^ key[i % len(key)])
-            
-            return json.loads(decrypted.decode('utf-8'))
+            key = os.environ.get(TOKEN_ENCRYPTION_KEY_ENV)
+            if not key:
+                print("Warning: Encryption key not set; cannot decrypt token")
+                return None
+
+            try:
+                fernet = Fernet(key.encode() if isinstance(key, str) else key)
+                decrypted = fernet.decrypt(content)
+            except (InvalidToken, ValueError) as e:
+                print(f"Warning: Could not decrypt token: {e}")
+                return None
+
+            return json.loads(decrypted.decode("utf-8"))
     except Exception as e:
         print(f"Warning: Could not load token: {e}")
         return None
