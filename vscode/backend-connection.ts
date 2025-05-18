@@ -17,6 +17,7 @@ export class BackendConnection implements vscode.Disposable {
   private outputChannel: vscode.OutputChannel;
   private offlineQueue: any[] = [];
   private workspaceState: vscode.Memento | undefined;
+  private progressInterval: NodeJS.Timeout | undefined;
   
   /**
    * Create a new backend connection
@@ -369,11 +370,22 @@ export class BackendConnection implements vscode.Disposable {
     queue.forEach(msg => this.sendMessage(msg));
     this.persistOfflineQueue();
   }
-  
+
+  /**
+   * Stop monitoring progress updates
+   */
+  private stopMonitoringProgress(): void {
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+      this.progressInterval = undefined;
+    }
+  }
+
   /**
    * Dispose of resources
    */
   public dispose(): void {
+    this.stopMonitoringProgress();
     this.webSocketClient.dispose();
     this.outputChannel.dispose();
   }
