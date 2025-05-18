@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 from agent_s3.coordinator import Coordinator
 from agent_s3.config import Config
-from agent_s3.pre_planner_json_enforced import integrate_with_coordinator
+import agent_s3.pre_planner_json_enforced as pre_planner_json_enforced
 from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager
 
 
@@ -152,7 +152,7 @@ class TestEnforcedJsonCoordinatorIntegration:
                 },
             )
 
-            result = integrate_with_coordinator(
+            result = pre_planner_json_enforced.integrate_with_coordinator(
                 mock_coordinator, "Implement user authentication system"
             )
 
@@ -168,20 +168,21 @@ class TestEnforcedJsonCoordinatorIntegration:
         mock_integrate.side_effect = Exception("Enforced JSON failed")
 
         with pytest.raises(Exception):
-            integrate_with_coordinator(mock_coordinator, "Test task")
+            pre_planner_json_enforced.integrate_with_coordinator(
+                mock_coordinator, "Test task"
+            )
 
-    @patch('agent_s3.pre_planner_json_enforced.integrate_with_coordinator')
-    @patch('agent_s3.pre_planner_json.integrate_with_pre_planning_manager')
-    def test_coordinator_fallback_to_standard_planning(self, mock_standard_json, mock_enforced_json, mock_coordinator):
-        """Test that errors propagate when all integrations fail."""
-        mock_enforced_json.side_effect = Exception("Enforced JSON failed")
-        mock_standard_json.side_effect = Exception("Standard JSON failed")
+    @patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json')
+    def test_coordinator_raises_error_when_pre_planning_fails(self, mock_call, mock_coordinator):
+        """Test that a JSONValidationError is raised when pre-planning fails."""
+        mock_call.return_value = (False, {})
 
-        mock_coordinator.config.config["use_json_pre_planning"] = True
-        mock_coordinator.config.config["use_enforced_json_pre_planning"] = True
+        with pytest.raises(pre_planner_json_enforced.JSONValidationError):
+            pre_planner_json_enforced.integrate_with_coordinator(
+                mock_coordinator, "Test task"
+            )
 
-        with pytest.raises(Exception):
-            integrate_with_coordinator(mock_coordinator, "Test task")
+        mock_call.assert_called_once_with(mock_coordinator.router_agent, "Test task")
 
     @patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json')
     def test_direct_integration_with_coordinator(self, mock_call, mock_coordinator):
@@ -225,7 +226,9 @@ class TestEnforcedJsonCoordinatorIntegration:
         mock_call.return_value = (True, json_data)
         
         # Call the integration function directly
-        result = integrate_with_coordinator(mock_coordinator, task)
+        result = pre_planner_json_enforced.integrate_with_coordinator(
+            mock_coordinator, task
+        )
         
         # Verify integration results
         assert result["success"] is True
