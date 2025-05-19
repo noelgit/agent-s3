@@ -9,6 +9,14 @@ import * as path from 'path';
 import * as WS from 'ws';
 
 /**
+ * Options for configuring the WebSocket client
+ */
+export interface WebSocketClientOptions {
+  /** Optional protocol override. Use 'wss' for TLS. */
+  protocol?: 'ws' | 'wss';
+}
+
+/**
  * Message types that can be received from the WebSocket server
  */
 enum MessageType {
@@ -72,7 +80,8 @@ export class WebSocketClient implements vscode.Disposable {
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private messageHandlers: Map<string, ((message: any) => void)[]> = new Map();
   private pendingMessages: any[] = [];
-  private connectionConfig: { host: string; port: number; authToken: string } | null = null;
+  private connectionConfig: { host: string; port: number; authToken: string; protocol?: 'ws' | 'wss' } | null = null;
+  private options: WebSocketClientOptions;
   private activeStreams: Map<string, { buffer: string }> = new Map();
   
   private readonly MAX_RECONNECT_ATTEMPTS = 5;
@@ -82,7 +91,8 @@ export class WebSocketClient implements vscode.Disposable {
   /**
    * Create a new WebSocket client instance
    */
-  constructor() {
+  constructor(options: WebSocketClientOptions = {}) {
+    this.options = options;
     this.initializeMessageHandlers();
   }
   
@@ -112,10 +122,17 @@ export class WebSocketClient implements vscode.Disposable {
       }
       
       this.connectionConfig = config;
-      const { host, port, authToken } = config;
-      
+      const { host, port, authToken, protocol: fileProtocol } = config;
+
+      // Determine protocol: options override configuration file, then VS Code setting
+      const configProtocol = vscode.workspace
+        .getConfiguration('agent-s3')
+        .get<string>('websocketProtocol');
+      const protocol =
+        this.options.protocol || (configProtocol as 'ws' | 'wss' | undefined) || fileProtocol || 'ws';
+
       // Create the WebSocket connection
-      const url = `ws://${host}:${port}`;
+      const url = `${protocol}://${host}:${port}`;
       this.socket = new WS.WebSocket(url);
       
       // Set up event listeners (using Node.js ws library event pattern)
@@ -146,7 +163,7 @@ export class WebSocketClient implements vscode.Disposable {
   /**
    * Read the connection file to get WebSocket configuration
    */
-  private async readConnectionFile(): Promise<{ host: string; port: number; authToken: string } | null> {
+  private async readConnectionFile(): Promise<{ host: string; port: number; authToken: string; protocol?: 'ws' | 'wss' } | null> {
     try {
       // Find the connection file in the workspace
       const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -173,7 +190,8 @@ export class WebSocketClient implements vscode.Disposable {
       return {
         host: config.host,
         port: config.port,
-        authToken: config.auth_token
+        authToken: config.auth_token,
+        protocol: config.protocol as 'ws' | 'wss' | undefined
       };
     } catch (error) {
       console.error("Error reading connection file:", error);

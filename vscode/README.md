@@ -31,6 +31,11 @@ This extension integrates Agent-S3, a state-of-the-art AI coding agent, directly
    GITHUB_CLIENT_SECRET=your_client_secret
    ```
 
+### Configuration
+
+The extension provides a `agent-s3.websocketProtocol` setting to override the
+protocol specified in the connection file. Set it to `wss` to force TLS.
+
 ## Usage
 
 1. Run "Agent-S3: Initialize workspace" from the command palette (Ctrl+Shift+P) to set up your workspace and authenticate with GitHub

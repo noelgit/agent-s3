@@ -44,7 +44,18 @@
         "command": "agent-s3.testWebSocketPerformance",
         "title": "Agent-S3: Test WebSocket Performance with Large Messages"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Agent-S3",
+      "properties": {
+        "agent-s3.websocketProtocol": {
+          "type": "string",
+          "enum": ["ws", "wss"],
+          "default": "ws",
+          "description": "Protocol to use for WebSocket connections when not specified in the connection file."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile && npm run build-webview",
