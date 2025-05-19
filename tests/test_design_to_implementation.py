@@ -28,10 +28,8 @@ def mock_config():
 
 @pytest.fixture
 def coordinator():
-    # Create a fully mocked coordinator instead of initializing a real one
-    coordinator = MagicMock()
-    
-    # Set up essential mocked components and methods
+    """Create a lightweight Coordinator instance for testing."""
+    coordinator = Coordinator.__new__(Coordinator)
     coordinator.design_manager = MagicMock()
     coordinator.scratchpad = MagicMock()
     coordinator.task_state_manager = MagicMock()
@@ -39,10 +37,10 @@ def coordinator():
     coordinator.progress_tracker = MagicMock()
     coordinator.router_agent = MagicMock()
     coordinator.error_handler = MagicMock()
+    coordinator.error_handler.error_context = MagicMock(return_value=MagicMock(__enter__=lambda self: None, __exit__=lambda self, exc, val, tb: False))
     coordinator._prepare_context = MagicMock(return_value="test context")
     coordinator.run_task = MagicMock()
     coordinator.start_pre_planning_from_design = MagicMock()
-    
     return coordinator
 
 
@@ -194,30 +192,25 @@ def test_coordinator_run_task_from_design(coordinator):
 
 def test_execute_design_facade(coordinator):
     """Test that execute_design facade method works properly."""
-    # Set up expected behavior for design manager
     coordinator.design_manager.start_design_conversation.return_value = "Initial design response"
     coordinator.design_manager.continue_conversation.side_effect = [
         ("Response 1", False),
-        ("Response 2", True)
+        ("Response 2", True),
     ]
+    coordinator.design_manager.detect_design_completion.side_effect = [False, True]
     coordinator.design_manager.write_design_to_file.return_value = (True, "Design written successfully")
     coordinator.design_manager.prompt_for_implementation.return_value = {"implementation": True, "deployment": False}
-    
-    # Set up the return value for execute_design
+
     expected_result = {
         "success": True,
-        "design_file": "design.txt",
-        "next_action": "implementation"
+        "design_file": os.path.join(os.getcwd(), "design.txt"),
+        "next_action": "implementation",
     }
-    coordinator.execute_design.return_value = expected_result
-    
-    # Mock user input
+
     with patch('builtins.input', side_effect=["More details", "Finalize"]), \
          patch('builtins.print'):
-        
-        # Call execute_design
         result = coordinator.execute_design("Create a TODO app")
-        
-        # Assertions
-        assert result == expected_result
-        coordinator.execute_design.assert_called_once_with("Create a TODO app")
+
+    assert result == expected_result
+    coordinator.design_manager.start_design_conversation.assert_called_once_with("Create a TODO app")
+    assert coordinator.design_manager.continue_conversation.call_count == 2

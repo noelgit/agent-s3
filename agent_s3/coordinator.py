@@ -665,3 +665,62 @@ class Coordinator:
             
             # Default return if loop exits unexpectedly
             return "no",
+
+    def execute_design(self, objective: str) -> Dict[str, Any]:
+        """Orchestrate the interactive design workflow.
+
+        Args:
+            objective: The user's design objective.
+
+        Returns:
+            Dictionary with success flag, design file path, and next action.
+        """
+        with self.error_handler.error_context(
+            phase="design",
+            operation="execute_design",
+            inputs={"objective": objective},
+        ):
+            try:
+                response = self.design_manager.start_design_conversation(objective)
+                if response:
+                    print(response)
+            except Exception as e:
+                self.scratchpad.log("Coordinator", f"Failed to start design: {e}", level=LogLevel.ERROR)
+                return {"success": False, "error": str(e)}
+
+            # Continue conversation until completion
+            while True:
+                if self.design_manager.detect_design_completion():
+                    break
+                try:
+                    user_input = input()
+                except (KeyboardInterrupt, EOFError):
+                    return {"success": False, "cancelled": True}
+                try:
+                    response, _ = self.design_manager.continue_conversation(user_input)
+                    if response:
+                        print(response)
+                except Exception as e:
+                    self.scratchpad.log(
+                        "Coordinator",
+                        f"Error during design conversation: {e}",
+                        level=LogLevel.ERROR,
+                    )
+                    return {"success": False, "error": str(e)}
+
+            success, message = self.design_manager.write_design_to_file()
+            if not success:
+                return {"success": False, "error": message}
+
+            choices = self.design_manager.prompt_for_implementation()
+            next_action = None
+            if choices.get("implementation"):
+                next_action = "implementation"
+            elif choices.get("deployment"):
+                next_action = "deployment"
+
+            return {
+                "success": True,
+                "design_file": os.path.join(os.getcwd(), "design.txt"),
+                "next_action": next_action,
+            }

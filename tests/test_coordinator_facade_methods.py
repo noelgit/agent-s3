@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Dict, Any, Tuple
 
 from agent_s3.command_processor import CommandProcessor
+from agent_s3.coordinator import Coordinator
 
 
 @pytest.fixture
@@ -25,6 +26,23 @@ def mock_config():
         "workspace_path": "/test/workspace"
     }
     return config
+
+
+@pytest.fixture
+def real_coordinator():
+    """Coordinator instance with a real execute_design method."""
+    coord = Coordinator.__new__(Coordinator)
+    coord.design_manager = MagicMock()
+    coord.scratchpad = MagicMock()
+    coord.error_handler = MagicMock()
+    coord.error_handler.error_context = MagicMock(return_value=MagicMock(__enter__=lambda self: None, __exit__=lambda self, exc, val, tb: False))
+    return coord
+
+
+@pytest.fixture
+def real_command_processor(real_coordinator):
+    """CommandProcessor using a real coordinator."""
+    return CommandProcessor(real_coordinator)
 
 
 @pytest.fixture
@@ -88,17 +106,19 @@ class TestCoordinatorFacadeMethods:
         # Verify execute_deployment was called with the correct argument
         coordinator.execute_deployment.assert_called_once_with("test_design.txt")
     
-    def test_execute_design_facade_exists(self, coordinator):
-        """Test that the execute_design facade method exists and is callable."""
-        # Ensure the method exists and is callable
-        assert hasattr(coordinator, 'execute_design')
-        assert callable(coordinator.execute_design)
-        
-        # Call the method
-        coordinator.execute_design("Test design objective")
-        
-        # Verify the method was called with the correct argument
-        coordinator.execute_design.assert_called_once_with("Test design objective")
+    def test_execute_design_facade_exists(self, real_coordinator):
+        """Test that the execute_design facade method runs with the design manager."""
+        real_coordinator.design_manager.start_design_conversation.return_value = "hi"
+        real_coordinator.design_manager.continue_conversation.return_value = ("done", True)
+        real_coordinator.design_manager.detect_design_completion.side_effect = [False, True]
+        real_coordinator.design_manager.write_design_to_file.return_value = (True, "ok")
+        real_coordinator.design_manager.prompt_for_implementation.return_value = {"implementation": False, "deployment": False}
+
+        with patch('builtins.input', return_value="next"), patch('builtins.print'):
+            result = real_coordinator.execute_design("Test design objective")
+
+        assert result["success"] is True
+        real_coordinator.design_manager.start_design_conversation.assert_called_once_with("Test design objective")
     
     def test_execute_continue_facade_exists(self, coordinator):
         """Test that the execute_continue facade method exists and is callable."""
@@ -134,9 +154,22 @@ class TestCoordinatorFacadeMethods:
         """Test that the CommandProcessor correctly calls the execute_design method."""
         # Call the design command
         command_processor.execute_design_command("Create a TODO app")
-        
+
         # Verify execute_design was called with the correct argument
         coordinator.execute_design.assert_called_with("Create a TODO app")
+
+    def test_command_processor_design_integration_real(self, real_command_processor, real_coordinator):
+        """CommandProcessor should complete design flow using real coordinator."""
+        real_coordinator.design_manager.start_design_conversation.return_value = "start"
+        real_coordinator.design_manager.continue_conversation.return_value = ("done", True)
+        real_coordinator.design_manager.detect_design_completion.side_effect = [False, True]
+        real_coordinator.design_manager.write_design_to_file.return_value = (True, "ok")
+        real_coordinator.design_manager.prompt_for_implementation.return_value = {"implementation": False, "deployment": False}
+
+        with patch('builtins.input', return_value="next"), patch('builtins.print'):
+            result = real_command_processor.execute_design_command("Create a TODO app")
+
+        assert "Design process completed successfully" in result
     
     def test_command_processor_continue_integration(self, command_processor, coordinator):
         """Test that the CommandProcessor correctly calls the execute_continue method."""
