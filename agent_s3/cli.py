@@ -292,8 +292,14 @@ User input: ''' + repr(prompt)
         elif category == "tool_user":
             # Execute arbitrary shell command directly
             print("Routing to tool_user: executing shell command...")
-            # Use coordinator's CLI executor for bash commands
-            coordinator.execute_terminal_command(prompt)
+            # Use coordinator's CLI executor for bash commands, but confirm first
+            confirmation = input(
+                f"Proceed to run '{prompt}' as a shell command? (y/n) "
+            ).strip().lower()
+            if confirmation == "y":
+                coordinator.execute_terminal_command(prompt)
+            else:
+                print("Command aborted.")
         elif category == "general_qa":
             # General Q&A: call the LLM with entire codebase as context
             print("Routing to general_qa: querying codebase context...")
