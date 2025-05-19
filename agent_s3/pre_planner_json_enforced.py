@@ -840,6 +840,7 @@ You MUST follow these steps IN ORDER to produce a valid pre-planning JSON:
     - Consider maintainability impact of feature design
     - Highlight opportunities to harmonize divergent standards
 """
+    return f"{base_prompt}\n\n{json_specific}"
 
 
 def call_pre_planner_with_enforced_json(
