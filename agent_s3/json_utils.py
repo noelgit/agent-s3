@@ -312,3 +312,9 @@ def get_openrouter_json_params() -> Dict[str, Any]:
         "max_tokens": 4096,                          # Ensure enough space for full JSON response
         "top_p": 0.2                                 # Narrow token selection for consistent formatting
     }
+
+try:
+    from agent_s3.planner_json_enforced import validate_json_schema
+except ImportError:
+    def validate_json_schema(data):
+        raise ImportError("validate_json_schema could not be imported from planner_json_enforced")

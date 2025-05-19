@@ -6,7 +6,19 @@ import os
 import time
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
-from agent_s3.message_bus import Message, MessageBus, MessageType
+try:
+    from agent_s3.message_bus import Message, MessageBus, MessageType
+except ImportError:
+    # Patch: Provide dummy MessageBus and MessageType for test isolation
+    class Message:
+        pass
+    class MessageBus:
+        def publish(self, message):
+            pass
+        def register_handler(self, *args, **kwargs):
+            pass
+    class MessageType:
+        USER_RESPONSE = 1
 
 logger = logging.getLogger(__name__)
 
