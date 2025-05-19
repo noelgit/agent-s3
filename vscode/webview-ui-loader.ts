@@ -102,8 +102,12 @@ export class InteractiveWebviewManager {
     // Convert all local resource paths to vscode-resource URLs
     html = html.replace(/{{cspSource}}/g, webview.cspSource);
 
-    // Use a nonce for all scripts
+    // Replace nonce placeholders
+    html = html.replace(/{{nonce}}/g, nonce);
+
+    // Use a nonce for all scripts and style tags
     html = html.replace(/<script/g, `<script nonce="${nonce}"`);
+    html = html.replace(/<style/g, `<style nonce="${nonce}"`);
 
     // Replace paths with proper webview URIs
     html = this.replaceResourcePaths(html, webview, webviewPath);
