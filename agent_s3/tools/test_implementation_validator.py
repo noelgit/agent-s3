@@ -9,6 +9,7 @@ traceable to architecture elements, and comprehensive in covering security conce
 import json
 import logging
 import re
+import ast
 from typing import Dict, Any, List, Set, Tuple, Optional
 from collections import defaultdict
 
@@ -319,6 +320,19 @@ def _validate_test_code(test: Dict[str, Any], category: str, test_index: int) ->
             "description": f"Test in {category} at index {test_index} has empty code",
             "category": category,
             "test_index": test_index
+        })
+        return issues
+
+    # Validate code syntax
+    try:
+        ast.parse(code)
+    except SyntaxError as exc:
+        issues.append({
+            "issue_type": "syntax_error",
+            "severity": "critical",
+            "description": f"Syntax error in test code: {exc}",
+            "category": category,
+            "test_index": test_index,
         })
         return issues
     

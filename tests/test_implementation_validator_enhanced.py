@@ -17,6 +17,7 @@ from agent_s3.tools.implementation_validator import (
     _validate_implementation_security,
     _validate_implementation_test_alignment
 )
+from agent_s3.tools.test_implementation_validator import _validate_test_code
 
 
 class TestImplementationValidatorEnhanced(unittest.TestCase):
@@ -304,9 +305,22 @@ class TestImplementationValidatorEnhanced(unittest.TestCase):
         aligned_issues = _validate_implementation_test_alignment(aligned_plan, {
             "element2": self.test_requirements["element2"]
         })
-        
+
         # Should have fewer test alignment issues
         self.assertEqual(len(aligned_issues), 0)
+
+    def test_validate_test_code_syntax_error(self):
+        """Test that syntax errors in test code are reported."""
+        malformed_test = {
+            "name": "bad_test",
+            "target_element_ids": ["element1"],
+            "code": "def bad_test(:\n    pass"
+        }
+
+        issues = _validate_test_code(malformed_test, "unit_tests", 0)
+        syntax_issues = [i for i in issues if i.get("issue_type") == "syntax_error"]
+        self.assertEqual(len(syntax_issues), 1)
+        self.assertEqual(syntax_issues[0]["severity"], "critical")
 
 
 if __name__ == '__main__':
