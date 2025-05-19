@@ -81,10 +81,6 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
         case 'STREAM_INTERACTIVE':
           handleStreamInteractive(message.content);
           break;
-
-        case 'STREAM_INTERACTIVE':
-          handleStreamInteractive(message.content);
-          break;
           
         case 'STREAM_END':
           handleStreamEnd(message.content);
