@@ -1,4 +1,10 @@
 import pytest
+
+# Skip these tests entirely if the optional ``phply`` dependency is not
+# available. Importing ``StaticAnalyzer`` triggers the import of ``phply``
+# internally, so guard the import to prevent ImportError.
+pytest.importorskip("phply")
+
 from agent_s3.tools.static_analyzer import StaticAnalyzer
 
 PHP_SNIPPET_CLASS = '''

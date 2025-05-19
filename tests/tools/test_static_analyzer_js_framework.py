@@ -1,13 +1,19 @@
-import re
 import pytest
-from agent_s3.tools.static_analyzer import StaticAnalyzer
+
+# These tests rely on the optional ``esprima`` package for JavaScript
+# parsing. Skip the module import and the tests gracefully when it is not
+# installed instead of failing with ``ImportError``.
+esprima = pytest.importorskip("esprima")
+
+from agent_s3.tools.static_analyzer import StaticAnalyzer  # noqa: E402
 
 # Ensure esprima is available for JS parsing tests
 
 @pytest.fixture(autouse=True)
 def esprima_available(monkeypatch):
     monkeypatch.setattr('agent_s3.tools.static_analyzer.ESPRIMA_AVAILABLE', True)
-    import esprima
+    # ``esprima`` was imported above using ``importorskip``. Reuse that module
+    # object and inject it so the analyzer can access it.
     monkeypatch.setitem(__import__('sys').modules, 'esprima', esprima)
 
 
@@ -48,15 +54,6 @@ export default function App() {
 
 
 def test_extract_vue_component_usage():
-    content = '''
-<template>
-  <MyComponent />
-  <AnotherComp></AnotherComp>
-</template>
-<script>
-export default {}
-</script>
-'''
     analyzer = StaticAnalyzer()
     edges = analyzer._extract_vue_component_usage(None, 'Comp.vue')
     targets = {e['target'].split(':')[1] for e in edges}
@@ -65,14 +62,6 @@ export default {}
 
 
 def test_extract_angular_modules_components():
-    content = '''
-import { NgModule } from '@angular/core';
-@NgModule({
-  imports: [ BrowserModule, HttpClientModule ],
-  providers: [ MyService, OtherService ]
-})
-export class AppModule {}
-'''
     analyzer = StaticAnalyzer()
     edges = analyzer._extract_angular_modules_components(None, 'app.module.ts')
     types = {e['type'] for e in edges}
@@ -80,10 +69,6 @@ export class AppModule {}
 
 
 def test_extract_nextjs_routing():
-    content = '''
-export async function getStaticProps() { return {} }
-export async function getServerSideProps() { return {} }
-'''
     analyzer = StaticAnalyzer()
     edges = analyzer._extract_nextjs_routing(None, 'pages/index.js')
     types = {e['type'] for e in edges}
