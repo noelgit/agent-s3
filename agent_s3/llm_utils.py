@@ -405,3 +405,24 @@ def get_embedding(
     
     # If all attempts failed or we couldn't extract the embedding
     return None
+
+
+def call_llm_via_supabase(payload: Dict[str, Any], config: Any, headers: Optional[Dict[str, str]] = None) -> requests.Response:
+    """Send an LLM request through a Supabase Edge function.
+
+    The OAuth token stored in the configuration is included in the Authorization
+    header. The Supabase function validates that the token belongs to a member of
+    the configured GitHub organization.
+    """
+    if headers is None:
+        headers = {}
+    headers.setdefault("Content-Type", "application/json")
+    token = getattr(config, "github_oauth_token", None)
+    if token:
+        headers.setdefault("Authorization", f"Bearer {token}")
+
+    url = f"{config.supabase_url.rstrip('/')}/functions/v1/{config.supabase_function}"
+    timeout = getattr(config, "llm_default_timeout", 60.0)
+    response = requests.post(url, json=payload, headers=headers, timeout=timeout)
+    response.raise_for_status()
+    return response

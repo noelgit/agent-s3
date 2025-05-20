@@ -7,6 +7,7 @@ import time
 import re  # Add import for regex pattern matching
 from time import sleep
 import requests
+from agent_s3.llm_utils import call_llm_via_supabase
 import traceback  # Added import
 from typing import Dict, Any, Optional, Tuple, List
 
@@ -694,13 +695,16 @@ class RouterAgent:
                       f"(Role: {role}, est. tokens: {total_tokens:.0f})")
 
         try:
-            response = requests.request(
-                method,
-                endpoint,
-                headers=headers,
-                json=payload,
-                timeout=timeout
-            )
+            if config.get("use_remote_llm"):
+                response = call_llm_via_supabase(payload, config, headers=headers)
+            else:
+                response = requests.request(
+                    method,
+                    endpoint,
+                    headers=headers,
+                    json=payload,
+                    timeout=timeout
+                )
             response.raise_for_status()  # Raises HTTPError for bad responses (4xx or 5xx)
 
             response_data = response.json()

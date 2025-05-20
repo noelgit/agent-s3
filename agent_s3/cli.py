@@ -6,7 +6,6 @@ import argparse
 import json
 import logging
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Tuple
 
 from agent_s3.config import Config
 from agent_s3.coordinator import Coordinator
@@ -221,6 +220,8 @@ def main() -> None:
 
     # Authenticate the user if needed
     github_token = os.getenv("GITHUB_TOKEN")
+    if github_token:
+        config.set_oauth_token(github_token)
     if not github_token and not prompt.startswith("/"):
         # Import here to avoid circular imports
         from agent_s3.auth import authenticate_user
@@ -228,6 +229,7 @@ def main() -> None:
         if not github_token:
             print("Authentication required. Run agent-s3 /init to initialize or set GITHUB_TOKEN.")
             sys.exit(1)
+        config.set_oauth_token(github_token)
 
     # Re-initialize coordinator with authentication
     coordinator = Coordinator(config, github_token=github_token)
