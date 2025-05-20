@@ -169,7 +169,6 @@ class ConfigModel(BaseModel):
     log_files: LogFilesConfig = LogFilesConfig()
     context_management: ContextManagementConfig = ContextManagementConfig()
     adaptive_config: AdaptiveConfig = AdaptiveConfig()
-    logs: LogFilesConfig = LogFilesConfig()
     check_auth: bool = True
     interactive: bool = True
     sandbox_environment: bool = True
