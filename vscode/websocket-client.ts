@@ -135,20 +135,15 @@ export class WebSocketClient implements vscode.Disposable {
       const url = `${protocol}://${host}:${port}`;
       this.socket = new WS.WebSocket(url);
       
-      // Set up event listeners (using Node.js ws library event pattern)
+      // Set up event listeners using the ws library's typed events
       if (this.socket) {
         this.socket.on('open', () => this.handleOpen(authToken));
         this.socket.on('message', (data) => {
-          // Convert incoming data to string and create message event-like object
-          const dataString = data.toString();
-          const msgEvent = { data: dataString } as MessageEvent;
-          this.handleMessage(msgEvent);
+          this.handleMessage(data);
         });
         this.socket.on('close', () => this.handleClose());
         this.socket.on('error', (error) => {
-          // Create event-like object to maintain compatibility
-          const errorEvent = { type: 'error', target: this.socket } as Event;
-          this.handleError(errorEvent);
+          this.handleError(error);
         });
       }
       
@@ -219,19 +214,19 @@ export class WebSocketClient implements vscode.Disposable {
   /**
    * Handle incoming WebSocket messages
    */
-  private handleMessage(event: MessageEvent | Buffer | ArrayBuffer | Buffer[]) {
+  private handleMessage(data: WS.RawData) {
     try {
       // Convert data to string if it's not already
       let dataString: string;
-      if (event instanceof MessageEvent) {
-        dataString = event.data.toString();
-      } else if (Buffer.isBuffer(event) || Array.isArray(event)) {
-        dataString = event.toString();
-      } else if (event instanceof ArrayBuffer) {
-        dataString = Buffer.from(event).toString();
+      if (typeof data === 'string') {
+        dataString = data;
+      } else if (Buffer.isBuffer(data) || Array.isArray(data)) {
+        dataString = data.toString();
+      } else if (data instanceof ArrayBuffer) {
+        dataString = Buffer.from(data).toString();
       } else {
-        // Handle the case where event is already a string-like object
-        dataString = String(event);
+        // Handle the case where data is already a string-like object
+        dataString = String(data);
       }
       
       let messageData: any = JSON.parse(dataString);
@@ -313,7 +308,7 @@ export class WebSocketClient implements vscode.Disposable {
   /**
    * Handle WebSocket error event
    */
-  private handleError(error: Event | Error | any) {
+  private handleError(error: Error) {
     console.error("WebSocket error:", error);
     this.connectionState = ConnectionState.ERROR;
   }
