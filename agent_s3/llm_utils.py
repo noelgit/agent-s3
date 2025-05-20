@@ -60,8 +60,11 @@ def call_llm_via_supabase(prompt: str, github_token: str, config: Dict[str, Any]
     Returns:
         The text response from the remote service.
     """
-    supabase_url = config.get("supabase_url") or os.getenv("SUPABASE_URL")
-    api_key = config.get("supabase_service_role_key") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    # Configuration should explicitly provide connection details. Avoid
+    # referencing environment variables directly so callers control where the
+    # credentials originate.
+    supabase_url = config.get("supabase_url")
+    api_key = config.get("supabase_service_role_key")
     if not supabase_url or not api_key:
         raise ValueError("Supabase configuration missing")
 
@@ -89,7 +92,7 @@ def call_llm_via_supabase(prompt: str, github_token: str, config: Dict[str, Any]
 
     # Create client and invoke edge function
     supabase = create_client(supabase_url, api_key)
-    function_name = config.get("supabase_function_name") or os.getenv("SUPABASE_FUNCTION_NAME", "call-llm")
+    function_name = config.get("supabase_function_name", "call-llm")
     response = supabase.functions.invoke(
         function_name,
         body=payload,
