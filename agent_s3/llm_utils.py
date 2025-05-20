@@ -13,6 +13,12 @@ import threading
 import numpy as np
 import logging
 
+try:
+    # Supabase client is optional and only loaded when available
+    from supabase import create_client  # type: ignore
+except Exception:  # pragma: no cover - library may not be installed
+    create_client = None
+
 # Import GPTCache
 try:
     from gptcache import cache
@@ -293,6 +299,80 @@ def call_llm_with_retry(
                  (f" and fallback" if fallback_strategy != 'none' else "")),
         'details': f"Last error: {last_error_details}: {last_error}"
     }
+
+
+def call_llm_via_supabase(
+    prompt_data: Dict[str, Any],
+    config: Any,
+    github_token: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Invoke an LLM through a Supabase edge function with retries.
+
+    Parameters
+    ----------
+    prompt_data: Dict[str, Any]
+        Payload to forward to the edge function. The key ``edge_function_path``
+        can be provided to override the default path ``"/functions/v1/llm"``.
+    config: Any
+        Configuration object containing ``supabase_url`` and
+        ``supabase_service_key`` along with retry settings.
+    github_token: Optional[str]
+        GitHub token to include in the ``Authorization`` header.
+
+    Returns
+    -------
+    Dict[str, Any]
+        Parsed JSON response from the edge function.
+    """
+
+    if create_client is None:
+        raise ImportError("supabase package is required for Supabase integration")
+
+    supabase_url = getattr(config, "supabase_url", None)
+    service_key = getattr(config, "supabase_service_key", None)
+    if not supabase_url or not service_key:
+        raise ValueError("Missing Supabase configuration")
+
+    supabase = create_client(supabase_url, service_key)
+    base_url = getattr(supabase, "supabase_url", supabase_url)
+
+    path = prompt_data.get("edge_function_path", "/functions/v1/llm")
+    if not path.startswith("/"):
+        path = "/" + path
+    url = f"{base_url.rstrip('/')}{path}"
+
+    payload = prompt_data.get("payload", prompt_data)
+
+    headers = {
+        "Content-Type": "application/json",
+        "apikey": service_key,
+    }
+    if github_token:
+        headers["Authorization"] = f"Bearer {github_token}"
+
+    max_retries = getattr(config, "llm_max_retries", 3)
+    initial_backoff = getattr(config, "llm_initial_backoff", 1.0)
+    backoff_factor = getattr(config, "llm_backoff_factor", 2.0)
+    timeout = getattr(config, "llm_default_timeout", 60.0)
+
+    for attempt in range(max_retries):
+        try:
+            resp = requests.post(url, json=payload, headers=headers, timeout=timeout)
+            resp.raise_for_status()
+            return resp.json()
+        except requests.HTTPError as exc:
+            status = getattr(exc.response, "status_code", 0)
+            if attempt < max_retries - 1 and 500 <= status < 600:
+                backoff = initial_backoff * (backoff_factor ** attempt)
+                time.sleep(backoff)
+                continue
+            raise
+        except requests.RequestException:
+            if attempt < max_retries - 1:
+                backoff = initial_backoff * (backoff_factor ** attempt)
+                time.sleep(backoff)
+                continue
+            raise
 
 
 def get_embedding(
