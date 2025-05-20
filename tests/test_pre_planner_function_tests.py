@@ -1,8 +1,4 @@
-"""Tests for function-level test requirements in pre_planner_json_enforced.
-
-This file has been updated to use pre_planner_json_enforced directly rather than the
-legacy PrePlanningManager class which is now just a compatibility wrapper.
-"""
+"""Tests for function-level test requirements in pre_planner_json_enforced."""
 import os
 import pytest
 from pathlib import Path
