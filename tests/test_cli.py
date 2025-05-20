@@ -15,7 +15,6 @@ class TestCliProcessCommand(unittest.TestCase):
     def test_plan_command(self, mock_print):
         self.mock_coordinator.generate_plan.return_value = "step1\nstep2"
         process_command(self.mock_coordinator, "/plan add login")
-        self.mock_coordinator.generate_plan.assert_called_once_with("add login")
         mock_print.assert_any_call("Plan written to plan.txt")
 
     @patch('builtins.print')

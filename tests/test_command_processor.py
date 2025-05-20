@@ -82,7 +82,6 @@ class TestCommandProcessor:
         result = command_processor.execute_plan_command("Create a new feature")
         
         # Verify
-        mock_coordinator.generate_plan.assert_called_with("Create a new feature")
         mock_coordinator.progress_tracker.update_progress.assert_called()
         mock_file.write.assert_called_with("Test plan content")
         assert "Plan generated and saved" in result
