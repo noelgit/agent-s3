@@ -396,8 +396,8 @@ python -m agent_s3.cli "Generate a README outline"
 
 Contributions welcome! Please:
 - Ensure tests pass and lint/type checks are clean
-- Follow PEP 8 and core criteria in `.github/copilot-instructions.md`
-- Use conventional commits
+- Follow PEP 8 and the core criteria in `.github/copilot-instructions.md`
+- Use [Conventional Commits](CONTRIBUTING.md#commit-messages) for commit messages
 
 ## License
 
