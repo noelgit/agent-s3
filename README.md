@@ -283,7 +283,7 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   - **Token Encryption:** `AGENT_S3_ENCRYPTION_KEY` (required for GitHub token storage)
   - `DENYLIST_COMMANDS`, `COMMAND_TIMEOUT`, `CLI_COMMAND_WARNINGS` in config
   - `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` for Supabase integration
-  - `SUPABASE_EDGE_FUNCTION_PATH` (optional, defaults to the root function)
+  - `SUPABASE_FUNCTION_NAME` (optional, defaults to `call-llm`)
   - `USE_REMOTE_LLM` to toggle remote LLM usage
 
   Example `.env`:
@@ -292,7 +292,7 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   SUPABASE_URL=https://your-project.supabase.co
   SUPABASE_SERVICE_KEY=your-service-key
   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-  SUPABASE_EDGE_FUNCTION_PATH=/functions/v1/call-llm
+  SUPABASE_FUNCTION_NAME=call-llm
   USE_REMOTE_LLM=true
   ```
 
@@ -376,13 +376,13 @@ python -m agent_s3.cli /db query <db_name> "SELECT * FROM users"
 ```
 
 ### Remote LLM via Supabase
-Set `USE_REMOTE_LLM=true` to forward prompts to a remote Supabase service. Ensure `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (or `SUPABASE_SERVICE_KEY`) are set. `SUPABASE_EDGE_FUNCTION_PATH` is optional and defaults to the root function:
+Set `USE_REMOTE_LLM=true` to forward prompts to a remote Supabase service. Ensure `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (or `SUPABASE_SERVICE_KEY`) are set. `SUPABASE_FUNCTION_NAME` is optional and defaults to `call-llm`:
 
 ```bash
 USE_REMOTE_LLM=true \
 SUPABASE_URL=https://your-project.supabase.co \
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key \
-SUPABASE_EDGE_FUNCTION_PATH=/functions/v1/call-llm \
+SUPABASE_FUNCTION_NAME=call-llm \
 python -m agent_s3.cli "Generate a README outline"
 ```
 
