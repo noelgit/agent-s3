@@ -19,7 +19,7 @@ from agent_s3.config import Config
 from agent_s3.coordinator import Coordinator
 from agent_s3.planner import Planner
 from agent_s3.code_generator import CodeGenerator
-from agent_s3.scratchpad_manager import ScratchpadManager
+from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager
 
 
 class TestAgentE2EWorkflow(unittest.TestCase):
