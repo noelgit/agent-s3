@@ -276,7 +276,13 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   - `GITHUB_ORG` (optional membership filter)
   - `OPENROUTER_KEY` (or other LLM keys)
   - **Token Encryption:** `AGENT_S3_ENCRYPTION_KEY` (required for GitHub token storage)
+  - `USE_REMOTE_LLM` to route LLM requests through Supabase
+  - `SUPABASE_URL` and `SUPABASE_FUNCTION` for the remote endpoint
   - `DENYLIST_COMMANDS`, `COMMAND_TIMEOUT`, `CLI_COMMAND_WARNINGS` in config
+
+When `USE_REMOTE_LLM` is enabled, LLM requests are sent through the configured
+Supabase function. This function verifies that the provided OAuth token belongs
+to a member of your `GITHUB_ORG` before processing the request.
 
 ## Coding Guidelines
 

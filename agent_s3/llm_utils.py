@@ -5,13 +5,11 @@ backoff, and fallback strategies with advanced semantic caching.
 """
 
 import time
-from typing import Any, Dict, Optional, Callable, Type, List, Union, Tuple
+from typing import Any, Dict, Optional, List
 import requests
-import json
-import os
-import threading
-import numpy as np
 import logging
+from agent_s3.cache.helpers import read_cache, write_cache
+from agent_s3.progress_tracker import progress_tracker
 
 # Import GPTCache
 try:
@@ -37,9 +35,6 @@ FALLBACK_PROMPT_TEMPLATE = "Previous attempt failed. Please re-evaluate the requ
 # Initialize GPTCache if available
 if cache:
     cache.init()
-
-from agent_s3.cache.helpers import read_cache, write_cache
-from agent_s3.progress_tracker import progress_tracker
 
 def cached_call_llm(prompt, llm, return_kv=False, **kwargs):
     """Use semantic cache for LLM calls for better performance and cost optimization.
@@ -289,8 +284,10 @@ def call_llm_with_retry(
     
     return {
         'success': False,
-        'error': (f"LLM API call failed after {max_retries} attempts" +
-                 (f" and fallback" if fallback_strategy != 'none' else "")),
+        'error': (
+            f"LLM API call failed after {max_retries} attempts" +
+            (" and fallback" if fallback_strategy != 'none' else "")
+        ),
         'details': f"Last error: {last_error_details}: {last_error}"
     }
 
@@ -405,3 +402,24 @@ def get_embedding(
     
     # If all attempts failed or we couldn't extract the embedding
     return None
+
+
+def call_llm_via_supabase(payload: Dict[str, Any], config: Any, headers: Optional[Dict[str, str]] = None) -> requests.Response:
+    """Send an LLM request through a Supabase Edge function.
+
+    The OAuth token stored in the configuration is included in the Authorization
+    header. The Supabase function validates that the token belongs to a member of
+    the configured GitHub organization.
+    """
+    if headers is None:
+        headers = {}
+    headers.setdefault("Content-Type", "application/json")
+    token = getattr(config, "github_oauth_token", None)
+    if token:
+        headers.setdefault("Authorization", f"Bearer {token}")
+
+    url = f"{config.supabase_url.rstrip('/')}/functions/v1/{config.supabase_function}"
+    timeout = getattr(config, "llm_default_timeout", 60.0)
+    response = requests.post(url, json=payload, headers=headers, timeout=timeout)
+    response.raise_for_status()
+    return response

@@ -5,13 +5,11 @@ Handles configuration loading and default parameters.
 
 import os
 import re
-import glob
 import json
-import time
 import logging
 import platform
 from pathlib import Path
-from typing import Optional, Dict, List, Any, Union
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ValidationError
 
@@ -90,6 +88,11 @@ EMBEDDER_ROLE_NAME       = os.getenv('EMBEDDER_ROLE_NAME',     'embedder')
 SUMMARIZER_ROLE_NAME     = os.getenv('SUMMARIZER_ROLE_NAME',   'summarizer')
 SUMMARIZER_MAX_CHUNK_SIZE = int(os.getenv('SUMMARIZER_MAX_CHUNK_SIZE', '2048'))
 SUMMARIZER_TIMEOUT       = float(os.getenv('SUMMARIZER_TIMEOUT',      '45.0'))
+
+# Remote LLM configuration
+USE_REMOTE_LLM           = os.getenv('USE_REMOTE_LLM', 'false').lower() == 'true'
+SUPABASE_URL             = os.getenv('SUPABASE_URL', '')
+SUPABASE_FUNCTION        = os.getenv('SUPABASE_FUNCTION', 'call-llm')
 
 
 class ModelsConfig(BaseModel):
@@ -204,6 +207,10 @@ class ConfigModel(BaseModel):
     adaptive_config_dir: str = ADAPTIVE_CONFIG_DIR
     adaptive_metrics_dir: str = ADAPTIVE_METRICS_DIR
     adaptive_optimization_interval: int = ADAPTIVE_OPTIMIZATION_INTERVAL
+    use_remote_llm: bool = USE_REMOTE_LLM
+    supabase_url: str = SUPABASE_URL
+    supabase_function: str = SUPABASE_FUNCTION
+    github_oauth_token: Optional[str] = None
 
     class Config:
         extra = "allow"
@@ -232,8 +239,9 @@ class Config:
         # Flag to track if config loading failed
         self.load_failed = False
         
-        # GitHub token placeholder
+        # GitHub token placeholders
         self.github_token = None
+        self.github_oauth_token = None
         
         self.guidelines: List[str] = []
         self.settings: ConfigModel = ConfigModel()
@@ -380,6 +388,13 @@ class Config:
             return os.path.join(os.getcwd(), self.settings.log_files.dict()[log_type])
         else:
             return os.path.join(os.getcwd(), f"{log_type}_log.jsonl")
+
+    def set_oauth_token(self, token: str) -> None:
+        """Store OAuth token in configuration."""
+        self.github_oauth_token = token
+        cfg = self.config
+        cfg['github_oauth_token'] = token
+        self.config = cfg
 
 
 def get_config():

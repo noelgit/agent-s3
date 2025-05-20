@@ -36,10 +36,15 @@ class SummaryRefinementManager:
 
     def _create_refinement_prompt(self, source: str, summary: str, validation: Dict[str, Any], language: Optional[str]) -> str:
         issues = '\n- '.join([''] + validation["issues"])
-        return f"I need to improve this summary of the following {language or 'code'} source:\n\n```
-{source}
-```
-\nCurrent summary:\n```
-{summary}
-```
-\nThe current summary has these issues:{issues}\n\nMetrics:\n- Faithfulness: {validation["metrics"]["faithfulness"]:.2f}\n- Detail Preservation: {validation["metrics"]["detail_preservation"]:.2f}\n- Structural Coherence: {validation["metrics"]["structural_coherence"]:.2f}\n- Overall Quality: {validation["metrics"]["overall"]:.2f}\n\nPlease provide an improved summary that addresses these issues."
+        return (
+            f"I need to improve this summary of the following {language or 'code'} source:\n\n"
+            f"```\n{source}\n```\n"
+            f"Current summary:\n```\n{summary}\n```\n"
+            f"The current summary has these issues:{issues}\n\n"
+            f"Metrics:\n"
+            f"- Faithfulness: {validation['metrics']['faithfulness']:.2f}\n"
+            f"- Detail Preservation: {validation['metrics']['detail_preservation']:.2f}\n"
+            f"- Structural Coherence: {validation['metrics']['structural_coherence']:.2f}\n"
+            f"- Overall Quality: {validation['metrics']['overall']:.2f}\n\n"
+            "Please provide an improved summary that addresses these issues."
+        )
