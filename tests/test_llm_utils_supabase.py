@@ -30,6 +30,13 @@ def fake_create_client(url, key):
 
 def test_call_llm_via_supabase(monkeypatch):
     monkeypatch.setattr("agent_s3.llm_utils.create_client", fake_create_client)
+
+    def fake_post(url, **_kwargs):
+        assert "example.com" in url
+        return DummyResponse({"response": "ok"})
+
+    monkeypatch.setattr("agent_s3.llm_utils.requests.post", fake_post)
+
     result = call_llm_via_supabase(
         "hello",
         "gh",
