@@ -75,7 +75,7 @@ This document describes the implementation of a real-time streaming UI for Agent
    - Includes a `protocol` field (`ws` or `wss`) to indicate whether TLS should be used
    - Created during VS Code Bridge initialization
    - Removed automatically when the backend exits
-   - File permissions set to `0600` on POSIX systems; Windows uses default ACLs
+   - File permissions set to `0600` on all platforms
 
 2. **Authentication Flow**
    - Client reads connection file to get authentication token

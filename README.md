@@ -152,8 +152,7 @@ See `docs/summarization.md` for details.
 - Dedicated terminal panel for backend interactions
 - Real-time status updates via WebSocket; `progress_log.jsonl` is retained only as a log file
 - Server shuts down automatically on exit, removing the connection file
-- Connection file uses `0600` permissions on POSIX systems; default permissions
-  apply on Windows
+- Connection file uses `0600` permissions on all platforms
 - Optional Copilot-style chat UI for input; terminal shows actual outputs
 - WebView panels for structured information display:
   - Code change plan reviews
