@@ -275,6 +275,7 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   - **GitHub App:** `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`
   - `GITHUB_ORG` (optional membership filter)
   - `OPENROUTER_KEY` (or other LLM keys)
+  - **Token Encryption:** `AGENT_S3_ENCRYPTION_KEY` (required for GitHub token storage)
   - `DENYLIST_COMMANDS`, `COMMAND_TIMEOUT`, `CLI_COMMAND_WARNINGS` in config
 
 ## Coding Guidelines

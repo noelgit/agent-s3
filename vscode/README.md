@@ -16,6 +16,11 @@ This extension integrates Agent-S3, a state-of-the-art AI coding agent, directly
 - GitHub account (for authentication)
 - GitHub OAuth credentials (for API access)
 
+The extension also requires a token encryption key to store your GitHub token securely:
+```bash
+AGENT_S3_ENCRYPTION_KEY="$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
+```
+
 ## Installation
 
 1. Install the Agent-S3 Python package:
