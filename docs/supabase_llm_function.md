@@ -4,6 +4,9 @@
 This serverless function provides secure access to large language model (LLM) services for Agent-S3. The function verifies the caller's GitHub organization membership before forwarding the request to the LLM provider. Only sanitized responses are returned to the client.
 
 ## Request Format
+- Include the low-privilege `SUPABASE_ANON_KEY` when creating the client that
+  calls this function. The function itself holds the `SUPABASE_SERVICE_ROLE_KEY`
+  and only uses it after verifying GitHub organization membership.
 - **Method:** `POST`
 - **Headers:**
   - `Content-Type: application/json`
@@ -29,6 +32,7 @@ This serverless function provides secure access to large language model (LLM) se
 3. Proceed only if the membership state is `active`.
 
 ## LLM Invocation
+- Verify the caller's organization membership before accessing the service role key.
 - Retrieve the LLM API key from the server's secure storage (environment variable or secret manager).
 - Forward the validated request to the LLM provider.
 - Sanitize the LLM output to remove any disallowed content before returning the JSON response.

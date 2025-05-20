@@ -54,7 +54,7 @@ def test_call_llm_via_supabase(monkeypatch: pytest.MonkeyPatch) -> None:
         "gh",
         {
             "supabase_url": "https://example.com",
-            "supabase_service_role_key": "servicekey",
+            "supabase_anon_key": "servicekey",
             "supabase_function_name": "llm-func",
         },
         timeout=5.0,

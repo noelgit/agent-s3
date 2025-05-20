@@ -15,7 +15,7 @@ class DummyLLM:
         return "local"
 
 def test_remote_llm_invocation(monkeypatch):
-    cfg = ConfigModel(use_remote_llm=True, supabase_url="http://test", supabase_service_role_key="key")
+    cfg = ConfigModel(use_remote_llm=True, supabase_url="http://test", supabase_anon_key="key")
     dummy = DummyLLM()
     called = {}
 
@@ -33,7 +33,7 @@ def test_remote_llm_invocation(monkeypatch):
 
 
 def test_remote_llm_fallback(monkeypatch):
-    cfg = ConfigModel(use_remote_llm=True, supabase_url="http://test", supabase_service_role_key="key")
+    cfg = ConfigModel(use_remote_llm=True, supabase_url="http://test", supabase_anon_key="key")
     dummy = DummyLLM()
 
     def failing_remote(*_args, **_kwargs):

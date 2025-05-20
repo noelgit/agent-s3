@@ -54,14 +54,21 @@ def call_llm_via_supabase(prompt: str, github_token: str, config: Dict[str, Any]
     Args:
         prompt: Prompt text to send to the remote LLM service.
         github_token: Authenticated GitHub token for authorization.
-        config: Configuration dictionary containing Supabase URL and key.
+        config: Configuration dictionary containing Supabase URL and
+            low-privilege token (anon key). Falls back to the service role
+            key for backward compatibility.
         timeout: Optional request timeout override.
 
     Returns:
         The text response from the remote service.
     """
     supabase_url = config.get("supabase_url") or os.getenv("SUPABASE_URL")
-    api_key = config.get("supabase_service_role_key") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    api_key = (
+        config.get("supabase_anon_key")
+        or os.getenv("SUPABASE_ANON_KEY")
+        or config.get("supabase_service_role_key")
+        or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    )
     if not supabase_url or not api_key:
         raise ValueError("Supabase configuration missing")
 

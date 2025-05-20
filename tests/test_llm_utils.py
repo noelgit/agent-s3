@@ -44,7 +44,7 @@ def test_invalid_json_snippet(monkeypatch):
 
     cfg = {
         "supabase_url": "http://supabase",
-        "supabase_service_role_key": "key",
+        "supabase_anon_key": "key",
         "supabase_function_name": "func",
     }
 

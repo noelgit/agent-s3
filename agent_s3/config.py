@@ -198,6 +198,7 @@ class ConfigModel(BaseModel):
     summarizer_timeout: float = SUMMARIZER_TIMEOUT
     supabase_url: str = os.environ.get("SUPABASE_URL", "")
     supabase_service_key: str = os.environ.get("SUPABASE_SERVICE_KEY", "")
+    supabase_anon_key: str = os.environ.get("SUPABASE_ANON_KEY", "")
     use_remote_llm: bool = os.environ.get("USE_REMOTE_LLM", "false").lower() == "true"
     adaptive_config_enabled: bool = ADAPTIVE_CONFIG_ENABLED
     adaptive_config_repo_path: str = ADAPTIVE_CONFIG_REPO_PATH
@@ -206,6 +207,7 @@ class ConfigModel(BaseModel):
     adaptive_optimization_interval: int = ADAPTIVE_OPTIMIZATION_INTERVAL
     supabase_url: str = os.environ.get("SUPABASE_URL", "")
     supabase_service_role_key: str = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+    supabase_anon_key: str = os.environ.get("SUPABASE_ANON_KEY", "")
     use_remote_llm: bool = os.getenv("USE_REMOTE_LLM", "false").lower() == "true"
 
     class Config:
