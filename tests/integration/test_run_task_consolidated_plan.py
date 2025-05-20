@@ -114,7 +114,7 @@ def test_run_task_with_mocked_llm(monkeypatch):
         lambda router, sys_design, arch, tests, task_description, context=None: IMPL_PLAN
     )
     monkeypatch.setattr(
-        'agent_s3.feature_group_processor.validate_planning_semantic_coherence',
+        'agent_s3.planner_json_enforced.validate_planning_semantic_coherence',
         lambda router, arch, specs, impls, impl_plan, task_description, context=None: SEM_VALID
     )
 

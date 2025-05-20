@@ -113,6 +113,7 @@ class FeatureGroupProcessor:
                         "group": group_name
                     })
                     
+                    from .planner_json_enforced import generate_refined_test_specifications
                     refined_test_specs_data = generate_refined_test_specifications(
                         self.coordinator.router_agent,
                         feature_group,
@@ -137,6 +138,7 @@ class FeatureGroupProcessor:
                         "group": group_name
                     })
                     
+                    from .planner_json_enforced import generate_test_implementations
                     test_implementations_data = generate_test_implementations(
                         self.coordinator.router_agent,
                         refined_test_specs,
@@ -166,6 +168,7 @@ class FeatureGroupProcessor:
                         "group": group_name
                     })
                     
+                    from .planner_json_enforced import generate_implementation_plan
                     implementation_plan_data = generate_implementation_plan(
                         self.coordinator.router_agent,
                         system_design,
@@ -192,6 +195,7 @@ class FeatureGroupProcessor:
                     })
                     
                     try:
+                        from .planner_json_enforced import validate_planning_semantic_coherence
                         validation_results = validate_planning_semantic_coherence(
                             self.coordinator.router_agent,
                             architecture_review,
@@ -609,49 +613,3 @@ class FeatureGroupProcessor:
             f"Revalidation complete. Overall valid: {status.get('is_valid', False)}",
         )
             
-# Import here to avoid circular references
-def generate_refined_test_specifications(router_agent, feature_group, architecture_review, task_description, context=None):
-    """Import from planner_json_enforced to avoid circular imports and ensure JSON enforcement."""
-    from .planner_json_enforced import generate_refined_test_specifications
-    return generate_refined_test_specifications(router_agent, feature_group, architecture_review, task_description, context)
-
-def generate_test_implementations(router_agent, refined_test_specs, system_design, task_description, context=None):
-    """Import from planner_json_enforced to avoid circular imports and ensure JSON enforcement."""
-    from .planner_json_enforced import generate_test_implementations
-    return generate_test_implementations(router_agent, refined_test_specs, system_design, task_description, context)
-
-def generate_implementation_plan(router_agent, system_design, architecture_review, tests, task_description, context=None):
-    """Import from planner_json_enforced to avoid circular imports and ensure JSON enforcement."""
-    from .planner_json_enforced import generate_implementation_plan
-    return generate_implementation_plan(router_agent, system_design, architecture_review, tests, task_description, context)
-
-def validate_planning_semantic_coherence(router_agent, architecture_review, refined_test_specs, test_implementations, implementation_plan, task_description, context=None):
-    """
-    Validates the semantic coherence between different planning phase outputs.
-    
-    This function ensures that there is consistency and logical coherence between the architecture review,
-    test specifications, test implementations, and implementation plan. It helps identify any disconnects
-    that might lead to issues in later phases.
-    
-    Args:
-        router_agent: The LLM router agent
-        architecture_review: The architecture review data
-        refined_test_specs: The refined test specifications data
-        test_implementations: The test implementation data
-        implementation_plan: The implementation plan data
-        task_description: Original task description
-        context: Optional additional context
-        
-    Returns:
-        Dictionary containing validation results
-    """
-    from .planner_json_enforced import validate_planning_semantic_coherence
-    return validate_planning_semantic_coherence(
-        router_agent,
-        architecture_review,
-        refined_test_specs,
-        test_implementations,
-        implementation_plan,
-        task_description,
-        context
-    )

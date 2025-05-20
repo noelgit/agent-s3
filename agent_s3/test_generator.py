@@ -494,44 +494,6 @@ Before finalizing your output, verify that:
 Your test implementations will be used to validate the actual code implementation, so they must be accurate, complete, and ready to run with minimal adjustments.
 """
 
-def generate_refined_test_specifications(
-    router_agent, 
-    feature_group: Dict[str, Any],
-    architecture_review: Dict[str, Any],
-    task_description: str,
-    context: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
-    """
-    Generate refined test specifications based on architecture review and system design.
-    
-    This function is now imported from planner_json_enforced.py to ensure architectural consistency
-    and benefit from enhanced JSON enforcement. The implementation in planner_json_enforced.py:
-    
-    1. Uses the more advanced get_test_specification_refinement_system_prompt() which includes:
-       - Quality over quantity focus
-       - Test priority ratings (Critical/High/Medium/Low)
-       - Improved sequential processing instructions
-       - Better traceability to architectural elements
-       
-    2. Maintains consistent error handling with other planner_json_enforced functions
-       
-    3. Provides centralized JSON handling with the rest of the planning pipeline
-    
-    Args:
-        router_agent: The LLM router agent for making LLM calls
-        feature_group: The feature group data
-        architecture_review: The architecture review data
-        task_description: Original task description
-        context: Optional additional context
-        
-    Returns:
-        Dictionary containing refined test specifications
-    """
-    # Import here to avoid circular imports
-    from .planner_json_enforced import generate_refined_test_specifications as json_enforced_test_specs
-    
-    # Call the implementation from planner_json_enforced.py
-    return json_enforced_test_specs(router_agent, feature_group, architecture_review, task_description, context)
 
 def generate_test_implementations(
     router_agent, 
@@ -682,9 +644,3 @@ Each test must include complete runnable code - not stubs or pseudocode.
         logger.error(f"Error generating test implementations: {e}")
         logger.error(traceback.format_exc())
         raise TestGenerationError(f"Error generating test implementations: {e}")
-
-# Implementation planning has been moved to planner_json_enforced.py
-# to maintain architectural consistency across the codebase.
-# 
-# To generate implementation plans, import the function from planner_json_enforced:
-# from .planner_json_enforced import generate_implementation_plan
