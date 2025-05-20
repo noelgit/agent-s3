@@ -11,7 +11,7 @@ import platform
 from pathlib import Path
 from typing import Optional, Dict, List, Any
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, Field
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -90,6 +90,11 @@ EMBEDDER_ROLE_NAME       = os.getenv('EMBEDDER_ROLE_NAME',     'embedder')
 SUMMARIZER_ROLE_NAME     = os.getenv('SUMMARIZER_ROLE_NAME',   'summarizer')
 SUMMARIZER_MAX_CHUNK_SIZE = int(os.getenv('SUMMARIZER_MAX_CHUNK_SIZE', '2048'))
 SUMMARIZER_TIMEOUT       = float(os.getenv('SUMMARIZER_TIMEOUT',      '45.0'))
+
+# Supabase configuration
+SUPABASE_URL               = os.getenv('SUPABASE_URL', '')
+SUPABASE_SERVICE_ROLE_KEY  = os.getenv('SUPABASE_SERVICE_ROLE_KEY', '')
+SUPABASE_FUNCTION_NAME     = os.getenv('SUPABASE_FUNCTION_NAME', 'call-llm')
 
 
 class ModelsConfig(BaseModel):
@@ -204,8 +209,12 @@ class ConfigModel(BaseModel):
     adaptive_config_dir: str = ADAPTIVE_CONFIG_DIR
     adaptive_metrics_dir: str = ADAPTIVE_METRICS_DIR
     adaptive_optimization_interval: int = ADAPTIVE_OPTIMIZATION_INTERVAL
-    supabase_service_role_key: str = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
-    supabase_function_name: str = os.environ.get("SUPABASE_FUNCTION_NAME", "call-llm")
+    supabase_service_role_key: str = Field(
+        default_factory=lambda: os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+    )
+    supabase_function_name: str = Field(
+        default_factory=lambda: os.environ.get("SUPABASE_FUNCTION_NAME", "call-llm")
+    )
 
     class Config:
         extra = "allow"
