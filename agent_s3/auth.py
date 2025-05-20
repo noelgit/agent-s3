@@ -14,6 +14,8 @@ import sys
 import logging
 from cryptography.fernet import Fernet, InvalidToken
 
+from .logging_utils import strip_sensitive_headers
+
 # Define required dependencies - use proper requirements.txt for actual dependency management
 try:
     import requests
@@ -88,7 +90,7 @@ def save_token(token_data: Dict[str, Any]) -> None:
             import stat
             os.chmod(TOKEN_FILE, stat.S_IRUSR | stat.S_IWUSR)  # 0o600 - owner read/write only
     except Exception as e:
-        print(f"Warning: Could not securely save token: {e}")
+        print(strip_sensitive_headers(f"Warning: Could not securely save token: {e}"))
         # Fallback to basic storage if encryption fails
         with open(TOKEN_FILE, "w") as f:
             json.dump(token_data, f)
@@ -116,12 +118,12 @@ def load_token() -> Optional[Dict[str, Any]]:
             fernet = Fernet(key.encode() if isinstance(key, str) else key)
             decrypted = fernet.decrypt(content)
         except (InvalidToken, ValueError) as e:
-            print(f"Warning: Could not decrypt token: {e}")
+            print(strip_sensitive_headers(f"Warning: Could not decrypt token: {e}"))
             return None
 
         return json.loads(decrypted.decode("utf-8"))
     except Exception as e:
-        print(f"Warning: Could not load token: {e}")
+        print(strip_sensitive_headers(f"Warning: Could not load token: {e}"))
         return None
 
 
@@ -341,7 +343,7 @@ def _validate_token_and_check_org(token: str, target_org: str = "", expected_use
         return False, None
             
     except Exception as e:
-        print(f"Error in token validation: {e}")
+        print(strip_sensitive_headers(f"Error in token validation: {e}"))
         return False, None
 
 
