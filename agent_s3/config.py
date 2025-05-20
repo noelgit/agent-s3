@@ -83,6 +83,8 @@ EMBEDDING_RETRY_COUNT    = int(os.getenv('EMBEDDING_RETRY_COUNT',    '3'))
 EMBEDDING_BACKOFF_INITIAL = float(os.getenv('EMBEDDING_BACKOFF_INITIAL', '1.0'))
 EMBEDDING_BACKOFF_FACTOR = float(os.getenv('EMBEDDING_BACKOFF_FACTOR', '2.0'))
 EMBEDDING_TIMEOUT        = float(os.getenv('EMBEDDING_TIMEOUT',      '30.0'))
+# Default timeout for external HTTP requests
+HTTP_DEFAULT_TIMEOUT     = float(os.getenv('HTTP_DEFAULT_TIMEOUT', '30.0'))
 # Specialized LLM roles configuration
 EMBEDDER_ROLE_NAME       = os.getenv('EMBEDDER_ROLE_NAME',     'embedder')
 SUMMARIZER_ROLE_NAME     = os.getenv('SUMMARIZER_ROLE_NAME',   'summarizer')
@@ -192,6 +194,7 @@ class ConfigModel(BaseModel):
     embedding_backoff_initial: float = EMBEDDING_BACKOFF_INITIAL
     embedding_backoff_factor: float = EMBEDDING_BACKOFF_FACTOR
     embedding_timeout: float = EMBEDDING_TIMEOUT
+    http_default_timeout: float = HTTP_DEFAULT_TIMEOUT
     embedder_role_name: str = EMBEDDER_ROLE_NAME
     summarizer_role_name: str = SUMMARIZER_ROLE_NAME
     summarizer_max_chunk_size: int = SUMMARIZER_MAX_CHUNK_SIZE

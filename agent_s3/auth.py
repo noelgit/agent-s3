@@ -33,7 +33,14 @@ except ImportError as e:
 
 # Import local modules
 try:
-    from .config import DEV_MODE, DEV_GITHUB_TOKEN, GITHUB_APP_ID, GITHUB_PRIVATE_KEY, TARGET_ORG
+    from .config import (
+        DEV_MODE,
+        DEV_GITHUB_TOKEN,
+        GITHUB_APP_ID,
+        GITHUB_PRIVATE_KEY,
+        TARGET_ORG,
+        HTTP_DEFAULT_TIMEOUT,
+    )
 except ImportError:
     # For standalone testing
     DEV_MODE = os.getenv("DEV_MODE", "false").lower() == "true"
@@ -140,7 +147,11 @@ def validate_token(token: str) -> bool:
         "Authorization": f"token {token}",
         "Accept": "application/vnd.github.v3+json"
     }
-    response = requests.get(f"{GITHUB_API_URL}/user", headers=headers)
+    response = requests.get(
+        f"{GITHUB_API_URL}/user",
+        headers=headers,
+        timeout=HTTP_DEFAULT_TIMEOUT,
+    )
     return response.status_code == 200
 
 
@@ -252,9 +263,10 @@ def authenticate_user() -> Optional[str]:
             "client_secret": GITHUB_CLIENT_SECRET,
             "code": GitHubOAuthHandler.code,
             "redirect_uri": GITHUB_REDIRECT_URI,
-            "state": GitHubOAuthHandler.state  # Include state in token exchange
+            "state": GitHubOAuthHandler.state,  # Include state in token exchange
         },
-        headers={"Accept": "application/json"}
+        headers={"Accept": "application/json"},
+        timeout=HTTP_DEFAULT_TIMEOUT,
     )
     
     if response.status_code != 200:
@@ -286,7 +298,11 @@ def _is_member_of_allowed_orgs(token: str) -> bool:
         return True
     headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
     try:
-        resp = requests.get(f"{GITHUB_API_URL}/user/orgs", headers=headers)
+        resp = requests.get(
+            f"{GITHUB_API_URL}/user/orgs",
+            headers=headers,
+            timeout=HTTP_DEFAULT_TIMEOUT,
+        )
         if resp.status_code == 200:
             user_orgs = [org.get("login") for org in resp.json()]
             return any(o in user_orgs for o in allowed_orgs)
@@ -316,7 +332,11 @@ def _validate_token_and_check_org(token: str, target_org: str = "", expected_use
     
     # Get user info first
     try:
-        user_response = requests.get(f"{GITHUB_API_URL}/user", headers=headers)
+        user_response = requests.get(
+            f"{GITHUB_API_URL}/user",
+            headers=headers,
+            timeout=HTTP_DEFAULT_TIMEOUT,
+        )
         if user_response.status_code != 200:
             return False, None
             
@@ -334,7 +354,11 @@ def _validate_token_and_check_org(token: str, target_org: str = "", expected_use
         # Use the more efficient check for organization membership
         # Direct API call instead of the more expensive /user/orgs call
         org_check_url = f"{GITHUB_API_URL}/orgs/{target_org}/members/{username}"
-        org_response = requests.get(org_check_url, headers=headers)
+        org_response = requests.get(
+            org_check_url,
+            headers=headers,
+            timeout=HTTP_DEFAULT_TIMEOUT,
+        )
         
         # 204 status code indicates membership, 404 indicates not a member
         if org_response.status_code == 204:
