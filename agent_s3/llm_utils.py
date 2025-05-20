@@ -490,10 +490,10 @@ def get_embedding(
                     return embedding
             
             # If we couldn't extract the embedding, log and retry
-            print(f"Failed to extract embedding from response: {data}")
+            logging.debug("Failed to extract embedding from response: %s", data)
             
         except Exception as e:
-            print(f"Embedding generation attempt {attempt+1} failed: {e}")
+            logging.debug("Embedding generation attempt %d failed: %s", attempt + 1, e)
             if attempt == retry_count - 1:
                 # Final attempt failed
                 return None
