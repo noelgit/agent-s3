@@ -509,16 +509,18 @@ def get_embedding(
                     return embedding
             
             # If we couldn't extract the embedding, log and retry
-            logging.debug("Failed to extract embedding from response: %s", data)
+            logging.warning("Failed to extract embedding from response: %s", data)
             
         except Exception as e:
-            logging.debug("Embedding generation attempt %d failed: %s", attempt + 1, e)
+            logging.warning("Embedding generation attempt %d failed: %s", attempt + 1, e)
             if attempt == retry_count - 1:
                 # Final attempt failed
+                logging.error("All embedding generation attempts failed: %s", e)
                 return None
                 
             # Wait before retrying (simple exponential backoff)
             time.sleep(2 ** attempt)
     
     # If all attempts failed or we couldn't extract the embedding
+    logging.error("Failed to generate embedding after %d attempts", retry_count)
     return None
