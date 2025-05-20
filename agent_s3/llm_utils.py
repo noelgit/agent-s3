@@ -73,7 +73,10 @@ def call_llm_via_supabase(prompt: str, github_token: str, config: Dict[str, Any]
         timeout=timeout or config.get("llm_default_timeout", 60.0),
     )
     response.raise_for_status()
-    data = response.json()
+    try:
+        data = response.json()
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON response from Supabase: {e}") from e
     if isinstance(data, dict):
         if "response" in data:
             return data["response"]
