@@ -21,8 +21,8 @@ class FileTool:
             allowed_extensions: List of allowed file extensions (e.g., ['.txt', '.py']). If None, all extensions allowed.
         """
         self.allowed_dirs = allowed_dirs or [os.getcwd()]
-        # Normalize paths to absolute paths
-        self.allowed_dirs = [os.path.abspath(dir_path) for dir_path in self.allowed_dirs]
+        # Normalize paths to absolute real paths to avoid symlink escapes
+        self.allowed_dirs = [os.path.realpath(dir_path) for dir_path in self.allowed_dirs]
         self.max_file_size = max_file_size
         self.allowed_extensions = allowed_extensions
         
@@ -49,7 +49,8 @@ class FileTool:
         """
         try:
             # Check for path traversal attacks
-            norm_path = os.path.normpath(os.path.abspath(file_path))
+            # Use realpath to resolve any symlinks before comparison
+            norm_path = os.path.normpath(os.path.realpath(file_path))
             
             # Check if path is within allowed directories
             allowed = False
