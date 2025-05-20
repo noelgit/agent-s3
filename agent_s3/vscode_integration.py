@@ -280,8 +280,15 @@ class VSCodeIntegration:
             
             with open(self.connect_file_path, 'w') as f:
                 json.dump(connection_info, f)
-                
-            logger.info(f"Connection info written to {self.connect_file_path}")
+
+            # Restrict permissions on POSIX systems for security
+            if os.name == 'posix':
+                import stat
+                os.chmod(self.connect_file_path, stat.S_IRUSR | stat.S_IWUSR)
+
+            logger.info(
+                f"Connection info written to {self.connect_file_path}"
+            )
         except Exception as e:
             logger.error(f"Failed to write connection info: {e}")
             

@@ -191,8 +191,15 @@ class VSCodeBridge:
             
             with open(connection_file, "w") as f:
                 json.dump(connection_info, f)
-                
-            logger.info(f"Created WebSocket connection file at {connection_file}")
+
+            # Restrict permissions on POSIX systems for security
+            if os.name == "posix":
+                import stat
+                os.chmod(connection_file, stat.S_IRUSR | stat.S_IWUSR)
+
+            logger.info(
+                f"Created WebSocket connection file at {connection_file}"
+            )
         except Exception as e:
             logger.error(f"Failed to create WebSocket connection file: {e}")
     
