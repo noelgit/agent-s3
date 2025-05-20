@@ -264,6 +264,8 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
    ```bash
    pip install -e .
    pip install -r requirements.txt
+   # Install development tools for linting, type checking and tests
+   pip install -r requirements-dev.txt
    ```
 2. **VS Code Extension:**
    - Open the `vscode` folder in VS Code
@@ -391,6 +393,12 @@ python -m agent_s3.cli "Generate a README outline"
 - **Chat UI:** `Agent-S3: Open Chat Window` (input only; follow terminal prompts)
 
 ## Development
+
+Install the development requirements first:
+
+```bash
+pip install -r requirements-dev.txt
+```
 
 - **Tests:** `pytest`
 - **Type Checking:** `mypy agent_s3`

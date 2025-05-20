@@ -2,6 +2,12 @@
 
 We welcome contributions that improve Agent-S3. Before opening a pull request, please ensure the following:
 
+- **Setup:** install runtime and development dependencies:
+  ```bash
+  pip install -r requirements.txt
+  pip install -r requirements-dev.txt
+  ```
+
 - **Testing and linting:**
   - Run `pytest` and confirm all tests pass.
   - Run `mypy agent_s3` for static type checking.
