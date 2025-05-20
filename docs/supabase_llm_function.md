@@ -35,6 +35,7 @@ This serverless function provides secure access to large language model (LLM) se
 
 ## Security Tips
 - Serve the function exclusively over **HTTPS**.
+- Ensure the `SUPABASE_URL` (or `supabase_url` config) begins with `https://`.
 - Use short-lived GitHub tokens with limited scopes (e.g., `read:org`).
 - Do not persist incoming tokens on disk.
 - Log only minimal metadata and avoid storing prompts or responses unless required.

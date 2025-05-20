@@ -44,7 +44,7 @@ def test_invalid_json_snippet(monkeypatch):
     monkeypatch.setattr("requests.post", fake_post)
 
     cfg = {
-        "supabase_url": "http://supabase",
+        "supabase_url": "https://supabase",
         "supabase_service_role_key": "key",
         "supabase_function_name": "func",
     }
@@ -63,10 +63,21 @@ def test_invalid_request_body(monkeypatch):
     monkeypatch.setattr("agent_s3.llm_utils.create_client", dummy_client)
 
     cfg = {
-        "supabase_url": "http://supabase",
+        "supabase_url": "https://supabase",
         "supabase_service_role_key": "key",
         "supabase_function_name": "func",
     }
 
     with pytest.raises(ValueError):
         call_llm_via_supabase(object(), "tok", cfg)
+
+
+def test_invalid_supabase_url_scheme(monkeypatch):
+    cfg = {
+        "supabase_url": "http://supabase",
+        "supabase_service_role_key": "key",
+        "supabase_function_name": "func",
+    }
+
+    with pytest.raises(ValueError):
+        call_llm_via_supabase("hi", "tok", cfg)
