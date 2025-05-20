@@ -1,3 +1,5 @@
+"""Tests for the Supabase-based LLM invocation helper."""
+
 from agent_s3.llm_utils import call_llm_via_supabase
 
 class DummyResponse:
