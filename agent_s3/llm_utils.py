@@ -85,6 +85,13 @@ def call_llm_via_supabase(prompt: str, github_token: str, config: Dict[str, Any]
         headers=headers,
         timeout=timeout or config.get("llm_default_timeout", 60.0),
     )
+
+    status_code = getattr(response, "status_code", 200)
+    if status_code >= 400:
+        snippet = getattr(response, "text", "")[:200].replace("\n", " ")
+        raise RuntimeError(
+            f"Supabase function {function_name!r} returned status {status_code}: {snippet!r}"
+        )
     try:
         data = response.json()
     except json.JSONDecodeError as exc:  # pragma: no cover - network failure branch

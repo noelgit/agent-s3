@@ -6,8 +6,9 @@ from agent_s3.llm_utils import call_llm_via_supabase
 
 
 class DummyResponse:
-    def __init__(self, text: str) -> None:
+    def __init__(self, text: str, status_code: int = 200) -> None:
         self.text = text
+        self.status_code = status_code
 
     def json(self) -> dict:
         raise json.JSONDecodeError("error", self.text, 0)
