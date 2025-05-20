@@ -401,6 +401,7 @@ pip install -r requirements-dev.txt
 ```
 
 - **Tests:** `pytest`
+- **Run Tests via Script:** `./scripts/run_tests.sh`
 - **Type Checking:** `mypy agent_s3`
 - **Linting:** `ruff check agent_s3`
 
