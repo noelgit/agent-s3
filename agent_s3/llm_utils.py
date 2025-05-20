@@ -76,6 +76,14 @@ def call_llm_via_supabase(prompt: str, github_token: str, config: Dict[str, Any]
     }
     payload = {"prompt": prompt}
 
+    # Validate that the payload can be serialized to JSON before making the
+    # network request. This avoids sending malformed data to the remote
+    # service and surfaces a clear error to the caller.
+    try:
+        json.dumps(payload)
+    except (TypeError, ValueError) as exc:  # pragma: no cover - input validation
+        raise ValueError("Invalid request payload; must be JSON serializable") from exc
+
     # Create client and invoke edge function
     supabase = create_client(supabase_url, api_key)
     function_name = config.get("supabase_function_name") or os.getenv("SUPABASE_FUNCTION_NAME", "call-llm")
