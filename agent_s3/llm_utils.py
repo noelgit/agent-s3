@@ -5,12 +5,9 @@ backoff, and fallback strategies with advanced semantic caching.
 """
 
 import time
-from typing import Any, Dict, Optional, Callable, Type, List, Union, Tuple
+from typing import Any, Dict, Optional, List
 import requests
-import json
 import os
-import threading
-import numpy as np
 import logging
 
 # Import GPTCache
@@ -18,6 +15,9 @@ try:
     from gptcache import cache
 except ImportError:
     cache = None
+
+from agent_s3.cache.helpers import read_cache, write_cache
+from agent_s3.progress_tracker import progress_tracker
 
 # Type hint for ScratchpadManager to avoid circular imports
 ScratchpadManagerType = Any
@@ -38,9 +38,6 @@ FALLBACK_PROMPT_TEMPLATE = "Previous attempt failed. Please re-evaluate the requ
 if cache:
     cache.init()
 
-from agent_s3.cache.helpers import read_cache, write_cache
-from agent_s3.progress_tracker import progress_tracker
-
 
 def call_llm_via_supabase(prompt: str, github_token: str, config: Dict[str, Any], timeout: Optional[float] = None) -> str:
     """Call a remote LLM via Supabase edge function.
@@ -55,9 +52,14 @@ def call_llm_via_supabase(prompt: str, github_token: str, config: Dict[str, Any]
         The text response from the remote service.
     """
     supabase_url = config.get("supabase_url") or os.getenv("SUPABASE_URL")
-    api_key = config.get("supabase_service_role_key") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    api_key = config.get("supabase_anon_key") or os.getenv("SUPABASE_ANON_KEY")
     if not supabase_url or not api_key:
         raise ValueError("Supabase configuration missing")
+
+    # Optional edge function path for the LLM endpoint
+    edge_function_path = config.get("supabase_edge_function_path") or os.getenv("SUPABASE_EDGE_FUNCTION_PATH")
+    if edge_function_path:
+        supabase_url = f"{supabase_url.rstrip('/')}/{edge_function_path.lstrip('/')}"
 
     headers = {
         "Content-Type": "application/json",
@@ -65,6 +67,8 @@ def call_llm_via_supabase(prompt: str, github_token: str, config: Dict[str, Any]
         "Authorization": f"Bearer {api_key}",
         "X-GitHub-Token": github_token,
     }
+    # Only send the prompt itself. Avoid forwarding edge_function_path or other
+    # config values to the edge function.
     payload = {"prompt": prompt}
     response = requests.post(
         supabase_url,
@@ -376,7 +380,7 @@ def call_llm_with_retry(
     return {
         'success': False,
         'error': (f"LLM API call failed after {max_retries} attempts" +
-                 (f" and fallback" if fallback_strategy != 'none' else "")),
+                 (" and fallback" if fallback_strategy != 'none' else "")),
         'details': f"Last error: {last_error_details}: {last_error}"
     }
 

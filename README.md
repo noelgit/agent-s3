@@ -282,6 +282,7 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   - `DENYLIST_COMMANDS`, `COMMAND_TIMEOUT`, `CLI_COMMAND_WARNINGS` in config
   - `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` for Supabase integration
   - `USE_REMOTE_LLM` to toggle remote LLM usage
+  - `SUPABASE_EDGE_FUNCTION_PATH` (optional path for the remote LLM function)
 
   Example `.env`:
 
@@ -377,6 +378,7 @@ Set `USE_REMOTE_LLM=true` to forward prompts to a remote Supabase service. Ensur
 USE_REMOTE_LLM=true \
 SUPABASE_URL=https://your-project.supabase.co \
 SUPABASE_ANON_KEY=your-anon-key \
+SUPABASE_EDGE_FUNCTION_PATH=functions/v1/llm \
 python -m agent_s3.cli "Generate a README outline"
 ```
 
