@@ -104,26 +104,22 @@ def load_token() -> Optional[Dict[str, Any]]:
         return None
     
     try:
+        key = os.environ.get(TOKEN_ENCRYPTION_KEY_ENV)
+        if not key:
+            print("Warning: Encryption key not set; cannot decrypt token")
+            return None
+
         with open(TOKEN_FILE, "rb") as f:
             content = f.read()
-            
+
         try:
-            # Try plaintext first for backward compatibility
-            return json.loads(content.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            key = os.environ.get(TOKEN_ENCRYPTION_KEY_ENV)
-            if not key:
-                print("Warning: Encryption key not set; cannot decrypt token")
-                return None
+            fernet = Fernet(key.encode() if isinstance(key, str) else key)
+            decrypted = fernet.decrypt(content)
+        except (InvalidToken, ValueError) as e:
+            print(f"Warning: Could not decrypt token: {e}")
+            return None
 
-            try:
-                fernet = Fernet(key.encode() if isinstance(key, str) else key)
-                decrypted = fernet.decrypt(content)
-            except (InvalidToken, ValueError) as e:
-                print(f"Warning: Could not decrypt token: {e}")
-                return None
-
-            return json.loads(decrypted.decode("utf-8"))
+        return json.loads(decrypted.decode("utf-8"))
     except Exception as e:
         print(f"Warning: Could not load token: {e}")
         return None
