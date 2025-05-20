@@ -18,3 +18,7 @@ Description: Release notes for Agent-S3.
 
 ### Security
 - API keys are now stored remotely via Supabase, reducing local exposure risk.
+
+### Removed
+- Deprecated `validate_pre_planning_from_planner` helper in favor of direct
+  `validate_pre_planning_output` usage.
