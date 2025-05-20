@@ -185,13 +185,21 @@ class VSCodeBridge:
         
         # Save to a file in the workspace root
         try:
-            # Try to get workspace root
             workspace_root = os.getcwd()
-            connection_file = os.path.join(workspace_root, ".agent_s3_ws_connection.json")
-            
+            abs_workspace_root = os.path.abspath(workspace_root)
+
+            # Determine the repository root to validate path
+            repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+            if os.path.commonpath([abs_workspace_root, repo_root]) != repo_root:
+                raise ValueError(
+                    f"Workspace root {abs_workspace_root} is outside the repository {repo_root}"
+                )
+
+            connection_file = os.path.join(abs_workspace_root, ".agent_s3_ws_connection.json")
+
             with open(connection_file, "w") as f:
                 json.dump(connection_info, f)
-                
+
             logger.info(f"Created WebSocket connection file at {connection_file}")
         except Exception as e:
             logger.error(f"Failed to create WebSocket connection file: {e}")
