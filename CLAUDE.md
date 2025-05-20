@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Build/Test Commands
-- Setup environment: `python -m pip install -e .`
+ - Setup environment: `python -m pip install -e . && pip install -r requirements.txt`
 - Run tests: `pytest`
 - Run single test: `pytest tests/path_to_test.py::TestClass::test_function`
 - Run the CLI: `python -m agent_s3.cli`

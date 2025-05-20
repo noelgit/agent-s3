@@ -177,6 +177,7 @@ This architecture enables a Copilot-like, interactive experience with immediate 
 - Required packages: `sqlalchemy` with optional adapters
   - `psycopg2-binary` for PostgreSQL
   - `pymysql` for MySQL
+  - `supabase-py` for Supabase integration
 - GitHub account and relevant tokens or app credentials
 
 ## Tree-sitter Grammar Setup
@@ -261,6 +262,7 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
    `pyproject.toml`:
    ```bash
    pip install -e .
+   pip install -r requirements.txt
    ```
 2. **VS Code Extension:**
    - Open the `vscode` folder in VS Code
