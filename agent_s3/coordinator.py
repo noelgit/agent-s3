@@ -273,7 +273,6 @@ class Coordinator:
             self.workspace_initializer.prompt_moderator = self.prompt_moderator
             
             # Pre-planning functionality has been moved to pre_planner_json_enforced.py
-            # The PrePlanningManager class is no longer used
             
             # Initialize task resumer
             self.task_resumer = TaskResumer(
