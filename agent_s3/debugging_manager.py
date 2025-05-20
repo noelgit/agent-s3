@@ -20,6 +20,7 @@ from agent_s3.enhanced_scratchpad_manager import (
     Section,
     LogLevel,
 )
+from agent_s3.planning_helper import generate_plan_via_workflow
 from agent_s3.user_config import load_user_config
 from agent_s3.tools.error_pattern_learner import ErrorPatternLearner
 from agent_s3.llm_utils import cached_call_llm
@@ -1202,18 +1203,12 @@ class DebuggingManager:
             # Create a new plan with awareness of the error
             error_summary = f"Error ({error_context.category.name}): {error_context.message}"
             
-            # Use coordinator-level planning if available
-            if hasattr(self.coordinator, "generate_plan"):
-                plan_result = self.coordinator.generate_plan(
-                    self.coordinator.current_task,
-                    error_context=error_summary,
-                )
-            else:
-                return {
-                    "success": False,
-                    "description": "Plan regeneration not available",
-                    "reasoning": "Coordinator lacks generate_plan method.",
-                }
+            # Use the new sequential planning workflow with error context
+            plan_result = generate_plan_via_workflow(
+                self.coordinator, 
+                self.coordinator.current_task,
+                context={"error_context": error_summary}
+            )
             
             if not plan_result or not plan_result.get("success", False):
                 return {
@@ -1436,15 +1431,11 @@ class DebuggingManager:
             self.coordinator.current_task = modified_task
             
             try:
-                # Generate a new plan using coordinator if available
-                if hasattr(self.coordinator, "generate_plan"):
-                    plan_result = self.coordinator.generate_plan(modified_task)
-                else:
-                    return {
-                        "success": False,
-                        "description": "Modified request planning failed",
-                        "reasoning": "Coordinator lacks generate_plan method.",
-                    }
+                # Generate a new plan using the sequential planning workflow
+                plan_result = generate_plan_via_workflow(
+                    self.coordinator, 
+                    modified_task
+                )
                 
                 if not plan_result or not plan_result.get("success", False):
                     # Restore original values

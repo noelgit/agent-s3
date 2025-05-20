@@ -10,6 +10,8 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional, Tuple, List, Union, Callable
 
+from .planning_helper import generate_plan_via_workflow
+
 class CommandProcessor:
     """Processes and dispatches CLI commands to appropriate handlers."""
 
@@ -128,16 +130,47 @@ class CommandProcessor:
                     "timestamp": datetime.now().isoformat()
                 })
             
-            # Generate plan
-            if hasattr(self.coordinator, 'generate_plan'):
-                plan = self.coordinator.generate_plan(args)
+            # Generate plan using the sequential planning workflow
+            plan_result = generate_plan_via_workflow(self.coordinator, args)
+            
+            if not plan_result.get("success"):
+                error_msg = plan_result.get("error", "Unknown planning error")
+                self._log(error_msg, level="error")
+                
+                # Update progress tracking with failure
+                if hasattr(self.coordinator, 'progress_tracker'):
+                    self.coordinator.progress_tracker.update_progress({
+                        "phase": "plan",
+                        "status": "failed",
+                        "error": error_msg,
+                        "timestamp": datetime.now().isoformat()
+                    })
+                
+                return f"Plan generation failed: {error_msg}"
+            
+            plan_obj = plan_result.get("plan")
+            
+            # Convert plan object to string representation
+            if isinstance(plan_obj, dict):
+                plan = json.dumps(plan_obj, indent=2)
             else:
-                return "Plan generation not available."
+                plan = str(plan_obj)
             
             # Write plan to file
             plan_path = Path("plan.txt")
             with open(plan_path, "w", encoding="utf-8") as f:
                 f.write(plan)
+            
+            # Also save as JSON if possible
+            try:
+                json_plan_path = Path("plan.json")
+                with open(json_plan_path, "w", encoding="utf-8") as f:
+                    if isinstance(plan_obj, dict):
+                        json.dump(plan_obj, f, indent=2)
+                    else:
+                        json.dump({"plan": str(plan_obj)}, f, indent=2)
+            except Exception as json_err:
+                self._log(f"Warning: Could not save plan as JSON: {json_err}", level="warning")
             
             # Update progress tracking
             if hasattr(self.coordinator, 'progress_tracker'):
