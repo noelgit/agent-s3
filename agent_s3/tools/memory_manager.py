@@ -271,49 +271,65 @@ class MemoryManager:
             logger.debug(f"No eviction needed: {current_count}/{self.max_embeddings} embeddings used")
             return 0
             
-        logger.info(f"Starting progressive embedding eviction: {current_count}/{self.max_embeddings} embeddings used")
-        
+        logger.info(
+            f"Starting progressive embedding eviction: {current_count}/{self.max_embeddings} embeddings used"
+        )
+
         # Determine how many embeddings to evict
-        to_evict = min(self.eviction_batch_size, max(0, current_count - self.max_embeddings + self.eviction_batch_size//2))
+        to_evict = min(
+            self.eviction_batch_size,
+            max(0, current_count - self.max_embeddings + self.eviction_batch_size // 2),
+        )
         if force:
             to_evict = max(to_evict, self.eviction_batch_size)
-        
-        # Prefix-aware eviction removed; using fallback LRU eviction
 
-        # Evict embeddings (legacy LRU/Frequency)
-        # Build eviction candidates from access log
-        candidates: List[Dict[str, Any]] = []
-        now = time.time()
-        for fp, rec in self.embedding_access_log.items():
-            days = (now - rec.get("last_access", now)) / 86400
-            candidates.append({
-                "file_path": fp,
-                "access_count": rec.get("access_count", 0),
-                "days_since_access": days
-            })
-        # Sort by oldest access first (LRU)
-        candidates.sort(key=lambda x: x['days_since_access'], reverse=True)
         evicted_count = 0
-        for candidate in candidates[:to_evict]:
-            file_path = candidate["file_path"]
-            try:
-                # Attempt to remove the embedding
-                if self.remove_embedding(file_path, record_removal=True):
-                    evicted_count += 1
-                    
-                    # Log eviction details
-                    logger.info(
-                        f"Evicted embedding for {file_path}: "
-                        f"last accessed {candidate['days_since_access']:.1f} days ago, "
-                        f"access count: {candidate['access_count']}"
-                    )
-                    
-                    # If we've evicted enough, stop
-                    if evicted_count >= to_evict:
-                        break
-            except Exception as e:
-                logger.error(f"Error evicting embedding for {file_path}: {e}")
-        
+
+        # Prefix-aware eviction strategy
+        now = time.time()
+        max_idle_seconds = self.access_threshold_days * 86400
+        prefix_groups: Dict[str, List[Dict[str, Any]]] = {}
+
+        for fp, rec in self.embedding_access_log.items():
+            prefix = str(Path(fp).parent)
+            last_access = rec.get("last_access", now)
+            idle_factor = (
+                min(1.0, (now - last_access) / max_idle_seconds)
+                if max_idle_seconds > 0
+                else 0.5
+            )
+            access_factor = 1.0 / (rec.get("access_count", 0) + 1)
+            age_factor = (
+                min(1.0, (now - rec.get("created", last_access)) / (max_idle_seconds / 2))
+                if max_idle_seconds > 0
+                else 0.5
+            )
+            score = (0.6 * idle_factor) + (0.3 * access_factor) + (0.1 * age_factor)
+            prefix_groups.setdefault(prefix, []).append({"file_path": fp, "score": score})
+
+        group_scores: List[Tuple[str, float, List[str]]] = []
+        for prefix, files in prefix_groups.items():
+            avg_score = sum(f["score"] for f in files) / len(files)
+            paths = [f["file_path"] for f in files]
+            group_scores.append((prefix, avg_score, paths))
+
+        group_scores.sort(key=lambda x: x[1], reverse=True)
+
+        for _, _, paths in group_scores:
+            for fp in paths:
+                if evicted_count >= to_evict:
+                    break
+                try:
+                    if self.remove_embedding(fp, record_removal=True):
+                        evicted_count += 1
+                except Exception as e:  # pragma: no cover - ignore during tests
+                    logger.error(f"Error evicting embedding for {fp}: {e}")
+            if evicted_count >= to_evict:
+                break
+
+        if evicted_count > 0:
+            self.prefix_evictions += evicted_count
+
         logger.info(f"Progressive eviction complete: {evicted_count} embeddings evicted")
         self._save_embedding_access_log()
         return evicted_count
