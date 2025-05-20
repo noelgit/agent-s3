@@ -79,6 +79,7 @@ Agent-S3 is not just a tool for automation; it is a partner in development that 
   - Sequential implementation of tasks with the `/continue` command
   - Automatic test execution after each implementation step
 - CLI interface (`agent_s3.cli`) with commands: `/init`, `/help`, `/config`, `/reload-llm-config`, `/explain`, `/request`, `/terminal`, `/design`, `/personas`, `/guidelines`, `/continue`, `/tasks`, `/clear`, `/db`, `/test`, `/debug`. Supports multi-line heredoc input (`<<MARKER ... MARKER`) for `/cli file` and `/cli bash`.
+- Supabase Edge function for LLM calls. See `docs/supabase_llm_function.md` for details.
 - GitHub authentication via OAuth App and GitHub App flows (`agent_s3.auth`)
 - Centralized configuration loading from `llm.json`, environment variables, and `.env` (`agent_s3.config`)
 - Dynamic LLM routing by arbitrary roles defined in `llm.json`, with circuit breaker, fallback logic, and metrics tracking (`agent_s3.router_agent`)
