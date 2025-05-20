@@ -388,7 +388,7 @@ python -m agent_s3.cli "Generate a README outline"
 
 ## Development
 
-- **Tests:** `pytest`
+- **Tests:** `scripts/run_tests.sh`
 - **Type Checking:** `mypy agent_s3`
 - **Linting:** `ruff check agent_s3`
 
