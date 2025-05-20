@@ -277,6 +277,16 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   - `OPENROUTER_KEY` (or other LLM keys)
   - **Token Encryption:** `AGENT_S3_ENCRYPTION_KEY` (required for GitHub token storage)
   - `DENYLIST_COMMANDS`, `COMMAND_TIMEOUT`, `CLI_COMMAND_WARNINGS` in config
+  - `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` for Supabase integration
+  - `USE_REMOTE_LLM` to toggle remote LLM usage
+
+  Example `.env`:
+
+  ```env
+  SUPABASE_URL=https://your-project.supabase.co
+  SUPABASE_SERVICE_KEY=your-service-key
+  USE_REMOTE_LLM=true
+  ```
 
 ## Coding Guidelines
 
