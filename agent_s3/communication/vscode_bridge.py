@@ -200,8 +200,9 @@ class VSCodeBridge:
             logger.info(
                 f"Created WebSocket connection file at {connection_file}"
             )
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.error(f"Failed to create WebSocket connection file: {e}")
+            raise
     
     def _setup_message_handlers(self) -> None:
         """Set up handlers for extension messages."""
