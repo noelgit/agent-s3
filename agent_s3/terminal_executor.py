@@ -22,7 +22,9 @@ class TerminalExecutor:
         
         self.denylist: List[str] = config.config.get('denylist', default_denylist)
         self.timeout: float = config.config.get('command_timeout', 30.0)
-        self.allowed_dirs: List[str] = config.config.get('allowed_dirs', [os.getcwd()])
+        self.allowed_dirs: List[str] = [
+            os.path.realpath(p) for p in config.config.get('allowed_dirs', [os.getcwd()])
+        ]
         self.max_output_size: int = config.config.get('max_output_size', 1024 * 1024)  # 1MB by default
         self.failure_threshold: int = config.config.get('failure_threshold', 5)
         self.cooldown_period: int = config.config.get('cooldown_period', 300)
@@ -38,9 +40,10 @@ class TerminalExecutor:
 
     def _is_path_allowed(self, path: str) -> bool:
         """Check if a path is within allowed directories."""
-        abs_path = os.path.abspath(path)
+        # Resolve symlinks to avoid directory traversal via links
+        abs_path = os.path.realpath(path)
         for allowed_dir in self.allowed_dirs:
-            if abs_path.startswith(os.path.abspath(allowed_dir)):
+            if abs_path.startswith(os.path.realpath(allowed_dir)):
                 return True
         return False
 
