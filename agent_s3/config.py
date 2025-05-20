@@ -204,6 +204,9 @@ class ConfigModel(BaseModel):
     adaptive_config_dir: str = ADAPTIVE_CONFIG_DIR
     adaptive_metrics_dir: str = ADAPTIVE_METRICS_DIR
     adaptive_optimization_interval: int = ADAPTIVE_OPTIMIZATION_INTERVAL
+    supabase_url: str = os.environ.get("SUPABASE_URL", "")
+    supabase_service_role_key: str = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+    use_remote_llm: bool = os.getenv("USE_REMOTE_LLM", "false").lower() == "true"
 
     class Config:
         extra = "allow"

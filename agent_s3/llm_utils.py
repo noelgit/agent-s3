@@ -41,6 +41,49 @@ if cache:
 from agent_s3.cache.helpers import read_cache, write_cache
 from agent_s3.progress_tracker import progress_tracker
 
+
+def call_llm_via_supabase(prompt: str, github_token: str, config: Dict[str, Any], timeout: Optional[float] = None) -> str:
+    """Call a remote LLM via Supabase edge function.
+
+    Args:
+        prompt: Prompt text to send to the remote LLM service.
+        github_token: Authenticated GitHub token for authorization.
+        config: Configuration dictionary containing Supabase URL and key.
+        timeout: Optional request timeout override.
+
+    Returns:
+        The text response from the remote service.
+    """
+    supabase_url = config.get("supabase_url") or os.getenv("SUPABASE_URL")
+    api_key = config.get("supabase_service_role_key") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    if not supabase_url or not api_key:
+        raise ValueError("Supabase configuration missing")
+
+    headers = {
+        "Content-Type": "application/json",
+        "apikey": api_key,
+        "Authorization": f"Bearer {api_key}",
+        "X-GitHub-Token": github_token,
+    }
+    payload = {"prompt": prompt}
+    response = requests.post(
+        supabase_url,
+        json=payload,
+        headers=headers,
+        timeout=timeout or config.get("llm_default_timeout", 60.0),
+    )
+    response.raise_for_status()
+    data = response.json()
+    if isinstance(data, dict):
+        if "response" in data:
+            return data["response"]
+        if "choices" in data and data["choices"]:
+            # OpenAI style response
+            choice = data["choices"][0]
+            if isinstance(choice, dict):
+                return choice.get("text") or choice.get("message", {}).get("content", "")
+    return response.text
+
 def cached_call_llm(prompt, llm, return_kv=False, **kwargs):
     """Use semantic cache for LLM calls for better performance and cost optimization.
     
@@ -54,16 +97,54 @@ def cached_call_llm(prompt, llm, return_kv=False, **kwargs):
         The LLM response, either from cache or freshly generated
         If return_kv is True, returns a tuple (response, kv_tensor)
     """
-    hit = read_cache(prompt, llm)
-    if hit:
-        progress_tracker.increment("semantic_hits")
-        return hit
-    
-    # Prepare method_name and prompt_data for call_llm_with_retry
     method_name = kwargs.pop('method_name', 'generate')
     config = kwargs.pop('config', {})
     scratchpad_manager = kwargs.pop('scratchpad_manager', None)
     prompt_summary = kwargs.pop('prompt_summary', prompt[:100] + "..." if len(prompt) > 100 else prompt)
+
+    use_remote_llm = getattr(config, 'use_remote_llm', False)
+    github_token = getattr(config, 'github_token', None)
+
+    if use_remote_llm:
+        try:
+            from agent_s3.auth import load_token
+            if not github_token:
+                token_data = load_token()
+                if token_data:
+                    github_token = token_data.get('token') or token_data.get('access_token')
+        except Exception:
+            github_token = github_token
+
+        if not github_token:
+            raise ValueError('GitHub token required for remote LLM')
+
+        class _RemoteLLM:
+            def __init__(self, cfg, token):
+                self.cfg = cfg
+                self.token = token
+
+            def generate(self, params):
+                return call_llm_via_supabase(
+                    params.get('prompt', ''),
+                    self.token,
+                    self.cfg,
+                    timeout=params.get('timeout', self.cfg.get('llm_default_timeout', 60.0)),
+                )
+
+            def attach_kv(self, _kv):
+                return None
+
+            def get_kv_tensor(self):
+                return None
+
+        llm_to_use = _RemoteLLM(config, github_token)
+    else:
+        llm_to_use = llm
+
+    hit = read_cache(prompt, llm_to_use)
+    if hit:
+        progress_tracker.increment("semantic_hits")
+        return hit
     
     # Convert prompt to the expected format
     prompt_data = {
@@ -72,7 +153,7 @@ def cached_call_llm(prompt, llm, return_kv=False, **kwargs):
     }
     
     result = call_llm_with_retry(
-        llm_client_instance=llm,
+        llm_client_instance=llm_to_use,
         method_name=method_name,
         prompt_data=prompt_data,
         config=config,
@@ -91,10 +172,15 @@ def cached_call_llm(prompt, llm, return_kv=False, **kwargs):
             return f"Error: {error_msg}"
         
         # Extract the KV tensor if available
-        kv_tensor = getattr(llm, 'get_kv_tensor', lambda: None)()
-        
+        kv_tensor = getattr(llm_to_use, 'get_kv_tensor', lambda: None)()
+
         if kv_tensor is not None:
             write_cache(prompt, response, kv_tensor)
+        elif cache:
+            try:
+                cache.set(prompt, response)
+            except Exception as e:
+                logging.warning(f"Cache write failed: {e}")
         
         if return_kv:
             return response, kv_tensor
