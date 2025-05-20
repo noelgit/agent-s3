@@ -355,7 +355,17 @@ python -m agent_s3.cli "Implement user authentication using JWT"
 python -m agent_s3.cli /db list
 python -m agent_s3.cli /db schema
 python -m agent_s3.cli /db query <db_name> "SELECT * FROM users"
-``` 
+```
+
+### Remote LLM via Supabase
+Set `USE_REMOTE_LLM=true` to forward prompts to a remote Supabase service. Ensure `SUPABASE_URL` and `SUPABASE_ANON_KEY` are set:
+
+```bash
+USE_REMOTE_LLM=true \
+SUPABASE_URL=https://your-project.supabase.co \
+SUPABASE_ANON_KEY=your-anon-key \
+python -m agent_s3.cli "Generate a README outline"
+```
 
 ### VS Code
 - **Initialize:** `Agent-S3: Initialize workspace`
