@@ -141,7 +141,10 @@ class CodeAnalysisTool:
             logging.warning("FileTool not available to CodeAnalysisTool during __init__. Some operations might fail if not set later.")
 
     def lint(self, paths: Optional[List[str]] = None) -> List[Dict[str, Any]]:
-        """
+        """Run Ruff lint on the specified paths and return parsed diagnostics."""
+        try:
+            output = self._run_ruff(paths)
+        except Exception as e:
             logger.error(f"Error running Ruff lint: {e}")
             return []
         if not output:
@@ -673,7 +676,9 @@ class CodeAnalysisTool:
         return int(time.time())
     
     def _prune_cache_if_needed(self):
-        """Prune the embedding cache if it's too large."""
+        """
+        Prune the embedding cache if it's too large.
+        """
         self._operation_count += 1
         if self._operation_count % self.eviction_check_interval == 0:
             cache_size = len(self._embedding_cache)
@@ -897,10 +902,7 @@ class CodeAnalysisTool:
         return tokens
 
     def analyze_file_structure(self, file_path: str, language: str = None) -> dict:
-        """
-        Analyze the structure of a code file using language-specific parsers from ParserRegistry.
-        Always use the new parser system; legacy regex-based parsing is removed.
-        """
+        """Analyze the structure of a code file using ParserRegistry. Legacy regex-based parsing is removed."""
         if not self.file_tool:
             logger.error("FileTool is not available. Cannot analyze file structure.")
             return {'error': 'FileTool not available', 'file_path': file_path, 'elements': [], 'status': 'error'}

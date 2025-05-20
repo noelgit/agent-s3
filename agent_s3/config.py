@@ -175,6 +175,9 @@ class ConfigModel(BaseModel):
     sandbox_environment: bool = True
     openrouter_key: str = os.environ.get("OPENROUTER_KEY", "")
     openai_key: str = os.environ.get("OPENAI_KEY", "")
+    supabase_url: str = os.environ.get("SUPABASE_URL", "")
+    supabase_service_key: str = os.environ.get("SUPABASE_SERVICE_KEY", "")
+    use_remote_llm: bool = os.environ.get("USE_REMOTE_LLM", "false").lower() == "true"
     dev_github_token: str = DEV_GITHUB_TOKEN
     llm_max_retries: int = LLM_MAX_RETRIES
     llm_initial_backoff: float = LLM_INITIAL_BACKOFF

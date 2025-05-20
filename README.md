@@ -275,7 +275,17 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   - **GitHub App:** `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`
   - `GITHUB_ORG` (optional membership filter)
   - `OPENROUTER_KEY` (or other LLM keys)
+  - `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` for remote database access
+  - `USE_REMOTE_LLM` set to `true` to enable hosted models
   - `DENYLIST_COMMANDS`, `COMMAND_TIMEOUT`, `CLI_COMMAND_WARNINGS` in config
+
+Example `.env`:
+
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_KEY=your-service-key
+USE_REMOTE_LLM=false
+```
 
 ## Coding Guidelines
 
