@@ -187,61 +187,60 @@ def validate_json_against_schema(data: Dict[str, Any], schema: Dict[str, Any]) -
     
     return not errors, errors
 
-def repair_json_structure(data: Dict[str, Any], schema: Dict[str, Any], default_generators: Dict[str, Callable] = None) -> Dict[str, Any]:
-    """
-    Attempt to repair a JSON structure to match a schema.
-    
-    Args:
-        data: The JSON data to repair
-        schema: The schema to conform to
-        default_generators: Optional dictionary mapping keys to functions that generate default values
-        
-    Returns:
-        Repaired JSON data that conforms to the schema
-    """
+def repair_json_structure(
+    data: Dict[str, Any],
+    schema: Dict[str, Any],
+    default_generators: Dict[str, Callable] | None = None,
+) -> Dict[str, Any]:
+    """Attempt to repair a JSON structure to match a schema."""
+
     if not default_generators:
         default_generators = {}
-        
-    # Create a copy to avoid modifying the original
-    repaired = {}
-    
-    # Handle each key in the schema
+
+    def _default_for_type(typ: Any) -> Any:
+        if typ == str:
+            return ""
+        if typ == int:
+            return 0
+        if typ == float:
+            return 0.0
+        if typ == bool:
+            return False
+        if typ == list:
+            return []
+        if typ == dict:
+            return {}
+        return None
+
+    def _repair_value(value: Any, expected: Any) -> Any:
+        """Recursively repair a value according to the expected schema."""
+        if isinstance(expected, dict):
+            if not isinstance(value, dict):
+                value = {}
+            return repair_json_structure(value, expected, default_generators)
+        if isinstance(expected, list):
+            item_schema = expected[0] if expected else None
+            if not isinstance(value, list):
+                value = []
+            if item_schema is None:
+                return value
+            return [_repair_value(item, item_schema) for item in value]
+        if not isinstance(value, expected):
+            return _default_for_type(expected)
+        return value
+
+    repaired: Dict[str, Any] = {}
+
     for key, expected_type in schema.items():
-        if key not in data or not isinstance(data[key], expected_type):
-            # Key is missing or has wrong type
+        if key not in data:
             if key in default_generators:
-                # Use custom generator
                 repaired[key] = default_generators[key]()
-            elif expected_type == str:
-                repaired[key] = ""
-            elif expected_type == int:
-                repaired[key] = 0
-            elif expected_type == float:
-                repaired[key] = 0.0
-            elif expected_type == bool:
-                repaired[key] = False
-            elif expected_type == list:
-                repaired[key] = []
-            elif expected_type == dict:
-                repaired[key] = {}
             else:
-                # Use None for complex types with no default
-                repaired[key] = None
-        else:
-            # Key exists and has correct type
-            value = data[key]
-            
-            # Handle nested structures
-            if isinstance(expected_type, dict) and isinstance(value, dict):
-                # Recursively repair nested object
-                repaired[key] = repair_json_structure(value, expected_type, default_generators)
-            elif isinstance(expected_type, list) and isinstance(value, list):
-                # TODO: Add array item validation/repair if needed
-                repaired[key] = value
-            else:
-                # Use the original value
-                repaired[key] = value
-    
+                repaired[key] = _repair_value(None, expected_type)
+            continue
+
+        repaired[key] = _repair_value(data[key], expected_type)
+
     return repaired
 
 def validate_and_repair_json(
