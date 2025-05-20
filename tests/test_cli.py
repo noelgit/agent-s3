@@ -18,12 +18,6 @@ class TestCliProcessCommand(unittest.TestCase):
         mock_print.assert_any_call("Plan written to plan.txt")
 
     @patch('builtins.print')
-    def test_generate_command(self, mock_print):
-        process_command(self.mock_coordinator, "/generate")
-        self.mock_coordinator.execute_generate.assert_called_once()
-        mock_print.assert_any_call("Executing /generate: running code generation and workflow from plan.txt...")
-
-    @patch('builtins.print')
     def test_test_command(self, mock_print):
         process_command(self.mock_coordinator, "/test")
         self.mock_coordinator.run_tests_all.assert_called_once()

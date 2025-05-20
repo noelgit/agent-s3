@@ -42,8 +42,7 @@ Agent-S3 Command-Line Interface
 Commands:
   agent-s3 <prompt>        - Process a change request (full workflow)
   agent-s3 /plan <prompt>        - Generate a plan only (bypass execution)
-  agent-s3 /generate        - Generate code from plan.txt
-  agent-s3 /request <prompt>     - Full change request (plan, generate, execute)
+  agent-s3 /request <prompt>     - Full change request (plan, execute)
   agent-s3 /init           - Initialize the workspace
   agent-s3 /help           - Display this help message
   agent-s3 /config         - Show current configuration
@@ -63,7 +62,6 @@ Special Commands (can be used in prompt):
   /reload-llm-config       - Reload LLM configuration
   /explain                 - Explain the last LLM interaction
   /plan <prompt>           - Generate a plan only (bypass execution)
-  /generate                - Generate code from plan.txt
   /request <prompt>        - Full change request (plan + execution)
   /terminal <command>      - Execute shell commands literally (bypassing LLM)
   /design <objective>      - Start a design process
