@@ -3,8 +3,9 @@ import asyncio
 import json
 import logging
 import os
+import stat
 import time
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Optional
 
 try:
     from agent_s3.message_bus import Message, MessageBus, MessageType
@@ -192,10 +193,8 @@ class VSCodeBridge:
             with open(connection_file, "w") as f:
                 json.dump(connection_info, f)
 
-            # Restrict permissions on POSIX systems for security
-            if os.name == "posix":
-                import stat
-                os.chmod(connection_file, stat.S_IRUSR | stat.S_IWUSR)
+            # Set secure permissions (read/write for owner only)
+            os.chmod(connection_file, stat.S_IRUSR | stat.S_IWUSR)
 
             logger.info(
                 f"Created WebSocket connection file at {connection_file}"
