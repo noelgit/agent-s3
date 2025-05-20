@@ -31,21 +31,20 @@ class LLMContextIntegration:
         """
         self.context_manager = context_manager
     
-    def optimize_prompt(self, prompt_data: Dict[str, Any], model_name: str = "default") -> Dict[str, Any]:
-        """
-        Optimize prompt data by applying context management.
-        
+    def optimize_prompt(
+        self, prompt_data: Dict[str, Any], context: Dict[str, Any], model_name: str = "default"
+    ) -> Dict[str, Any]:
+        """Optimize prompt data using the provided context.
+
         Args:
-            prompt_data: The prompt data to optimize
-            model_name: Target LLM model name
-            
+            prompt_data: The prompt data to optimize.
+            context: Structured context to include in the prompt.
+            model_name: Target LLM model name.
+
         Returns:
-            Optimized prompt data
+            The prompt data updated with optimized context.
         """
-        # Extract context from prompt data
-        context = self._extract_context_from_prompt(prompt_data)
-        
-        # Skip if no context was found
+        # Skip if no context was provided
         if not context:
             return prompt_data
         
@@ -75,22 +74,14 @@ class LLMContextIntegration:
         if "messages" in prompt_data and isinstance(prompt_data["messages"], list):
             # Extract context from system and user messages
             for message in prompt_data["messages"]:
-                # Extract code context from content
-                if message.get("role") == "system" and "content" in message:
-                    code_blocks = self._extract_code_blocks(message["content"])
-                    if code_blocks:
-                        context["code_context"] = code_blocks
-                
                 # Extract tool calls context
                 if "tool_calls" in message:
                     context["tool_context"] = message["tool_calls"]
             
         # Direct prompt format
         elif "prompt" in prompt_data and isinstance(prompt_data["prompt"], str):
-            # Extract code blocks from text
-            code_blocks = self._extract_code_blocks(prompt_data["prompt"])
-            if code_blocks:
-                context["code_context"] = code_blocks
+            # Plain text prompt has no structured context
+            pass
         
         # Direct context format
         elif "context" in prompt_data:
@@ -102,37 +93,6 @@ class LLMContextIntegration:
         
         return context
     
-    def _extract_code_blocks(self, text: str) -> Dict[str, str]:
-        """
-        Extract code blocks from text.
-        
-        Args:
-            text: Text to extract code blocks from
-            
-        Returns:
-            Dictionary mapping fake file paths to code content
-            
-        Note:
-            This is a legacy method maintained for backward compatibility.
-            The preferred approach is to use the direct context parameter.
-        """
-        import re
-        
-        code_blocks = {}
-        
-        # Pattern for Markdown code blocks
-        pattern = r"```(?:(?P<lang>\w+)\n)?(?P<code>.*?)```"
-        matches = re.finditer(pattern, text, re.DOTALL)
-        
-        for i, match in enumerate(matches, 1):
-            lang = match.group("lang") or "txt"
-            code = match.group("code").strip()
-            
-            # Create a fake file path for the code block
-            file_path = f"code_block_{i}.{lang}"
-            code_blocks[file_path] = code
-        
-        return code_blocks
     
     def _update_prompt_with_context(self, prompt_data: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -156,59 +116,6 @@ class LLMContextIntegration:
         
         return updated
     
-    def _replace_code_blocks(self, text: str, code_blocks: Dict[str, str]) -> str:
-        """
-        Replace code blocks in text with optimized versions.
-        
-        Args:
-            text: Original text with code blocks
-            code_blocks: Dictionary of optimized code blocks
-            
-        Returns:
-            Text with optimized code blocks
-            
-        Note:
-            This is a legacy method maintained for backward compatibility.
-            The preferred approach is to use the direct context parameter.
-            This method is no longer used in the main code path.
-        """
-        import re
-        
-        # Pattern for Markdown code blocks
-        pattern = r"```(?:(?P<lang>\w+)\n)?(?P<code>.*?)```"
-        
-        # Find all code blocks
-        blocks = list(re.finditer(pattern, text, re.DOTALL))
-        
-        # If number of blocks doesn't match, don't replace
-        if len(blocks) != len(code_blocks):
-            return text
-        
-        # Replace each block with its optimized version
-        result = text
-        offset = 0
-        for i, match in enumerate(blocks, 1):
-            block_key = f"code_block_{i}.{match.group('lang') or 'txt'}"
-            
-            if block_key in code_blocks:
-                # Get the optimized code
-                optimized_code = code_blocks[block_key]
-                
-                # Create replacement with original language marker
-                lang_marker = match.group("lang") or ""
-                replacement = f"```{lang_marker}\n{optimized_code}\n```"
-                
-                # Calculate positions accounting for previous replacements
-                start = match.start() + offset
-                end = match.end() + offset
-                
-                # Replace this block
-                result = result[:start] + replacement + result[end:]
-                
-                # Update offset for future replacements
-                offset += len(replacement) - (end - start)
-        
-        return result
 
 def integrate_with_llm_utils():
     """
@@ -266,8 +173,11 @@ def integrate_with_llm_utils():
                     if key not in prompt_data:  # Only add if not already present
                         prompt_data[key] = value
                 
-                # Optimize the prompt
-                optimized_prompt_data = integration.optimize_prompt(prompt_data, model_name)
+                # Optimize the prompt using provided context if available
+                context = prompt_data.get("context", {})
+                optimized_prompt_data = integration.optimize_prompt(
+                    prompt_data, context, model_name
+                )
                 
                 # Extract the prompt back
                 if isinstance(prompt, str) and "prompt" in optimized_prompt_data:

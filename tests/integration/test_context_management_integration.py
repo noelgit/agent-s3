@@ -517,69 +517,6 @@ class TestLLMIntegration:
         assert "context" in updated
         assert updated["context"] == test_context
         assert "code_context" in updated["context"]
-    
-    def test_extract_code_blocks(self, context_manager):
-        """Test extracting code blocks from text."""
-        integration = LLMContextIntegration(context_manager)
-        
-        # Text with code blocks
-        text = """
-        Check these code samples:
-        
-        ```python
-        def test1():
-            return True
-        ```
-        
-        And another one:
-        
-        ```javascript
-        function test2() {
-            return true;
-        }
-        ```
-        """
-        
-        # Extract code blocks
-        code_blocks = integration._extract_code_blocks(text)
-        
-        # Should find two code blocks with correct languages
-        assert len(code_blocks) == 2
-        assert "code_block_1.python" in code_blocks
-        assert "code_block_2.javascript" in code_blocks
-        assert "def test1():" in code_blocks["code_block_1.python"]
-        assert "function test2()" in code_blocks["code_block_2.javascript"]
-    
-    def test_replace_code_blocks(self, context_manager):
-        """Test replacing code blocks in text (legacy method kept for backward compatibility)."""
-        integration = LLMContextIntegration(context_manager)
-        
-        # Text with code blocks
-        text = """
-        Check this code:
-        
-        ```python
-        def original():
-            return "original"
-        ```
-        """
-        
-        # Replacement code blocks
-        code_blocks = {
-            "code_block_1.python": "def replaced():\n    return \"replaced\""
-        }
-        
-        # Replace code blocks
-        replaced = integration._replace_code_blocks(text, code_blocks)
-        
-        # Original function should be replaced
-        assert "def original()" not in replaced
-        assert "def replaced()" in replaced
-        assert "return \"replaced\"" in replaced
-        
-        # Note: This method is kept for backward compatibility but is no longer used
-        # in the main code path. Context is now passed directly as a parameter.
-
 
 def test_full_context_management_integration(mock_coordinator, context_manager):
     """Test end-to-end integration of context management with all components."""
