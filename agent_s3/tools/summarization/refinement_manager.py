@@ -35,11 +35,22 @@ class SummaryRefinementManager:
         return f"You are an expert code summarizer. {lang_specific}Your task is to improve an existing summary based on feedback. Focus on accuracy, preserving important details, and maintaining the code's structural elements. Do not add information that isn't in the original code. Return only the improved summary without explanations."
 
     def _create_refinement_prompt(self, source: str, summary: str, validation: Dict[str, Any], language: Optional[str]) -> str:
-        issues = '\n- '.join([''] + validation["issues"])
-        return f"I need to improve this summary of the following {language or 'code'} source:\n\n```
+        issues = "\n- ".join([""] + validation["issues"])
+        return f"""I need to improve this summary of the following {language or 'code'} source:
+
+```{language or 'code'}
 {source}
 ```
-\nCurrent summary:\n```
+Current summary:
+```
 {summary}
 ```
-\nThe current summary has these issues:{issues}\n\nMetrics:\n- Faithfulness: {validation["metrics"]["faithfulness"]:.2f}\n- Detail Preservation: {validation["metrics"]["detail_preservation"]:.2f}\n- Structural Coherence: {validation["metrics"]["structural_coherence"]:.2f}\n- Overall Quality: {validation["metrics"]["overall"]:.2f}\n\nPlease provide an improved summary that addresses these issues."
+The current summary has these issues:{issues}
+
+Metrics:
+- Faithfulness: {validation['metrics']['faithfulness']:.2f}
+- Detail Preservation: {validation['metrics']['detail_preservation']:.2f}
+- Structural Coherence: {validation['metrics']['structural_coherence']:.2f}
+- Overall Quality: {validation['metrics']['overall']:.2f}
+
+Please provide an improved summary that addresses these issues."""

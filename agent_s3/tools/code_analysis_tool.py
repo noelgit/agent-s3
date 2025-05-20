@@ -141,9 +141,17 @@ class CodeAnalysisTool:
             logging.warning("FileTool not available to CodeAnalysisTool during __init__. Some operations might fail if not set later.")
 
     def lint(self, paths: Optional[List[str]] = None) -> List[Dict[str, Any]]:
-        """
+        """Run Ruff lint on the provided paths and return parsed results."""
+        paths = paths or ["."]
+        cmd = ["ruff", "--format", "json", *paths]
+        try:
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, check=False, timeout=60
+            )
+        except Exception as e:
             logger.error(f"Error running Ruff lint: {e}")
             return []
+        output = result.stdout
         if not output:
             return []
         try:
