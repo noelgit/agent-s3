@@ -393,9 +393,11 @@ def get_embedding(
             
             # If we couldn't extract the embedding, log and retry
             print(f"Failed to extract embedding from response: {data}")
-            
+
         except Exception as e:
-            print(f"Embedding generation attempt {attempt+1} failed: {e}")
+            from agent_s3.security_utils import strip_sensitive_headers
+            sanitized = strip_sensitive_headers(str(e))
+            print(f"Embedding generation attempt {attempt+1} failed: {sanitized}")
             if attempt == retry_count - 1:
                 # Final attempt failed
                 return None

@@ -8,6 +8,7 @@ import re  # Add import for regex pattern matching
 from time import sleep
 import requests
 import traceback  # Added import
+from agent_s3.security_utils import strip_sensitive_headers
 from typing import Dict, Any, Optional, Tuple, List
 
 import jsonschema
@@ -732,20 +733,23 @@ class RouterAgent:
             duration = time.time() - start
             self.metrics.record(role, model_name, duration, False, 0)
             response_text = e.response.text if e.response else "No response body"
-            error_msg = f"API call to {model_name} failed: {e}. Response: {response_text[:500]}"
+            raw_msg = f"API call to {model_name} failed: {e}. Response: {response_text[:500]}"
+            error_msg = strip_sensitive_headers(raw_msg)
             scratchpad.log("RouterAgent", error_msg, level="error")
             raise ConnectionError(error_msg)
         except (json.JSONDecodeError, KeyError, IndexError, AttributeError, ValueError) as e:
             duration = time.time() - start
             self.metrics.record(role, model_name, duration, False, 0)
-            error_msg = f"Failed to process response from {model_name}: {e}. Response data: {response.text[:500]}"
+            raw_msg = f"Failed to process response from {model_name}: {e}. Response data: {response.text[:500]}"
+            error_msg = strip_sensitive_headers(raw_msg)
             scratchpad.log("RouterAgent", error_msg, level="error")
             raise ValueError(error_msg)
         except Exception as e:
             # Record failure metrics
             duration = time.time() - start
             self.metrics.record(role, model_name, duration, False, 0)
-            error_msg = f"Unexpected error during API call to {model_name}: {e}"
+            raw_msg = f"Unexpected error during API call to {model_name}: {e}"
+            error_msg = strip_sensitive_headers(raw_msg)
             scratchpad.log("RouterAgent", f"{error_msg}\n{traceback.format_exc()}", level="error")
             raise
 
