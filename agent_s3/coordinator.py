@@ -724,3 +724,15 @@ class Coordinator:
                 "design_file": os.path.join(os.getcwd(), "design.txt"),
                 "next_action": next_action,
             }
+
+    def execute_generate(self) -> str:
+        """Trigger code generation workflow via the command processor."""
+
+        with self.error_handler.error_context(
+            phase="generate",
+            operation="execute_generate",
+        ):
+            if not hasattr(self, "command_processor") or not self.command_processor:
+                raise CoordinationError("Command processor is not available")
+
+            return self.command_processor.execute_generate_command("")

@@ -440,6 +440,16 @@ class TestCoordinatorFacadeMethods:
         # Verify delegate was called
         coordinator.command_processor.execute_generate_command.assert_called_once_with("")
         assert result == expected_result
+
+    def test_execute_generate_facade_exists(self, real_coordinator):
+        """Coordinator should delegate generate requests to its CommandProcessor."""
+        real_coordinator.command_processor = MagicMock()
+        real_coordinator.command_processor.execute_generate_command.return_value = "ok"
+
+        result = real_coordinator.execute_generate()
+
+        real_coordinator.command_processor.execute_generate_command.assert_called_once_with("")
+        assert result == "ok"
     
     def test_execute_implementation_facade(self, coordinator):
         """Test that the execute_implementation facade method delegates to ImplementationManager."""
