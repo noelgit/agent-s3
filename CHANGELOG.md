@@ -14,7 +14,7 @@ Description: Release notes for Agent-S3.
 - `SUPABASE_URL` – base URL of the Supabase instance.
 - `SUPABASE_SERVICE_ROLE_KEY` – key used for privileged Supabase operations.
 - `SUPABASE_ANON_KEY` – optional key for anonymous access when applicable.
-- `SUPABASE_EDGE_FUNCTION_PATH` – optional path to the Supabase Edge function used for LLM calls.
+- `SUPABASE_FUNCTION_NAME` – optional name of the Supabase function used for LLM calls.
 
 ### Security
 - API keys are now stored remotely via Supabase, reducing local exposure risk.

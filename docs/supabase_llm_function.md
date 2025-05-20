@@ -40,3 +40,13 @@ This serverless function provides secure access to large language model (LLM) se
 - Do not persist incoming tokens on disk.
 - Log only minimal metadata and avoid storing prompts or responses unless required.
 
+### Environment Variables
+The function relies on the following environment variables:
+
+- `SUPABASE_URL` – base URL of your Supabase instance.
+- `SUPABASE_FUNCTION_NAME` – name of the function to invoke (defaults to `call-llm`).
+- `SUPABASE_ANON_KEY` – used by the client for authenticated Supabase requests.
+- `SUPABASE_SERVICE_ROLE_KEY` – used internally by the function **after** verifying organization membership.
+
+The client never receives the service role key; it is only used server-side once the caller's GitHub organization has been validated.
+
