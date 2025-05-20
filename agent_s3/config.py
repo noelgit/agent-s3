@@ -199,14 +199,13 @@ class ConfigModel(BaseModel):
     summarizer_role_name: str = SUMMARIZER_ROLE_NAME
     summarizer_max_chunk_size: int = SUMMARIZER_MAX_CHUNK_SIZE
     summarizer_timeout: float = SUMMARIZER_TIMEOUT
-    supabase_url: str = os.environ.get("SUPABASE_URL", "")
-    use_remote_llm: bool = os.environ.get("USE_REMOTE_LLM", "false").lower() == "true"
     adaptive_config_enabled: bool = ADAPTIVE_CONFIG_ENABLED
     adaptive_config_repo_path: str = ADAPTIVE_CONFIG_REPO_PATH
     adaptive_config_dir: str = ADAPTIVE_CONFIG_DIR
     adaptive_metrics_dir: str = ADAPTIVE_METRICS_DIR
     adaptive_optimization_interval: int = ADAPTIVE_OPTIMIZATION_INTERVAL
     supabase_service_role_key: str = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+    supabase_function_name: str = os.environ.get("SUPABASE_FUNCTION_NAME", "call-llm")
 
     class Config:
         extra = "allow"
