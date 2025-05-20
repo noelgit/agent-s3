@@ -7,6 +7,12 @@ backoff, and fallback strategies with advanced semantic caching.
 import time
 from typing import Any, Dict, Optional, Callable, Type, List, Union, Tuple
 import requests
+
+# Optional Supabase client
+try:
+    from supabase import create_client  # type: ignore
+except Exception:  # pragma: no cover - library optional
+    create_client = None
 import json
 import os
 import threading
@@ -59,6 +65,9 @@ def call_llm_via_supabase(prompt: str, github_token: str, config: Dict[str, Any]
     if not supabase_url or not api_key:
         raise ValueError("Supabase configuration missing")
 
+    if create_client is None:
+        raise ImportError("supabase-py is required for remote LLM calls")
+
     headers = {
         "Content-Type": "application/json",
         "apikey": api_key,
@@ -66,13 +75,16 @@ def call_llm_via_supabase(prompt: str, github_token: str, config: Dict[str, Any]
         "X-GitHub-Token": github_token,
     }
     payload = {"prompt": prompt}
-    response = requests.post(
-        supabase_url,
-        json=payload,
+
+    # Create client and invoke edge function
+    supabase = create_client(supabase_url, api_key)
+    function_name = config.get("supabase_function_name") or os.getenv("SUPABASE_FUNCTION_NAME", "call-llm")
+    response = supabase.functions.invoke(
+        function_name,
+        body=payload,
         headers=headers,
         timeout=timeout or config.get("llm_default_timeout", 60.0),
     )
-    response.raise_for_status()
     data = response.json()
     if isinstance(data, dict):
         if "response" in data:
