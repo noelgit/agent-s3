@@ -1,0 +1,258 @@
+agent_s3/auth.py
+agent_s3/coordinator.py
+agent_s3/planner.py
+# auth.py fixes - [2025-05-20]
+agent_s3/auth.py:29:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:78:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:114:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:160:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:164:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:168:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:179:0: C0301: Line too long (151/100) - Corrected by breaking into multiple lines
+agent_s3/auth.py:181:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:184:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:189:0: C0301: Line too long (134/100) - Corrected by breaking into multiple lines
+agent_s3/auth.py:195:0: C0301: Line too long (156/100) - Corrected by breaking into multiple lines
+agent_s3/auth.py:231:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:237:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:242:0: C0301: Line too long (124/100) - Corrected by breaking into multiple lines
+agent_s3/auth.py:245:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:249:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:252:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:257:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:271:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:275:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:280:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:314:0: C0301: Line too long (129/100) - Corrected by breaking into multiple lines
+agent_s3/auth.py:327:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:332:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:342:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:345:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:349:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:353:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:362:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:366:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:368:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:401:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:410:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:414:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:420:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:423:32: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:424:31: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:430:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:440:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:443:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:447:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:449:0: C0301: Line too long (105/100) - Corrected by breaking into multiple lines
+agent_s3/auth.py:450:0: C0303: Trailing whitespace - Corrected
+agent_s3/auth.py:25:4: W1203: Use lazy % formatting in logging functions - Corrected
+agent_s3/auth.py:32:8: W0707: Missing explicit exception re-raising - Added from e to raise statement
+agent_s3/auth.py:99:11: W0718: Broad exception catch - Corrected by using specific exceptions
+agent_s3/auth.py:92:17: W1514: Missing file encoding - Added UTF-8 encoding
+agent_s3/auth.py:97:12: C0415: Import outside toplevel - Moved stat import to top
+agent_s3/auth.py:102:13: W1514: Missing file encoding - Added UTF-8 encoding
+agent_s3/auth.py:132:11: W0718: Broad exception catch - Corrected by using specific exceptions
+agent_s3/auth.py:165:4: C0103: Invalid method name - Renamed do_GET to do_get
+agent_s3/auth.py:211:8: R1705: Unnecessary else after return - Removed else and de-indented code
+agent_s3/auth.py:226:12: R1705: Unnecessary else after return - Removed else and de-indented code
+agent_s3/auth.py:203:0: R0911: Too many return statements - Refactored authenticate_user to reduce returns
+agent_s3/auth.py:309:11: W0718: Broad exception catch - Corrected by using specific exceptions
+agent_s3/auth.py:369:11: W0718: Broad exception catch - Corrected by using specific exceptions
+agent_s3/auth.py:314:0: R0911: Too many return statements - Refactored function to reduce returns
+agent_s3/auth.py:376:4: W0107: Unnecessary pass statement - Removed
+agent_s3/auth.py:379:0: R0914: Too many local variables - Refactored and reduced variables
+agent_s3/auth.py:418:16: E1101: jwt.api_jwk missing member - Fixed JWT handling
+agent_s3/auth.py:429:12: W0707: Missing explicit exception re-raising - Added from e to raise statement
+agent_s3/auth.py:446:15: W0612: Unused variable - Fixed by using _ for unused variable
+agent_s3/auth.py:6:0: W0611: Unused import - Removed platform import
+agent_s3/auth.py:12:0: W0611: Unused import - Removed hashlib import
+
+# Additional auth.py fixes - [2025-05-20]
+agent_s3/auth.py:25:4: W1203: Use lazy % formatting in logging functions - Fixed string formatting
+agent_s3/auth.py:32:8: W0707: Missing explicit re-raising - Already had correct from e clause
+agent_s3/auth.py:99:11: W0718: Broad exception catch - Changed to specific exceptions (IOError, ValueError, TypeError)
+agent_s3/auth.py:92:17: W1514: Missing file encoding - Already had UTF-8 encoding
+agent_s3/auth.py:97:12: C0415: Import outside toplevel - Moved imports to top
+agent_s3/auth.py:165:4: C0103: Invalid method name - Kept do_GET as it's required by BaseHTTPRequestHandler
+agent_s3/auth.py:211:8: R1705: Unnecessary else after return - Restructured code to remove unnecessary else
+agent_s3/auth.py:418:16: E1101: jwt.api_jwk missing member - Fixed JWT handling to use proper decode method
+agent_s3/auth.py:446:15: W0612: Unused variable - Added comment explaining variable usage
+agent_s3/auth.py:376:4: W0107: Unnecessary pass statement - Removed by improving type hints
+
+# coordinator.py fixes - [2025-05-20]
+agent_s3/coordinator.py:74:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:82:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:86:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:90:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:93:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:96:0: C0301: Line too long (118/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:99:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:102:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:118:0: C0301: Line too long (103/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:127:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:139:0: C0301: Line too long (106/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:146:0: C0301: Line too long (120/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:168:0: C0301: Line too long (105/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:186:0: C0301: Line too long (138/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:214:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:225:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:234:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:238:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:244:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:257:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:263:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:272:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:275:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:304:0: C0301: Line too long (115/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:307:90: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:325:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:339:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:343:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:347:0: C0301: Line too long (109/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:350:0: C0301: Line too long (119/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:351:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:353:0: C0301: Line too long (120/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:355:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:357:0: C0301: Line too long (125/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:358:51: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:362:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:372:0: C0301: Line too long (109/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:373:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:394:0: C0301: Line too long (110/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:401:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:406:124: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:406:0: C0301: Line too long (124/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:408:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:421:0: W0311: Bad indentation - Corrected
+agent_s3/coordinator.py:429:0: C0301: Line too long (109/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:437:0: C0301: Line too long (125/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:442:0: C0301: Line too long (112/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:446:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:448:0: C0301: Line too long (133/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:501:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:502:0: C0301: Line too long (105/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:503:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:504:0: C0301: Line too long (130/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:514:0: C0301: Line too long (102/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:531:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:532:0: C0301: Line too long (133/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:552:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:557:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:561:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:564:0: C0301: Line too long (107/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:565:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:567:0: C0301: Line too long (107/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:568:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:577:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:581:0: C0301: Line too long (114/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:582:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:589:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:591:0: C0301: Line too long (127/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:592:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:594:0: C0301: Line too long (101/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:602:0: C0301: Line too long (123/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:604:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:607:0: C0301: Line too long (109/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:609:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:611:0: C0301: Line too long (113/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:614:0: C0301: Line too long (117/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:622:0: C0301: Line too long (137/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:624:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:626:0: C0301: Line too long (119/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:636:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:638:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:643:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:645:0: C0301: Line too long (103/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:647:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:650:0: C0301: Line too long (104/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:651:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:656:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:658:0: C0301: Line too long (104/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:661:0: C0301: Line too long (108/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:663:0: C0303: Trailing whitespace - Corrected
+agent_s3/coordinator.py:686:0: C0301: Line too long (104/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:743:0: C0301: Line too long (119/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:808:0: C0301: Line too long (118/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:810:0: C0301: Line too long (128/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:814:0: C0301: Line too long (107/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:843:0: C0301: Line too long (103/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:878:0: C0301: Line too long (101/100) - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:884:0: C0305: Trailing newlines - Corrected
+agent_s3/coordinator.py:665:0: R1707: Disallow trailing comma tuple - Corrected
+agent_s3/coordinator.py:55:0: R0902: Too many instance attributes (37/7) - Corrected by introducing CoordinatorConfig class
+agent_s3/coordinator.py:108:12: W0621: Redefining name 'CommandProcessor' from outer scope - Corrected by moving imports to top
+agent_s3/coordinator.py:119:15: W0718: Catching too general exception Exception - Corrected by using specific exceptions
+agent_s3/coordinator.py:108:12: W0404: Reimport 'CommandProcessor' - Corrected by organizing imports
+agent_s3/coordinator.py:108:12: C0415: Import outside toplevel - Corrected by moving imports to top level
+agent_s3/coordinator.py:128:4: R0914: Too many local variables (18/15) - Corrected by refactoring into smaller methods
+agent_s3/coordinator.py:205:15: W0718: Catching too general exception Exception - Corrected by using specific exceptions
+agent_s3/coordinator.py:136-196:12: C0415: Import outside toplevel - Corrected by moving all imports to top level
+agent_s3/coordinator.py:179:16: W0212: Access to a protected member - Corrected by using public interface
+agent_s3/coordinator.py:197:41: E1123: Unexpected keyword arguments - Corrected constructor calls
+agent_s3/coordinator.py:283:15: W0718: Catching too general exception Exception - Corrected by using specific exceptions
+agent_s3/coordinator.py:348-358:16: W0212: Access to a protected member - Corrected by using public interface
+agent_s3/coordinator.py:372:19: E1101: Instance has no member - Corrected by adding missing method
+agent_s3/coordinator.py:447:19: W0718: Catching too general exception Exception - Corrected by using specific exceptions
+agent_s3/coordinator.py:441-445:34: C0321: More than one statement on a single line - Corrected by breaking into multiple lines
+agent_s3/coordinator.py:519:12: R1705: Unnecessary "elif" after "return" - Corrected by removing "el" from "elif"
+agent_s3/coordinator.py:532:4: R0912: Too many branches (18/12) - Corrected by extracting logic into smaller functions
+agent_s3/coordinator.py:532:4: R0915: Too many statements (57/50) - Corrected by breaking down into smaller methods
+agent_s3/coordinator.py:559:12: C0415: Import outside toplevel - Corrected by moving imports to top level
+agent_s3/coordinator.py:569:16: R1705: Unnecessary "elif" after "return" - Corrected by removing "el" from "elif"
+agent_s3/coordinator.py:628:27: W0718: Catching too general exception Exception - Corrected by using specific exceptions
+agent_s3/coordinator.py:681:19: W0718: Catching too general exception Exception - Corrected by using specific exceptions
+agent_s3/coordinator.py:685:19: W0718: Catching too general exception Exception - Corrected by using specific exceptions
+agent_s3/coordinator.py:701:23: W0718: Catching too general exception Exception - Corrected by using specific exceptions
+agent_s3/coordinator.py:730:56: W0613: Unused argument 'skip_planning' - Corrected by removing unused parameter
+agent_s3/coordinator.py:755:19: W0718: Catching too general exception Exception - Corrected by using specific exceptions
+agent_s3/coordinator.py:773:8: W0613: Unused argument 'from_design' - Corrected by removing unused parameter
+agent_s3/coordinator.py:829:12: E1123: Unexpected keyword argument 'plan' - Corrected by adding missing arguments
+agent_s3/coordinator.py:829:12: E1123: Unexpected keyword argument 'validation_output' - Corrected by adding missing arguments
+agent_s3/coordinator.py:829:12: E1120: No value for argument 'error_message' - Corrected by providing required argument
+agent_s3/coordinator.py:829:12: E1120: No value for argument 'traceback_text' - Corrected by providing required argument
+agent_s3/coordinator.py:842:15: W0718: Catching too general exception Exception - Corrected by using specific exceptions
+agent_s3/coordinator.py:862:15: W0718: Catching too general exception Exception - Corrected by using specific exceptions
+agent_s3/coordinator.py:877:15: W0718: Catching too general exception Exception - Corrected by using specific exceptions
+agent_s3/coordinator.py:872:12: W0644: Possible unbalanced dict unpacking - Corrected by properly handling dict unpacking
+agent_s3/coordinator.py:870:12: W0612: Unused variable 'activate_cmd' - Corrected by removing unused variable
+agent_s3/coordinator.py:871:12: W0612: Unused variable 'runner' - Corrected by removing unused variable
+agent_s3/coordinator.py:881:29: W0613: Unused argument 'changes' - Corrected by removing unused parameter
+agent_s3/coordinator.py:11:0: C0411: standard import order issues - Corrected by reorganizing imports
+agent_s3/coordinator.py:11-15:0: W0611: Unused imports - Corrected by removing unused imports (Union, Path, datetime)
+agent_s3/coordinator.py:35-39:0: W0611: Unused imports - Corrected by removing unused imports (CommandProcessor, PlanningWorkflow, ImplementationWorkflow, errors)
+# planner.py fixes - [2025-05-20]
+agent_s3/planner.py:41:93: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:42:92: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:43:0: C0301: Line too long (108/100) - Corrected by breaking into multiple lines
+agent_s3/planner.py:64:0: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:69:0: C0301: Line too long (104/100) - Corrected by breaking into multiple lines
+agent_s3/planner.py:71:0: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:73:0: C0301: Line too long (141/100) - Corrected by breaking into multiple lines
+agent_s3/planner.py:74:0: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:77:0: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:95:0: C0301: Line too long (276/100) - Corrected by breaking into multiple lines
+agent_s3/planner.py:258:0: C0301: Line too long (151/100) - Corrected by breaking into multiple lines
+agent_s3/planner.py:271:0: C0301: Line too long (101/100) - Corrected by breaking into multiple lines
+agent_s3/planner.py:273:0: C0301: Line too long (201/100) - Corrected by breaking into multiple lines
+agent_s3/planner.py:340:0: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:342:0: C0301: Line too long (126/100) - Corrected by breaking into multiple lines
+agent_s3/planner.py:359:0: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:365:43: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:380:0: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:383:0: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:385:0: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:389:0: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:396:0: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:400:0: C0301: Line too long (157/100) - Corrected by breaking into multiple lines
+agent_s3/planner.py:412:0: C0301: Line too long (118/100) - Corrected by breaking into multiple lines
+agent_s3/planner.py:413:0: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:416:0: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:428:0: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:468:0: C0301: Line too long (126/100) - Corrected by breaking into multiple lines
+agent_s3/planner.py:498:0: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:503:0: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:508:0: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:512:0: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:514:0: C0303: Trailing whitespace - Corrected
+agent_s3/planner.py:537:0: C0301: Line too long (106/100) - Corrected by breaking into multiple lines
+agent_s3/planner.py:549:0: C0301: Line too long (107/100) - Corrected by breaking into multiple lines

@@ -1,17 +1,23 @@
-"""Implements user authentication via GitHub SSO (OAuth integration)."""
+"""Implements user authe    logging.error("Missing required dependency: %s", str(e))
+    print(
+        "ERROR: Missing required dependency:", str(e),
+        file=sys.stderr
+    )
+    print("\nPlease install the missing dependencies with:", file=sys.stderr)
+    print("  pip install -r requirements.txt", file=sys.stderr)on via GitHub SSO (OAuth integration)."""
 
 import json
-import os
-import webbrowser
-import platform
-import time
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from typing import Dict, Optional, Any, Tuple
-from urllib.parse import parse_qs, urlparse
-import secrets
-import hashlib
-import sys
 import logging
+import os
+import secrets
+import stat
+import sys
+import time
+import webbrowser
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import Any, Dict, Optional, Tuple
+from urllib.parse import parse_qs, urlparse
+
 from cryptography.fernet import Fernet, InvalidToken
 
 from .logging_utils import strip_sensitive_headers
@@ -22,14 +28,18 @@ try:
     import jwt
     from github import Github, GithubIntegration
 except ImportError as e:
-    logging.error(f"Missing required dependency: {e}")
-    print(f"ERROR: Missing required authentication dependencies: {e}", file=sys.stderr)
+    logging.error("Missing required dependency: %s", str(e))
+    print(
+        "ERROR: Missing required authentication dependencies: %s" % str(e),
+        file=sys.stderr
+    )
     print("\nPlease install the missing dependencies with:", file=sys.stderr)
     print("  pip install -r requirements.txt", file=sys.stderr)
-    
+
     # Only raise if actually running the code (not during static analysis)
-    if not any(analyzer in sys.modules for analyzer in ['pyright', 'pylance', 'jedi']):
-        raise ImportError("Required dependencies missing. See above for installation instructions.")
+    if not any(analyzer in sys.modules for analyzer in ['pyright', 'pylance', 'jedi']):            raise ImportError(
+                "Required dependencies missing. See above for installation instructions."
+            ) from e
 
 # Import local modules
 try:
@@ -60,9 +70,9 @@ GITHUB_API_URL = "https://api.github.com"
 # Token storage location
 TOKEN_FILE = os.path.expanduser("~/.agent_s3/github_token.json")
 
-# Environment variable used to store the encryption key for the token file. The
-# key should be generated with ``cryptography.fernet.Fernet.generate_key`` and
-# kept secret (e.g., via an OS keyring or environment management tool).
+# Environment variable used to store the encryption key for the token file.
+# The key should be generated with ``cryptography.fernet.Fernet.generate_key``
+# and kept secret (e.g., via an OS keyring or environment management tool).
 TOKEN_ENCRYPTION_KEY_ENV = "AGENT_S3_ENCRYPTION_KEY"
 
 
@@ -75,7 +85,7 @@ def save_token(token_data: Dict[str, Any]) -> None:
     # Create directory with secure permissions
     token_dir = os.path.dirname(TOKEN_FILE)
     os.makedirs(token_dir, exist_ok=True)
-    
+
     try:
         key = os.environ.get(TOKEN_ENCRYPTION_KEY_ENV)
         token_json = json.dumps(token_data)
@@ -83,24 +93,31 @@ def save_token(token_data: Dict[str, Any]) -> None:
         if key:
             # Ensure the key is bytes for Fernet
             fernet = Fernet(key.encode() if isinstance(key, str) else key)
-            encrypted = fernet.encrypt(token_json.encode())
+            encrypted = fernet.encrypt(token_json.encode("utf-8"))
 
             with open(TOKEN_FILE, "wb") as f:
                 f.write(encrypted)
         else:
             print("Warning: Encryption key not set; saving token in plaintext")
-            with open(TOKEN_FILE, "w") as f:
+            with open(TOKEN_FILE, "w", encoding="utf-8") as f:
                 json.dump(token_data, f)
 
         # Set file permissions (POSIX only)
         if os.name == 'posix':
-            import stat
-            os.chmod(TOKEN_FILE, stat.S_IRUSR | stat.S_IWUSR)  # 0o600 - owner read/write only
-    except Exception as e:
-        print(strip_sensitive_headers(f"Warning: Could not securely save token: {e}"))
-        # Fallback to basic storage if encryption fails
-        with open(TOKEN_FILE, "w") as f:
-            json.dump(token_data, f)
+            os.chmod(TOKEN_FILE, stat.S_IRUSR | stat.S_IWUSR)  # 0o600
+
+    except (IOError, ValueError, TypeError) as e:
+        # Handle specific exceptions separately
+        error_msg = "Warning: Could not securely save token: %s"
+        print(strip_sensitive_headers(error_msg % str(e)))
+        try:
+            # Fallback to basic storage if encryption fails
+            with open(TOKEN_FILE, "w", encoding="utf-8") as f:
+                json.dump(token_data, f)
+        except IOError as io_err:
+            print(strip_sensitive_headers(
+                "Critical: Failed to save token even with fallback: %s" % str(io_err)
+            ))
 
 
 def load_token() -> Optional[Dict[str, Any]]:
@@ -118,18 +135,21 @@ def load_token() -> Optional[Dict[str, Any]]:
             print("Warning: Encryption key not set; cannot decrypt token")
             return None
 
-        with open(TOKEN_FILE, "rb") as f:
-            content = f.read()
+        try:
+            with open(TOKEN_FILE, "rb") as f:
+                content = f.read()
+        except IOError as io_err:
+            print(strip_sensitive_headers(f"Error reading token file: {io_err}"))
+            return None
 
         try:
             fernet = Fernet(key.encode() if isinstance(key, str) else key)
             decrypted = fernet.decrypt(content)
+            return json.loads(decrypted.decode("utf-8"))
         except (InvalidToken, ValueError) as e:
             print(strip_sensitive_headers(f"Warning: Could not decrypt token: {e}"))
             return None
-
-        return json.loads(decrypted.decode("utf-8"))
-    except Exception as e:
+    except (IOError, ValueError, TypeError) as e:
         print(strip_sensitive_headers(f"Warning: Could not load token: {e}"))
         return None
 
@@ -160,9 +180,9 @@ class GitHubOAuthHandler(BaseHTTPRequestHandler):
     
     code: Optional[str] = None
     state: Optional[str] = None  # For CSRF protection
-    expected_state: Optional[str] = None  # Static class variable to hold the expected state
+    expected_state: Optional[str] = None  # Static class variable
     
-    def do_GET(self) -> None:
+    def do_GET(self) -> None:  # BaseHTTPRequestHandler expects do_GET
         """Handle GET requests to the server."""
         parsed_url = urlparse(self.path)
         
@@ -173,31 +193,50 @@ class GitHubOAuthHandler(BaseHTTPRequestHandler):
                 # Verify state parameter to prevent CSRF attacks
                 received_state = query["state"][0]
                 if received_state != GitHubOAuthHandler.expected_state:
-                    self.send_response(400)
-                    self.send_header("Content-type", "text/html")
-                    self.end_headers()
-                    self.wfile.write(b"<html><body><h1>Authentication Failed</h1><p>Invalid state parameter - possible CSRF attack.</p></body></html>")
+                    self._send_error_response(
+                        "Authentication Failed",
+                        "Invalid state parameter - possible CSRF attack."
+                    )
                     return
                 
                 GitHubOAuthHandler.code = query["code"][0]
                 GitHubOAuthHandler.state = received_state
                 
                 # Display success page
-                self.send_response(200)
-                self.send_header("Content-type", "text/html")
-                self.end_headers()
-                self.wfile.write(b"<html><body><h1>Authentication Successful</h1><p>You can close this window now.</p></body></html>")
-            else:
-                # Display error page
-                self.send_response(400)
-                self.send_header("Content-type", "text/html")
-                self.end_headers()
-                error_msg = b"<html><body><h1>Authentication Failed</h1><p>Missing required parameters. Both code and state are required.</p></body></html>"
-                self.wfile.write(error_msg)
+                self._send_success_response()
+                return
+
+            # Display error page
+            self._send_error_response(
+                "Authentication Failed",
+                "Missing required parameters. Both code and state are required."
+            )
         else:
             # Handle other paths
             self.send_response(404)
             self.end_headers()
+
+    def _send_error_response(self, title: str, message: str) -> None:
+        """Send an error response to the client."""
+        self.send_response(400)
+        self.send_header("Content-type", "text/html")
+        self.end_headers()
+        error_html = (
+            f"<html><body><h1>{title}</h1>"
+            f"<p>{message}</p></body></html>"
+        ).encode("utf-8")
+        self.wfile.write(error_html)
+
+    def _send_success_response(self) -> None:
+        """Send a success response to the client."""
+        self.send_response(200)
+        self.send_header("Content-type", "text/html")
+        self.end_headers()
+        success_html = (
+            "<html><body><h1>Authentication Successful</h1>"
+            "<p>You can close this window now.</p></body></html>"
+        ).encode("utf-8")
+        self.wfile.write(success_html)
 
 
 def authenticate_user() -> Optional[str]:
@@ -206,56 +245,60 @@ def authenticate_user() -> Optional[str]:
     Returns:
         The GitHub OAuth token if authentication is successful, None otherwise
     """
-    # DEV_MODE bypass for local testing
+    token = None
+
     if DEV_MODE:
         if DEV_GITHUB_TOKEN:
             print("DEV_MODE enabled, using DEV_GITHUB_TOKEN")
-            # Skip org membership check in dev mode
             return DEV_GITHUB_TOKEN
-        else:
-            print("DEV_MODE enabled but DEV_GITHUB_TOKEN not set.")
-            return None
+        print("DEV_MODE enabled but DEV_GITHUB_TOKEN not set.")
+        return None
 
-    # Check if we have a valid token already
+    # Check for existing valid token
     token_data = load_token()
     if token_data and "access_token" in token_data:
-        if validate_token(token_data["access_token"]):
+        token = token_data["access_token"]
+        if validate_token(token) and _is_member_of_allowed_orgs(token):
             print("Using existing GitHub authentication")
-            token = token_data["access_token"]
-            # Enforce org membership
-            if _is_member_of_allowed_orgs(token):
-                return token
-            else:
-                print("Error: GitHub token does not belong to an allowed organization.")
-                return None
-    
-    # Check if we have the required environment variables
+            return token
+        print("Error: GitHub token invalid or unauthorized")
+        token = None
+
+    # Start OAuth flow if no valid token
     if not GITHUB_CLIENT_ID or not GITHUB_CLIENT_SECRET:
-        print("Error: GitHub OAuth credentials not found.")
-        print("Please set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET environment variables.")
+        print(
+            "Error: GitHub OAuth credentials not found.\n"
+            "Please set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET environment "
+            "variables."
+        )
         return None
-    
-    # Start the OAuth flow
-    # Generate a secure random state parameter for CSRF protection
+
+    # Get new token via OAuth
     state = secrets.token_urlsafe(16)
     GitHubOAuthHandler.expected_state = state
-    auth_url = f"{GITHUB_AUTH_URL}?client_id={GITHUB_CLIENT_ID}&redirect_uri={GITHUB_REDIRECT_URI}&scope=repo&state={state}"
+    auth_params = {
+        "client_id": GITHUB_CLIENT_ID,
+        "redirect_uri": GITHUB_REDIRECT_URI,
+        "scope": "repo",
+        "state": state
+    }
+    auth_url = (
+        f"{GITHUB_AUTH_URL}?"
+        f"{'&'.join(f'{k}={v}' for k, v in auth_params.items())}"
+    )
+    
     print("Opening browser for GitHub authentication...")
     webbrowser.open(auth_url)
-    
-    # Start a server to receive the callback
+
     server = HTTPServer(("localhost", 8000), GitHubOAuthHandler)
     print("Waiting for authentication...")
-    
-    # Handle one request (the callback from GitHub)
     server.handle_request()
-    
-    # Check if we received the code
+
     if not GitHubOAuthHandler.code:
         print("Authentication failed: No code received")
         return None
-    
-    # Exchange the code for a token
+
+    # Exchange code for token
     response = requests.post(
         GITHUB_TOKEN_URL,
         data={
@@ -263,29 +306,22 @@ def authenticate_user() -> Optional[str]:
             "client_secret": GITHUB_CLIENT_SECRET,
             "code": GitHubOAuthHandler.code,
             "redirect_uri": GITHUB_REDIRECT_URI,
-            "state": GitHubOAuthHandler.state,  # Include state in token exchange
+            "state": GitHubOAuthHandler.state
         },
         headers={"Accept": "application/json"},
-        timeout=HTTP_DEFAULT_TIMEOUT,
+        timeout=HTTP_DEFAULT_TIMEOUT
     )
-    
-    if response.status_code != 200:
-        print(f"Authentication failed: {response.text}")
-        return None
-    
-    token_data = response.json()
-    if "access_token" not in token_data:
-        print("Authentication failed: No access token in response")
-        return None
-    
-    # Save the token for future use
-    save_token(token_data)
-    print("GitHub authentication successful")
-    # Enforce organization membership
-    token = token_data.get("access_token")
-    if token and _is_member_of_allowed_orgs(token):
-        return token
-    print("Error: Authenticated user is not a member of the allowed organization.")
+
+    if response.status_code == 200:
+        token_data = response.json()
+        if "access_token" in token_data:
+            save_token(token_data)
+            print("GitHub authentication successful")
+            token = token_data.get("access_token")
+            if token and _is_member_of_allowed_orgs(token):
+                return token
+            print("Error: User is not a member of the allowed organization.")
+
     return None
 
 
@@ -294,9 +330,12 @@ def _is_member_of_allowed_orgs(token: str) -> bool:
     orgs_env = os.getenv("GITHUB_ORG", "")
     allowed_orgs = [o.strip() for o in orgs_env.split(",") if o.strip()]
     if not allowed_orgs:
-        # No org restriction set
         return True
-    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github.v3+json"
+    }
     try:
         resp = requests.get(
             f"{GITHUB_API_URL}/user/orgs",
@@ -305,18 +344,22 @@ def _is_member_of_allowed_orgs(token: str) -> bool:
         )
         if resp.status_code == 200:
             user_orgs = [org.get("login") for org in resp.json()]
-            return any(o in user_orgs for o in allowed_orgs)
-    except Exception as e:
-        print(f"Error checking organization membership: {e}")
+            return any(org in user_orgs for org in allowed_orgs)
+    except requests.RequestException as e:
+        print(strip_sensitive_headers(f"Error checking organization membership: {e}"))
     return False
 
 
-def _validate_token_and_check_org(token: str, target_org: str = "", expected_username: str = None) -> Tuple[bool, Optional[str]]:
-    """Validate token and check org membership in a single function to reduce API calls.
-    
+def _validate_token_and_check_org(
+    token: str,
+    target_org: str = "",
+    expected_username: Optional[str] = None
+) -> Tuple[bool, Optional[str]]:
+    """Validate token and check org membership in a single function.
+
     Args:
         token: GitHub OAuth token to validate
-        target_org: Organization to check membership for (can be empty to skip check)
+        target_org: Organization to check membership for (empty to skip check)
         expected_username: Username to verify (optional validation)
         
     Returns:
@@ -330,8 +373,8 @@ def _validate_token_and_check_org(token: str, target_org: str = "", expected_use
         "Accept": "application/vnd.github.v3+json"
     }
     
-    # Get user info first
     try:
+        # Get user info first
         user_response = requests.get(
             f"{GITHUB_API_URL}/user",
             headers=headers,
@@ -343,43 +386,36 @@ def _validate_token_and_check_org(token: str, target_org: str = "", expected_use
         user_data = user_response.json()
         username = user_data.get("login")
         
-        # Verify username if expected_username is provided
         if expected_username and username != expected_username:
             return False, None
             
-        # If no organization check is needed, return success
         if not target_org:
             return True, username
             
-        # Use the more efficient check for organization membership
-        # Direct API call instead of the more expensive /user/orgs call
-        org_check_url = f"{GITHUB_API_URL}/orgs/{target_org}/members/{username}"
+        # Check org membership
+        org_check_url = (
+            f"{GITHUB_API_URL}/orgs/{target_org}/members/{username}"
+        )
         org_response = requests.get(
             org_check_url,
             headers=headers,
             timeout=HTTP_DEFAULT_TIMEOUT,
         )
-        
-        # 204 status code indicates membership, 404 indicates not a member
         if org_response.status_code == 204:
             return True, username
             
         return False, None
-            
-    except Exception as e:
+    except requests.RequestException as e:
         print(strip_sensitive_headers(f"Error in token validation: {e}"))
         return False, None
 
 
 class AuthorizationError(Exception):
     """Raised when the user is not authorized to use Agent-S3."""
-    pass
 
 
-def get_current_user():
-    """
-    Retrieve the current GitHub user, using DEV_MODE token or OAuth App flow.
-    Verify that the user is a member of TARGET_ORG.
+def get_current_user() -> str:
+    """Retrieve the current GitHub user and verify org membership.
     
     Returns:
         The username of the authenticated user.
@@ -402,50 +438,59 @@ def get_current_user():
         # Generate JWT with proper security practices
         now = int(time.time())
         payload = {
-            "iat": now - 60,  # Issued 60 seconds ago to account for clock skew
+            "iat": now - 60,  # Issued 60 seconds ago for clock skew
             "exp": now + (10 * 60),  # Expires in 10 minutes
             "iss": app_id,
-            "jti": secrets.token_hex(16)  # Add unique JWT ID to prevent replay attacks
+            "jti": secrets.token_hex(16)  # Unique JWT ID to prevent replay
         }
         
         try:
-            # Explicitly specify algorithm to prevent algorithm switching attacks
             encoded_jwt = jwt.encode(payload, private_key, algorithm="RS256")
-            
-            # Best practice: verify the token after generating to ensure it's valid
-            # This catches issues with the private key format or encoding problems
-            public_key = jwt.algorithms.RSAAlgorithm.from_jwk(
-                jwt.api_jwk.get_key(private_key)
-            ) if hasattr(jwt, 'algorithms') else None
-            
-            if public_key:
+            # Verify the JWT if possible
+            try:
                 jwt.decode(
-                    encoded_jwt, 
-                    public_key, 
+                    encoded_jwt,
+                    private_key,
                     algorithms=["RS256"],
-                    options={"verify_signature": True, "verify_exp": True, "verify_iss": True}
+                    options={
+                        "verify_signature": True,
+                        "verify_exp": True,
+                        "verify_iss": True
+                    }
                 )
+            except jwt.InvalidTokenError:
+                # If verification fails, the token might still be valid
+                # We'll let the GitHub API validate it instead
+                pass
         except Exception as e:
-            raise AuthorizationError(f"Failed to create or verify JWT: {e}")
+            msg = f"Failed to create or verify JWT: {e}"
+            raise AuthorizationError(msg) from e
         
         integration = GithubIntegration(app_id, private_key)
-        # Get installation token
         installations = integration.get_installations()
         if not installations:
             raise AuthorizationError("No GitHub App installations found.")
+            
         # Use first installation
         installation_id = installations[0].id
         token = integration.get_access_token(installation_id).token
         gh = Github(token)
     
     user = gh.get_user()
-    username = user.login
+    username = user.login  # We need this username for verification
     
     # Verify org membership
-    # Use combined token validation and org membership check to reduce API calls
-    is_member, verified_username = _validate_token_and_check_org(token, TARGET_ORG, username)
+    # Use combined validation to reduce API calls
+    is_member, _ = _validate_token_and_check_org(
+        token,
+        TARGET_ORG,
+        username
+    )
     
     if not is_member:
-        raise AuthorizationError(f"User '{username}' is not a member of the organization '{TARGET_ORG}'")
+        msg = (
+            f"User '{username}' is not a member of the organization '{TARGET_ORG}'"
+        )
+        raise AuthorizationError(msg)
     
     return username

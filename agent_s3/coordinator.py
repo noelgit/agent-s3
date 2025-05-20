@@ -3,55 +3,90 @@
 Handles planning, prompt generation, issue creation, and execution phases.
 """
 
-
-import os
+# Standard library imports
 import json
 import logging
-from agent_s3.enhanced_scratchpad_manager import LogLevel
-from typing import Optional, List, Tuple, Dict, Any, Union
-import traceback
-from pathlib import Path
-from datetime import datetime
+import os
 import re
+import traceback
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
+# Third-party imports
+# None required
+
+# Local imports
 from agent_s3.config import Config
-from agent_s3.planner import Planner
-from agent_s3.code_generator import CodeGenerator
-from agent_s3.prompt_moderator import PromptModerator
-from agent_s3.router_agent import RouterAgent
-from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager
-from agent_s3.debugging_manager import DebuggingManager
-from agent_s3.progress_tracker import ProgressTracker
-from agent_s3.task_state_manager import TaskStateManager
-from agent_s3.workspace_initializer import WorkspaceInitializer
-from agent_s3.tools.bash_tool import BashTool
-from agent_s3.tools.database_tool import DatabaseTool
-from agent_s3.tools.env_tool import EnvTool
-from agent_s3.tools.ast_tool import ASTTool
-from agent_s3.tools.test_runner_tool import TestRunnerTool
-from agent_s3.tech_stack_detector import TechStackDetector
-from agent_s3.file_history_analyzer import FileHistoryAnalyzer
-from agent_s3.task_resumer import TaskResumer
-from agent_s3.command_processor import CommandProcessor
-from agent_s3.workflows import PlanningWorkflow, ImplementationWorkflow
-from agent_s3.pre_planner_json_enforced import call_pre_planner_with_enforced_json
-# Import new standardized error handling
+from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager, LogLevel
+from agent_s3.error_handler import ErrorHandler
 from agent_s3.errors import (
     AgentError,
     CoordinationError,
-    PlanningError,
-    GenerationError,
-    JSONPlanningError,
     ErrorCategory,
-    ErrorContext
+    ErrorContext,
+    PlanningError
 )
-from agent_s3.error_handler import ErrorHandler
+from agent_s3.feature_group_processor import FeatureGroupProcessor
+from agent_s3.file_history_analyzer import FileHistoryAnalyzer
+from agent_s3.planner import Planner
+from agent_s3.pre_planner_json_enforced import call_pre_planner_with_enforced_json
+from agent_s3.progress_tracker import ProgressTracker
+from agent_s3.prompt_moderator import PromptModerator
+from agent_s3.router_agent import RouterAgent
+from agent_s3.task_resumer import TaskResumer
+from agent_s3.task_state_manager import TaskStateManager
+from agent_s3.tech_stack_detector import TechStackDetector
+from agent_s3.workspace_initializer import WorkspaceInitializer
 
+# Tool imports
+from agent_s3.tools.ast_tool import ASTTool
+from agent_s3.tools.bash_tool import BashTool
+from agent_s3.tools.code_analysis_tool import CodeAnalysisTool
+from agent_s3.tools.context_management.context_manager import ContextManager
+from agent_s3.tools.context_management.context_registry import ContextRegistry
+from agent_s3.tools.database_tool import DatabaseTool
+from agent_s3.tools.embedding_client import EmbeddingClient
+from agent_s3.tools.env_tool import EnvTool
+from agent_s3.tools.error_context_manager import ErrorContextManager
+from agent_s3.tools.file_tool import FileTool
+from agent_s3.tools.git_tool import GitTool
+from agent_s3.tools.memory_manager import MemoryManager
+from agent_s3.tools.test_critic import TestCritic
+from agent_s3.tools.test_frameworks import TestFrameworks
+from agent_s3.tools.test_runner_tool import TestRunnerTool
 
+# Configure logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
+class CoordinatorConfig:
+    """Configuration class to handle Coordinator's many attributes."""
+    def __init__(self, config_obj):
+        self.config = config_obj
+        self.github_token = None
+        self.tools = {}
+        self.managers = {}
+        self.context = {}
+        self.state = {}
+
+    def register_tool(self, name: str, tool_instance: Any) -> None:
+        """Register a tool instance."""
+        self.tools[name] = tool_instance
+
+    def register_manager(self, name: str, manager_instance: Any) -> None:
+        """Register a manager instance."""
+        self.managers[name] = manager_instance
+
+    def get_tool(self, name: str) -> Any:
+        """Get a registered tool instance."""
+        return self.tools.get(name)
+
+    def get_manager(self, name: str) -> Any:
+        """Get a registered manager instance."""
+        return self.managers.get(name)
+        
 class Coordinator:
     """Coordinates the workflow phases for Agent-S3."""
 
@@ -59,237 +94,232 @@ class Coordinator:
         """Initialize the coordinator.
 
         Args:
-            config: Optional pre-loaded configuration object (takes precedence over config_path)
-            config_path: Path to the configuration file (used if config is not provided)
+            config: Optional pre-loaded configuration object
+            config_path: Path to the configuration file
             github_token: Optional GitHub OAuth token for API access
         """
-        # Initialize error handler for coordinator
+        # Initialize configuration class to handle attributes
+        if config is not None:
+            self.config = config
+        else:
+            self.config = Config(config_path)
+            self.config.load()
+            
+        self.coordinator_config = CoordinatorConfig(self.config)
+        if github_token is not None:
+            self.coordinator_config.github_token = github_token
+
+        # Initialize error handler
         self.error_handler = ErrorHandler(
             component="Coordinator",
             logger=logger,
-            reraise=False,  # Don't re-raise exceptions by default in coordinator
-            transform_exceptions=True,  # Transform standard exceptions to AgentError types
+            reraise=False,
+            transform_exceptions=True,
             default_phase="initialization"
         )
-        
+
         try:
-            # Initialize configuration
-            if config is not None:
-                self.config = config
-            else:
-                self.config = Config(config_path)
-                self.config.load()
-                
-            # Set GitHub token if provided
-            if github_token is not None:
-                self.config.github_token = github_token
-            
-            # Initialize logging components
-            self.scratchpad = EnhancedScratchpadManager(self.config)
-            self.progress_tracker = ProgressTracker(self.config)
-            
-            # Initialize tools
+            self._initialize_core_components()
             self._initialize_tools()
-            
-            # Initialize task state management
-            self.task_state_manager = TaskStateManager(
-                base_dir=os.path.join(os.path.dirname(self.config.get_log_file_path("development")), "task_snapshots")
-            )
-            self.current_task_id = None
-            
-            # Initialize specialized components
             self._initialize_specialized_components()
-            
-            # Register additional planning phases
-            if hasattr(self.progress_tracker, 'register_semantic_validation_phase'):
-                self.progress_tracker.register_semantic_validation_phase()
-
-            # Initialize command processor
-            from agent_s3.command_processor import CommandProcessor
-            self.command_processor = CommandProcessor(self)
-
-            # Check for interrupted tasks to resume
-            if hasattr(self, 'task_resumer') and self.task_resumer:
-                self.task_resumer.check_for_interrupted_tasks()
-
-            # Log initialization
-            self.scratchpad.log("Coordinator", "Initialized Agent-S3 coordinator")
-            if not self.progress_tracker.get_latest_progress():
-                self.progress_tracker.update_progress({"phase": "initialization", "status": "pending"})
+            self._finalize_initialization()
         except Exception as e:
-            # Use the error handler for consistent error handling
             self.error_handler.handle_exception(
                 exc=e,
                 operation="initialization",
                 level=logging.ERROR,
-                reraise=True  # Re-raise during initialization to prevent partial initialization
+                reraise=True
             )
     
-    def _initialize_tools(self):
-        """Initialize all tool instances."""
-        try:
-            # Initialize router agent before other tools
-            self.router_agent = RouterAgent(config=self.config)
-            self.llm = self.router_agent
-
-            # Set up context registry and context manager
-            from agent_s3.tools.context_management.context_registry import ContextRegistry
-            from agent_s3.tools.context_management.context_manager import ContextManager
-            self.context_registry = ContextRegistry()
-            self.context_manager = ContextManager(config=self.config.config.get('context_management', {}))
-
-            # Initialize core tools for context manager
-            from agent_s3.tools.code_analysis_tool import CodeAnalysisTool
-            from agent_s3.tools.file_tool import FileTool
-            file_tool = FileTool()
-            code_analysis_tool = CodeAnalysisTool(coordinator=self, file_tool=file_tool)
-            tech_stack_detector = TechStackDetector(config=self.config, file_tool=file_tool, scratchpad=self.scratchpad)
-            from agent_s3.tools.git_tool import GitTool
-            # Create a GitTool instance to be shared
-            git_tool_instance = GitTool(self.config.github_token)
-            self.file_history_analyzer = FileHistoryAnalyzer(
-                git_tool=git_tool_instance,
-                config=self.config,
-                scratchpad=self.scratchpad,
+    def _initialize_core_components(self) -> None:
+        """Initialize core components and logging."""
+        self.scratchpad = EnhancedScratchpadManager(self.config)
+        self.progress_tracker = ProgressTracker(self.config)
+        
+        if hasattr(self.progress_tracker, 'register_semantic_validation_phase'):
+            self.progress_tracker.register_semantic_validation_phase()
+            
+        self.task_state_manager = TaskStateManager(
+            base_dir=os.path.join(
+                os.path.dirname(self.config.get_log_file_path("development")),
+                "task_snapshots"
             )
-            # Store git_tool for later use
-            self.git_tool = git_tool_instance
-            self.context_manager.initialize_tools(
-                tech_stack_detector=tech_stack_detector,
-                code_analysis_tool=code_analysis_tool,
-                file_history_analyzer=self.file_history_analyzer,
-                file_tool=file_tool,
-            )
-            self.context_registry.register_provider("context_manager", self.context_manager)
+        )
+        self.current_task_id = None
 
-            # Initialize memory manager and register
-            from agent_s3.tools.memory_manager import MemoryManager
-            from agent_s3.tools.embedding_client import EmbeddingClient
-            embedding_client = EmbeddingClient(config=self.config.config, router_agent=self.router_agent)
-            memory_manager = MemoryManager(
-                config=self.config.config,
-                embedding_client=embedding_client,
-                file_tool=file_tool,
-                llm_client=self.llm
-            )
-            self.context_registry.register_provider("memory_manager", memory_manager)
+    def _initialize_tools(self) -> None:
+        """Initialize all tools and core functionality."""
+        # Router agent initialization
+        self.router_agent = RouterAgent(config=self.config)
+        self.llm = self.router_agent
 
-            # Start background optimization if enabled
-            if self.config.config.get('context_management', {}).get('background_enabled', True):
-                self.context_manager._start_background_optimization()
+        # Initialize file and git tools
+        file_tool = FileTool()
+        git_tool = GitTool(self.config.github_token)
 
-            # Store references for backward compatibility (to be removed after migration)
-            self.file_tool = file_tool
-            self.memory_manager = memory_manager
-            self.embedding_client = embedding_client
-            self.git_tool = self.file_history_analyzer.git_tool
-            self.bash_tool = BashTool(sandbox=self.config.config.get("sandbox_environment", False), host_os_type=self.config.host_os_type)
-            self.database_tool = DatabaseTool(config=self.config, bash_tool=self.bash_tool)
-            self.env_tool = EnvTool(self.bash_tool)
-            self.ast_tool = ASTTool()
-            self.test_runner_tool = TestRunnerTool(self.bash_tool)
-            from agent_s3.tools.test_frameworks import TestFrameworks
-            self.test_frameworks = TestFrameworks(self)
-            from agent_s3.tools.test_critic import TestCritic  # Updated integrated implementation
-            self.test_critic = TestCritic(self)
-            # TestPlanner has been removed as it's been superseded by feature group workflow
-            from agent_s3.tools.error_context_manager import ErrorContextManager
-            self.error_context_manager = ErrorContextManager(
-                config=self.config,
-                bash_tool=self.bash_tool,
-                file_tool=self.file_tool,
-                code_analysis_tool=code_analysis_tool,
-                git_tool=self.git_tool,
-                scratchpad=self.scratchpad
-            )
-        except Exception as e:
-            # Use the error handler for consistent error handling
-            self.error_handler.handle_exception(
-                exc=e,
-                phase="initialization",
-                operation="initialize_tools",
-                level=logging.ERROR,
-                reraise=True  # Re-raise during initialization to prevent partial initialization
-            )
-    
-    def _initialize_specialized_components(self):
+        # Initialize context management
+        self.context_registry = ContextRegistry()
+        self.context_manager = ContextManager(
+            config=self.config.config.get('context_management', {}))
+
+        # Initialize code analysis
+        code_analysis_tool = CodeAnalysisTool(
+            coordinator=self,
+            file_tool=file_tool
+        )
+
+        # Initialize tech stack detection
+        tech_stack_detector = TechStackDetector(
+            config=self.config,
+            file_tool=file_tool,
+            scratchpad=self.scratchpad
+        )
+
+        # Initialize file history analyzer
+        self.file_history_analyzer = FileHistoryAnalyzer(
+            git_tool=git_tool,
+            config=self.config,
+            scratchpad=self.scratchpad
+        )
+
+        # Set up context manager tools
+        self.context_manager.initialize_tools(
+            tech_stack_detector=tech_stack_detector,
+            code_analysis_tool=code_analysis_tool,
+            file_history_analyzer=self.file_history_analyzer,
+            file_tool=file_tool
+        )
+
+        # Initialize memory management
+        embedding_client = EmbeddingClient(
+            config=self.config.config,
+            router_agent=self.router_agent
+        )
+        memory_manager = MemoryManager(
+            config=self.config.config,
+            embedding_client=embedding_client,
+            file_tool=file_tool,
+            llm_client=self.llm
+        )
+
+        # Register providers
+        self.context_registry.register_provider("context_manager", self.context_manager)
+        self.context_registry.register_provider("memory_manager", memory_manager)
+
+        # Store tool references
+        self.coordinator_config.register_tool('file_tool', file_tool)
+        self.coordinator_config.register_tool('git_tool', git_tool)
+        self.coordinator_config.register_tool('code_analysis_tool', code_analysis_tool)
+        self.coordinator_config.register_tool('embedding_client', embedding_client)
+        self.coordinator_config.register_tool('memory_manager', memory_manager)
+
+        # Initialize remaining tools
+        self._initialize_additional_tools(file_tool)
+
+    def _initialize_additional_tools(self, file_tool: FileTool) -> None:
+        """Initialize additional tools that depend on core tools."""
+        # Initialize bash and related tools
+        self.bash_tool = BashTool(
+            sandbox=self.config.config.get("sandbox_environment", False),
+            host_os_type=self.config.host_os_type
+        )
+        
+        # Database, environment, and AST tools
+        self.database_tool = DatabaseTool(config=self.config, bash_tool=self.bash_tool)
+        self.env_tool = EnvTool(self.bash_tool)
+        self.ast_tool = ASTTool()
+
+        # Test-related tools
+        self.test_runner_tool = TestRunnerTool(self.bash_tool)
+        self.test_frameworks = TestFrameworks(self)
+        self.test_critic = TestCritic(self)
+
+        # Error context management
+        self.error_context_manager = ErrorContextManager(
+            config=self.config,
+            bash_tool=self.bash_tool,
+            file_tool=file_tool,
+            code_analysis_tool=self.coordinator_config.get_tool('code_analysis_tool'),
+            git_tool=self.coordinator_config.get_tool('git_tool'),
+            scratchpad=self.scratchpad
+        )
+
+    def _initialize_specialized_components(self) -> None:
         """Initialize specialized components using the tools."""
-        try:
-            # Initialize tech stack detector
-            self.tech_stack_detector = TechStackDetector(
-                config=self.config,
-                file_tool=self.file_tool,
-                scratchpad=self.scratchpad
-            )
-            self.tech_stack = self.tech_stack_detector.detect_tech_stack()
-            
-            # Initialize workspace initializer
-            self.workspace_initializer = WorkspaceInitializer(
-                config=self.config,
-                file_tool=self.file_tool,
-                scratchpad=self.scratchpad,
-                prompt_moderator=None,  # Will be set after PromptModerator is initialized
-                tech_stack=self.tech_stack
-            )
-            
-            # Initialize feature group processor
-            from agent_s3.feature_group_processor import FeatureGroupProcessor
-            self.feature_group_processor = FeatureGroupProcessor(coordinator=self)
-            
-            # Initialize debugging manager
-            self.debugging_manager = DebuggingManager(
-                coordinator=self,
-                enhanced_scratchpad=self.scratchpad
-            )
-            
-            # Initialize planner and related components
-            self.planner = Planner(
-                config=self.config,
-                scratchpad=self.scratchpad,
-                progress_tracker=self.progress_tracker,
-                task_state_manager=self.task_state_manager,
-                code_analysis_tool=getattr(self, 'code_analysis_tool', None),
-                tech_stack_detector=self.tech_stack_detector,
-                memory_manager=self.memory_manager,
-                database_tool=self.database_tool,
-                test_frameworks=self.test_frameworks
-            )
-            
-            # Initialize design, implementation, and deployment managers
-            from agent_s3.design_manager import DesignManager
-            from agent_s3.implementation_manager import ImplementationManager
-            from agent_s3.deployment_manager import DeploymentManager
-            from agent_s3.database_manager import DatabaseManager
-            
-            self.design_manager = DesignManager(self)
-            self.implementation_manager = ImplementationManager(self)
-            self.deployment_manager = DeploymentManager(self)
-            self.database_manager = DatabaseManager(self)
-            # Initialize code generator
-            self.code_generator = CodeGenerator(coordinator=self)
-            # Initialize prompt moderator
-            self.prompt_moderator = PromptModerator(self)
-            
-            # Now that we have the prompt moderator, update the workspace initializer
-            self.workspace_initializer.prompt_moderator = self.prompt_moderator
-            
-            # Initialize task resumer
-            self.task_resumer = TaskResumer(
-                coordinator=self,
-                task_state_manager=self.task_state_manager,
-                scratchpad=self.scratchpad,
-                progress_tracker=self.progress_tracker
-            )
-        except Exception as e:
-            # Use the error handler for consistent error handling
-            self.error_handler.handle_exception(
-                exc=e,
-                phase="initialization",
-                operation="initialize_specialized_components",
-                level=logging.ERROR,
-                reraise=True  # Re-raise during initialization to prevent partial initialization
-            )
+        # Tech stack detection
+        self.tech_stack_detector = TechStackDetector(
+            config=self.config,
+            file_tool=self.coordinator_config.get_tool('file_tool'),
+            scratchpad=self.scratchpad
+        )
+        self.tech_stack = self.tech_stack_detector.detect_tech_stack()
 
+        # Initialize workspace
+        self.workspace_initializer = WorkspaceInitializer(
+            config=self.config,
+            file_tool=self.coordinator_config.get_tool('file_tool'),
+            scratchpad=self.scratchpad,
+            tech_stack=self.tech_stack
+        )
+
+        # Feature group processor and debugging manager
+        self.feature_group_processor = FeatureGroupProcessor(coordinator=self)
+        self.debugging_manager = DebuggingManager(
+            coordinator=self,
+            enhanced_scratchpad=self.scratchpad
+        )
+
+        # Initialize core workflow components
+        self._initialize_workflow_components()
+
+    def _initialize_workflow_components(self) -> None:
+        """Initialize components related to workflow management."""
+        memory_manager = self.coordinator_config.get_tool('memory_manager')
+        
+        self.planner = Planner(
+            config=self.config,
+            scratchpad=self.scratchpad,
+            progress_tracker=self.progress_tracker,
+            task_state_manager=self.task_state_manager,
+            code_analysis_tool=self.coordinator_config.get_tool('code_analysis_tool'),
+            tech_stack_detector=self.tech_stack_detector,
+            memory_manager=memory_manager,
+            database_tool=self.database_tool,
+            test_frameworks=self.test_frameworks
+        )
+
+        self.code_generator = CodeGenerator(coordinator=self)
+        self.prompt_moderator = PromptModerator(self)
+
+        # Update workspace initializer with prompt moderator
+        if hasattr(self, 'workspace_initializer'):
+            self.workspace_initializer.prompt_moderator = self.prompt_moderator
+
+        # Task resumption
+        self.task_resumer = TaskResumer(
+            coordinator=self,
+            task_state_manager=self.task_state_manager
+        )
+
+    def _finalize_initialization(self) -> None:
+        """Finalize the initialization process."""
+        # Start background optimization if enabled
+        if (self.config.config.get('context_management', {})
+                .get('background_enabled', True)):
+            self.context_manager._start_background_optimization()
+
+        # Check for interrupted tasks
+        if hasattr(self, 'task_resumer') and self.task_resumer:
+            self.task_resumer.check_for_interrupted_tasks()
+
+        # Log initialization success
+        self.scratchpad.log("Coordinator", "Initialized Agent-S3 coordinator")
+        if not self.progress_tracker.get_latest_progress():
+            self.progress_tracker.update_progress({
+                "phase": "initialization",
+                "status": "pending"
+            })
+    
     def _extract_keywords_from_task(self, task_description: str) -> List[str]:
         """Extracts keywords from a task description.
 
@@ -727,20 +757,15 @@ class Coordinator:
     # Task Execution Workflow
     # ------------------------------------------------------------------
 
-    def process_change_request(self, request_text: str, skip_planning: bool = False) -> None:
+    def process_change_request(self, request_text: str) -> None:
         """Public facade for processing a change request.
-
-        This method currently delegates to ``run_task``. ``skip_planning`` is
-        accepted for backward compatibility but is ignored in this simplified
-        implementation.
 
         Args:
             request_text: The feature request to process.
-            skip_planning: If ``True``, assume planning is already complete.
         """
         self.run_task(task=request_text)
 
-    def run_task(self, task: str, pre_planning_input: Dict[str, Any] | None = None, from_design: bool = False) -> None:
+    def run_task(self, task: str, pre_planning_input: Optional[Dict[str, Any]] = None) -> None:
         """Execute the full planning and implementation workflow for a task."""
         with self.error_handler.error_context(
             phase="run_task",
@@ -748,7 +773,7 @@ class Coordinator:
             inputs={"request_text": task},
         ):
             try:
-                plans = self._planning_workflow(task, pre_planning_input, from_design)
+                plans = self._planning_workflow(task, pre_planning_input)
                 if not plans:
                     return
                 self._implementation_workflow(plans)

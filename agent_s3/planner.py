@@ -7,76 +7,131 @@ This module is part of the planning architecture consisting of:
 - planner_json_enforced.py: Enhanced JSON schema enforcement for planning
 """
 
+# Standard library imports
 import json
 import logging
-import re
-import os
-import traceback
 from pathlib import Path
-from typing import Dict, Any, Optional, List, Tuple, Union
-from datetime import datetime
+from typing import Any, Dict, Optional, Tuple
 
-# Import pre-planning compatibility functionality
-from agent_s3.pre_planning_errors import PrePlanningError
+# Third-party imports
+# None required
 
+# Local imports
+from agent_s3.errors import PlanningError
 from agent_s3.json_utils import (
-    validate_and_repair_json,
     extract_json_from_text,
     get_openrouter_json_params
 )
 from agent_s3.llm_utils import cached_call_llm
-from agent_s3.errors import PlanningError
-
-# Re-export PrePlanningError for backward compatibility
-# This helps maintain symmetry with planner_json_enforced importing from pre_planner_json_enforced
-from agent_s3.pre_planner_json_enforced import validate_pre_planning_output
 
 logger = logging.getLogger(__name__)
 
-class Planner:
-    """
-    The Planner class is responsible for creating plans for tasks using an LLM.
-    Focused specifically on feature-level planning with integrated function-level details.
-    """
-    def __init__(self, coordinator=None, config=None, scratchpad=None, progress_tracker=None, 
-                 task_state_manager=None, code_analysis_tool=None, tech_stack_detector=None, 
-                 memory_manager=None, database_tool=None, test_frameworks=None, test_critic=None, **kwargs):
-        """Initialize the planner with a coordinator for access to tools.
-        
-        Args:
-            coordinator: The coordinator instance (optional)
-            config: Configuration object (optional, taken from coordinator if available)
-            scratchpad: Scratchpad for logging (optional, taken from coordinator if available)
-            progress_tracker: Progress tracker (optional)
-            task_state_manager: Task state manager (optional)
-            code_analysis_tool: Code analysis tool (optional)
-            tech_stack_detector: Tech stack detector (optional)
-            memory_manager: Memory manager (optional)
-            database_tool: Database tool (optional)
-            test_frameworks: Test frameworks (optional)
-            test_critic: Test critic (optional)
-            **kwargs: Additional keyword arguments (for backward compatibility)
-        """
+# Configuration object pattern to reduce number of arguments
+class PlannerConfig:
+    """Configuration class for Planner to reduce instance attributes."""
+    def __init__(
+        self,
+        coordinator=None,
+        scratchpad=None,
+        tech_stack_detector=None,
+        memory_manager=None,
+        database_tool=None,
+        test_frameworks=None,
+        test_critic=None
+    ):
         self.coordinator = coordinator
-        self.context_registry = coordinator.context_registry if coordinator else None
-        self.llm = coordinator.llm if coordinator else None
-        self.scratchpad = scratchpad or (coordinator.scratchpad if coordinator else None)
-        
-        # Store tools and components
+        self.scratchpad = scratchpad or (
+            coordinator.scratchpad if coordinator else None
+        )
         self.tech_stack_detector = tech_stack_detector
         self.memory_manager = memory_manager
         self.database_tool = database_tool
-        self.test_frameworks = test_frameworks or (coordinator.test_frameworks if coordinator else None)
-        self.test_critic = test_critic or (coordinator.test_critic if coordinator else None)
+        self.test_frameworks = test_frameworks or (
+            coordinator.test_frameworks if coordinator else None
+        )
+        self.test_critic = test_critic or (
+            coordinator.test_critic if coordinator else None
+        )
+        # Derived attributes
+        self.llm = coordinator.llm if coordinator else None
+        self.context_registry = (
+            coordinator.context_registry if coordinator else None
+        )
+        self.config = coordinator.config if coordinator else None
+        self.workspace_path = (
+            Path(coordinator.config.config.get("workspace_path", "."))
+            if coordinator and coordinator.config
+            else Path(".")
+        )
+
+class Planner:
+    """The Planner class is responsible for creating plans for tasks using an LLM."""
+    def __init__(self, config: PlannerConfig):
+        """Initialize the planner with configuration.
         
-        # Get workspace path
-        self.workspace_path = Path(coordinator.config.config.get("workspace_path", ".")) if coordinator and coordinator.config else Path(".")
-        
-        # Get config from coordinator or use provided config
-        self.config = config or (coordinator.config if coordinator else None)
+        Args:
+            config: PlannerConfig instance containing all necessary components
+        """
+        # Store config instance
+        self._config = config
         
         # Error tracking
         self.last_error = None
+
+    @property
+    def coordinator(self):
+        """Get the coordinator instance."""
+        return self._config.coordinator
+
+    @property
+    def scratchpad(self):
+        """Get the scratchpad instance."""
+        return self._config.scratchpad
+
+    @property
+    def tech_stack_detector(self):
+        """Get the tech stack detector instance."""
+        return self._config.tech_stack_detector
+
+    @property
+    def memory_manager(self):
+        """Get the memory manager instance."""
+        return self._config.memory_manager
+
+    @property
+    def database_tool(self):
+        """Get the database tool instance."""
+        return self._config.database_tool
+
+    @property
+    def test_frameworks(self):
+        """Get the test frameworks instance."""
+        return self._config.test_frameworks
+
+    @property
+    def test_critic(self):
+        """Get the test critic instance."""
+        return self._config.test_critic
+
+    @property
+    def llm(self):
+        """Get the LLM instance."""
+        return self._config.llm
+
+    @property
+    def context_registry(self):
+        """Get the context registry instance."""
+        return self._config.context_registry
+
+    @property
+    def config(self):
+        """Get the config instance."""
+        return self._config.config
+
+    @property
+    def workspace_path(self):
+        """Get the workspace path."""
+        return self._config.workspace_path
 
     def stop_observer(self):
         """Stops the filesystem observer and event handler timers."""
@@ -227,7 +282,6 @@ IMPORTANT: You MUST perform the following two steps sequentially to generate the
    - For each code_element provided in the input `system_design.code_elements`, create a corresponding entry in the implementation_plan.
    - The function signature in your output should match the input signature unless your architecture_review explicitly recommended a change to it.
    - Your main task here is to generate the detailed structured steps for implementation, not to redesign the interfaces unless your review identified specific issues with them.
-   - DO NOT restart the review process from Step 1. Your goal here is to detail the 'how-to' based on the code elements provided in the system_design, with adjustments only as recommended in your architecture review.
    - For each function in the `implementation_plan`:
        - The `function` field should be the full, typed signature (e.g., `def get_user_profile(user_id: int) -> Optional[UserProfile]:`).
        - The `description` should explain its purpose.
@@ -296,25 +350,28 @@ Ensure your response strictly adheres to the JSON schema provided in the system 
             personas_path = Path("personas.md")
             if personas_path.exists():
                 return personas_path.read_text(encoding='utf-8')
-            else:
-                logger.warning("personas.md file not found, using default personas")
-                # Default personas
-                return """
-                ## Business Development Manager
-                Clarify why we're building this feature, whom it serves, and what real-world scenarios it must cover.
+            
+            logger.warning("personas.md file not found, using default personas")
+            # Default personas
+            return """
+            ## Business Development Manager
+            Clarify why we're building this feature, whom it serves, and what real-world scenarios it must cover.
 
-                ## Expert Coder
-                Define how the feature will be built—step by step, with tech choices, data models, and file breakdown.
+            ## Expert Coder
+            Define how the feature will be built—step by step, with tech choices, data models, and file breakdown.
 
-                ## Reviewer
-                Ensure the proposed solution is logically consistent and covers all functional scenarios.
+            ## Reviewer
+            Ensure the proposed solution is logically consistent and covers all functional scenarios.
 
-                ## Validator
-                Confirm the solution adheres to best practices and organizational guidelines.
-                """
-        except Exception as e:
-            logger.error(f"Error loading personas content: {str(e)}")
+            ## Validator
+            Confirm the solution adheres to best practices and organizational guidelines.
+            """
+        except (IOError, OSError) as e:
+            logger.error("Error loading personas content: %s", str(e))
             return "Error loading personas content. Using default expert personas."
+        except UnicodeError as e:
+            logger.error("Error decoding personas content: %s", str(e))
+            return "Error decoding personas content. Using default expert personas."
 
     def get_coding_guidelines(self) -> str:
         """Load the coding guidelines from .github/copilot-instructions.md file."""
@@ -322,26 +379,34 @@ Ensure your response strictly adheres to the JSON schema provided in the system 
             guidelines_path = Path(".github/copilot-instructions.md")
             if guidelines_path.exists():
                 return guidelines_path.read_text(encoding='utf-8')
-            else:
-                logger.warning("copilot-instructions.md file not found, using default guidelines")
-                # Default guidelines
-                return """
-                # Coding Guidelines
+            
+            logger.warning("copilot-instructions.md file not found, using default guidelines")
+            # Default guidelines
+            return """
+            # Coding Guidelines
 
-                - Follow best practices for security, performance, and code quality
-                - Write clean, modular code with proper error handling
-                - Include comprehensive tests for all functionality
-                - Follow project-specific conventions and patterns
-                """
-        except Exception as e:
-            logger.error(f"Error loading coding guidelines: {str(e)}")
+            - Follow best practices for security, performance, and code quality
+            - Write clean, modular code with proper error handling
+            - Include comprehensive tests for all functionality
+            - Follow project-specific conventions and patterns
+            """
+        except (IOError, OSError) as e:
+            logger.error("Error loading coding guidelines: %s", str(e))
+            return "Error loading coding guidelines. Using default standards."
+        except UnicodeError as e:
+            logger.error("Error decoding coding guidelines: %s", str(e))
             return "Error loading coding guidelines. Using default standards."
 
     
 
-    def _call_llm_with_retry(self, system_prompt: str, user_prompt: str, llm_params: Dict[str, Any], retries: int = 2) -> str:
-        """
-        Call LLM with retry logic.
+    def _call_llm_with_retry(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        llm_params: Dict[str, Any],
+        retries: int = 2
+    ) -> str:
+        """Call LLM with retry logic.
         
         Args:
             system_prompt: System prompt for LLM
@@ -362,7 +427,7 @@ Ensure your response strictly adheres to the JSON schema provided in the system 
                 if isinstance(self.llm, dict):
                     # If llm is a dictionary of parameters
                     response = cached_call_llm(
-                        prompt=user_prompt, 
+                        prompt=user_prompt,
                         system=system_prompt,
                         **llm_params
                     )
@@ -380,26 +445,35 @@ Ensure your response strictly adheres to the JSON schema provided in the system 
                     
                     if not response:
                         raise ValueError("LLM returned an empty response")
-                        
+                    
                     return response
                     
-            except Exception as e:
+            except (ValueError, IOError, ConnectionError) as e:
                 last_error = str(e)
-                logger.warning(f"LLM call attempt {attempt + 1}/{retries + 1} failed: {e}")
+                logger.warning(
+                    "LLM call attempt %d/%d failed: %s",
+                    attempt + 1,
+                    retries + 1,
+                    str(e)
+                )
                 
                 if attempt < retries:
                     # Wait before retry with exponential backoff
                     import time
                     time.sleep(2 ** attempt)
                 else:
-                    logger.error(f"All LLM call attempts failed: {e}")
+                    logger.error("All LLM call attempts failed: %s", str(e))
         
-        raise PlanningError(f"LLM call failed after {retries + 1} attempts: {last_error}")
+        msg = f"LLM call failed after {retries + 1} attempts: {last_error}"
+        raise PlanningError(msg) from last_error
 
-
-    def generate_architecture_review(self, feature_group: Dict[str, Any], task_description: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        Generate architecture review for a feature group's system design.
+    def generate_architecture_review(
+        self,
+        feature_group: Dict[str, Any],
+        task_description: str,
+        context: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Generate architecture review for a feature group's system design.
 
         Args:
             feature_group: The feature group data
@@ -409,7 +483,10 @@ Ensure your response strictly adheres to the JSON schema provided in the system 
         Returns:
             Dictionary with architecture_review and discussion fields
         """
-        logger.info(f"Generating architecture review for feature group: {feature_group.get('group_name', 'Unknown')}")
+        logger.info(
+            "Generating architecture review for feature group: %s",
+            feature_group.get('group_name', 'Unknown')
+        )
         
         if not self.llm:
             raise PlanningError("No LLM client available")
@@ -423,67 +500,84 @@ Ensure your response strictly adheres to the JSON schema provided in the system 
                 for key, value in feature_system_design.items():
                     if key not in system_design:
                         system_design[key] = value
-                    elif isinstance(value, list) and isinstance(system_design[key], list):
+                    elif (
+                        isinstance(value, list) and
+                        isinstance(system_design[key], list)
+                    ):
                         system_design[key].extend(value)
         
         # Create system prompt for architecture review
-        system_prompt = """You are a senior software architect specializing in architecture review.
-Your task is to analyze a feature group's system design and identify logical gaps, optimization opportunities, and architectural considerations.
-
-CRITICAL INSTRUCTION: You MUST respond in valid JSON format ONLY, conforming EXACTLY to this schema:
-{
-  "architecture_review": {
-    "logical_gaps": [
-      {
-        "description": "Description of the logical gap (e.g., Authentication system lacks CSRF protection)",
-        "impact": "Potential impact of the gap (e.g., Vulnerable to cross-site request forgery attacks)",
-        "recommendation": "Recommendation to address the gap (e.g., Implement CSRF tokens in all forms)"
-      }
-    ],
-    "optimization_suggestions": [
-      {
-        "description": "Description of the optimization (e.g., Database queries not optimized for pagination)",
-        "benefit": "Potential benefit of the optimization (e.g., Reduced memory usage and query time for large datasets)",
-        "implementation_approach": "Suggested approach for implementation (e.g., Add LIMIT/OFFSET or cursor-based pagination)"
-      }
-    ],
-    "additional_considerations": [
-      "Any other relevant considerations (e.g., Consider implementing rate limiting to prevent abuse)"
-    ]
-  },
-  "discussion": "Overall assessment of the architecture, explaining key findings and recommendations"
-}
-
-Your task is to:
-1. Analyze the system design with a focus on its architecture, interfaces, and overall coherence
-2. Identify logical gaps in the design that could lead to issues or failures
-3. Suggest optimizations that could improve performance, security, or maintainability
-4. Provide additional considerations that might not be covered in the logical gaps or optimizations
-
-Be concise and direct in your analysis. Focus on substantive issues rather than style or naming conventions.
-Each identified issue should be clear, specific, and actionable, with a clear description, impact/benefit, and recommendation.
-"""
+        system_prompt = (
+            "You are a senior software architect specializing in architecture "
+            "review. Your task is to analyze a feature group's system design "
+            "and identify logical gaps, optimization opportunities, and "
+            "architectural considerations.\n\n"
+            "CRITICAL INSTRUCTION: You MUST respond in valid JSON format ONLY, "
+            "conforming EXACTLY to this schema:\n"
+            "{\n"
+            '  "architecture_review": {\n'
+            '    "logical_gaps": [\n'
+            "      {\n"
+            '        "description": "Description of the logical gap (e.g., '
+            'Authentication system lacks CSRF protection)",\n'
+            '        "impact": "Potential impact of the gap (e.g., Vulnerable '
+            'to cross-site request forgery attacks)",\n'
+            '        "recommendation": "Recommendation to address the gap '
+            '(e.g., Implement CSRF tokens in all forms)"\n'
+            "      }\n"
+            "    ],\n"
+            '    "optimization_suggestions": [\n'
+            "      {\n"
+            '        "description": "Description of the optimization (e.g., '
+            'Database queries not optimized for pagination)",\n'
+            '        "benefit": "Potential benefit of the optimization (e.g., '
+            'Reduced memory usage and query time for large datasets)",\n'
+            '        "implementation_approach": "Suggested approach for '
+            'implementation (e.g., Add LIMIT/OFFSET or cursor-based '
+            'pagination)"\n'
+            "      }\n"
+            "    ],\n"
+            '    "additional_considerations": [\n'
+            '      "Any other relevant considerations (e.g., Consider '
+            'implementing rate limiting to prevent abuse)"\n'
+            "    ]\n"
+            "  },\n"
+            '  "discussion": "Overall assessment of the architecture, '
+            'explaining key findings and recommendations"\n'
+            "}\n\n"
+            "Your task is to:\n"
+            "1. Analyze the system design with a focus on its architecture, "
+            "interfaces, and overall coherence\n"
+            "2. Identify logical gaps in the design that could lead to issues "
+            "or failures\n"
+            "3. Suggest optimizations that could improve performance, security, "
+            "or maintainability\n"
+            "4. Provide additional considerations that might not be covered in "
+            "the logical gaps or optimizations\n\n"
+            "Be concise and direct in your analysis. Focus on substantive "
+            "issues rather than style or naming conventions.\n"
+            "Each identified issue should be clear, specific, and actionable, "
+            "with a clear description, impact/benefit, and recommendation."
+        )
 
         # Create the user prompt
-        user_prompt = f"""Please analyze the system design for the following feature group and provide an architecture review.
-
-# Task Description
-{task_description}
-
-# Feature Group
-{json.dumps(feature_group, indent=2)}
-
-# System Design
-{json.dumps(system_design, indent=2)}
-
-# Additional Context
-{json.dumps(context or {}, indent=2)}
-
-Focus on:
-1. Identifying logical gaps in the design
-2. Suggesting optimizations for performance, security, and maintainability
-3. Providing additional architectural considerations
-"""
+        user_prompt = (
+            "Please analyze the system design for the following feature group "
+            "and provide an architecture review.\n\n"
+            "# Task Description\n"
+            f"{task_description}\n\n"
+            "# Feature Group\n"
+            f"{json.dumps(feature_group, indent=2)}\n\n"
+            "# System Design\n"
+            f"{json.dumps(system_design, indent=2)}\n\n"
+            "# Additional Context\n"
+            f"{json.dumps(context or {}, indent=2)}\n\n"
+            "Focus on:\n"
+            "1. Identifying logical gaps in the design\n"
+            "2. Suggesting optimizations for performance, security, and "
+            "maintainability\n"
+            "3. Providing additional architectural considerations"
+        )
 
         # Get OpenRouter params
         llm_params = get_openrouter_json_params()
@@ -499,12 +593,14 @@ Focus on:
             # Extract and validate JSON
             json_text = extract_json_from_text(response)
             if not json_text:
-                raise PlanningError("Failed to extract JSON from architecture review response")
+                raise PlanningError(
+                    "Failed to extract JSON from architecture review response"
+                )
                 
             try:
                 review_data = json.loads(json_text)
             except json.JSONDecodeError as e:
-                raise PlanningError(f"Invalid JSON in architecture review: {e}")
+                raise PlanningError("Invalid JSON in architecture review") from e
                 
             # Validate required sections
             if "architecture_review" not in review_data:
@@ -512,9 +608,9 @@ Focus on:
                 
             return review_data
             
-        except Exception as e:
-            logger.error(f"Error generating architecture review: {e}", exc_info=True)
-            raise PlanningError(f"Failed to generate architecture review: {str(e)}")
+        except (IOError, ConnectionError) as e:
+            logger.error("Error generating architecture review: %s", str(e))
+            raise PlanningError("Failed to generate architecture review") from e
 
     def validate_pre_planning_for_planner(self, pre_plan_data: Dict[str, Any]) -> Tuple[bool, str]:
         """
