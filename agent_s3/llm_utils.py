@@ -65,6 +65,9 @@ def call_llm_via_supabase(prompt: str, github_token: str, config: Dict[str, Any]
     if not supabase_url or not api_key:
         raise ValueError("Supabase configuration missing")
 
+    if not supabase_url.startswith("https://"):
+        raise ValueError("supabase_url must start with https://")
+
     if create_client is None:
         raise ImportError("supabase-py is required for remote LLM calls")
 
