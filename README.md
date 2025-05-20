@@ -290,7 +290,7 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   SUPABASE_URL=https://your-project.supabase.co
   SUPABASE_SERVICE_KEY=your-service-key
   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-  # SUPABASE_EDGE_FUNCTION_PATH=/functions/v1/call-llm
+  SUPABASE_EDGE_FUNCTION_PATH=/functions/v1/call-llm
   USE_REMOTE_LLM=true
   ```
 
@@ -374,13 +374,13 @@ python -m agent_s3.cli /db query <db_name> "SELECT * FROM users"
 ```
 
 ### Remote LLM via Supabase
-Set `USE_REMOTE_LLM=true` to forward prompts to a remote Supabase service. Ensure `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set. `SUPABASE_EDGE_FUNCTION_PATH` is optional and defaults to the root function:
+Set `USE_REMOTE_LLM=true` to forward prompts to a remote Supabase service. Ensure `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (or `SUPABASE_SERVICE_KEY`) are set. `SUPABASE_EDGE_FUNCTION_PATH` is optional and defaults to the root function:
 
 ```bash
 USE_REMOTE_LLM=true \
 SUPABASE_URL=https://your-project.supabase.co \
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key \
-# SUPABASE_EDGE_FUNCTION_PATH=/functions/v1/call-llm \
+SUPABASE_EDGE_FUNCTION_PATH=/functions/v1/call-llm \
 python -m agent_s3.cli "Generate a README outline"
 ```
 
