@@ -31,23 +31,6 @@ from agent_s3.errors import PlanningError
 # This helps maintain symmetry with planner_json_enforced importing from pre_planner_json_enforced
 from agent_s3.pre_planner_json_enforced import validate_pre_planning_output
 
-# To maintain architectural consistency, include a method for validating pre-planning output
-# from the planner's perspective for symmetry with planner_json_enforced
-def validate_pre_planning_from_planner(pre_plan_data: Dict[str, Any]) -> Tuple[bool, str]:
-    """
-    Validate that pre-planning output is compatible with the planner.
-
-    This is a wrapper around the base validate_pre_planning_output function
-    and is included here for architectural consistency.
-
-    Args:
-        pre_plan_data: Pre-planning data to validate
-
-    Returns:
-        Tuple of (is_valid, message)
-    """
-    return validate_pre_planning_output(pre_plan_data)
-
 logger = logging.getLogger(__name__)
 
 class Planner:
