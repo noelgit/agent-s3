@@ -160,6 +160,25 @@ def cached_call_llm(prompt, llm, return_kv=False, **kwargs):
         scratchpad_manager=scratchpad_manager,
         prompt_summary=prompt_summary
     )
+
+    if not result.get('success') and use_remote_llm:
+        if scratchpad_manager:
+            scratchpad_manager.log(
+                "LLM Utils",
+                "Remote LLM failed, falling back to local"
+            )
+        else:
+            logging.warning("Remote LLM failed, falling back to local")
+
+        llm_to_use = llm
+        result = call_llm_with_retry(
+            llm_client_instance=llm_to_use,
+            method_name=method_name,
+            prompt_data=prompt_data,
+            config=config,
+            scratchpad_manager=scratchpad_manager,
+            prompt_summary=prompt_summary
+        )
     
     if result['success']:
         response = result['response']
