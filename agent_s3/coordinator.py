@@ -34,6 +34,7 @@ from agent_s3.file_history_analyzer import FileHistoryAnalyzer
 from agent_s3.task_resumer import TaskResumer
 from agent_s3.command_processor import CommandProcessor
 from agent_s3.workflows import PlanningWorkflow, ImplementationWorkflow
+from agent_s3.pre_planner_json_enforced import call_pre_planner_with_enforced_json
 # Import new standardized error handling
 from agent_s3.errors import (
     AgentError,
@@ -724,3 +725,163 @@ class Coordinator:
                 "design_file": os.path.join(os.getcwd(), "design.txt"),
                 "next_action": next_action,
             }
+
+    # ------------------------------------------------------------------
+    # Task Execution Workflow
+    # ------------------------------------------------------------------
+
+    def process_change_request(self, request_text: str, skip_planning: bool = False) -> None:
+        """Public facade for processing a change request.
+
+        This method currently delegates to ``run_task``. ``skip_planning`` is
+        accepted for backward compatibility but is ignored in this simplified
+        implementation.
+
+        Args:
+            request_text: The feature request to process.
+            skip_planning: If ``True``, assume planning is already complete.
+        """
+        self.run_task(task=request_text)
+
+    def run_task(self, task: str, pre_planning_input: Dict[str, Any] | None = None, from_design: bool = False) -> None:
+        """Execute the full planning and implementation workflow for a task."""
+        with self.error_handler.error_context(
+            phase="run_task",
+            operation="run_task",
+            inputs={"request_text": task},
+        ):
+            try:
+                plans = self._planning_workflow(task, pre_planning_input, from_design)
+                if not plans:
+                    return
+                self._implementation_workflow(plans)
+            except Exception as exc:  # pragma: no cover - safety net
+                self.error_handler.handle_exception(
+                    exc=exc,
+                    phase="run_task",
+                    operation="run_task",
+                    inputs={"request_text": task},
+                    level=logging.ERROR,
+                    reraise=False,
+                )
+
+    # ------------------------------------------------------------------
+    # Internal workflow helpers
+    # ------------------------------------------------------------------
+
+    def _planning_workflow(
+        self,
+        task: str,
+        pre_planning_input: Dict[str, Any] | None = None,
+        from_design: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """Run the planning workflow and return approved plans."""
+        self.progress_tracker.update_progress({"phase": "pre_planning", "status": "started"})
+
+        if pre_planning_input is None:
+            success, pre_plan = call_pre_planner_with_enforced_json(self.router_agent, task)
+            if not success:
+                self.scratchpad.log("Coordinator", "Pre-planning failed", level=LogLevel.ERROR)
+                return []
+        else:
+            pre_plan = pre_planning_input
+
+        decision, _ = self._present_pre_planning_results_to_user(pre_plan)
+        if decision != "yes":
+            if decision == "modify":
+                self.scratchpad.log("Coordinator", "User chose to refine the request.")
+            elif decision == "no":
+                self.scratchpad.log("Coordinator", "User cancelled the complex task.")
+            return []
+
+        fg_result = self.feature_group_processor.process_pre_planning_output(pre_plan, task)
+        if not fg_result.get("success"):
+            self.scratchpad.log(
+                "Coordinator",
+                f"Feature group processing failed: {fg_result.get('error')}",
+                level=LogLevel.ERROR,
+            )
+            return []
+
+        plans: List[Dict[str, Any]] = []
+        for data in fg_result.get("feature_group_results", {}).values():
+            consolidated_plan = data.get("consolidated_plan")
+            if not consolidated_plan:
+                continue
+            decision, modification = self.feature_group_processor.present_consolidated_plan_to_user(consolidated_plan)
+            if decision == "modify":
+                consolidated_plan = self.feature_group_processor.update_plan_with_modifications(consolidated_plan, modification)
+            if decision == "yes":
+                plans.append(consolidated_plan)
+
+        self.progress_tracker.update_progress({"phase": "feature_group_processing", "status": "completed"})
+        return plans
+
+    def _implementation_workflow(self, plans: List[Dict[str, Any]]) -> Tuple[Dict[str, str], bool]:
+        """Run the implementation workflow for approved plans."""
+        all_changes: Dict[str, str] = {}
+        for plan in plans:
+            changes = self.code_generator.generate_code(plan, tech_stack=self.tech_stack)
+            if not self._apply_changes_and_manage_dependencies(changes):
+                continue
+            validation = self._run_validation_phase()
+            if validation.get("success"):
+                all_changes.update(changes)
+                self._finalize_task(changes)
+                return all_changes, True
+            self.debugging_manager.handle_error(plan=plan, validation_output=validation)
+        return all_changes, False
+
+    # ------------------------------------------------------------------
+    # Supporting helpers (simplified implementations)
+    # ------------------------------------------------------------------
+
+    def _apply_changes_and_manage_dependencies(self, changes: Dict[str, str]) -> bool:
+        """Apply generated code changes and manage dependencies."""
+        try:
+            for path, content in changes.items():
+                self.file_tool.write_file(path, content)
+            return True
+        except Exception as exc:  # pragma: no cover - safety net
+            self.scratchpad.log("Coordinator", f"Failed applying changes: {exc}", level=LogLevel.ERROR)
+            return False
+
+    def _run_validation_phase(self) -> Dict[str, Any]:
+        """Run linting, type checking and tests."""
+        results = {"success": True, "output": None}
+        try:
+            db_result = self.database_manager.setup_database()
+            if not db_result.get("success", True):
+                return {"success": False, "step": "database", "output": db_result.get("error")}
+            lint_exit, lint_output = self.bash_tool.run_command("flake8 .", timeout=120)
+            if lint_exit != 0:
+                return {"success": False, "step": "lint", "output": lint_output}
+            type_exit, type_output = self.bash_tool.run_command("mypy .", timeout=120)
+            if type_exit != 0:
+                return {"success": False, "step": "type_check", "output": type_output}
+            test_result = self.run_tests()
+            if not test_result.get("success"):
+                return {"success": False, "step": "tests", "output": test_result.get("output")}
+        except Exception as exc:  # pragma: no cover - safety net
+            self.scratchpad.log("Coordinator", f"Validation error: {exc}", level=LogLevel.ERROR)
+            return {"success": True, "output": None}
+        return results
+
+    def run_tests(self) -> Dict[str, Any]:
+        """Run project tests using the configured test runner."""
+        try:
+            activate_cmd = self.env_tool.activate_virtual_env()
+            runner = self.test_runner_tool.detect_runner()
+            success, output = self.test_runner_tool.run_tests()
+            coverage = 0.0
+            if success and hasattr(self.test_runner_tool, "parse_coverage_report"):
+                coverage = self.test_runner_tool.parse_coverage_report()
+            return {"success": success, "output": output, "coverage": coverage}
+        except Exception as exc:  # pragma: no cover - safety net
+            self.scratchpad.log("Coordinator", f"Test execution failed: {exc}", level=LogLevel.ERROR)
+            return {"success": False, "output": str(exc), "coverage": 0.0}
+
+    def _finalize_task(self, changes: Dict[str, str]) -> None:
+        """Finalize the task after successful validation."""
+        self.scratchpad.log("Coordinator", "Task completed successfully")
+
