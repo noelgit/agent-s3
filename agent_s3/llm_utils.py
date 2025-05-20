@@ -59,12 +59,19 @@ def call_llm_via_supabase(prompt: str, github_token: str, config: Dict[str, Any]
     if not supabase_url or not api_key:
         raise ValueError("Supabase configuration missing")
 
+    # Optional edge function path for the LLM endpoint
+    edge_function_path = config.get("edge_function_path") or os.getenv("SUPABASE_EDGE_FUNCTION_PATH")
+    if edge_function_path:
+        supabase_url = f"{supabase_url.rstrip('/')}/{edge_function_path.lstrip('/')}"
+
     headers = {
         "Content-Type": "application/json",
         "apikey": api_key,
         "Authorization": f"Bearer {api_key}",
         "X-GitHub-Token": github_token,
     }
+    # Only send the prompt itself. Avoid forwarding edge_function_path or other
+    # config values to the edge function.
     payload = {"prompt": prompt}
     response = requests.post(
         supabase_url,
