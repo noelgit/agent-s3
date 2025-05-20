@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import time
+import atexit
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 try:
@@ -155,11 +156,14 @@ class VSCodeBridge:
         self.websocket_server = WebSocketServer(
             message_bus=message_bus,
             port=websocket_port,
-            auth_token=auth_token
+            auth_token=auth_token,
         )
-        
+
+        self.connection_file: Optional[str] = None
+
         # Create connection file
         self._create_connection_file(websocket_port, auth_token)
+        atexit.register(self._cleanup_connection_file)
         
         # Start WebSocket server
         asyncio.create_task(self.websocket_server.start())
@@ -167,6 +171,17 @@ class VSCodeBridge:
         
         # Register handlers for extension communication
         self._setup_message_handlers()
+
+    def _cleanup_connection_file(self) -> None:
+        """Remove the connection file if it exists."""
+        if not self.connection_file:
+            return
+        try:
+            if os.path.exists(self.connection_file):
+                os.remove(self.connection_file)
+                logger.info("Removed WebSocket connection file")
+        except OSError as e:
+            logger.error(f"Error removing connection file: {e}")
     
     def _create_connection_file(self, port: int, auth_token: Optional[str]) -> None:
         """Create a connection file for the VS Code extension to use.
@@ -197,6 +212,7 @@ class VSCodeBridge:
                 import stat
                 os.chmod(connection_file, stat.S_IRUSR | stat.S_IWUSR)
 
+            self.connection_file = connection_file
             logger.info(
                 f"Created WebSocket connection file at {connection_file}"
             )
