@@ -1554,52 +1554,6 @@ def _parse_and_validate_json(response_text: str, schema: Optional[Dict[str, Any]
     return data
 
 
-def generate_consolidated_plan(router_agent, feature_group: Dict[str, Any], task_description: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """
-    Generates a consolidated plan including architecture review, tests, and implementation details using a single LLM call.
-
-    Args:
-        router_agent: The agent responsible for routing LLM calls.
-        feature_group: The feature group data from pre-planning.
-        task_description: The original task description.
-        context: Optional context information (e.g., tech stack, file contents).
-
-    Returns:
-        A dictionary containing the consolidated plan.
-
-    Raises:
-        JSONPlannerError: If the process fails after retries or validation fails.
-    """
-    logger.info(f"Generating consolidated plan for feature group: {feature_group.get('group_name', 'Unnamed')}")
-
-    system_prompt = get_consolidated_plan_system_prompt()
-    user_prompt = get_consolidated_plan_user_prompt(feature_group, task_description, context)
-
-    # Get LLM parameters from json_utils to maintain consistency
-    from .json_utils import get_openrouter_json_params
-    openrouter_params = get_openrouter_json_params()
-
-    try:
-        response_text = _call_llm_with_retry(
-            router_agent,
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            config=openrouter_params
-        )
-
-        plan_data = _parse_and_validate_json(response_text)
-
-        logger.info(f"Successfully generated consolidated plan for: {feature_group.get('group_name', 'Unnamed')}")
-        return plan_data
-
-    except JSONPlannerError as e:
-        logger.error(f"Failed to generate consolidated plan for {feature_group.get('group_name', 'Unnamed')}: {e}")
-        raise
-
-    except Exception as e:
-        logger.error(f"Unexpected error during consolidated plan generation: {e}", exc_info=True)
-        raise JSONPlannerError(f"An unexpected error occurred: {e}")
-
 # --- Implementation of Architecture Review ---
 def get_architecture_review_system_prompt() -> str:
     """

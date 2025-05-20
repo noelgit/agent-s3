@@ -16,8 +16,7 @@ class TestCommandProcessor:
         coordinator.scratchpad.log = MagicMock()
         coordinator.progress_tracker = MagicMock()
         coordinator.progress_tracker.update_progress = MagicMock()
-        coordinator.planner = MagicMock()
-        coordinator.planner.generate_plan = MagicMock(return_value="Test plan content")
+        coordinator.generate_plan = MagicMock(return_value="Test plan content")
         coordinator.workspace_initializer = MagicMock()
         coordinator.workspace_initializer.initialize_workspace = MagicMock(return_value=True)
         coordinator.workspace_initializer.execute_personas_command = MagicMock(return_value="Personas created")
@@ -83,7 +82,7 @@ class TestCommandProcessor:
         result = command_processor.execute_plan_command("Create a new feature")
         
         # Verify
-        mock_coordinator.planner.generate_plan.assert_called_with("Create a new feature")
+        mock_coordinator.generate_plan.assert_called_with("Create a new feature")
         mock_coordinator.progress_tracker.update_progress.assert_called()
         mock_file.write.assert_called_with("Test plan content")
         assert "Plan generated and saved" in result

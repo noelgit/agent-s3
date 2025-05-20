@@ -131,8 +131,6 @@ class CommandProcessor:
             # Generate plan
             if hasattr(self.coordinator, 'generate_plan'):
                 plan = self.coordinator.generate_plan(args)
-            elif hasattr(self.coordinator, 'planner') and hasattr(self.coordinator.planner, 'generate_plan'):
-                plan = self.coordinator.planner.generate_plan(args)
             else:
                 return "Plan generation not available."
             
