@@ -12,3 +12,4 @@ pymysql>=1.0.0
 jsonschema>=4.0.0
 cryptography>=41.0.0
 supabase-py
+bcrypt>=4.0.0
