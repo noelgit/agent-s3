@@ -77,7 +77,6 @@ def coordinator():
     coordinator._get_llm_json_content = MagicMock(return_value='{"version":"1.0"}')
     coordinator._enhance_guidelines_with_tech_stack = MagicMock(return_value="Enhanced guidelines")
     coordinator.process_command = MagicMock(return_value="Command processed")
-    coordinator.execute_generate = MagicMock(return_value="Generated code")
     coordinator.execute_implementation = MagicMock(return_value={"success": True})
     coordinator.run_tests_all = MagicMock(return_value={"success": True})
     coordinator.execute_terminal_command = MagicMock(return_value=None)
@@ -419,26 +418,6 @@ class TestCoordinatorFacadeMethods:
         
         # Verify delegate was called
         coordinator.command_processor.process_command.assert_called_once_with("test", "arg1")
-        assert result == expected_result
-    
-    def test_execute_generate_facade(self, coordinator):
-        """Test that the execute_generate facade method delegates to CommandProcessor."""
-        # Set up return value
-        expected_result = "Generated code successfully"
-        coordinator.command_processor.execute_generate_command.return_value = expected_result
-        
-        # Define the function that will call the delegate
-        def delegate_to_command_processor():
-            return coordinator.command_processor.execute_generate_command("")
-        
-        # Replace the mock with our function that delegates to the delegate
-        coordinator.execute_generate.side_effect = delegate_to_command_processor
-        
-        # Call the method
-        result = coordinator.execute_generate()
-        
-        # Verify delegate was called
-        coordinator.command_processor.execute_generate_command.assert_called_once_with("")
         assert result == expected_result
     
     def test_execute_implementation_facade(self, coordinator):

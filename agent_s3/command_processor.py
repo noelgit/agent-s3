@@ -27,7 +27,6 @@ class CommandProcessor:
         self.command_map = {
             "init": self.execute_init_command,
             "plan": self.execute_plan_command,
-            "generate": self.execute_generate_command,
             "test": self.execute_test_command,
             "debug": self.execute_debug_command,
             "terminal": self.execute_terminal_command,
@@ -190,67 +189,6 @@ class CommandProcessor:
             if hasattr(self.coordinator, 'progress_tracker'):
                 self.coordinator.progress_tracker.update_progress({
                     "phase": "plan",
-                    "status": "failed",
-                    "error": str(e),
-                    "timestamp": datetime.now().isoformat()
-                })
-            
-            return error_msg
-    
-    def execute_generate_command(self, args: str) -> str:
-        """Execute the generate command to generate code from a plan.
-        
-        Args:
-            args: Optional arguments (unused, plan is read from plan.txt)
-            
-        Returns:
-            Command result message
-        """
-        plan_file = Path("plan.txt")
-        if not plan_file.exists():
-            return "plan.txt not found. Please run /plan first."
-        
-        try:
-            plan_text = plan_file.read_text(encoding="utf-8").strip()
-            if not plan_text:
-                return "plan.txt is empty. Please run /plan first."
-            
-            # Update progress tracking
-            if hasattr(self.coordinator, 'progress_tracker'):
-                self.coordinator.progress_tracker.update_progress({
-                    "phase": "generate",
-                    "status": "started",
-                    "timestamp": datetime.now().isoformat()
-                })
-            
-            self._log("Executing code generation from plan.txt...")
-            print("Executing code generation and workflow from plan.txt...")
-            
-            # Execute code generation
-            if hasattr(self.coordinator, 'execute_generate'):
-                self.coordinator.execute_generate()
-            elif hasattr(self.coordinator, 'process_change_request'):
-                self.coordinator.process_change_request(plan_text, skip_planning=True)
-            else:
-                return "Code generation functionality not available."
-            
-            # Update progress tracking
-            if hasattr(self.coordinator, 'progress_tracker'):
-                self.coordinator.progress_tracker.update_progress({
-                    "phase": "generate",
-                    "status": "completed",
-                    "timestamp": datetime.now().isoformat()
-                })
-            
-            return "Code generation completed."
-        except Exception as e:
-            error_msg = f"Code generation failed: {e}"
-            self._log(error_msg, level="error")
-            
-            # Update progress tracking with failure
-            if hasattr(self.coordinator, 'progress_tracker'):
-                self.coordinator.progress_tracker.update_progress({
-                    "phase": "generate",
                     "status": "failed",
                     "error": str(e),
                     "timestamp": datetime.now().isoformat()
@@ -742,7 +680,6 @@ class CommandProcessor:
             help_msgs = {
                 "init": "Initialize workspace with essential files (personas.md, guidelines, etc.)",
                 "plan": "Generate a development plan from a request description",
-                "generate": "Generate code from plan.txt",
                 "test": "Run all tests in the codebase",
                 "debug": "Debug last test failure",
                 "terminal": "Execute a terminal command",
@@ -771,7 +708,6 @@ class CommandProcessor:
             help_text = """Available commands:
 /init: Initialize workspace
 /plan <description>: Generate a development plan
-/generate: Generate code from plan.txt
 /test [filter]: Run tests (optional filter)
 /debug: Debug last test failure
 /terminal <command>: Execute terminal command
