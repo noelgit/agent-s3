@@ -13,10 +13,13 @@ import time
 import random
 from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime
-import os
 from pathlib import Path
-import warnings
 from collections import defaultdict
+from agent_s3.tools.implementation_validator import (
+    validate_implementation_plan,
+    repair_implementation_plan,
+    _calculate_implementation_metrics,
+)
 
 from agent_s3.json_utils import extract_json_from_text
 # Define functions previously imported from json_utils
@@ -294,7 +297,6 @@ def get_openrouter_params() -> Dict[str, Any]:
     }
 
 # Add import for implementation validator
-from agent_s3.tools.implementation_validator import validate_implementation_plan, repair_implementation_plan
 
 logger = logging.getLogger(__name__)
 
@@ -1057,14 +1059,6 @@ def generate_refined_test_specifications(
                         system_design[key].extend(value)
     
     # Prepare input data for the LLM
-    input_data = {
-        "task_description": task_description,
-        "test_requirements": test_requirements,
-        "system_design": system_design,
-        "architecture_review": architecture_review
-    }
-    
-    # Create the user prompt
     user_prompt = f"""Please refine and enhance the test specifications for the following feature based on the system design and architecture review.
 
 # Task Description
@@ -1182,7 +1176,6 @@ Please maintain the intent of the original test requirements while enriching the
             logger.error(f"Failed to parse JSON response: {e}")
             
             # Try to repair JSON structure using json_utils
-            from .json_utils import extract_json_from_text, repair_json_structure
             logger.info("Attempting to repair JSON structure")
             
             json_str = extract_json_from_text(response_text)
@@ -1552,6 +1545,145 @@ def _parse_and_validate_json(response_text: str, schema: Optional[Dict[str, Any]
 
 
     return data
+
+
+def validate_pre_planning_for_planner(pre_plan_data: Dict[str, Any]) -> Tuple[bool, str]:
+    """Validate that pre-planning output is compatible with the planner stage.
+
+    This mirrors :meth:`Planner.validate_pre_planning_for_planner` to keep a
+    symmetrical interface between pre-planner and planner modules.
+
+    Args:
+        pre_plan_data: Pre-planning data to validate.
+
+    Returns:
+        Tuple ``(is_compatible, message)`` describing compatibility.
+    """
+
+    compatibility_issues: List[str] = []
+
+    if not isinstance(pre_plan_data, dict):
+        return False, "Pre-planning data is not a dictionary"
+
+    feature_groups = pre_plan_data.get("feature_groups")
+    if not isinstance(feature_groups, list):
+        return False, "Pre-planning data missing feature_groups or it's not a list"
+
+    if not feature_groups:
+        return False, "No feature groups in pre-planning data"
+
+    for group_idx, group in enumerate(feature_groups):
+        if not isinstance(group, dict):
+            compatibility_issues.append(f"Feature group {group_idx} is not a dictionary")
+            continue
+
+        features = group.get("features")
+        if not isinstance(features, list) or not features:
+            compatibility_issues.append(f"Feature group {group_idx} has no valid features")
+            continue
+
+        for feature_idx, feature in enumerate(features):
+            if not isinstance(feature, dict):
+                compatibility_issues.append(
+                    f"Feature {feature_idx} in group {group_idx} is not a dictionary"
+                )
+                continue
+
+            system_design = feature.get("system_design")
+            if not isinstance(system_design, dict):
+                compatibility_issues.append(
+                    f"Feature {feature_idx} in group {group_idx} missing system_design object"
+                )
+                continue
+
+            code_elements = system_design.get("code_elements")
+            if not isinstance(code_elements, list) or not code_elements:
+                compatibility_issues.append(
+                    f"Feature {feature_idx} in group {group_idx} missing code_elements array"
+                )
+                continue
+
+            elements_missing_ids = 0
+            for elem_idx, element in enumerate(code_elements):
+                if not isinstance(element, dict):
+                    compatibility_issues.append(
+                        f"Code element {elem_idx} in feature {feature_idx}, group {group_idx} is not a dictionary"
+                    )
+                    continue
+
+                if not element.get("element_id"):
+                    elements_missing_ids += 1
+
+                required_fields = ["element_type", "name", "signature", "description", "target_file"]
+                missing_fields = [fld for fld in required_fields if fld not in element]
+                if missing_fields:
+                    compatibility_issues.append(
+                        f"Code element {elem_idx} in feature {feature_idx}, group {group_idx} missing fields: {', '.join(missing_fields)}"
+                    )
+
+            if elements_missing_ids > 0:
+                compatibility_issues.append(
+                    f"Feature {feature_idx} in group {group_idx} has {elements_missing_ids} code elements missing element_ids"
+                )
+
+            test_requirements = feature.get("test_requirements")
+            if isinstance(test_requirements, dict):
+                unit_tests = test_requirements.get("unit_tests")
+                if isinstance(unit_tests, list):
+                    tests_missing_ids = 0
+                    for test in unit_tests:
+                        if isinstance(test, dict):
+                            if test.get("target_element") and not test.get("target_element_id"):
+                                tests_missing_ids += 1
+                    if tests_missing_ids > 0:
+                        compatibility_issues.append(
+                            f"Feature {feature_idx} in group {group_idx} has {tests_missing_ids} unit tests missing target_element_id links"
+                        )
+
+    if compatibility_issues:
+        message = (
+            f"Pre-planning data has {len(compatibility_issues)} compatibility issues for planner phase: "
+            + "; ".join(compatibility_issues[:5])
+        )
+        if len(compatibility_issues) > 5:
+            message += f" and {len(compatibility_issues) - 5} more issues"
+        return False, message
+
+    return True, "Pre-planning data is compatible with planner phase"
+
+
+def regenerate_consolidated_plan_with_modifications(
+    router_agent,
+    consolidated_plan: Dict[str, Any],
+    modification_text: str,
+) -> Dict[str, Any]:
+    """Regenerate a consolidated plan applying user modifications.
+
+    Args:
+        router_agent: LLM router agent used for the call.
+        consolidated_plan: The current consolidated plan data.
+        modification_text: User-provided modification instructions.
+
+    Returns:
+        The regenerated consolidated plan as a dictionary.
+    """
+
+    system_prompt = get_consolidated_plan_system_prompt()
+    user_prompt = (
+        "Please update the following plan according to the given modifications.\n\n"
+        f"Current Plan:\n{json.dumps(consolidated_plan, indent=2)}\n\n"
+        f"Modifications:\n{modification_text.strip()}"
+    )
+    config = get_openrouter_params()
+
+    response_text = _call_llm_with_retry(
+        router_agent,
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        config=config,
+    )
+
+    return _parse_and_validate_json(response_text)
 
 
 # --- Implementation of Architecture Review ---
@@ -2476,19 +2608,6 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
             validate_time = time.time() - validate_start
             logger.info(f"Structure validation completed in {validate_time:.2f}s")
             
-            # Import validation tools with error handling
-            try:
-                from .tools.implementation_validator import (
-                    validate_implementation_plan, 
-                    repair_implementation_plan, 
-                    _validate_implementation_quality,
-                    _validate_implementation_security,
-                    _validate_implementation_test_alignment,
-                    _calculate_implementation_metrics
-                )
-            except ImportError as import_error:
-                logger.error(f"Failed to import validation tools: {import_error}")
-                raise JSONPlannerError(f"Implementation validation tools unavailable: {import_error}")
             
             # Comprehensive implementation plan validation
             validation_start = time.time()
@@ -2661,7 +2780,7 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                     # Add metrics improvement summary
                     if new_metrics["overall_score"] > metrics["overall_score"]:
                         improvement = (new_metrics["overall_score"] - metrics["overall_score"]) * 100
-                        repair_note += f"\n### Quality Improvement\n\n"
+                        repair_note += "\n### Quality Improvement\n\n"
                         repair_note += f"Overall quality score improved by {improvement:.1f}%.\n"
                         repair_note += f"- Element coverage: {metrics['element_coverage_score']:.2f} → {new_metrics['element_coverage_score']:.2f}\n"
                         repair_note += f"- Architecture issue addressal: {metrics['architecture_issue_addressal_score']:.2f} → {new_metrics['architecture_issue_addressal_score']:.2f}\n"
@@ -2714,7 +2833,7 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                             response_data["discussion"] = ""
                         
                         coherence_note = "\n\n## Semantic Coherence Validation Results\n\n"
-                        coherence_note += f"The implementation plan was validated for semantic coherence across architecture review, test implementation, and system design.\n\n"
+                        coherence_note += "The implementation plan was validated for semantic coherence across architecture review, test implementation, and system design.\n\n"
                         
                         # Add scores
                         coherence_note += "### Validation Scores\n\n"
@@ -2788,9 +2907,6 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
             # Enhanced JSON repair with more aggressive fallback mechanisms
             try:
                 logger.info("Attempting aggressive JSON structure repair")
-                
-                # Import required utilities
-                from .json_utils import extract_json_from_text, repair_json_structure
                 
                 # Define a more tolerant JSON extraction regex pattern
                 json_pattern = r'({[\s\S]*?})'
