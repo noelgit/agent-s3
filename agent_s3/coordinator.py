@@ -533,8 +533,12 @@ class Coordinator:
     
     # _execute_pre_planning_phase method removed as it's redundant with inline implementation in run_task
     
-    def _present_pre_planning_results_to_user(self, pre_planning_results: Dict[str, Any]) -> Tuple[str, Optional[Dict[str, Any]]]:
-        """Present the pre-planning results to the user and get their decision (yes/no/modify)."""
+    def _present_pre_planning_results_to_user(self, pre_planning_results: Dict[str, Any]) -> Tuple[str, Optional[str]]:
+        """Present the pre-planning results to the user and get their decision.
+
+        The second return value contains the modification text when the user
+        chooses to refine the plan, otherwise ``None``.
+        """
         # Use error context manager for consistent error handling
         with self.error_handler.error_context(
             phase="pre_planning",
@@ -550,7 +554,7 @@ class Coordinator:
             )
             if decision == "yes":
                 self.scratchpad.log("Coordinator", "User approved pre-planning results.")
-                return decision, pre_planning_results
+                return decision, None
             elif decision == "no":
                 self.scratchpad.log("Coordinator", "User rejected pre-planning results.")
                 return decision, None
