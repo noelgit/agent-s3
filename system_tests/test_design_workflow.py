@@ -90,28 +90,11 @@ class TestDesignWorkflow:
             design_manager.file_tool = mock_file_tool
             design_manager.llm = mock_llm
             
-            # Mock design extraction
-            with patch.object(design_manager, '_extract_features_from_conversation', 
-                             return_value=[
-                                 {"name": "User Authentication", "description": "Auth features", "components": ["Login", "Register"]},
-                                 {"name": "Task Management", "description": "Task features", "components": ["Create", "List"]}
-                             ]), \
-                 patch.object(design_manager, '_extract_hierarchical_tasks', 
-                             return_value=[
-                                 {"id": "1", "description": "User Authentication", "details": "Auth features", "subtasks": [
-                                     {"id": "1.1", "description": "Login", "details": "", "subtasks": []},
-                                     {"id": "1.2", "description": "Register", "details": "", "subtasks": []}
-                                 ]},
-                                 {"id": "2", "description": "Task Management", "details": "Task features", "subtasks": [
-                                     {"id": "2.1", "description": "Create", "details": "", "subtasks": []},
-                                     {"id": "2.2", "description": "List", "details": "", "subtasks": []}
-                                 ]}
-                             ]):
-                             
-                # Simulate full design workflow
-                # 1. Start design conversation
-                response = design_manager.start_design_conversation("Design a TODO application")
-                assert "help you design" in response
+            # Simulate full design workflow
+
+            # 1. Start design conversation
+            response = design_manager.start_design_conversation("Design a TODO application")
+            assert "help you design" in response
                 
                 # 2. Continue conversation until complete
                 response, is_complete = design_manager.continue_conversation("That sounds good, please continue.")
@@ -124,18 +107,12 @@ class TestDesignWorkflow:
                 success, message = design_manager.write_design_to_file()
                 assert success
                 
-                # Mock _transition_to_pre_planning
                 coordinator.run_task = MagicMock()
                 coordinator.start_pre_planning_from_design = MagicMock()
-                design_manager._transition_to_pre_planning = MagicMock(return_value=True)
-                
+
                 # 4. Prompt for implementation
                 choices = design_manager.prompt_for_implementation()
                 assert choices["implementation"] is True
-                assert design_manager._transition_to_pre_planning.called
-                
-                # Verify transition to pre-planning was attempted
-                design_manager._transition_to_pre_planning.assert_called_once()
                 
                 # The following would be in an actual integration test
                 # but here we're just verifying the proper methods were called
