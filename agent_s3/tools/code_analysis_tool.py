@@ -359,7 +359,12 @@ class CodeAnalysisTool:
         
         # If enhanced analysis is enabled and static analyzer is available,
         # enhance results with structural information
-        if self.use_enhanced_analysis and self.static_analyzer and results:
+        if (
+            self.use_enhanced_analysis
+            and self.static_analyzer
+            and hasattr(self.static_analyzer, "enhance_search_results")
+            and results
+        ):
             # Get the top files to use as structural query files
             query_files = [result["file_path"] for result in results[:3]]
             
@@ -401,9 +406,12 @@ class CodeAnalysisTool:
             
         # Use static analyzer to find structurally relevant files
         try:
-            results = self.static_analyzer.find_structurally_relevant_files(
-                query_files=paths
-            )
+            if hasattr(self.static_analyzer, "find_structurally_relevant_files"):
+                results = self.static_analyzer.find_structurally_relevant_files(
+                    query_files=paths
+                )
+            else:
+                results = []
             
             # Return top k results
             return results[:k]
@@ -423,7 +431,7 @@ class CodeAnalysisTool:
         Returns:
             Dictionary with different relevance scores
         """
-        if not self.static_analyzer:
+        if not self.static_analyzer or not hasattr(self.static_analyzer, "compute_multi_signal_relevance"):
             # Return simplified scores if static analyzer not available
             return {
                 'semantic': 0.0,
@@ -438,7 +446,7 @@ class CodeAnalysisTool:
             return self.static_analyzer.compute_multi_signal_relevance(
                 file_path=file_path,
                 query=query,
-                target_files=target_files
+                target_files=target_files,
             )
         except Exception as e:
             logger.error(f"Error computing multi-signal relevance: {e}")

@@ -453,9 +453,9 @@ class MemoryManager:
         try:
             from agent_s3.ast_tools.python_units import extract_units
             from agent_s3.ast_tools.summariser import summarise_unit, merge_summaries
-            # Detect language and instantiate prompt generator
+            # Detect language and use existing prompt generator
             language = self._detect_language(file_path)
-            prompt_generator = SummarizationPromptGenerator()
+            prompt_generator = self.prompt_generator
             # Extract units and summarize each unit with language and prompt generator
             units = extract_units(content, language=language)
             unit_summaries = []
@@ -488,8 +488,15 @@ class MemoryManager:
             return {"summary": "", "was_summarized": False, "validation": None}
         validator = SummaryValidator()
         refinement_manager = SummaryRefinementManager(self.router_agent)
-        # TODO: Replace with real chunking logic
-        chunks = [content]
+
+        # Chunk content by token count for hierarchical summarization
+        encoding = tiktoken.get_encoding("cl100k_base")
+        max_tokens = max_tokens or DEFAULT_CHUNK_SIZE
+        tokens = encoding.encode(content)
+        chunks = [
+            encoding.decode(tokens[i : i + max_tokens])
+            for i in range(0, len(tokens), max_tokens)
+        ]
         chunk_summaries = []
         for chunk in chunks:
             summary = self._generate_summary(chunk, language)
@@ -534,8 +541,8 @@ class MemoryManager:
         }
 
     def _generate_summary(self, content: str, language: str = None) -> str:
-        system_prompt = self._create_summary_system_prompt(language)
-        user_prompt = self._create_summary_user_prompt(content, language)
+        system_prompt = self.prompt_generator.create_system_prompt(language)
+        user_prompt = self.prompt_generator.create_user_prompt(content, language)
         return self.router_agent.call_llm_by_role(
             role="summarizer",
             system_prompt=system_prompt,

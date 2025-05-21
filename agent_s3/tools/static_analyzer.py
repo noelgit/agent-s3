@@ -23,6 +23,12 @@ class StaticAnalyzer:
         self.project_root = project_root or self._get_project_root()
         self.parser_registry = parser_registry or ParserRegistry()
         self.php_parser = None  # Deprecated
+        self.fusion_weights = {
+            'structural': 0.4,
+            'semantic': 0.3,
+            'lexical': 0.2,
+            'evolutionary': 0.1,
+        }
 
     def _get_project_root(self):
         if self.file_tool and hasattr(self.file_tool, 'workspace_root'):
@@ -460,5 +466,85 @@ class StaticAnalyzer:
             stdlib_modules=stdlib_modules
         )
         all_nodes = self._detect_framework_roles(all_nodes, all_edges, tech_stack)
-        
+
         return {'nodes': all_nodes, 'edges': all_edges}
+
+    def enhance_search_results(self, semantic_results: List[Dict[str, Any]], query_files: List[str]) -> List[Dict[str, Any]]:
+        """Augment semantic search results with structural relevance."""
+        if not semantic_results or not query_files:
+            return semantic_results
+
+        from collections import defaultdict
+
+        structural_counts = defaultdict(int)
+        for qpath in query_files:
+            analysis = self.analyze_file(qpath)
+            for edge in analysis.get('edges', []):
+                target = edge.get('target')
+                if target:
+                    t_path = target.split(':')[0]
+                    structural_counts[t_path] += 1
+
+        for res in semantic_results:
+            path = res.get('file_path')
+            res['structural_score'] = structural_counts.get(path, 0)
+
+        return sorted(semantic_results, key=lambda r: r.get('structural_score', 0), reverse=True)
+
+    def find_structurally_relevant_files(self, query_files: List[str]) -> List[Dict[str, Any]]:
+        """Return files structurally related to the query files."""
+        from collections import defaultdict
+
+        structural_counts = defaultdict(int)
+        for qpath in query_files:
+            analysis = self.analyze_file(qpath)
+            for edge in analysis.get('edges', []):
+                target = edge.get('target')
+                if target:
+                    t_path = target.split(':')[0]
+                    structural_counts[t_path] += 1
+
+        return [
+            {'file_path': path, 'score': count}
+            for path, count in sorted(structural_counts.items(), key=lambda x: x[1], reverse=True)
+        ]
+
+    def compute_multi_signal_relevance(
+        self,
+        file_path: str,
+        query: str | None = None,
+        target_files: List[str] | None = None,
+    ) -> Dict[str, float]:
+        """Combine multiple relevance signals for a file."""
+        structural = 0.0
+        if target_files:
+            analysis = self.analyze_file(file_path)
+            targets = {
+                edge.get('target').split(':')[0]
+                for edge in analysis.get('edges', [])
+                if edge.get('target')
+            }
+            structural = len(targets.intersection(set(target_files))) / max(len(target_files), 1)
+
+        lexical = 0.0
+        if query:
+            words = re.findall(r"\w+", query.lower())
+            lexical = sum(1 for w in words if w in file_path.lower()) / len(words) if words else 0.0
+
+        semantic = 0.0  # Placeholder for embedding relevance
+        evolutionary = 0.0  # Not implemented
+
+        combined = (
+            self.fusion_weights.get('structural', 0) * structural
+            + self.fusion_weights.get('semantic', 0) * semantic
+            + self.fusion_weights.get('lexical', 0) * lexical
+            + self.fusion_weights.get('evolutionary', 0) * evolutionary
+        )
+
+        return {
+            'structural': structural,
+            'semantic': semantic,
+            'lexical': lexical,
+            'evolutionary': evolutionary,
+            'combined': combined,
+        }
