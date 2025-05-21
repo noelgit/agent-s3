@@ -79,11 +79,13 @@ class TestPrePlanner:
         # Setup mock
         mock_workflow.return_value = (True, {"feature_groups": []})
         
-        # Call method
-        result = pre_planner.generate_pre_planning_data("Test task")
+        # Call method with custom attempts
+        result = pre_planner.generate_pre_planning_data("Test task", max_attempts=3)
         
         # Verify JSON enforcement was used
         mock_workflow.assert_called_once()
+        args, kwargs = mock_workflow.call_args
+        assert kwargs.get("max_attempts") == 3
         assert result["success"] is True
         assert "pre_planning_data" in result
         assert "complexity_assessment" in result

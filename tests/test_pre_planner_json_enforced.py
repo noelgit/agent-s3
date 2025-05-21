@@ -266,7 +266,7 @@ class TestPrePlannerJsonEnforced:
         mock_coordinator.get_current_timestamp.return_value = "2025-01-01T00:00:00"
         
         # Call the integration function
-        result = integrate_with_coordinator(mock_coordinator, task)
+        result = integrate_with_coordinator(mock_coordinator, task, max_attempts=4)
         
         # Verify results
         assert result["success"] is True
@@ -284,6 +284,7 @@ class TestPrePlannerJsonEnforced:
         args, kwargs = mock_workflow.call_args
         assert args[0] == mock_coordinator.router_agent
         assert args[1] == task
+        assert kwargs.get("max_attempts") == 4
 
     @patch('agent_s3.pre_planner_json_enforced.process_response')
     @patch('agent_s3.pre_planner_json_enforced.get_json_system_prompt')

@@ -35,7 +35,7 @@ def test_run_task_simple(monkeypatch):
     }
     monkeypatch.setattr(
         "agent_s3.pre_planner_json_enforced.pre_planning_workflow",
-        lambda router, task, context=None: (True, pre_plan_data),
+        lambda router, task, context=None, max_attempts=2: (True, pre_plan_data),
     )
     monkeypatch.setattr(
         "agent_s3.pre_planner_json_enforced.regenerate_pre_planning_with_modifications",
