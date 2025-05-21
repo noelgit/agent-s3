@@ -9,6 +9,7 @@ Description: Release notes for Agent-S3.
 ### Added
 - **Supabase-based remote LLM option** enabling prompts and responses to be stored remotely.
 - Dependency on the `supabase-py` client for interacting with Supabase.
+- Example script for uploading and downloading files with AWS S3.
 
 ### Environment Variables
 - `SUPABASE_URL` – base URL of the Supabase instance.
