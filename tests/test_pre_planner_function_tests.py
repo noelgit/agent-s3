@@ -205,6 +205,9 @@ def test_call_pre_planner_with_enforced_json(router_agent, mock_context):
     assert "original_request" in result
     assert "feature_groups" in result
     assert len(result["feature_groups"]) > 0
+    # Ensure context was included in the prompt
+    _, call_kwargs = router_agent.call_llm_by_role.call_args
+    assert "Context:" in call_kwargs.get("user_prompt", "")
 
 
 def test_regenerate_pre_planning_with_modifications(router_agent):
