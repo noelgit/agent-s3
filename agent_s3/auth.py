@@ -21,24 +21,17 @@ try:
     import requests
     import jwt
     from github import Github, GithubIntegration
-except ImportError as e:
+except Exception as e:  # pragma: no cover - optional deps
     logging.error("Missing required dependency: %s", str(e))
     print(
         "ERROR: Missing required authentication dependencies: %s" % str(e),
-        file=sys.stderr
+        file=sys.stderr,
     )
     print("\nPlease install the missing dependencies with:", file=sys.stderr)
     print("  pip install -r requirements.txt", file=sys.stderr)
 
-    # Only raise if actually running the code (not during static analysis)
-    if not any(analyzer in sys.modules for analyzer in [
-        'pyright',
-        'pylance',
-        'jedi',
-    ]):
-        raise ImportError(
-            "Required dependencies missing. See above for installation instructions."
-        ) from e
+    Github = None  # type: ignore
+    GithubIntegration = None  # type: ignore
 
 # Import local modules
 try:

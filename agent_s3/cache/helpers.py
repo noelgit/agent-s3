@@ -2,7 +2,15 @@
 Helpers for semantic cache read/write and vLLM KV reuse.
 """
 import time
-import torch
+try:
+    import torch
+    Tensor = torch.Tensor
+except Exception:  # pragma: no cover - torch optional for tests
+    torch = None
+    class Tensor:  # type: ignore
+        """Fallback tensor type used when torch is unavailable."""
+        def __init__(self, *_, **__):
+            self.nbytes = 0
 from gptcache import cache
 from .prefix import prefix_hash
 from .kv_store import kv_store
@@ -17,7 +25,7 @@ def read_cache(prompt: str, llm):
         return None  # must still call LLM
     return None
 
-def write_cache(prompt: str, answer: str, kv_tensor: torch.Tensor):
+def write_cache(prompt: str, answer: str, kv_tensor: Tensor):
     meta = {
         "prefix": prefix_hash(prompt),
         "hits": 1,

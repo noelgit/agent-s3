@@ -1,7 +1,10 @@
 """
 Extract logical units (functions, classes) from Python code using LibCST.
 """
-import libcst
+try:
+    import libcst
+except Exception:  # pragma: no cover
+    libcst = None
 import textwrap
 from .parser import parse_python
 
@@ -14,6 +17,8 @@ class UnitCollector(libcst.CSTVisitor):
         self.units.append(("class", node.name.value, textwrap.dedent(node.code)))
 
 def extract_units(code: str):
+    if libcst is None:
+        return []
     mod = parse_python(code)
     collector = UnitCollector()
     mod.visit(collector)

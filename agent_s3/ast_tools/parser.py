@@ -1,7 +1,10 @@
 """
 AST and CST parser wrappers for Python and JavaScript.
 """
-import libcst
+try:
+    import libcst
+except Exception:  # pragma: no cover - optional for minimal tests
+    libcst = None
 from tree_sitter import Parser
 import tree_sitter_javascript
 import tree_sitter_python
