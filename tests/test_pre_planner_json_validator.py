@@ -100,6 +100,16 @@ def no_tests_pre_plan_data(valid_pre_plan_data):
 
 
 @pytest.fixture
+def pre_plan_with_dangerous_step(valid_pre_plan_data):
+    """Valid plan structure with a dangerous implementation step."""
+    plan = copy.deepcopy(valid_pre_plan_data)
+    plan["feature_groups"][0]["features"][0]["implementation_steps"] = [
+        {"description": "remove files", "code": "rm -rf /tmp"}
+    ]
+    return plan
+
+
+@pytest.fixture
 def invalid_pre_plan_data():
     """Create an invalid pre-planning data structure for testing."""
     return {
@@ -277,6 +287,15 @@ class TestPrePlannerJsonValidator:
         assert is_valid is False
         assert any(
             "at least one test case" in err.get("message", "")
+            for err in results.get("critical", [])
+        )
+
+    def test_validate_pre_plan_detects_dangerous_step(self, pre_plan_with_dangerous_step):
+        """Ensure validation fails when a dangerous command is in a step."""
+        is_valid, results = validate_pre_plan(pre_plan_with_dangerous_step)
+        assert is_valid is False
+        assert any(
+            "dangerous operation" in err.get("message", "").lower()
             for err in results.get("critical", [])
         )
 
