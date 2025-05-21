@@ -565,7 +565,7 @@ def validate_schema(data: Dict[str, Any]) -> List[str]:
                                 errors.append(f"{tc_prefix} must be a {structure_def['item_type'].__name__}")
                                 continue
                             
-                            if structure_def["item_type"] == dict:
+                            if structure_def["item_type"] is dict:
                                 for field, expected_field_type in structure_def["fields"].items():
                                     if field not in test_case:
                                         errors.append(f"{tc_prefix} missing required field '{field}'")
@@ -957,22 +957,27 @@ def validate_reserved_prefixes(data: Dict[str, Any]) -> List[str]:
     env_vars_found_globally = set()
 
     for group_idx, group_data in enumerate(data.get("feature_groups", [])):
-        if not isinstance(group_data, dict): continue
+        if not isinstance(group_data, dict):
+            continue
         group_name = group_data.get("group_name", f"Group {group_idx}")
 
         for feature_idx, feature_data in enumerate(group_data.get("features", [])):
-            if not isinstance(feature_data, dict): continue
+            if not isinstance(feature_data, dict):
+                continue
             current_feature_name = feature_data.get("name", f"Feature {feature_idx}")
             feature_log_prefix = f"Feature '{current_feature_name}' in group '{group_name}'"
 
             system_design = feature_data.get("system_design")
-            if not isinstance(system_design, dict): continue
+            if not isinstance(system_design, dict):
+                continue
 
             code_elements = system_design.get("code_elements")
-            if not isinstance(code_elements, list): continue
+            if not isinstance(code_elements, list):
+                continue
 
             for el_idx, element in enumerate(code_elements):
-                if not isinstance(element, dict): continue
+                if not isinstance(element, dict):
+                    continue
 
                 signature_str = element.get("signature", "")
                 description_str = element.get("description", "")
@@ -988,10 +993,14 @@ def validate_reserved_prefixes(data: Dict[str, Any]) -> List[str]:
                         target_file = element.get("target_file", "")
                         lang_for_analysis = "python" # default
                         if isinstance(target_file, str) and target_file:
-                            if target_file.endswith((".js", ".jsx", ".mjs")): lang_for_analysis = "javascript"
-                            elif target_file.endswith((".ts", ".tsx")): lang_for_analysis = "typescript"
-                            elif target_file.endswith(".php"): lang_for_analysis = "php"
-                            elif target_file.endswith(".java"): lang_for_analysis = "java"
+                            if target_file.endswith((".js", ".jsx", ".mjs")):
+                                lang_for_analysis = "javascript"
+                            elif target_file.endswith((".ts", ".tsx")):
+                                lang_for_analysis = "typescript"
+                            elif target_file.endswith(".php"):
+                                lang_for_analysis = "php"
+                            elif target_file.endswith(".java"):
+                                lang_for_analysis = "java"
 
                         # Wrap signature to make it more parsable as a block if it's simple
                         content_to_analyze = signature_str
@@ -1106,11 +1115,16 @@ def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
                         implemented_code_signatures.add((step_file_path, target_element_name_in_step))
                     elif step_file_path and code_block:
                         lang = None
-                        if step_file_path.endswith(".py"): lang = "python"
-                        elif step_file_path.endswith(".js"): lang = "javascript"
-                        elif step_file_path.endswith(".ts"): lang = "typescript"
-                        elif step_file_path.endswith(".php"): lang = "php"
-                        elif step_file_path.endswith(".java"): lang = "java"
+                        if step_file_path.endswith(".py"):
+                            lang = "python"
+                        elif step_file_path.endswith(".js"):
+                            lang = "javascript"
+                        elif step_file_path.endswith(".ts"):
+                            lang = "typescript"
+                        elif step_file_path.endswith(".php"):
+                            lang = "php"
+                        elif step_file_path.endswith(".java"):
+                            lang = "java"
                         
                         try:
                             analysis_results = analyzer.analyze_code(code_block, lang=lang)

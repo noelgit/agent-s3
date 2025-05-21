@@ -78,7 +78,7 @@ class TechStackManager:
                 python_version = subprocess.check_output(["python", "--version"], 
                                                         stderr=subprocess.STDOUT).decode().strip()
                 self.tech_stack["versions"]["python"] = python_version.replace("Python ", "")
-            except:
+            except Exception:
                 pass
         
         # JavaScript/TypeScript
@@ -95,7 +95,7 @@ class TechStackManager:
                     dev_deps = package_data.get("devDependencies", {})
                     if "typescript" in dev_deps:
                         self.tech_stack["versions"]["typescript"] = dev_deps["typescript"].replace("^", "").replace("~", "")
-                except:
+                except Exception:
                     pass
         
         # Rust
@@ -109,7 +109,7 @@ class TechStackManager:
                             edition_match = re.search(r'edition\s*=\s*"(20\d\d)"', cargo_content)
                             if edition_match:
                                 self.tech_stack["versions"]["rust_edition"] = edition_match.group(1)
-                except:
+                except Exception:
                     pass
         
         # Go
@@ -122,7 +122,7 @@ class TechStackManager:
                         go_version_match = re.search(r'go\s+(\d+\.\d+)', go_mod)
                         if go_version_match:
                             self.tech_stack["versions"]["go"] = go_version_match.group(1)
-                except:
+                except Exception:
                     pass
         
         # Java
@@ -141,7 +141,7 @@ class TechStackManager:
                         if target_match:
                             self.tech_stack["versions"]["dotnet"] = target_match.group(1)
                             break
-                except:
+                except Exception:
                     continue
     
     def _detect_package_managers(self):
@@ -282,7 +282,7 @@ class TechStackManager:
                             pkg = json.load(f)
                             if "version" in pkg:
                                 self.tech_stack["versions"]["vscode-extension"] = pkg["version"]
-                    except:
+                    except Exception:
                         pass
     
     def _detect_frameworks_and_versions(self):
@@ -305,7 +305,7 @@ class TechStackManager:
                 import importlib.metadata
                 django_version = importlib.metadata.version("django")
                 self.tech_stack["versions"]["django"] = django_version
-            except:
+            except Exception:
                 pass
         
         # Flask

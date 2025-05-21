@@ -1,3 +1,12 @@
+import logging
+import json
+import re
+from typing import Dict, List, Any, Optional, Union, TypeVar, Type, Callable
+from pydantic import BaseModel, Field, ValidationError
+
+logger = logging.getLogger(__name__)
+
+
 def get_json_system_prompt() -> str:
     """
     Get the system prompt that enforces JSON output format.
@@ -123,10 +132,6 @@ Only use information from the user request, provided instructions, and system me
 This module defines Pydantic models for validating LLM responses and provides
 utility functions for robust parsing and validation of LLM responses.
 """
-
-import logging
-import json
-import re
 from typing import Dict, List, Any, Optional, Union, TypeVar, Type, Generic, Callable
 from pydantic import BaseModel, Field, ValidationError
 

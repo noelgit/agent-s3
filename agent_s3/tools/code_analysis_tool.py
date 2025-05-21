@@ -12,23 +12,18 @@ import time
 import logging
 import traceback
 import hashlib
+import importlib.util
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple, Union, Set
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 import numpy as np
 import toml  # Added for pyproject.toml parsing
 
-# Try to import faiss, but provide graceful degradation if not available
-try:
-    import faiss
-    FAISS_AVAILABLE = True
-except ImportError:
-    FAISS_AVAILABLE = False
-    print("FAISS not available - using numpy-based vector search instead")
-
 from rank_bm25 import BM25Okapi  # Ensure dependency is present, import will fail otherwise
-
 from agent_s3.tools.embedding_client import EmbeddingClient
 from agent_s3.tools.parsing.parser_registry import ParserRegistry
+
+# Check if faiss is available without importing it to avoid optional dependency issues
+FAISS_AVAILABLE = importlib.util.find_spec("faiss") is not None
 
 # Import StaticAnalyzer for structural analysis if possible
 try:

@@ -616,7 +616,8 @@ class TestCritic:
             for regression_desc in potential_regressions_risk:
                 found_regression_keyword = False
                 reg_keywords = set(re.findall(r'\b\w{4,}\b', regression_desc.lower())) # Keywords from regression desc
-                if not reg_keywords: continue
+                if not reg_keywords:
+                    continue
 
                 for test_cat_list in tests_plan.values():
                     if isinstance(test_cat_list, list):
@@ -627,7 +628,8 @@ class TestCritic:
                                 if any(rk in test_text for rk in reg_keywords):
                                     found_regression_keyword = True
                                     break
-                        if found_regression_keyword: break
+                        if found_regression_keyword:
+                            break
                 if not found_regression_keyword:
                     issue_desc = f"Planned tests do not seem to explicitly mention keywords related to potential regression: '{regression_desc[:50]}...'"
                     all_issues.append({"severity": "major", "description": issue_desc})

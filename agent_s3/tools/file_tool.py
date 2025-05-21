@@ -221,7 +221,7 @@ class FileTool:
         if os.path.exists(file_path):
             try:
                 current_size = os.path.getsize(file_path)
-            except:
+            except OSError:
                 current_size = 0
                 
             content_size = len(content.encode('utf-8'))

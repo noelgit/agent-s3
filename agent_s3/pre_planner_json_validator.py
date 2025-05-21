@@ -130,9 +130,9 @@ class PrePlannerJsonValidator:
         
         # Check for required top-level fields
         required_fields = ["original_request", "feature_groups"]
-        for field in required_fields:
-            if field not in data:
-                errors.append(f"Missing required top-level field: '{field}'")
+        for field_name in required_fields:
+            if field_name not in data:
+                errors.append(f"Missing required top-level field: '{field_name}'")
         
         # Validate feature_groups
         if "feature_groups" in data:
@@ -159,9 +159,11 @@ class PrePlannerJsonValidator:
         
         # Check for required fields in feature group
         required_fields = ["group_name", "group_description", "features"]
-        for field in required_fields:
-            if field not in group:
-                errors.append(f"Feature group at index {index} missing required field: '{field}'")
+        for field_name in required_fields:
+            if field_name not in group:
+                errors.append(
+                    f"Feature group at index {index} missing required field: '{field_name}'"
+                )
         
         # Validate features array
         if "features" in group:
@@ -185,11 +187,20 @@ class PrePlannerJsonValidator:
             return [f"Feature at index {feature_index} in feature group at index {group_index} is not a dictionary"]
         
         # Check for required fields in feature
-        required_fields = ["name", "description", "files_affected", "test_requirements", 
-                          "dependencies", "risk_assessment", "system_design"]
-        for field in required_fields:
-            if field not in feature:
-                errors.append(f"Feature '{feature.get('name', f'at index {feature_index}')}' missing required field: '{field}'")
+        required_fields = [
+            "name",
+            "description",
+            "files_affected",
+            "test_requirements",
+            "dependencies",
+            "risk_assessment",
+            "system_design",
+        ]
+        for field_name in required_fields:
+            if field_name not in feature:
+                errors.append(
+                    f"Feature '{feature.get('name', f'at index {feature_index}')}' missing required field: '{field_name}'"
+                )
         
         # Validate complexity_level if present
         if "complexity_level" in feature:
@@ -358,13 +369,13 @@ class PrePlannerJsonValidator:
                         )
                 
                 # Scan for dangerous commands
-                for field in ["description", "name"]:
-                    if field in feature:
-                        content = feature[field]
+                for field_name in ["description", "name"]:
+                    if field_name in feature:
+                        content = feature[field_name]
                         for cmd in blacklisted_commands:
                             if cmd in content:
                                 errors.append(
-                                    f"Feature '{feature.get('name', 'unknown')}' contains potentially dangerous operation '{cmd}' in {field}"
+                                    f"Feature '{feature.get('name', 'unknown')}' contains potentially dangerous operation '{cmd}' in {field_name}"
                                 )
                 
                 # Check implementation steps if present
@@ -374,9 +385,9 @@ class PrePlannerJsonValidator:
                             continue
                             
                         # Check for dangerous operations in implementation steps
-                        for field in ["description", "code"]:
-                            if field in step:
-                                content = step[field]
+                        for field_name in ["description", "code"]:
+                            if field_name in step:
+                                content = step[field_name]
                                 for cmd in blacklisted_commands:
                                     if cmd in content:
                                         errors.append(

@@ -1013,7 +1013,7 @@ class ErrorContextManager:
         try:
             urllib.request.urlopen("http://example.com", timeout=5)
             status["http_access"] = True
-        except:
+        except Exception:
             # Keep http_access as False
             pass
             
@@ -1021,7 +1021,7 @@ class ErrorContextManager:
         try:
             urllib.request.urlopen("https://example.com", timeout=5)
             status["https_access"] = True
-        except:
+        except Exception:
             # Keep https_access as False
             pass
             
