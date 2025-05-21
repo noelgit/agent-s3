@@ -111,3 +111,14 @@ When working with the pre-planning phase:
 the context is serialized to JSON and appended to the user prompt before calling
 the language model. This enables the pre-planner to consider project specifics
 such as the tech stack or current project structure during analysis.
+
+## Pre-Planning Mode
+
+The `pre_planning_mode` configuration sets how the pre-planning workflow runs. Valid values are:
+
+- `off` – skip the pre-planning phase entirely.
+- `json` – execute `pre_planning_workflow` without strict schema enforcement.
+- `enforced_json` – run `call_pre_planner_with_enforced_json` with full validation (default).
+
+This option replaces the older `use_json_pre_planning` and `use_enforced_json_pre_planning` flags.
+Set `pre_planning_mode` to the desired value in your configuration to control the behavior.
