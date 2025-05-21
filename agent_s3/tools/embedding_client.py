@@ -78,9 +78,11 @@ class EmbeddingClient:
                 with open(self.metadata_path, 'rb') as mf:
                     sig = mf.read(2)
                 if sig == b"\x1f\x8b":
-                    meta_open = gzip.open; mode = 'rt'
+                    meta_open = gzip.open
+                    mode = "rt"
                 else:
-                    meta_open = open;   mode = 'r'
+                    meta_open = open
+                    mode = "r"
                 with meta_open(self.metadata_path, mode, encoding='utf-8') as f:
                     metadata_state = json.load(f)
                 # Integrity check if checksum provided
@@ -463,7 +465,6 @@ class EmbeddingClient:
         try:
             # If an alternative embedding method is available, use it here
             # For example, using OpenAI embeddings API directly
-            from agent_s3 import config as app_config
             from agent_s3.llm_utils import get_embedding
             
             # Get embedding using the default method

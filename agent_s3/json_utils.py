@@ -227,17 +227,17 @@ def repair_json_structure(
         default_generators = {}
 
     def _default_for_type(typ: Any) -> Any:
-        if typ == str:
+        if typ is str:
             return ""
-        if typ == int:
+        if typ is int:
             return 0
-        if typ == float:
+        if typ is float:
             return 0.0
-        if typ == bool:
+        if typ is bool:
             return False
-        if typ == list:
+        if typ is list:
             return []
-        if typ == dict:
+        if typ is dict:
             return {}
         return None
 

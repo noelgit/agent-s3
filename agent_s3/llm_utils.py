@@ -41,11 +41,11 @@ FALLBACK_PROMPT_TEMPLATE = "Previous attempt failed. Please re-evaluate the requ
                           "Original request summary: {prompt_summary}"
 
 # Initialize GPTCache if available
-if cache:
-    cache.init()
-
 from agent_s3.cache.helpers import read_cache, write_cache
 from agent_s3.progress_tracker import progress_tracker
+
+if cache:
+    cache.init()
 
 
 def call_llm_via_supabase(prompt: str, github_token: str, config: Dict[str, Any], timeout: Optional[float] = None) -> str:
