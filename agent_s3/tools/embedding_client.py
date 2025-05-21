@@ -146,6 +146,10 @@ class EmbeddingClient:
         except (OSError, TypeError) as e:
             logger.error(f"Error saving metadata map to {self.metadata_path}: {e}")
 
+    def save_state(self) -> None:
+        """Public wrapper to persist embedding state to disk."""
+        self._save_state()
+
     def evict_embeddings(self, eviction_count=None):
         """
         Evict embeddings using the progressive embedding eviction strategy.

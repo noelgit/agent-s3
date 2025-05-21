@@ -183,6 +183,10 @@ class MemoryManager:
         except (OSError, TypeError) as e:
             logger.error(f"Error saving memory state to {self.memory_state_path}: {e}")
 
+    def save_state(self) -> None:
+        """Public wrapper to persist memory state to disk."""
+        self._save_memory()
+
     def _load_embedding_access_log(self):
         """Load embedding access log from disk."""
         if self.access_log_path.exists():

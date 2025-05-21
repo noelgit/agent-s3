@@ -51,10 +51,12 @@ from agent_s3.tools.env_tool import EnvTool
 from agent_s3.tools.error_context_manager import ErrorContextManager
 from agent_s3.tools.file_tool import FileTool
 from agent_s3.tools.git_tool import GitTool
+from agent_s3.terminal_executor import TerminalExecutor
 from agent_s3.tools.memory_manager import MemoryManager
 from agent_s3.tools.test_critic import TestCritic
 from agent_s3.tools.test_frameworks import TestFrameworks
 from agent_s3.tools.test_runner_tool import TestRunnerTool
+from agent_s3.workflows import PlanningWorkflow, ImplementationWorkflow
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -153,9 +155,16 @@ class Coordinator:
         self.router_agent = RouterAgent(config=self.config)
         self.llm = self.router_agent
 
+        # Initialize bash and related tools first so git can reuse the executor
+        self.bash_tool = BashTool(
+            sandbox=self.config.config.get("sandbox_environment", False),
+            host_os_type=self.config.host_os_type
+        )
+        self.bash_tool.executor = TerminalExecutor(self.config)
+
         # Initialize file and git tools
         file_tool = FileTool()
-        git_tool = GitTool(self.config.github_token)
+        git_tool = GitTool(self.config.github_token, terminal_executor=self.bash_tool.executor)
 
         # Initialize context management
         self.context_registry = ContextRegistry()
@@ -169,7 +178,7 @@ class Coordinator:
         )
 
         # Initialize tech stack detection
-        tech_stack_detector = TechStackDetector(
+        self.tech_stack_detector = TechStackDetector(
             config=self.config,
             file_tool=file_tool,
             scratchpad=self.scratchpad
@@ -184,7 +193,7 @@ class Coordinator:
 
         # Set up context manager tools
         self.context_manager.initialize_tools(
-            tech_stack_detector=tech_stack_detector,
+            tech_stack_detector=self.tech_stack_detector,
             code_analysis_tool=code_analysis_tool,
             file_history_analyzer=self.file_history_analyzer,
             file_tool=file_tool
@@ -218,12 +227,6 @@ class Coordinator:
 
     def _initialize_additional_tools(self, file_tool: FileTool) -> None:
         """Initialize additional tools that depend on core tools."""
-        # Initialize bash and related tools
-        self.bash_tool = BashTool(
-            sandbox=self.config.config.get("sandbox_environment", False),
-            host_os_type=self.config.host_os_type
-        )
-        
         # Database, environment, and AST tools
         self.database_tool = DatabaseTool(config=self.config, bash_tool=self.bash_tool)
         self.env_tool = EnvTool(self.bash_tool)
@@ -246,12 +249,7 @@ class Coordinator:
 
     def _initialize_specialized_components(self) -> None:
         """Initialize specialized components using the tools."""
-        # Tech stack detection
-        self.tech_stack_detector = TechStackDetector(
-            config=self.config,
-            file_tool=self.coordinator_config.get_tool('file_tool'),
-            scratchpad=self.scratchpad
-        )
+        # Detect tech stack using existing detector
         self.tech_stack = self.tech_stack_detector.detect_tech_stack()
 
         # Initialize workspace
@@ -290,6 +288,10 @@ class Coordinator:
 
         self.code_generator = CodeGenerator(coordinator=self)
         self.prompt_moderator = PromptModerator(self)
+
+        # Workflow pipelines
+        self.planning_workflow = PlanningWorkflow(self)
+        self.implementation_workflow = ImplementationWorkflow(self)
 
         # Update workspace initializer with prompt moderator
         if hasattr(self, 'workspace_initializer'):
@@ -380,12 +382,12 @@ class Coordinator:
                     self.scratchpad.log("Coordinator", f"Error stopping context management: {e}", level=LogLevel.ERROR)
             
             # Save memory manager state
-            if hasattr(self, 'memory_manager') and self.memory_manager and hasattr(self.memory_manager, '_save_memory'):
-                self.memory_manager._save_memory()
-            
+            if hasattr(self, 'memory_manager') and self.memory_manager and hasattr(self.memory_manager, 'save_state'):
+                self.memory_manager.save_state()
+
             # Save embedding client state
-            if hasattr(self, 'embedding_client') and self.embedding_client and hasattr(self.embedding_client, '_save_state'):
-                self.embedding_client._save_state()   
+            if hasattr(self, 'embedding_client') and self.embedding_client and hasattr(self.embedding_client, 'save_state'):
+                self.embedding_client.save_state()
             # Close enhanced scratchpad
             if hasattr(self, 'scratchpad') and hasattr(self.scratchpad, 'close'):
                 self.scratchpad.close()
@@ -773,10 +775,12 @@ class Coordinator:
             inputs={"request_text": task},
         ):
             try:
-                plans = self._planning_workflow(task, pre_planning_input)
+                plans = self.planning_workflow.execute(task, pre_planning_input)
                 if not plans:
                     return
-                self._implementation_workflow(plans)
+                all_changes, overall_success = self.implementation_workflow.execute(plans)
+                if overall_success:
+                    self._finalize_task(all_changes)
             except Exception as exc:  # pragma: no cover - safety net
                 self.error_handler.handle_exception(
                     exc=exc,
@@ -842,16 +846,26 @@ class Coordinator:
     def _implementation_workflow(self, plans: List[Dict[str, Any]]) -> Tuple[Dict[str, str], bool]:
         """Run the implementation workflow for approved plans."""
         all_changes: Dict[str, str] = {}
+        git_tool = self.coordinator_config.get_tool('git_tool')
         for plan in plans:
+            stash_created = False
+            if git_tool:
+                rc, _ = git_tool.run_git_command("stash push --keep-index --include-untracked -m 'agent-s3-temp'")
+                stash_created = rc == 0
             changes = self.code_generator.generate_code(plan, tech_stack=self.tech_stack)
             if not self._apply_changes_and_manage_dependencies(changes):
+                if stash_created and git_tool:
+                    git_tool.run_git_command("stash pop --index")
                 continue
             validation = self._run_validation_phase()
             if validation.get("success"):
                 all_changes.update(changes)
-                self._finalize_task(changes)
+                if stash_created and git_tool:
+                    git_tool.run_git_command("stash drop")
                 return all_changes, True
             self.debugging_manager.handle_error(plan=plan, validation_output=validation)
+            if stash_created and git_tool:
+                git_tool.run_git_command("stash pop --index")
         return all_changes, False
 
     # ------------------------------------------------------------------
