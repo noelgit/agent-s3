@@ -4,11 +4,10 @@ This module defines the message protocol used for communication between
 the Agent-S3 backend and the VS Code extension's WebView UI.
 """
 
-import json
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Dict, Any, Optional, List, Union, Callable, Type, Set
+from typing import Dict, Any, Optional, List, Union, Callable, Set
 import logging
 import jsonschema
 from jsonschema import validate

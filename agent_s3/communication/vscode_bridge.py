@@ -1,13 +1,11 @@
 """Simplified VS Code bridge used for unit tests."""
 from __future__ import annotations
 
-import json
 import logging
 import queue
 import threading
 import time
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from .message_protocol import Message, MessageBus, MessageType
 
