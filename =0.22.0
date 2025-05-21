@@ -1,0 +1,6 @@
+Collecting tree-sitter
+  Downloading tree_sitter-0.24.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (9.8 kB)
+Downloading tree_sitter-0.24.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (575 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 575.6/575.6 kB 9.1 MB/s eta 0:00:00
+Installing collected packages: tree-sitter
+Successfully installed tree-sitter-0.24.0

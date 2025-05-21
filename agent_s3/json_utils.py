@@ -8,7 +8,7 @@ eliminating duplication in pre_planner, planner, and other components.
 import json
 import re
 import logging
-from typing import Dict, Any, Optional, List, Tuple, Union, Callable
+from typing import Dict, Any, Optional, List, Tuple, Callable
 
 logger = logging.getLogger(__name__)
 

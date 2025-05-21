@@ -1,0 +1,16 @@
+Collecting requests
+  Using cached requests-2.32.3-py3-none-any.whl.metadata (4.6 kB)
+Collecting charset-normalizer<4,>=2 (from requests)
+  Downloading charset_normalizer-3.4.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (35 kB)
+Requirement already satisfied: idna<4,>=2.5 in /root/.pyenv/versions/3.11.12/lib/python3.11/site-packages (from requests) (3.10)
+Collecting urllib3<3,>=1.21.1 (from requests)
+  Using cached urllib3-2.4.0-py3-none-any.whl.metadata (6.5 kB)
+Collecting certifi>=2017.4.17 (from requests)
+  Using cached certifi-2025.4.26-py3-none-any.whl.metadata (2.5 kB)
+Using cached requests-2.32.3-py3-none-any.whl (64 kB)
+Downloading charset_normalizer-3.4.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (147 kB)
+Using cached urllib3-2.4.0-py3-none-any.whl (128 kB)
+Using cached certifi-2025.4.26-py3-none-any.whl (159 kB)
+Installing collected packages: urllib3, charset-normalizer, certifi, requests
+
+Successfully installed certifi-2025.4.26 charset-normalizer-3.4.2 requests-2.32.3 urllib3-2.4.0
