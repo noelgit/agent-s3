@@ -836,7 +836,13 @@ class Coordinator:
                 continue
             decision, modification = self.feature_group_processor.present_consolidated_plan_to_user(consolidated_plan)
             if decision == "modify":
-                consolidated_plan = self.feature_group_processor.update_plan_with_modifications(consolidated_plan, modification)
+                original_plan = json.loads(json.dumps(consolidated_plan))
+                consolidated_plan = self.feature_group_processor.update_plan_with_modifications(
+                    consolidated_plan, modification
+                )
+                decision, _ = self.feature_group_processor.present_consolidated_plan_to_user(
+                    consolidated_plan, original_plan
+                )
             if decision == "yes":
                 plans.append(consolidated_plan)
 
