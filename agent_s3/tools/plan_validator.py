@@ -270,6 +270,23 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
             if "test_requirements" in feature and isinstance(feature["test_requirements"], dict):
                 # Mark tests section as present
                 validation_results["sections"]["tests"] = True
+
+                # Ensure at least one test case exists across all test types
+                test_req = feature["test_requirements"]
+                total_tests = 0
+                for tests in test_req.values():
+                    if isinstance(tests, list):
+                        total_tests += len(tests)
+
+                if total_tests == 0:
+                    validation_results["critical"].append({
+                        "message": (
+                            f"Feature '{feature.get('name', f'at index {feature_idx}')}' "
+                            "must include at least one test case in 'test_requirements'"
+                        ),
+                        "category": "tests",
+                        "suggestion": "Add unit, integration, property-based, or acceptance tests"
+                    })
             
             # Check implementation steps if present
             if "implementation_steps" in feature and isinstance(feature["implementation_steps"], list):

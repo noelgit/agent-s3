@@ -8,6 +8,9 @@ import json
 import pytest
 from unittest.mock import MagicMock, patch
 from typing import Dict, Any, List
+import copy
+
+from agent_s3.tools.plan_validator import validate_pre_plan
 
 from agent_s3.pre_planner_json_validator import (
     PrePlannerJsonValidator,
@@ -81,6 +84,19 @@ def valid_pre_plan_data():
             }
         ]
     }
+
+
+@pytest.fixture
+def no_tests_pre_plan_data(valid_pre_plan_data):
+    """Valid plan structure but with empty test_requirements."""
+    plan = copy.deepcopy(valid_pre_plan_data)
+    plan["feature_groups"][0]["features"][0]["test_requirements"] = {
+        "unit_tests": [],
+        "integration_tests": [],
+        "property_based_tests": [],
+        "acceptance_tests": []
+    }
+    return plan
 
 
 @pytest.fixture
@@ -254,6 +270,21 @@ class TestPrePlannerJsonValidator:
         # Check that metrics were updated
         assert validator.validation_metrics["issues_per_plan"] > 0
         assert len(validator.validation_metrics["common_failure_patterns"]) > 0
+
+    def test_validate_pre_plan_fails_without_tests(self, no_tests_pre_plan_data):
+        """Ensure validation fails when a feature lacks all tests."""
+        is_valid, results = validate_pre_plan(no_tests_pre_plan_data)
+        assert is_valid is False
+        assert any(
+            "at least one test case" in err.get("message", "")
+            for err in results.get("critical", [])
+        )
+
+    def test_validate_pre_plan_passes_with_tests(self, valid_pre_plan_data):
+        """Ensure validation passes when tests are present."""
+        is_valid, results = validate_pre_plan(valid_pre_plan_data)
+        assert is_valid is True
+        assert results.get("summary", {}).get("critical_count", 0) == 0
 
 
 if __name__ == "__main__":
