@@ -7,7 +7,9 @@ import logging
 import logging.handlers
 from datetime import datetime, timezone
 from enum import Enum, auto
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
+
+from agent_s3.config import Config
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -256,8 +258,6 @@ class ProgressTracker:
         ]
 
 # Create a default global progress_tracker instance
-from agent_s3.config import Config
-
 _default_config = Config()
 try:
     _default_config.load()

@@ -16,11 +16,11 @@ def init_semantic_cache():
         cache_cfg = config.get('semantic_cache', {})
         if not cache_cfg.get('enabled', True):
             return  # Skip if disabled
-        lambda_decay = cache_cfg.get('lambda_decay', 0.001)
-        prefix_tokens = cache_cfg.get('prefix_tokens', 50)
+        _ = cache_cfg.get('lambda_decay', 0.001)
+        _ = cache_cfg.get('prefix_tokens', 50)
     except Exception:
-        lambda_decay = 0.001
-        prefix_tokens = 50
+        _ = 0.001
+        _ = 50
     # Register custom GDSF policy (import triggers registration)
     from .gdsf import PrefixGDSF  # noqa: F401
     cache.init(

@@ -2,6 +2,8 @@
 
 from typing import Any, Dict, List
 
+from agent_s3.coordinator import Coordinator
+
 
 class PlanningWorkflow:
     """Handle pre-planning, validation and plan consolidation for a task."""

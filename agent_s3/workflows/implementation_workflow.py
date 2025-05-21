@@ -2,6 +2,8 @@
 
 from typing import Any, Dict, Tuple, List
 
+from agent_s3.coordinator import Coordinator
+
 
 class ImplementationWorkflow:
     """Execute code generation, validation and debugging for approved plans."""
