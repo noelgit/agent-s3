@@ -14,16 +14,13 @@ Key responsibilities:
 
 import json
 import logging
-import re
-import time # Added for potential delays in retry
-from typing import Dict, Any, Optional, Tuple, List, Union
+import time
+from typing import Dict, Any, List, Optional, Tuple, Union
 
 from agent_s3.progress_tracker import progress_tracker
 
-from agent_s3.pre_planning_errors import (
-    AgentS3BaseError, PrePlanningError, ValidationError, SchemaError,
-    ComplexityError, RepairError, handle_pre_planning_errors
-)
+from agent_s3.pre_planning_errors import PrePlanningError
+from agent_s3.pre_planning_validator import PrePlanningValidator
 
 from agent_s3.json_utils import (
     extract_json_from_text,
@@ -643,7 +640,7 @@ def process_response(response: str, original_request: str) -> Tuple[Union[bool, 
                 return True, repaired
             else:
                 return False, repaired
-        except Exception as repair_e:
+        except Exception:
             return False, data
 
 def ensure_element_id_consistency(pre_planning_data: Dict[str, Any]) -> Dict[str, Any]:
