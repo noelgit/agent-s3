@@ -875,30 +875,41 @@ class Coordinator:
         """Run the implementation workflow for approved plans."""
         all_changes: Dict[str, str] = {}
         git_tool = self.coordinator_config.get_tool('git_tool')
+        overall_success = False
         for plan in plans:
             stash_created = False
             if git_tool:
-                rc, _ = git_tool.run_git_command("stash push --keep-index --include-untracked -m 'agent-s3-temp'")
+                rc, _ = git_tool.run_git_command(
+                    "stash push --keep-index --include-untracked -m 'agent-s3-temp'"
+                )
                 stash_created = rc == 0
+
             changes = self.code_generator.generate_code(plan, tech_stack=self.tech_stack)
+
             if not self._apply_changes_and_manage_dependencies(changes):
                 if stash_created and git_tool:
                     git_tool.run_git_command("stash pop --index")
                 continue
+
             validation = self._run_validation_phase()
+
             if validation.get("success"):
                 all_changes.update(changes)
+                overall_success = True
                 if stash_created and git_tool:
                     git_tool.run_git_command("stash drop")
-                return all_changes, True
+                continue
+
             self.debugging_manager.handle_error(
                 error_message=f"Validation step '{validation.get('step')}' failed",
                 traceback_text=validation.get("output", ""),
-                metadata={"plan": plan, "validation_step": validation.get("step")}
+                metadata={"plan": plan, "validation_step": validation.get("step")},
             )
+
             if stash_created and git_tool:
                 git_tool.run_git_command("stash pop --index")
-        return all_changes, False
+
+        return all_changes, overall_success
 
     # ------------------------------------------------------------------
     # Supporting helpers (simplified implementations)
