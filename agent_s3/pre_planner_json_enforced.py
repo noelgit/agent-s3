@@ -537,18 +537,18 @@ def pre_planning_workflow(
     create_fallback_json(task_description)
     raise JSONValidationError("Failed to generate valid pre-planning data")
 
-def process_response(response: str, original_request: str) -> Tuple[str, Dict[str, Any], Optional[str]]:
-    """
-    Process and validate the LLM response.
+def process_response(response: str, original_request: str) -> Tuple[Union[bool, str], Dict[str, Any]]:
+    """Validate and interpret an LLM response.
 
     Args:
-        response: The LLM response text
-        original_request: The original request text
+        response: The raw response from the LLM.
+        original_request: The user's initial request used for context.
 
     Returns:
-        Tuple of (success, data):
-            - success: True if processing was successful, False otherwise
-            - data: parsed JSON data (if any)
+        Tuple of ``(status, data)`` where ``status`` is ``True`` when the
+        response is valid JSON, ``False`` when validation fails, or the string
+        ``"question"``/``"error"`` for special cases. ``data`` contains the
+        parsed JSON or an empty dictionary on failure.
     """
     data = None
     error_message = None
