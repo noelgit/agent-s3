@@ -320,7 +320,7 @@ FEATURE_IMPLEMENTATION_RESPONSES = {
                 target_metadata = Base.metadata
 
                 def run_migrations():
-                    """Run migrations in 'online' mode."""
+                    '''Run migrations in 'online' mode.'''
                     connectable = engine_from_config(
                         config.get_section(config.config_ini_section),
                         prefix="sqlalchemy.",
@@ -370,7 +370,7 @@ REFACTORING_RESPONSES = {
         },
         "code_generation": {
             "code": {
-                "utils/common.py": """
+                "utils/common.py": '''
                 import re
                 import json
                 import hashlib
@@ -397,8 +397,8 @@ REFACTORING_RESPONSES = {
                             return default
                     
                     return result
-                """,
-                "exceptions.py": """
+                ''',
+                "exceptions.py": '''
                 class AppException(Exception):
                     """Base exception class for application errors."""
                     
@@ -442,8 +442,8 @@ REFACTORING_RESPONSES = {
                             message = f"{resource_type} with ID {resource_id} not found"
                         status_code = 404
                         super().__init__(message, status_code)
-                """,
-                "logger.py": """
+                ''',
+                "logger.py": '''
                 import logging
                 import sys
                 import os
@@ -481,7 +481,7 @@ REFACTORING_RESPONSES = {
                     logger.addHandler(file_handler)
                     
                     return logger
-                """
+                '''
             }
         }
     },
@@ -514,7 +514,7 @@ REFACTORING_RESPONSES = {
         },
         "code_generation": {
             "code": {
-                "cache/manager.py": """
+                "cache/manager.py": '''
                 import json
                 import time
                 from typing import Any, Dict, Optional, Tuple, Callable
@@ -593,7 +593,7 @@ REFACTORING_RESPONSES = {
 
                 # Create global cache instance
                 cache = CacheManager()
-                """
+                '''
             }
         }
     }
@@ -626,7 +626,7 @@ DEBUGGING_RESPONSES = {
         },
         "code_generation": {
             "code": {
-                "auth/token.py": """
+                "auth/token.py": '''
                 import jwt
                 import time
                 from datetime import datetime, timedelta
@@ -742,7 +742,7 @@ DEBUGGING_RESPONSES = {
                     # Test with invalid token
                     invalid_token = "invalid.token.string"
                     assert is_token_expired(invalid_token) is True
-                """
+                '''
             }
         }
     },
@@ -773,7 +773,7 @@ DEBUGGING_RESPONSES = {
         },
         "code_generation": {
             "code": {
-                "db/connection.py": """
+                "db/connection.py": '''
                 import contextlib
                 import logging
                 from typing import Generator, Any
@@ -852,8 +852,8 @@ DEBUGGING_RESPONSES = {
                         "overflow": engine.pool.overflow(),
                         "checkedout_overflow": engine.pool.overflow(),
                     }
-                """,
-                "db/pool_monitor.py": """
+                ''',
+                "db/pool_monitor.py": '''
                 import time
                 import logging
                 import threading
@@ -932,7 +932,7 @@ DEBUGGING_RESPONSES = {
 
                 # Create singleton instance
                 monitor = PoolMonitor()
-                """
+                '''
             }
         }
     }
@@ -971,7 +971,7 @@ MULTI_STEP_RESPONSES = {
         },
         "code_generation": {
             "code": {
-                "pipeline/collector.py": """
+                "pipeline/collector.py": '''
                 import json
                 import logging
                 import requests
@@ -1045,8 +1045,8 @@ MULTI_STEP_RESPONSES = {
                         except Exception as e:
                             logger.error(f"Error reading file: {str(e)}")
                             return []
-                """,
-                "pipeline/transformer.py": """
+                ''',
+                "pipeline/transformer.py": '''
                 import logging
                 import pandas as pd
                 from typing import Dict, List, Any, Callable, Optional, Union
@@ -1223,7 +1223,7 @@ MULTI_STEP_RESPONSES = {
                                 df = df[~((df[col] < (Q1 - 1.5 * IQR)) | (df[col] > (Q3 + 1.5 * IQR)))]
                         
                         return df
-                """
+                '''
             }
         }
     },
@@ -1263,7 +1263,7 @@ MULTI_STEP_RESPONSES = {
         },
         "code_generation": {
             "code": {
-                "auth/models.py": """
+                "auth/models.py": '''
                 from sqlalchemy import Column, Integer, String, Boolean, DateTime
                 from sqlalchemy.ext.declarative import declarative_base
                 from datetime import datetime
@@ -1318,8 +1318,8 @@ MULTI_STEP_RESPONSES = {
                             user.last_login = datetime.fromisoformat(data["last_login"])
                             
                         return user
-                """,
-                "auth/password.py": """
+                ''',
+                "auth/password.py": '''
                 import bcrypt
                 import re
                 from typing import Tuple
@@ -1386,7 +1386,7 @@ MULTI_STEP_RESPONSES = {
                         return False, "Password must contain at least one special character"
                     
                     return True, ""
-                """
+                '''
             }
         }
     }
@@ -1446,7 +1446,7 @@ EDGE_CASE_RESPONSES = {
         },
         "code_generation": {
             "code": {
-                "utils/export.py": """
+                "utils/export.py": '''
                 def export_to_csv(data, filepath, delimiter=','):
                     """Export data to CSV file.
                     
@@ -1485,7 +1485,7 @@ EDGE_CASE_RESPONSES = {
                     except Exception as e:
                         logger.error(f"CSV export error: {str(e)}")
                         return False
-                """
+                '''
             }
         }
     }
