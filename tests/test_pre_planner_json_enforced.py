@@ -7,6 +7,7 @@ module is the primary implementation used throughout the system for pre-planning
 """
 
 import json
+import logging
 import pytest
 from unittest.mock import MagicMock, patch
 
@@ -539,6 +540,41 @@ DESCRIPTION: Add error handling for connection failures
         
         # Verify the result
         assert result == json_data
+
+    @patch('agent_s3.pre_planner_json_enforced.process_response')
+    def test_pre_planning_workflow_appends_clarification_to_file(self, mock_process, tmp_path):
+        """Ensure clarification round data is appended to the progress log file."""
+        router = MagicMock()
+        router.call_llm_by_role.return_value = "{}"
+
+        log_file = tmp_path / "progress_log.jsonl"
+        logger = logging.getLogger("TestProgressTracker")
+        logger.setLevel(logging.INFO)
+        handler = logging.FileHandler(log_file, encoding="utf-8")
+        logger.addHandler(handler)
+
+        with patch('agent_s3.pre_planner_json_enforced.progress_tracker.logger', logger):
+            mock_process.side_effect = [
+                ("question", {"question": "Need more info?"}),
+                (True, {"original_request": "Task", "features": []})
+            ]
+            with patch('builtins.input', return_value='Here you go'):
+                success, data = pre_planning_workflow(router, "Task")
+
+        assert success is True
+        assert data == {"original_request": "Task", "features": []}
+
+        with open(log_file, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        assert len(lines) == 1
+        log_entry = json.loads(lines[0])
+        assert log_entry["phase"] == "pre-planning clarification"
+        assert log_entry["question"] == "Need more info?"
+        assert log_entry["answer"] == "Here you go"
+
+        # Clean up the file handler to avoid ResourceWarning for unclosed files
+        logger.removeHandler(handler)
+        handler.close()
 
     @patch('agent_s3.pre_planner_json_enforced.progress_tracker.logger')
     @patch('agent_s3.pre_planner_json_enforced.process_response')
