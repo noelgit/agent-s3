@@ -11,7 +11,6 @@ from typing import Dict, Any, List, Tuple, Optional, Set
 from difflib import SequenceMatcher
 
 from agent_s3.tools.plan_validator import validate_pre_plan
-from agent_s3.tools.phase_validator import validate_user_modifications
 
 logger = logging.getLogger(__name__)
 

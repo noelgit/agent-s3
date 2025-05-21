@@ -9,10 +9,8 @@ This module provides validation functions to check for consistency between:
 
 import os
 import logging
-from typing import Dict, List, Any, Tuple, Optional, Set
+from typing import Dict, List, Any, Tuple, Optional
 import re
-import difflib
-import json
 
 logger = logging.getLogger(__name__)
 
