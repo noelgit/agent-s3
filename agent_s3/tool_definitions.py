@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional, List
 import os
 import logging
 import re
+import traceback
 
 from agent_s3.tools.file_tool import FileTool
 from agent_s3.tools.bash_tool import BashTool
@@ -323,12 +324,14 @@ class ToolRegistry:
                 return True
             elif tool_name == "embedding_client":
                 if self._validate_config("embedding_client", ["vector_store_path"]):
-                    self.tools["embedding_client"] = EmbeddingClient(
-                        store_path=self.config.config.get("vector_store_path", "./data/vector_store.faiss"),
-                        dim=self.config.config.get("embedding_dim", 384),
-                        top_k=self.config.config.get("top_k_retrieval", 5),
-                        eviction_threshold=self.config.config.get("eviction_threshold", 0.90)
-                    )
+                    client_config = {
+                        "vector_store_path": self.config.config.get("vector_store_path", "./data/vector_store.faiss"),
+                        "embedding_dim": self.config.config.get("embedding_dim", 384),
+                        "top_k_retrieval": self.config.config.get("top_k_retrieval", 5),
+                        "eviction_threshold": self.config.config.get("eviction_threshold", 0.90),
+                        "workspace_path": self.config.config.get("workspace_path", os.getcwd()),
+                    }
+                    self.tools["embedding_client"] = EmbeddingClient(client_config)
                     return True
             elif tool_name == "database_tool":
                 if "databases" in self.config.config:
@@ -351,7 +354,7 @@ class ToolRegistry:
                 return False
         except Exception as e:
             logger.error(f"Error registering tool {tool_name}: {e}")
-            logger.error(f"Stack trace: {logging.traceback.format_exc()}")
+            logger.error(f"Stack trace: {traceback.format_exc()}")
             return False
         
         return False  # Default if we reach here

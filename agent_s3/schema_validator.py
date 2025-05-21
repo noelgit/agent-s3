@@ -254,7 +254,10 @@ def validate_llm_response(response: str, model_class: Type[T], sanitize: bool = 
     
     # Then, try to validate against the model
     try:
-        instance = model_class.model_validate(json_data)
+        if hasattr(model_class, "model_validate"):
+            instance = model_class.model_validate(json_data)
+        else:
+            instance = model_class.parse_obj(json_data)
         return True, instance
     except ValidationError as e:
         error_message = f"Validation failed: {str(e)}"
@@ -670,4 +673,4 @@ Original response:
             # Fallback to printing to console if no notification mechanism available
             print(f"\n❌ ERROR: {error_message}")
             
-        raise ValidationError(error_message)
+        raise ValueError(error_message)
