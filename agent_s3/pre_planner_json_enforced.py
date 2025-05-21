@@ -982,3 +982,112 @@ def call_pre_planner_with_enforced_json(
         return False, pre_planning_data
     else:
         return False, {"error": last_error or "Failed to generate pre-planning data after retries"}
+
+
+class PrePlanner:
+    """Wrapper class around pre-planning utilities."""
+
+    def __init__(self, router_agent, config: Optional[Dict[str, Any]] = None):
+        self.router_agent = router_agent
+        self.config = config or {}
+        self.config.setdefault("use_json_enforcement", True)
+        self.validator = PrePlanningValidator()
+
+    def generate_pre_planning_data(
+        self, task_description: str, context: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Generate initial pre-planning data."""
+        if self.config.get("use_json_enforcement", True):
+            success, data = pre_planning_workflow(
+                self.router_agent, task_description, context
+            )
+        else:
+            system_prompt = get_base_system_prompt()
+            user_prompt = get_base_user_prompt(task_description)
+            response = self._call_llm_with_retry(system_prompt, user_prompt)
+            if not response.get("success"):
+                return {
+                    "success": False,
+                    "pre_planning_data": {},
+                    "complexity_assessment": {},
+                    "error": response.get("error"),
+                }
+            status, data = process_response(response.get("response"), task_description)
+            success = status is True
+        return {
+            "success": success,
+            "pre_planning_data": data,
+            "complexity_assessment": {},
+        }
+
+    def regenerate_pre_planning_with_modifications(
+        self,
+        task_description: str,
+        original_results: Dict[str, Any],
+        modification_text: str,
+    ) -> Dict[str, Any]:
+        """Public wrapper to regenerate pre-planning results."""
+        return self._regenerate_pre_planning_with_modifications(
+            task_description, original_results, modification_text
+        )
+
+    def _regenerate_pre_planning_with_modifications(
+        self,
+        task_description: str,
+        original_results: Dict[str, Any],
+        modification_text: str,
+    ) -> Dict[str, Any]:
+        """Regenerate plan incorporating user modifications."""
+        if self.config.get("use_json_enforcement", True):
+            data = regenerate_pre_planning_with_modifications(
+                self.router_agent, original_results, modification_text
+            )
+        else:
+            system_prompt = get_base_system_prompt()
+            user_prompt = "Modification Request:\n" + modification_text.strip()
+            response = self._call_llm_with_retry(system_prompt, user_prompt)
+            if not response.get("success"):
+                return {
+                    "success": False,
+                    "pre_planning_data": {},
+                    "complexity_assessment": {},
+                    "error": response.get("error"),
+                }
+            status, data = process_response(
+                response.get("response"), original_results.get("original_request", "")
+            )
+            if status is not True:
+                data, _ = self._attempt_repair(data, [])
+        return {
+            "success": True,
+            "pre_planning_data": data,
+            "complexity_assessment": {},
+        }
+
+    def _attempt_repair(self, data: Dict[str, Any], errors: List[str]) -> Tuple[Dict[str, Any], bool]:
+        """Attempt to repair invalid pre-planning data."""
+        if self.config.get("use_json_enforcement", True):
+            from agent_s3.pre_planner_json_validator import PrePlannerJsonValidator
+
+            validator = PrePlannerJsonValidator()
+            return validator.repair_plan(data, errors)
+        return data, False
+
+    def _call_llm_with_retry(
+        self, system_prompt: str, user_prompt: str, max_retries: int = 2
+    ) -> Dict[str, Any]:
+        """Call the router agent with retry logic."""
+        last_error: Optional[str] = None
+        for _ in range(max_retries + 1):
+            try:
+                response = self.router_agent.call_llm_by_role(
+                    role="pre_planner",
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    config=self.config.get("llm_params", {}),
+                )
+                return {"success": True, "response": response}
+            except Exception as e:  # pragma: no cover - error path
+                last_error = str(e)
+                time.sleep(0.5)
+        return {"success": False, "error": last_error or "LLM call failed"}
