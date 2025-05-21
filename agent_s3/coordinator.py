@@ -919,7 +919,7 @@ class Coordinator:
 
         Returns a dictionary with the following keys:
             - ``success``: overall validation success
-            - ``step``: failing step (``"lint"``, ``"type_check"``, ``"tests"``) if any
+            - ``step``: failing step (``"lint"``, ``"type_check"``, ``"tests"``, ``"unknown_error"``) if any
             - ``lint_output``: output from the linting command
             - ``type_output``: output from the type checking command
             - ``test_output``: output from running the tests
