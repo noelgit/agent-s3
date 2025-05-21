@@ -80,7 +80,10 @@ def validate_phase_transition(pre_plan_data: Dict[str, Any], feature_group: Dict
     return is_valid, "; ".join(error_messages) if error_messages else "Valid"
 
 
-def validate_user_modifications(modification_text: str) -> Tuple[bool, str]:
+def validate_user_modifications(
+    modification_text: str,
+    plan: Optional[Dict[str, Any]] = None,
+) -> Tuple[bool, str]:
     """Validate user modifications to ensure they don't break the plan.
     
     Args:
@@ -111,6 +114,22 @@ def validate_user_modifications(modification_text: str) -> Tuple[bool, str]:
     if len(modification_text.strip()) < 5:
         error_messages.append("Modification text is too short or empty")
         is_valid = False
+
+    # Validate references against provided plan schema if available
+    if plan and isinstance(plan, dict):
+        known_features: Set[str] = set()
+        for group in plan.get("feature_groups", []):
+            if not isinstance(group, dict):
+                continue
+            for feature in group.get("features", []):
+                if isinstance(feature, dict) and "name" in feature:
+                    known_features.add(feature["name"].lower())
+
+        referenced = re.findall(r"(?:remove|delete|change|modify|update)\s+(\w+)", modification_text, re.IGNORECASE)
+        for ref in referenced:
+            if ref.lower() not in known_features:
+                error_messages.append(f"Referenced unknown feature: {ref}")
+                is_valid = False
     
     # Return validation result
     return is_valid, "; ".join(error_messages) if error_messages else "Valid"

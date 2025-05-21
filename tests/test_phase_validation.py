@@ -97,6 +97,17 @@ class TestPhaseValidation(unittest.TestCase):
         is_valid, message = validate_user_modifications(invalid_modification_2)
         self.assertFalse(is_valid)
         self.assertTrue(any(pattern in message for pattern in ["delete everything", "start over"]))
+
+        # Invalid modification - unknown feature
+        original_plan = {
+            "feature_groups": [
+                {"group_name": "Core", "features": [{"name": "Login", "description": "desc"}]}
+            ]
+        }
+        invalid_modification_3 = "remove Payment"
+        is_valid, message = validate_user_modifications(invalid_modification_3, original_plan)
+        self.assertFalse(is_valid)
+        self.assertIn("unknown feature", message.lower())
     
     def test_validate_architecture_implementation(self):
         """Test validation of architecture-implementation consistency."""
