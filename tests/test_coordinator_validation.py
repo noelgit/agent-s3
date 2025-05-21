@@ -66,11 +66,11 @@ def test_validation_phase_all_pass(coordinator):
     
     # Execute
     result = coordinator._run_validation_phase()
-    
+
     # Assert
-    assert result[0] is True  # Validation passed
-    assert result[1] is None  # No failing step
-    assert result[2] is None  # No info about failure
+    assert result["success"] is True
+    assert result.get("step") is None
+    assert result.get("lint_output") == "No lint errors"
     
     # Verify all validations were performed
     coordinator.database_manager.setup_database.assert_called()
@@ -88,11 +88,11 @@ def test_validation_phase_database_failure(coordinator):
     
     # Execute
     result = coordinator._run_validation_phase()
-    
+
     # Assert
-    assert result[0] is False  # Validation failed
-    assert result[1] == "database"  # Failing step
-    assert result[2] == "Database connection failed"  # Error info
+    assert result["success"] is False
+    assert result.get("step") == "database"
+    assert result.get("output") == "Database connection failed"
     
     # Verify only database validation was performed
     coordinator.database_manager.setup_database.assert_called()
@@ -108,11 +108,11 @@ def test_validation_phase_lint_failure(coordinator):
     
     # Execute
     result = coordinator._run_validation_phase()
-    
+
     # Assert
-    assert result[0] is False  # Validation failed
-    assert result[1] == "lint"  # Failing step
-    assert result[2] == "Lint errors found"  # Error info
+    assert result["success"] is False
+    assert result.get("step") == "lint"
+    assert result.get("lint_output") == "Lint errors found"
     
     # Verify validations were performed up to the failing point
     coordinator.database_manager.setup_database.assert_called()
@@ -128,11 +128,11 @@ def test_validation_phase_type_check_failure(coordinator):
     
     # Execute
     result = coordinator._run_validation_phase()
-    
+
     # Assert
-    assert result[0] is False  # Validation failed
-    assert result[1] == "type_check"  # Failing step
-    assert result[2] == "Type errors found"  # Error info
+    assert result["success"] is False
+    assert result.get("step") == "type_check"
+    assert result.get("type_output") == "Type errors found"
     
     # Verify validations were performed up to the failing point
     coordinator.database_manager.setup_database.assert_called()
@@ -152,11 +152,11 @@ def test_validation_phase_test_failure(coordinator):
     
     # Execute
     result = coordinator._run_validation_phase()
-    
+
     # Assert
-    assert result[0] is False  # Validation failed
-    assert result[1] == "tests"  # Failing step
-    assert result[2] == "Test failures detected"  # Error info
+    assert result["success"] is False
+    assert result.get("step") == "tests"
+    assert result.get("test_output") == "Test failures detected"
     
     # Verify all validations were performed up to the failing point
     coordinator.database_manager.setup_database.assert_called()
@@ -171,11 +171,10 @@ def test_validation_phase_database_exception(coordinator):
     
     # Execute
     result = coordinator._run_validation_phase()
-    
+
     # Assert
-    assert result[0] is True  # Validation continues despite db exception
-    assert result[1] is None  # No specific failing step
-    assert result[2] is None  # No specific error info
+    assert result["success"] is False
+    assert result.get("step") == "database"
     
     # Verify db validation was attempted and other validations continued
     coordinator.database_manager.setup_database.assert_called()

@@ -851,7 +851,23 @@ class Coordinator:
                 all_changes.update(changes)
                 self._finalize_task(changes)
                 return all_changes, True
-            self.debugging_manager.handle_error(plan=plan, validation_output=validation)
+            debug_result = self.debugging_manager.handle_error(
+                error_message=str(validation.get("output", "validation failed")),
+                traceback_text=str(validation.get("output", "")),
+            )
+            changes_after_debug = debug_result.get("changes", {})
+            if changes_after_debug and self._apply_changes_and_manage_dependencies(changes_after_debug):
+                validation = self._run_validation_phase()
+                if validation.get("success"):
+                    all_changes.update(changes_after_debug)
+                    self._finalize_task(changes_after_debug)
+                    return all_changes, True
+            self.scratchpad.log(
+                "Coordinator",
+                f"Automated debug failed: {validation}",
+                level=LogLevel.WARNING,
+            )
+            return all_changes, False
         return all_changes, False
 
     # ------------------------------------------------------------------
@@ -863,6 +879,15 @@ class Coordinator:
         try:
             for path, content in changes.items():
                 self.file_tool.write_file(path, content)
+            if os.path.exists("requirements.txt"):
+                exit_code, output = self.bash_tool.run_command("pip install -r requirements.txt")
+                if exit_code != 0:
+                    self.scratchpad.log(
+                        "Coordinator",
+                        f"Dependency installation failed: {output}",
+                        level=LogLevel.ERROR,
+                    )
+                    return False
             return True
         except Exception as exc:  # pragma: no cover - safety net
             self.scratchpad.log("Coordinator", f"Failed applying changes: {exc}", level=LogLevel.ERROR)
@@ -870,23 +895,48 @@ class Coordinator:
 
     def _run_validation_phase(self) -> Dict[str, Any]:
         """Run linting, type checking and tests."""
-        results = {"success": True, "output": None}
+        results = {
+            "success": True,
+            "lint_output": None,
+            "type_output": None,
+            "test_output": None,
+            "coverage": 0.0,
+        }
         try:
             db_result = self.database_manager.setup_database()
             if not db_result.get("success", True):
-                return {"success": False, "step": "database", "output": db_result.get("error")}
+                return {
+                    "success": False,
+                    "step": "database",
+                    "output": db_result.get("error"),
+                    **results,
+                }
+
             lint_exit, lint_output = self.bash_tool.run_command("flake8 .", timeout=120)
+            results["lint_output"] = lint_output
             if lint_exit != 0:
-                return {"success": False, "step": "lint", "output": lint_output}
+                results["success"] = False
+                return {"step": "lint", **results}
+
             type_exit, type_output = self.bash_tool.run_command("mypy .", timeout=120)
+            results["type_output"] = type_output
             if type_exit != 0:
-                return {"success": False, "step": "type_check", "output": type_output}
+                results["success"] = False
+                return {"step": "type_check", **results}
+
             test_result = self.run_tests()
+            results["test_output"] = test_result.get("output")
+            results["coverage"] = test_result.get("coverage", 0.0)
             if not test_result.get("success"):
-                return {"success": False, "step": "tests", "output": test_result.get("output")}
+                results["success"] = False
+                return {"step": "tests", **results}
+
         except Exception as exc:  # pragma: no cover - safety net
             self.scratchpad.log("Coordinator", f"Validation error: {exc}", level=LogLevel.ERROR)
-            return {"success": True, "output": None}
+            results["success"] = False
+            results["error"] = str(exc)
+            return results
+
         return results
 
     def run_tests(self) -> Dict[str, Any]:

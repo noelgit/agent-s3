@@ -71,6 +71,15 @@ class CodeGenerator:
 
         self.scratchpad.log("CodeGenerator", f"Found {len(files)} files to generate")
 
+        guidelines_list = []
+        if hasattr(self.coordinator, "config"):
+            try:
+                guidelines_list = self.coordinator.config.get_guideline_fragments(5)
+            except Exception as e:  # pragma: no cover - safety net
+                self.scratchpad.log("CodeGenerator", f"Failed loading guidelines: {e}", level=LogLevel.WARNING)
+
+        guidelines_text = "\n".join(f"* {g}" for g in guidelines_list)
+
         results = {}
 
         # Generate files one by one
@@ -80,8 +89,14 @@ class CodeGenerator:
             # Prepare context for this specific file
             context = self._prepare_file_context(file_path, implementation_details)
 
-            # Generate the file
-            generated_code = self.generate_file(file_path, implementation_details, tests, context)
+            # Generate the file with coding standards
+            generated_code = self.generate_file(
+                file_path,
+                implementation_details,
+                tests,
+                context,
+                guidelines_text,
+            )
 
             results[file_path] = generated_code
 
@@ -227,7 +242,14 @@ class CodeGenerator:
 
         return prioritized_context
 
-    def generate_file(self, file_path: str, implementation_details: List[Dict[str, Any]], tests: Dict[str, Any], context: Dict[str, Any]) -> str:
+    def generate_file(
+        self,
+        file_path: str,
+        implementation_details: List[Dict[str, Any]],
+        tests: Dict[str, Any],
+        context: Dict[str, Any],
+        coding_standards: str | None = None,
+    ) -> str:
         """Generates code for a single file with validation and test execution.
         
         Args:
@@ -245,7 +267,11 @@ class CodeGenerator:
         relevant_tests = self._extract_relevant_tests(tests, file_path)
         
         # Create system prompt
-        system_prompt = f"""You are an expert software engineer generating code for '{file_path}'.
+        standards_block = ""
+        if coding_standards:
+            standards_block = f"Project Coding Standards:\n{coding_standards}\n\n"
+
+        system_prompt = f"""{standards_block}You are an expert software engineer generating code for '{file_path}'.
         Generate high-quality, idiomatic Python code based on the implementation details and tests provided.
         Your task is to generate ONLY the code for this specific file, not multiple files.
 

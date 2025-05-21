@@ -481,7 +481,6 @@ class DebuggingManager:
         else:
             # Standard debugging flow for normal errors
             if self.generator_attempts < self.MAX_GENERATOR_ATTEMPTS:
-                # Tier 1: Generator quick fix
                 self.current_phase = DebuggingPhase.QUICK_FIX
                 self.generator_attempts += 1
                 self.scratchpad.log(
@@ -490,7 +489,10 @@ class DebuggingManager:
                     level=LogLevel.INFO,
                     section=Section.ERROR
                 )
-                result = self._execute_generator_quick_fix(error_context)
+                if error_context.category in (ErrorCategory.SYNTAX, ErrorCategory.NAME):
+                    result = self._regenerate_single_file(error_context)
+                else:
+                    result = self._execute_generator_quick_fix(error_context)
                 
             elif self.debugger_attempts < self.MAX_DEBUGGER_ATTEMPTS:
                 # Tier 2: Full debugging with CoT
@@ -667,10 +669,30 @@ class DebuggingManager:
         """Calculate similarity between two text strings."""
         if not text1 or not text2:
             return 0.0
-            
+
         # Use SequenceMatcher for string similarity
         from difflib import SequenceMatcher
         return SequenceMatcher(None, text1, text2).ratio()
+
+    def _regenerate_single_file(self, error_context: ErrorContext) -> Dict[str, Any]:
+        """Regenerate only the affected file using the code generator."""
+        if not error_context.file_path:
+            return {"success": False, "description": "No file path to regenerate"}
+
+        try:
+            plan = {
+                "implementation_plan": {error_context.file_path: []},
+                "tests": {},
+                "group_name": "debug_regen",
+            }
+            result = self.code_generator.generate_code(plan)
+            new_code = result.get(error_context.file_path)
+            if not new_code:
+                return {"success": False, "description": "Regeneration produced no code"}
+            self.file_tool.write_file(error_context.file_path, new_code)
+            return {"success": True, "changes": {error_context.file_path: new_code}, "description": "Regenerated file"}
+        except Exception as exc:  # pragma: no cover - safety net
+            return {"success": False, "description": f"Regeneration failed: {exc}"}
     
     def _execute_generator_quick_fix(self, error_context: ErrorContext) -> Dict[str, Any]:
         """

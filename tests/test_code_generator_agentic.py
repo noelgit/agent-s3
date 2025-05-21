@@ -122,7 +122,7 @@ class TestCodeGeneratorAgentic:
         code_generator._generate_with_validation = MagicMock(return_value="def test_func():\n    return True")
         
         # Act
-        result = code_generator.generate_file(file_path, implementation_details, tests, {})
+        result = code_generator.generate_file(file_path, implementation_details, tests, {}, None)
         
         # Assert
         assert result == "def test_func():\n    return True"
