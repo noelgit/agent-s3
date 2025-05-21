@@ -80,14 +80,17 @@ def validate_phase_transition(pre_plan_data: Dict[str, Any], feature_group: Dict
     return is_valid, "; ".join(error_messages) if error_messages else "Valid"
 
 
-def validate_user_modifications(modification_text: str) -> Tuple[bool, str]:
-    """Validate user modifications to ensure they don't break the plan.
-    
+def validate_user_modifications(modification_text: str, plan: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
+    """Validate user modifications to ensure they don't invalidate the existing plan.
+
     Args:
         modification_text: The user's modification text
-        
+        plan: Optional dictionary of the existing plan. When provided, referenced
+            features and files in ``modification_text`` are checked against this
+            plan to ensure the modification targets valid items.
+
     Returns:
-        Tuple of (is_valid, error_message)
+        Tuple of ``(is_valid, error_message)`` summarizing the validation result.
     """
     # Initialize validation state
     is_valid = True
