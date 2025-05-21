@@ -391,8 +391,7 @@ Agent-S3. Refer to both documents for a complete understanding of the project.
     *   **Chat UI:** `/cli bash ls -la` or `/cli file notes.txt "Initial note."` (See Story 3).
 2.  **Backend CLI Action (`agent_s3/cli.py`):**
     *   `main` parses arguments and identifies the command starting with `/cli`.
-    *   `process_command` determines the type (`file` or `bash`) and extracts the arguments.
-    *   If multi-line input syntax (`<<MARKER`) is detected, it calls `_process_multiline_cli` to read lines from standard input until the marker is found, constructing the full command arguments.
+    *   `process_command` determines the type (`file` or `bash`) and extracts the arguments. When multi-line input syntax (`<<MARKER`) is used, it reads lines from standard input until the marker is found to build the command.
     *   It initializes the `Coordinator`.
     *   It calls `coordinator.execute_cli_command(command_type, command_args)`.
 3.  **Coordinator Action (`agent_s3/coordinator.py` - `execute_cli_command` method):**

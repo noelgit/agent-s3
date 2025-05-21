@@ -3,10 +3,7 @@
 import os
 import sys
 import argparse
-import json
 import logging
-from pathlib import Path
-from typing import Optional, List, Dict, Any, Tuple
 
 from agent_s3.config import Config
 from agent_s3.coordinator import Coordinator
@@ -75,86 +72,6 @@ Special Commands (can be used in prompt):
     print(help_text)
 
 
-def track_module_scaffold(module_name: str) -> None:
-    """Track a module as being scaffolded in development_status.json.
-    
-    Args:
-        module_name: The name of the module being scaffolded
-    """
-    status_path = Path.cwd() / "development_status.json"
-    try:
-        if status_path.exists():
-            with open(status_path, 'r') as f:
-                try:
-                    data = json.load(f)
-                except json.JSONDecodeError:
-                    data = []
-        else:
-            data = []
-
-        # Add the module with created status
-        data.append({
-            "module": module_name,
-            "status": "created"
-        })
-
-        # Write back to the file
-        with open(status_path, 'w') as f:
-            json.dump(data, f, indent=2)
-    except Exception as e:
-        print(f"Error tracking module scaffold for {module_name}: {e}")
-
-
-def _process_multiline_cli(command_type: str, initial_args: str) -> Tuple[str, bool]:
-    """Process a multi-line CLI command with heredoc-style syntax.
-    
-    Args:
-        command_type: Type of CLI command (file or bash)
-        initial_args: Initial command arguments containing the heredoc marker
-        
-    Returns:
-        Tuple of (processed_args, success_flag)
-    """
-    # Extract the marker
-    parts = initial_args.split("<<", 1)
-    if len(parts) != 2:
-        print("Error: Invalid multi-line syntax. Use: /cli [file|bash] [args] <<MARKER")
-        return "", False
-        
-    prefix_args = parts[0].strip()
-    marker = parts[1].strip()
-    
-    if not marker:
-        print("Error: Missing end marker after <<")
-        return "", False
-        
-    print(f"Enter multi-line content. End with '{marker}' on a line by itself:")
-    
-    # Collect content lines
-    content_lines = []
-    max_lines = 1000  # Safety limit
-    while True:
-        try:
-            line = input()
-            if line.strip() == marker:
-                break
-            content_lines.append(line)
-            if len(content_lines) >= max_lines:
-                print(f"Error: Exceeded maximum of {max_lines} lines")
-                return "", False
-        except EOFError:
-            print("Error: Multi-line input terminated unexpectedly")
-            return "", False
-            
-    # Construct the full command with content
-    if command_type == "file":
-        # For file commands, we need: path + content
-        content = "\n".join(content_lines)
-        return f"{prefix_args} {content}", True
-    else:
-        # For bash commands, join lines with proper line endings
-        script = "\n".join(content_lines)
-        return f"{prefix_args} {script}", True
 
 
 def process_command(coordinator: Coordinator, command: str) -> None:
