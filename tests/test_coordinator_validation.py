@@ -42,6 +42,10 @@ def coordinator(mock_config):
         # Mock required components for tests
         coordinator.test_runner_tool = MagicMock()
         coordinator.test_critic = MagicMock()
+        coordinator.test_critic.run_analysis.return_value = {
+            "verdict": None,
+            "details": {"mutation_score": 80.0},
+        }
         coordinator.database_manager = MagicMock()
         coordinator.database_manager.database_tool = MagicMock()
         coordinator.bash_tool = MagicMock()
@@ -166,6 +170,25 @@ def test_validation_phase_test_failure(coordinator):
     coordinator.database_manager.database_tool.get_schema_info.assert_called()
     assert coordinator.bash_tool.run_command.call_count == 2
     coordinator.run_tests.assert_called_once()
+
+
+def test_validation_phase_mutation_failure(coordinator):
+    """Test validation fails when mutation score is below threshold."""
+    coordinator.database_manager.setup_database.return_value = {"success": True}
+    coordinator.bash_tool.run_command.side_effect = [(0, "No lint errors"), (0, "No type errors")]
+    coordinator.run_tests = MagicMock(return_value={"success": True, "output": "All tests passed", "coverage": 80.0})
+    coordinator.config.config["mutation_score_threshold"] = 75.0
+    coordinator.test_critic.run_analysis.return_value = {
+        "verdict": None,
+        "details": {"mutation_score": 60.0},
+    }
+
+    result = coordinator._run_validation_phase()
+
+    assert result["success"] is False
+    assert result["step"] == "mutation"
+    assert result["mutation_score"] == 60.0
+    coordinator.test_critic.run_analysis.assert_called_once()
 
 def test_validation_phase_database_exception(coordinator):
     """Test validation phase with database validation exception."""
