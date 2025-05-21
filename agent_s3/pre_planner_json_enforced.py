@@ -538,6 +538,8 @@ def pre_planning_workflow(
         max_clarifications = int(os.getenv("MAX_CLARIFICATION_ROUNDS", "3"))
     except ValueError:
         max_clarifications = 3
+    # Cap clarification rounds to prevent excessive prompts
+    max_clarifications = min(max_clarifications, 10)
 
     while attempts < max_attempts:
         response = router_agent.call_llm_by_role(

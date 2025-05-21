@@ -586,6 +586,27 @@ DESCRIPTION: Add error handling for connection failures
         assert mock_input.call_count == 1
 
     @patch('agent_s3.pre_planner_json_enforced.process_response')
+    def test_pre_planning_workflow_caps_clarification_rounds(self, mock_process):
+        """Clarification rounds should not exceed the hard cap."""
+        router = MagicMock()
+        router.call_llm_by_role.return_value = "{}"
+
+        # Generate more question responses than the cap allows
+        mock_process.side_effect = [
+            ("question", {"question": "Q?"}) for _ in range(12)
+        ] + [
+            (True, {"original_request": "Task", "features": []})
+        ]
+
+        with patch.dict(os.environ, {"MAX_CLARIFICATION_ROUNDS": "20"}), patch('builtins.input', return_value='A') as mock_input:
+            success, data = pre_planning_workflow(router, "Task", max_attempts=20)
+
+        assert success is True
+        assert data == {"original_request": "Task", "features": []}
+        # Even though the env var is high, only 10 clarifications should occur
+        assert mock_input.call_count == 10
+
+    @patch('agent_s3.pre_planner_json_enforced.process_response')
     def test_pre_planning_workflow_appends_clarification_to_file(self, mock_process, tmp_path):
         """Ensure clarification round data is appended to the progress log file."""
         router = MagicMock()
