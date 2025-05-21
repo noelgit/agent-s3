@@ -282,7 +282,7 @@ def integrate_with_coordinator(
     coordinator,
     task_description: str,
     context: Dict[str, Any] = None,
-    max_attempts: int = 2,
+    max_preplanning_attempts: int = 2,
 ) -> Dict[str, Any]:
     """
     Integrate pre-planning with the coordinator.
@@ -295,7 +295,7 @@ def integrate_with_coordinator(
         coordinator: The coordinator instance
         task_description: The task description
         context: Optional context dictionary
-        max_attempts: Maximum number of attempts for the pre-planning step
+        max_preplanning_attempts: Maximum number of attempts for the pre-planning step
         
     Returns:
         Dictionary containing pre-planning results
@@ -323,7 +323,7 @@ def integrate_with_coordinator(
             router_agent,
             task_description,
             context,
-            max_attempts=max_attempts,
+            max_preplanning_attempts=max_preplanning_attempts,
         )
     else:
         success, pre_planning_data = call_pre_planner_with_enforced_json(
@@ -506,7 +506,7 @@ def pre_planning_workflow(
     router_agent,
     task_description: str,
     context: Optional[Dict[str, Any]] = None,
-    max_attempts: int = 2,
+    max_preplanning_attempts: int = 2,
 ) -> Tuple[bool, Dict[str, Any]]:
     """Run the JSON-enforced pre-planning workflow.
 
@@ -514,7 +514,8 @@ def pre_planning_workflow(
         router_agent: Agent used to call the LLM.
         task_description: The user's task description.
         context: Optional context dictionary passed to the LLM.
-        max_attempts: Maximum number of attempts to get valid pre-planning data.
+        max_preplanning_attempts: Maximum number of attempts to get valid
+            pre-planning data.
 
     The workflow may prompt the user for additional clarification when the
     initial request lacks sufficient detail. Clarification exchanges are
@@ -522,6 +523,13 @@ def pre_planning_workflow(
     (default: ``3``). Set this variable to control how many clarification
     prompts are allowed.
     """
+    env_attempts = os.getenv("MAX_PREPLANNING_ATTEMPTS")
+    if env_attempts is not None:
+        try:
+            max_preplanning_attempts = int(env_attempts)
+        except ValueError:
+            max_preplanning_attempts = 2
+
     system_prompt = get_json_system_prompt()
     user_prompt = get_json_user_prompt(task_description)
     if context:
@@ -540,7 +548,7 @@ def pre_planning_workflow(
     except ValueError:
         max_clarifications = 3
 
-    while attempts < max_attempts:
+    while attempts < max_preplanning_attempts:
         response = router_agent.call_llm_by_role(
             role="pre_planner",
             system_prompt=system_prompt,
@@ -1019,14 +1027,14 @@ def call_pre_planner_with_enforced_json(
         Tuple of (success: bool, pre_planning_data: dict)
     """
     import traceback
-    max_attempts = 3
+    max_preplanning_attempts = 3
     last_error = None
     pre_planning_data = None
     system_prompt = get_json_system_prompt()
     user_prompt = get_base_user_prompt(task_description)
     openrouter_params = get_openrouter_params()
 
-    for attempt in range(1, max_attempts + 1):
+    for attempt in range(1, max_preplanning_attempts + 1):
         try:
             # Compose the prompt for the LLM
             prompt = {
@@ -1081,21 +1089,22 @@ class PrePlanner:
         self,
         task_description: str,
         context: Optional[Dict[str, Any]] = None,
-        max_attempts: int = 2,
+        max_preplanning_attempts: int = 2,
     ) -> Dict[str, Any]:
         """Generate initial pre-planning data.
 
         Args:
             task_description: Description of the requested task.
             context: Optional context dictionary.
-            max_attempts: Maximum number of attempts for the pre-planning step.
+            max_preplanning_attempts: Maximum number of attempts for the
+                pre-planning step.
         """
         if self.config.get("use_json_enforcement", True):
             success, data = pre_planning_workflow(
                 self.router_agent,
                 task_description,
                 context,
-                max_attempts=max_attempts,
+                max_preplanning_attempts=max_preplanning_attempts,
             )
         else:
             system_prompt = get_base_system_prompt()

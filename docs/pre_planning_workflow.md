@@ -20,9 +20,11 @@ The pre-planning workflow follows these steps:
 
 6. **User Interaction**: The system may ask clarifying questions to the user if needed. The number of clarification rounds is capped by the `MAX_CLARIFICATION_ROUNDS` environment variable (default: `3`).
 
-7. **Complexity Assessment**: The complexity of the task is assessed to determine if user confirmation is required.
+7. **Retry Logic**: The system retries generating pre-planning data up to `MAX_PREPLANNING_ATTEMPTS` times (default: `2`).
 
-8. **User Confirmation**: The user reviews and approves, modifies, or rejects the pre-planning output.
+8. **Complexity Assessment**: The complexity of the task is assessed to determine if user confirmation is required.
+
+9. **User Confirmation**: The user reviews and approves, modifies, or rejects the pre-planning output.
 
 ## Key Components
 
