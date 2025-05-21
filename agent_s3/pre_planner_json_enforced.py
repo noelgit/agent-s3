@@ -510,6 +510,11 @@ def pre_planning_workflow(
         task_description: The user's task description.
         context: Optional context dictionary passed to the LLM.
         max_attempts: Maximum number of attempts to get valid pre-planning data.
+
+    The workflow may prompt the user for additional clarification when the
+    initial request lacks sufficient detail. Clarification exchanges are
+    limited by the ``MAX_CLARIFICATION_ROUNDS`` environment variable
+    (default: ``3``).
     """
     system_prompt = get_json_system_prompt()
     user_prompt = get_json_user_prompt(task_description)
