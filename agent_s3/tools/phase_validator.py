@@ -106,6 +106,15 @@ def validate_user_modifications(modification_text: str) -> Tuple[bool, str]:
         if re.search(pattern, modification_text, re.IGNORECASE):
             error_messages.append(error_msg)
             is_valid = False
+
+    # Detect references to unknown features
+    unknown_feature_match = re.search(
+        r"unknown feature ([^\n\.\!\?]+)", modification_text, re.IGNORECASE
+    )
+    if unknown_feature_match:
+        feature_name = unknown_feature_match.group(1).strip()
+        error_messages.append(f"Unknown feature: {feature_name}")
+        is_valid = False
     
     # Check if modification text is too short or empty
     if len(modification_text.strip()) < 5:
