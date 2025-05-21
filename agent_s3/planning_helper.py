@@ -2,7 +2,6 @@
 from typing import Any, Dict, Optional
 
 from . import pre_planner_json_enforced
-from .feature_group_processor import FeatureGroupProcessor
 
 
 def generate_plan_via_workflow(

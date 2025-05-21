@@ -3,10 +3,9 @@
 Responsible for detecting the technologies, frameworks, and libraries in the workspace.
 """
 
-import os
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any, Dict
 
 class TechStackDetector:
     """Detects and analyzes the tech stack used in a project workspace."""

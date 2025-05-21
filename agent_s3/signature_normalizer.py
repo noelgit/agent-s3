@@ -10,11 +10,10 @@ import os
 import re
 import ast
 import logging
-from typing import Dict, Any, List, Set, Tuple, Optional
+from typing import Any, Dict, Set
 from pathlib import Path
 
 # Import plan validator for path validation and code validation
-from agent_s3.tools.plan_validator import validate_code_syntax
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +65,6 @@ class SignatureNormalizer:
                     continue
                     
                 feature_name = feature.get("name", f"Feature {feature_idx}")
-                feature_log_prefix = f"Feature '{feature_name}' in group '{group_name}'"
                 
                 # Process system_design.code_elements
                 system_design = feature.get("system_design", {})
@@ -327,13 +325,13 @@ class SignatureNormalizer:
         
         elif language in ["javascript", "typescript"]:
             if element_type == "function":
-                return f"function {name}() {'{'}";
+                return f"function {name}() {'{'}"
             elif element_type == "class":
-                return f"class {name} {'{'}";
+                return f"class {name} {'{'}"
             elif element_type == "interface" and language == "typescript":
-                return f"interface {name} {'{'}";
+                return f"interface {name} {'{'}"
             else:
-                return f"function {name}() {'{'}";
+                return f"function {name}() {'{'}"
         
         # Default fallback
         return f"{element_type} {name}"

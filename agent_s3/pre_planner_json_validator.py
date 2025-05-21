@@ -16,11 +16,8 @@ import json
 import logging
 import re
 import time
-from typing import Dict, Any, List, Tuple, Optional, Set
+from typing import Any, Dict, List, Tuple
 from dataclasses import dataclass, field
-from datetime import datetime
-
-from agent_s3.pre_planner_json_enforced import JSONValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -619,7 +616,7 @@ class PrePlannerJsonValidator:
                                         algorithms[i] = "Custom file processing algorithm (sanitized)"
                                         was_repaired = True
                                         repairs_made += 1
-                                        logger.info(f"Sanitized dangerous command in key_algorithms")
+                                        logger.info("Sanitized dangerous command in key_algorithms")
         
         # Record repair metrics
         self.validation_metrics.record_repair(was_repaired)

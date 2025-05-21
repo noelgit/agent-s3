@@ -3,7 +3,7 @@ import threading
 import os
 import re
 import shlex
-from typing import Tuple, List, Optional, Dict, Set, Any, Callable
+from typing import Callable, Dict, List, Optional, Tuple
 
 class TerminalExecutor:
     """Executes shell commands in a sandbox with denylist and timeout enforcement."""
@@ -242,8 +242,6 @@ class TerminalExecutor:
         Returns:
             Exit code of the process
         """
-        import time
-        
         # Validate output_callback is callable if provided
         if output_callback is not None and not callable(output_callback):
             if self.logger:

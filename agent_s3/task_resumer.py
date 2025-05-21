@@ -3,12 +3,10 @@
 Handles the resumption of interrupted tasks.
 """
 
-import os
 import logging
 import traceback
-from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, Optional, Tuple, List, Union
+from typing import Optional, Tuple
 
 class TaskResumer:
     """Handles detection and resumption of interrupted tasks."""
@@ -195,7 +193,7 @@ class TaskResumer:
         # If we already have a plan, we can jump to prompt approval
         if plan:
             print("Found existing plan, resuming from prompt approval phase.")
-            self._update_development_status("resumed", f"Resumed task from planning phase", 
+            self._update_development_status("resumed", "Resumed task from planning phase",
                                           phase="planning", request=request_text)
             
             # Pass the existing plan to prompt approval
@@ -246,7 +244,7 @@ class TaskResumer:
         plan = getattr(task_state, 'plan', {})
         generated_changes = getattr(task_state, 'generated_changes', [])
         current_iteration = getattr(task_state, 'current_iteration', 0)
-        code_context = getattr(task_state, 'code_context', {})
+        _ = getattr(task_state, 'code_context', {})
         
         request_text = "Original request not available"
         if plan and isinstance(plan, dict):
@@ -284,7 +282,7 @@ class TaskResumer:
         # Extract state data
         changes = getattr(task_state, 'changes', [])
         iteration = getattr(task_state, 'iteration', 0)
-        test_results = getattr(task_state, 'test_results', {})
+        _ = getattr(task_state, 'test_results', {})
         is_applied = getattr(task_state, 'is_applied', False)
         errors = getattr(task_state, 'errors', [])
         
@@ -372,7 +370,6 @@ class TaskResumer:
         
         # Get sub-state for granular resumption
         sub_state = getattr(task_state, 'sub_state', 'PREPARING')
-        commit_sha = getattr(task_state, 'commit_sha', None)
         base_branch = getattr(task_state, 'base_branch', 'main')
         draft = getattr(task_state, 'draft', False)
         
