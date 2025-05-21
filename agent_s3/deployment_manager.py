@@ -11,9 +11,8 @@ import json
 import re
 import secrets
 import string
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple, Union
-from urllib.parse import urlparse, quote_plus
+from typing import Dict, Any, List, Optional, Tuple
+from urllib.parse import quote_plus
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -860,7 +859,7 @@ if __name__ == "__main__":
         elif config.app_type == "django":
             # For Django, we'd need to create a more complete structure,
             # so return a minimal manage.py and suggest running django-admin
-            return f"""#!/usr/bin/env python
+            return """#!/usr/bin/env python
 import os
 import sys
 from dotenv import load_dotenv

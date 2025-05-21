@@ -8,14 +8,12 @@ sections, session management, and utilities for extracting relevant debugging co
 import os
 import re
 import json
-import time
 import glob
-import shutil
 import logging
 from enum import Enum, auto
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
-from typing import Optional, Dict, Any, List, Iterator, Set, Tuple, Union
+from typing import Optional, Dict, Any, List, Set, Union
 from pathlib import Path
 import hashlib
 
@@ -365,7 +363,7 @@ class EnhancedScratchpadManager:
                 
             return decrypted_bytes.decode()
         except Exception:
-            return f"[Error decrypting content]"
+            return "[Error decrypting content]"
     
     def _write_entry(self, entry: LogEntry) -> None:
         """Write a log entry to the current log file."""

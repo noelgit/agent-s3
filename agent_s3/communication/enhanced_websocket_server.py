@@ -13,7 +13,7 @@ import socket
 import threading
 import time
 import uuid
-from typing import Dict, Any, Optional, Set, List, Callable
+from typing import Dict, Any, Optional, Set, List
 import websockets
 
 from .message_protocol import Message, MessageType, MessageBus, MessageQueue
@@ -289,7 +289,8 @@ class EnhancedWebSocketServer:
         # Extract stream ID and content
         content = message.content
         stream_id = content.get("stream_id", "")
-        text_content = content.get("content", "")
+        # Extract the raw text content if needed for future processing
+        # Currently, the server does not use the content directly
         
         # Ensure we're tracking this stream
         self._active_streams = getattr(self, "_active_streams", set())
@@ -507,7 +508,8 @@ class EnhancedWebSocketServer:
             message_dict: The message dictionary
         """
         # Get sync markers from client (timestamps, sequence IDs)
-        sync_markers = message_dict.get("content", {}).get("sync_markers", {})
+        # Extract client-provided synchronization markers if available
+        _ = message_dict.get("content", {}).get("sync_markers", {})
         
         # Determine what data needs to be sent
         # This is application-specific, but we'll send back some state for example
@@ -605,7 +607,8 @@ class EnhancedWebSocketServer:
                 # Fall back to direct send if no batching
                 payload = json.dumps(message.to_dict())
                 if len(payload) > 4096:
-                    import gzip, base64
+                    import gzip
+                    import base64
                     compressed = gzip.compress(payload.encode("utf-8"))
                     payload = json.dumps({
                         "encoding": "gzip",

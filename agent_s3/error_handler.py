@@ -7,7 +7,6 @@ and recovery across all components of the agent_s3 system.
 
 import functools
 import logging
-import traceback
 from contextlib import contextmanager
 from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union, cast
 
@@ -15,9 +14,7 @@ from agent_s3.errors import (
     AgentError, 
     ErrorCategory, 
     ErrorContext,
-    categorize_exception,
-    create_error_context,
-    log_exception
+    create_error_context
 )
 
 logger = logging.getLogger(__name__)
