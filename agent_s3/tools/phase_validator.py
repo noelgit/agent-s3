@@ -80,7 +80,9 @@ def validate_phase_transition(pre_plan_data: Dict[str, Any], feature_group: Dict
     return is_valid, "; ".join(error_messages) if error_messages else "Valid"
 
 
-def validate_user_modifications(modification_text: str) -> Tuple[bool, str]:
+def validate_user_modifications(
+    modification_text: str, plan: Optional[Dict[str, Any]] = None
+) -> Tuple[bool, str]:
     """Validate user modifications to ensure they don't break the plan.
     
     Args:
@@ -111,6 +113,23 @@ def validate_user_modifications(modification_text: str) -> Tuple[bool, str]:
     if len(modification_text.strip()) < 5:
         error_messages.append("Modification text is too short or empty")
         is_valid = False
+
+    # Optionally validate plan structure if provided
+    if plan is not None:
+        if not isinstance(plan, dict) or not isinstance(plan.get("feature_groups"), list):
+            error_messages.append("Plan missing 'feature_groups' list")
+            is_valid = False
+        else:
+            for group in plan.get("feature_groups", []):
+                if not isinstance(group, dict) or not isinstance(group.get("features"), list):
+                    error_messages.append("Invalid feature group structure")
+                    is_valid = False
+                    break
+                for feature in group.get("features", []):
+                    if not isinstance(feature, dict) or "name" not in feature or "description" not in feature:
+                        error_messages.append("Invalid feature object in plan")
+                        is_valid = False
+                        break
     
     # Return validation result
     return is_valid, "; ".join(error_messages) if error_messages else "Valid"

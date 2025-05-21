@@ -97,6 +97,18 @@ class TestPhaseValidation(unittest.TestCase):
         is_valid, message = validate_user_modifications(invalid_modification_2)
         self.assertFalse(is_valid)
         self.assertTrue(any(pattern in message for pattern in ["delete everything", "start over"]))
+
+        # Invalid plan - missing feature_groups
+        invalid_plan = {}
+        is_valid, message = validate_user_modifications(valid_modification, invalid_plan)
+        self.assertFalse(is_valid)
+        self.assertIn("feature_groups", message)
+
+        # Invalid plan - malformed feature object
+        malformed_plan = {"feature_groups": [{"group_name": "Group 1", "features": ["not a dict"]}]}
+        is_valid, message = validate_user_modifications(valid_modification, malformed_plan)
+        self.assertFalse(is_valid)
+        self.assertIn("invalid feature", message.lower())
     
     def test_validate_architecture_implementation(self):
         """Test validation of architecture-implementation consistency."""
