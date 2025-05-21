@@ -37,37 +37,49 @@ def display_help() -> None:
 Agent-S3 Command-Line Interface
 
 Commands:
-  agent-s3 <prompt>        - Process a change request (full workflow)
-  agent-s3 /plan <prompt>        - Generate a plan only (bypass execution)
-  agent-s3 /request <prompt>     - Full change request (plan, execute)
-  agent-s3 /init           - Initialize the workspace
-  agent-s3 /help           - Display this help message
-  agent-s3 /config         - Show current configuration
-  agent-s3 /reload-llm-config - Reload LLM configuration
-  agent-s3 /explain        - Explain the last LLM interaction
-  agent-s3 /terminal <command>  - Execute shell commands directly (bypassing LLM)
-  agent-s3 /design <objective>  - Start a design process
-  agent-s3 /continue [task_id]   - Continue implementation from where it left off
-  agent-s3 /tasks          - List active tasks that can be resumed
-  agent-s3 /clear <task_id>      - Clear a specific task state
-  agent-s3 /db <command>   - Database operations (see /db help for details)
+  agent-s3 <prompt>          - Process a change request (full workflow)
+  agent-s3 /plan <prompt>    - Generate a plan only (bypass execution)
+  agent-s3 /request <prompt> - Full change request (plan, execute)
+  agent-s3 /init             - Initialize the workspace
+  agent-s3 /help             - Display this help message
+  agent-s3 /config           - Show current configuration
+  agent-s3 /reload-llm-config- Reload LLM configuration
+  agent-s3 /explain          - Explain the last LLM interaction
+  agent-s3 /terminal <cmd>   - Execute shell commands directly (bypassing LLM)
+  agent-s3 /cli bash <cmd>   - Run multi-line bash script via heredoc
+  agent-s3 /cli file <path>  - Write file content via heredoc
+  agent-s3 /design <obj>     - Start a design process
+  agent-s3 /personas         - Generate default personas file
+  agent-s3 /guidelines       - Generate default guidelines file
+  agent-s3 /continue [id]    - Continue implementation from where it left off
+  agent-s3 /tasks            - List active tasks that can be resumed
+  agent-s3 /clear <id>       - Clear a specific task state
+  agent-s3 /db <command>     - Database operations (see /db help for details)
+  agent-s3 /test             - Run tests
+  agent-s3 /debug            - Start debugging utilities
 
 Special Commands (can be used in prompt):
-  /help                    - Display help message
-  /init                    - Initialize workspace
-  /config                  - Show current configuration
-  /reload-llm-config       - Reload LLM configuration
-  /explain                 - Explain the last LLM interaction
-  /plan <prompt>           - Generate a plan only (bypass execution)
-  /request <prompt>        - Full change request (plan + execution)
-  /terminal <command>      - Execute shell commands literally (bypassing LLM)
-  /design <objective>      - Start a design process
-  /continue [task_id]      - Continue implementation from where it left off
-  /tasks                   - List active tasks that can be resumed
-  /clear <task_id>         - Clear a specific task state
-  /db <command>            - Database operations (schema, query, test, etc.)
-  @<filename>              - Open a file in the editor
-  #<tag>                   - Add a tag to the scratchpad
+  /help                      - Display help message
+  /init                      - Initialize workspace
+  /config                    - Show current configuration
+  /reload-llm-config         - Reload LLM configuration
+  /explain                   - Explain the last LLM interaction
+  /plan <prompt>             - Generate a plan only (bypass execution)
+  /request <prompt>          - Full change request (plan + execution)
+  /terminal <cmd>            - Execute shell commands literally (bypassing LLM)
+  /cli bash <cmd>            - Multi-line bash execution (<<EOF ... EOF)
+  /cli file <path>           - Multi-line file content
+  /design <obj>              - Start a design process
+  /personas                  - Generate default personas file
+  /guidelines                - Generate default guidelines file
+  /continue [id]             - Continue implementation from where it left off
+  /tasks                     - List active tasks that can be resumed
+  /clear <id>                - Clear a specific task state
+  /db <command>              - Database operations (schema, query, test, etc.)
+  /test                      - Run tests
+  /debug                     - Start debugging utilities
+  @<filename>                - Open a file in the editor
+  #<tag>                     - Add a tag to the scratchpad
 """
     print(help_text)
 
@@ -104,10 +116,19 @@ def process_command(coordinator: Coordinator, command: str) -> None:
 
 def main() -> None:
     """Main entry point for the command-line interface."""
-    parser = argparse.ArgumentParser(description="Agent-S3 Command-Line Interface")
+    parser = argparse.ArgumentParser(
+        description="Agent-S3 Command-Line Interface",
+        formatter_class=argparse.RawTextHelpFormatter,
+        add_help=False,
+    )
     parser.add_argument("prompt", nargs="*", help="The change request prompt or command")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--help", "-h", action="store_true", help="Show this help message and exit")
     args = parser.parse_args()
+
+    if args.help:
+        display_help()
+        return
 
     configure_logging(args.verbose)
     logger.debug("Starting Agent-S3 CLI")
