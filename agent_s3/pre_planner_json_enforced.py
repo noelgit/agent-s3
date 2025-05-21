@@ -107,8 +107,13 @@ The decomposition should reflect not just what to build, but also consider:
 3. Impact on existing code and backward compatibility
 4. Order of implementation to maximize progress while minimizing integration issues
 
-Provide comprehensive test requirements, dependencies, risk assessments and acceptance tests for each feature.
+    Provide comprehensive test requirements, dependencies, risk assessments and acceptance tests for each feature.
 """
+
+def get_json_user_prompt(task_description: str) -> str:
+    """Return the user prompt specifically for JSON-enforced planning."""
+    base_prompt = get_base_user_prompt(task_description)
+    return f"{base_prompt}\n\nRespond in structured JSON only."
 
 # Create fallback pre-planning output
 def create_fallback_pre_planning_output(task_description: str) -> Dict[str, Any]:
@@ -151,6 +156,11 @@ def create_fallback_pre_planning_output(task_description: str) -> Dict[str, Any]
             "ui_test_approach": "manual"
         }
     }
+
+# Alias used by tests
+def create_fallback_json(task_description: str) -> Dict[str, Any]:
+    """Backward-compatible wrapper for fallback generation."""
+    return create_fallback_pre_planning_output(task_description)
 
 # Validate pre-planning output
 def validate_pre_planning_output(data: Dict[str, Any]) -> Tuple[bool, str]:
@@ -415,6 +425,73 @@ def integrate_with_coordinator(coordinator, task_description: str, context: Dict
             "timestamp": coordinator.get_current_timestamp(),
             "error": "Failed to generate pre-planning data"
         }
+
+
+def _parse_structured_modifications(text: str) -> List[Dict[str, str]]:
+    """Parse structured modification requests from text."""
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    modifications: List[Dict[str, str]] = []
+    current: Dict[str, str] = {}
+    for line in lines:
+        if line.startswith("STRUCTURED_MODIFICATIONS"):
+            continue
+        if line.startswith("Modification") or line == "RAW_INPUT:" or line == "---":
+            if current:
+                modifications.append(current)
+                current = {}
+            continue
+        if ":" in line:
+            key, value = [part.strip() for part in line.split(":", 1)]
+            current[key] = value
+    if current:
+        modifications.append(current)
+    required = {"COMPONENT", "LOCATION", "CHANGE_TYPE", "DESCRIPTION"}
+    return [m for m in modifications if required.issubset(m)]
+
+
+def regenerate_pre_planning_with_modifications(
+    router_agent, original_results: Dict[str, Any], modification_text: str
+) -> Dict[str, Any]:
+    """Regenerate pre-planning results based on user modifications."""
+    system_prompt = get_json_system_prompt()
+    user_prompt = (
+        "Modification Request:\n" + modification_text.strip()
+    )
+    openrouter_params = get_openrouter_params()
+    response = router_agent.call_llm_by_role(
+        role="pre_planner",
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        config=openrouter_params,
+    )
+    status, data = process_response(response, original_results.get("original_request", ""))
+    if status is True:
+        return data
+    raise JSONValidationError("Failed to regenerate pre-planning JSON")
+
+
+def pre_planning_workflow(
+    router_agent, task_description: str, context: Optional[Dict[str, Any]] = None
+) -> Tuple[bool, Dict[str, Any]]:
+    """Run the JSON-enforced pre-planning workflow."""
+    system_prompt = get_json_system_prompt()
+    user_prompt = get_json_user_prompt(task_description)
+    openrouter_params = get_openrouter_params()
+
+    for _ in range(2):
+        response = router_agent.call_llm_by_role(
+            role="pre_planner",
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            config=openrouter_params,
+        )
+        success, data = process_response(response, task_description)
+        if success:
+            return True, data
+
+    # Generate fallback then raise
+    create_fallback_json(task_description)
+    raise JSONValidationError("Failed to generate valid pre-planning data")
 
 def process_response(response: str, original_request: str) -> Tuple[str, Dict[str, Any], Optional[str]]:
     """
