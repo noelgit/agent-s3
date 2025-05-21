@@ -290,14 +290,13 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
             
             # Check implementation steps if present
             if "implementation_steps" in feature and isinstance(feature["implementation_steps"], list):
-                # Mark implementation section as present
-                validation_results["sections"]["implementation"] = True
-                
+                valid_steps_found = False
                 for step_idx, step in enumerate(feature["implementation_steps"]):
                     if not isinstance(step, dict):
                         continue
-                        
-                    # Check step description and code
+                    valid_steps_found = True
+
+                    # Check step description and code for dangerous content
                     for field in ["description", "code"]:
                         content = step.get(field, "")
                         for pattern in dangerous_patterns:
@@ -307,6 +306,9 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
                                     "category": "security",
                                     "suggestion": f"Remove or replace the dangerous operation '{pattern}'"
                                 })
+
+                if valid_steps_found:
+                    validation_results["sections"]["implementation"] = True
     
     # Run all validation checks with severity classification
     # Schema validation - critical if basic structure is invalid
