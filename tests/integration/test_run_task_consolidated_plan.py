@@ -91,7 +91,7 @@ def test_run_task_with_mocked_llm(monkeypatch):
     # Patch LLM-calling functions
     monkeypatch.setattr(
         'agent_s3.pre_planner_json_enforced.pre_planning_workflow',
-        lambda router, task, context=None: (True, PRE_PLAN_DATA)
+        lambda router, task, context=None, max_attempts=2: (True, PRE_PLAN_DATA)
     )
     monkeypatch.setattr(
         'agent_s3.tools.plan_validator.validate_pre_plan',

@@ -276,7 +276,12 @@ def validate_preplan_all(data) -> Tuple[bool, str]:
     
     return (len(errors) == 0), "\n".join(errors)
 
-def integrate_with_coordinator(coordinator, task_description: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
+def integrate_with_coordinator(
+    coordinator,
+    task_description: str,
+    context: Dict[str, Any] = None,
+    max_attempts: int = 2,
+) -> Dict[str, Any]:
     """
     Integrate pre-planning with the coordinator.
     
@@ -288,6 +293,7 @@ def integrate_with_coordinator(coordinator, task_description: str, context: Dict
         coordinator: The coordinator instance
         task_description: The task description
         context: Optional context dictionary
+        max_attempts: Maximum number of attempts for the pre-planning step
         
     Returns:
         Dictionary containing pre-planning results
@@ -309,7 +315,10 @@ def integrate_with_coordinator(coordinator, task_description: str, context: Dict
         }
     if mode == "json":
         success, pre_planning_data = pre_planning_workflow(
-            router_agent, task_description, context
+            router_agent,
+            task_description,
+            context,
+            max_attempts=max_attempts,
         )
     else:
         success, pre_planning_data = call_pre_planner_with_enforced_json(
@@ -489,15 +498,24 @@ def regenerate_pre_planning_with_modifications(
 
 
 def pre_planning_workflow(
-    router_agent, task_description: str, context: Optional[Dict[str, Any]] = None
+    router_agent,
+    task_description: str,
+    context: Optional[Dict[str, Any]] = None,
+    max_attempts: int = 2,
 ) -> Tuple[bool, Dict[str, Any]]:
-    """Run the JSON-enforced pre-planning workflow."""
+    """Run the JSON-enforced pre-planning workflow.
+
+    Args:
+        router_agent: Agent used to call the LLM.
+        task_description: The user's task description.
+        context: Optional context dictionary passed to the LLM.
+        max_attempts: Maximum number of attempts to get valid pre-planning data.
+    """
     system_prompt = get_json_system_prompt()
     user_prompt = get_json_user_prompt(task_description)
     openrouter_params = get_openrouter_params()
 
     current_prompt = user_prompt
-    max_attempts = 2
     attempts = 0
     clarification_attempts = 0
     max_clarifications = 3
@@ -1040,12 +1058,24 @@ class PrePlanner:
         self.validator = PrePlanningValidator()
 
     def generate_pre_planning_data(
-        self, task_description: str, context: Optional[Dict[str, Any]] = None
+        self,
+        task_description: str,
+        context: Optional[Dict[str, Any]] = None,
+        max_attempts: int = 2,
     ) -> Dict[str, Any]:
-        """Generate initial pre-planning data."""
+        """Generate initial pre-planning data.
+
+        Args:
+            task_description: Description of the requested task.
+            context: Optional context dictionary.
+            max_attempts: Maximum number of attempts for the pre-planning step.
+        """
         if self.config.get("use_json_enforcement", True):
             success, data = pre_planning_workflow(
-                self.router_agent, task_description, context
+                self.router_agent,
+                task_description,
+                context,
+                max_attempts=max_attempts,
             )
         else:
             system_prompt = get_base_system_prompt()

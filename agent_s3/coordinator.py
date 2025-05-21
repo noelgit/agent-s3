@@ -823,7 +823,11 @@ class Coordinator:
             if mode == "enforced_json":
                 success, pre_plan = call_pre_planner_with_enforced_json(self.router_agent, task)
             else:  # "json"
-                success, pre_plan = pre_planning_workflow(self.router_agent, task)
+                success, pre_plan = pre_planning_workflow(
+                    self.router_agent,
+                    task,
+                    max_attempts=2,
+                )
             if not success:
                 self.scratchpad.log("Coordinator", "Pre-planning failed", level=LogLevel.ERROR)
                 return []
