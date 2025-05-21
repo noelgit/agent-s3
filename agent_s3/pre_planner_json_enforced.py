@@ -301,11 +301,14 @@ def integrate_with_coordinator(
     # Get the router agent from the coordinator
     router_agent = coordinator.router_agent
 
-    mode = getattr(coordinator, "config", None)
-    if mode:
-        mode = coordinator.config.config.get("pre_planning_mode", "enforced_json")
-    else:
+    mode = "enforced_json"
+    config = getattr(coordinator, "config", None)
+    if config and isinstance(getattr(config, "config", None), dict):
+        mode = config.config.get("pre_planning_mode", "enforced_json")
+    if not isinstance(mode, str):
         mode = "enforced_json"
+
+    uses_enforced_json = mode == "enforced_json"
 
     if mode == "off":
         return {
@@ -432,7 +435,7 @@ def integrate_with_coordinator(
         # Return results
         return {
             "success": True,
-            "uses_enforced_json": True,
+            "uses_enforced_json": uses_enforced_json,
             "status": "completed",
             "timestamp": coordinator.get_current_timestamp(),
             "pre_planning_data": pre_planning_data,
@@ -447,7 +450,7 @@ def integrate_with_coordinator(
         # Return failure
         return {
             "success": False,
-            "uses_enforced_json": True,
+            "uses_enforced_json": uses_enforced_json,
             "status": "failed",
             "timestamp": coordinator.get_current_timestamp(),
             "error": "Failed to generate pre-planning data"
