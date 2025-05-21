@@ -94,11 +94,33 @@ class TestPrePlanner:
         """Test generating pre-planning data with JSON enforcement disabled."""
         # Call method
         result = pre_planner_no_json_enforcement.generate_pre_planning_data("Test task")
-        
+
         # Verify original implementation was used
         assert result["success"] is True
         assert "pre_planning_data" in result
         assert "complexity_assessment" in result
+
+    @patch("agent_s3.pre_planner_json_enforced.pre_planning_workflow")
+    @patch("agent_s3.pre_planner_json_enforced.process_response")
+    def test_generate_pre_planning_data_force_no_json_enforcement(
+        self,
+        mock_process,
+        mock_workflow,
+        pre_planner,
+    ):
+        """Force disable JSON enforcement at runtime and verify fallback path."""
+        pre_planner.config["use_json_enforcement"] = False
+        mock_process.return_value = (True, {"feature_groups": []})
+
+        with patch.object(pre_planner, "_call_llm_with_retry") as mock_call:
+            mock_call.return_value = {"success": True, "response": "{}"}
+            result = pre_planner.generate_pre_planning_data("Test task")
+
+        mock_workflow.assert_not_called()
+        mock_call.assert_called_once()
+        mock_process.assert_called_once_with("{}", "Test task")
+        assert result["success"] is True
+        assert result["pre_planning_data"] == {"feature_groups": []}
     
     @patch('agent_s3.pre_planner_json_enforced.regenerate_pre_planning_with_modifications')
     def test_regenerate_pre_planning_with_modifications_json_enforcement(self, mock_regenerate, pre_planner, sample_pre_planning_data):
