@@ -539,6 +539,54 @@ DESCRIPTION: Add error handling for connection failures
         # Verify the result
         assert result == json_data
 
+    @patch('agent_s3.pre_planner_json_enforced.progress_tracker.logger')
+    @patch('agent_s3.pre_planner_json_enforced.process_response')
+    def test_pre_planning_workflow_logs_single_clarification(self, mock_process, mock_logger):
+        """Ensure a clarification round is logged to progress_log.jsonl."""
+        router = MagicMock()
+        router.call_llm_by_role.return_value = "{}"
+
+        mock_process.side_effect = [
+            ("question", {"question": "Need more info?"}),
+            (True, {"original_request": "Task", "features": []})
+        ]
+
+        with patch('builtins.input', return_value='Here you go'):
+            success, data = pre_planning_workflow(router, "Task")
+
+        assert success is True
+        assert data == {"original_request": "Task", "features": []}
+        mock_logger.info.assert_called_once()
+        log_entry = json.loads(mock_logger.info.call_args[0][0])
+        assert log_entry["phase"] == "pre-planning clarification"
+        assert log_entry["question"] == "Need more info?"
+        assert log_entry["answer"] == "Here you go"
+
+    @patch('agent_s3.pre_planner_json_enforced.progress_tracker.logger')
+    @patch('agent_s3.pre_planner_json_enforced.process_response')
+    def test_pre_planning_workflow_logs_multiple_clarifications(self, mock_process, mock_logger):
+        """Multiple clarification rounds should each be logged."""
+        router = MagicMock()
+        router.call_llm_by_role.return_value = "{}"
+
+        mock_process.side_effect = [
+            ("question", {"question": "Q1?"}),
+            ("question", {"question": "Q2?"}),
+            (True, {"original_request": "Task", "features": []})
+        ]
+
+        with patch('builtins.input', side_effect=['A1', 'A2']):
+            success, data = pre_planning_workflow(router, "Task")
+
+        assert success is True
+        assert mock_logger.info.call_count == 2
+        first = json.loads(mock_logger.info.call_args_list[0].args[0])
+        second = json.loads(mock_logger.info.call_args_list[1].args[0])
+        assert first["question"] == "Q1?"
+        assert first["answer"] == "A1"
+        assert second["question"] == "Q2?"
+        assert second["answer"] == "A2"
+
     @patch('agent_s3.pre_planner_json_enforced.process_response')
     def test_regenerate_pre_planning_with_unstructured_modifications(self, mock_process):
         """Test regeneration of pre-planning with unstructured modifications."""
