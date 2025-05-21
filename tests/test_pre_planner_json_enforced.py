@@ -586,6 +586,28 @@ DESCRIPTION: Add error handling for connection failures
         assert mock_input.call_count == 1
 
     @patch('agent_s3.pre_planner_json_enforced.process_response')
+    def test_pre_planning_workflow_invalid_max_clarifications_defaults_to_three(self, mock_process):
+        """Non-integer MAX_CLARIFICATION_ROUNDS should default to three rounds."""
+        router = MagicMock()
+        router.call_llm_by_role.return_value = "{}"
+
+        mock_process.side_effect = [
+            ("question", {"question": "Q1?"}),
+            ("question", {"question": "Q2?"}),
+            ("question", {"question": "Q3?"}),
+            ("question", {"question": "Q4?"}),
+            (True, {"original_request": "Task", "features": []})
+        ]
+
+        with patch.dict(os.environ, {"MAX_CLARIFICATION_ROUNDS": "abc"}), \
+             patch('builtins.input', side_effect=['A1', 'A2', 'A3', 'A4']) as mock_input:
+            success, data = pre_planning_workflow(router, "Task")
+
+        assert success is True
+        assert data == {"original_request": "Task", "features": []}
+        assert mock_input.call_count == 3
+
+    @patch('agent_s3.pre_planner_json_enforced.process_response')
     def test_pre_planning_workflow_appends_clarification_to_file(self, mock_process, tmp_path):
         """Ensure clarification round data is appended to the progress log file."""
         router = MagicMock()
