@@ -16,8 +16,6 @@ import json
 import logging
 import re
 import time # Added for potential delays in retry
-import sys
-import functools
 from typing import Dict, Any, Optional, Tuple, List, Union
 
 from agent_s3.pre_planning_errors import (
