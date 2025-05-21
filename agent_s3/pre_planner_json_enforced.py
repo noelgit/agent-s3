@@ -14,8 +14,9 @@ Key responsibilities:
 
 import json
 import logging
+import os
 import re
-import time # Added for potential delays in retry
+import time  # Added for potential delays in retry
 from typing import Dict, Any, Optional, Tuple, List, Union
 
 from agent_s3.progress_tracker import progress_tracker
@@ -517,7 +518,8 @@ def pre_planning_workflow(
     The workflow may prompt the user for additional clarification when the
     initial request lacks sufficient detail. Clarification exchanges are
     limited by the ``MAX_CLARIFICATION_ROUNDS`` environment variable
-    (default: ``3``).
+    (default: ``3``). Set this variable to control how many clarification
+    prompts are allowed.
     """
     system_prompt = get_json_system_prompt()
     user_prompt = get_json_user_prompt(task_description)
@@ -532,7 +534,10 @@ def pre_planning_workflow(
     current_prompt = user_prompt
     attempts = 0
     clarification_attempts = 0
-    max_clarifications = 3
+    try:
+        max_clarifications = int(os.getenv("MAX_CLARIFICATION_ROUNDS", "3"))
+    except ValueError:
+        max_clarifications = 3
 
     while attempts < max_attempts:
         response = router_agent.call_llm_by_role(
