@@ -6,7 +6,7 @@ based on multiple weighted factors including feature count, impacted files,
 requirements complexity, security sensitivity, and external integrations.
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 import re
 import logging
 
