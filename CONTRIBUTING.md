@@ -1,6 +1,9 @@
 # Contributing
 
-We welcome contributions that improve Agent-S3. Before opening a pull request, please ensure the following:
+We welcome contributions that improve Agent-S3. Before opening a pull request,
+review the consolidated guidelines in
+[docs/development_guidelines.md](docs/development_guidelines.md).
+Then ensure the following:
 
 - **Setup:** install runtime and development dependencies:
   ```bash
@@ -25,6 +28,10 @@ fix(security): sanitize header logs
 docs(readme): mention Supabase secrets
 ```
 
-For details on development workflows and project guidelines, see `.github/copilot-instructions.md` and `README.md`.
+For complete development guidelines, see
+[docs/development_guidelines.md](docs/development_guidelines.md) and
+[docs/debugging_and_error_handling.md](docs/debugging_and_error_handling.md).
+Additional instructions reside in `.github/copilot-instructions.md` and
+`README.md`.
 
 
