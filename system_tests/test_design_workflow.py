@@ -96,24 +96,24 @@ class TestDesignWorkflow:
             response = design_manager.start_design_conversation("Design a TODO application")
             assert "help you design" in response
                 
-                # 2. Continue conversation until complete
-                response, is_complete = design_manager.continue_conversation("That sounds good, please continue.")
-                assert not is_complete  # Not complete yet
-                
-                response, is_complete = design_manager.continue_conversation("Yes, that looks good")
-                assert is_complete  # Design should be complete now
-                
-                # 3. Write design to file
-                success, message = design_manager.write_design_to_file()
-                assert success
-                
-                coordinator.run_task = MagicMock()
-                coordinator.start_pre_planning_from_design = MagicMock()
+            # 2. Continue conversation until complete
+            response, is_complete = design_manager.continue_conversation("That sounds good, please continue.")
+            assert not is_complete  # Not complete yet
+            
+            response, is_complete = design_manager.continue_conversation("Yes, that looks good")
+            assert is_complete  # Design should be complete now
+            
+            # 3. Write design to file
+            success, message = design_manager.write_design_to_file()
+            assert success
+            
+            coordinator.run_task = MagicMock()
+            coordinator.start_pre_planning_from_design = MagicMock()
 
-                # 4. Prompt for implementation
-                choices = design_manager.prompt_for_implementation()
-                assert choices["implementation"] is True
-                
-                # The following would be in an actual integration test
-                # but here we're just verifying the proper methods were called
-                assert coordinator.run_task.called or coordinator.start_pre_planning_from_design.called
+            # 4. Prompt for implementation
+            choices = design_manager.prompt_for_implementation()
+            assert choices["implementation"] is True
+            
+            # The following would be in an actual integration test
+            # but here we're just verifying the proper methods were called
+            assert coordinator.run_task.called or coordinator.start_pre_planning_from_design.called

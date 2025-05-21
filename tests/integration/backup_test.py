@@ -553,10 +553,10 @@ def test_full_context_management_integration(mock_coordinator, context_manager):
         }
     
     # 2. Get the current context
-        optimized = context_manager.current_context
+    optimized = context_manager.current_context
     
-        # Verify context is as expected
-        assert "metadata" in optimized
+    # Verify context is as expected
+    assert "metadata" in optimized
     assert "code_context" in optimized
     assert "main.py" in optimized["code_context"]
     assert "utils.py" in optimized["code_context"]
