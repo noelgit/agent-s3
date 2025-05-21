@@ -487,3 +487,25 @@ def test_implementation_retry_requests_user_guidance(coordinator):
     coordinator.prompt_moderator.request_debugging_guidance.assert_called_once_with("auth", 1)
     coordinator.feature_group_processor.update_plan_with_modifications.assert_called_once_with(plan, "Fix plan")
     assert success is True
+
+
+def test_implementation_multiple_plans_processed_sequentially(coordinator):
+    """Ensure multiple approved plans are executed sequentially."""
+    plan1 = {"plan_id": "1", "group_name": "auth"}
+    plan2 = {"plan_id": "2", "group_name": "billing"}
+
+    coordinator.code_generator.generate_code.side_effect = [
+        {"auth.py": "code1"},
+        {"billing.py": "code2"},
+    ]
+    coordinator._apply_changes_and_manage_dependencies.return_value = True
+    coordinator._run_validation_phase.side_effect = [
+        {"success": True, "step": None},
+        {"success": True, "step": None},
+    ]
+
+    changes, success = coordinator._implementation_workflow([plan1, plan2])
+
+    assert coordinator._run_validation_phase.call_count == 2
+    assert changes == {"auth.py": "code1", "billing.py": "code2"}
+    assert success is True
