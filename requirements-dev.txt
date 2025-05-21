@@ -1,4 +1,4 @@
-mypy>=1.5
-pytest>=7.0
-ruff>=0.1
-websockets>=10.0
+mypy>=1.8
+pytest>=8.0
+ruff>=0.2
+websockets>=11.0
