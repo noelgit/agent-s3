@@ -2,11 +2,11 @@
 
 import os
 import sys
-import re
+import json
 import tempfile
 import subprocess
 import shlex
-from typing import Dict, Optional, Union, List, Tuple, Any, Set, Literal
+from typing import Dict, Optional, List, Tuple, Any, Set, Literal
 
 from .communication.vscode_bridge import VSCodeBridge
 
@@ -398,7 +398,7 @@ class PromptModerator:
         
         # Format plan for display
         plan_display = "\n" + "="*80 + "\n"
-        plan_display += f"EXECUTION PLAN SUMMARY:\n"
+        plan_display += "EXECUTION PLAN SUMMARY:\n"
         plan_display += "-"*80 + "\n"
         plan_display += summary + "\n\n"
         plan_display += "="*80 + "\n"
@@ -412,8 +412,7 @@ class PromptModerator:
             # Send to VS Code UI
             self.vscode_bridge.send_terminal_output(plan_display)
             
-            # Extract structured sections for better visualization
-            sections = self._extract_plan_sections(plan)
+
             
             # Create enhanced interactive approval options
             approval_options = [
@@ -1124,7 +1123,7 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
         print(f"\n{prompt_text}:")
         for i, file_path in enumerate(file_list):
             print(f"{i+1}. {file_path}")
-        print(f"0. Cancel")
+        print("0. Cancel")
         
         while True:
             try:

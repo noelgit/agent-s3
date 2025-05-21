@@ -6,12 +6,11 @@ This module provides utilities to:
 3. Check for transitive dependencies and conflicts
 """
 
-import ast
-import importlib
 import logging
 import os
+import re
 import sys
-from typing import Dict, List, Set, Tuple, Optional
+from typing import Dict, List, Set, Optional
 from pathlib import Path
 import pkg_resources
 import subprocess
