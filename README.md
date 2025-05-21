@@ -110,7 +110,7 @@ Agent-S3 is not just a tool for automation; it is a partner in development that 
   - Specialized error categorization and handling for 12+ error types (`agent_s3.debugging_manager`)
   - Context-aware error resolution with historical reasoning extraction
   - Requests engineer guidance if automated debugging fails after repeated attempts
-  - See [DEBUGGING.md](DEBUGGING.md) for details
+  - See [docs/debugging_and_error_handling.md](docs/debugging_and_error_handling.md) for details
 - Comprehensive test framework:
   - TestCritic for analyzing test quality and coverage (`agent_s3.tools.test_critic`)
   - TestFrameworks for framework-agnostic test generation (`agent_s3.tools.test_frameworks`)
@@ -420,11 +420,19 @@ pip install -r requirements-dev.txt
 Contributions welcome! Please:
 - Ensure tests pass and lint/type checks are clean
 - Follow PEP 8 and the core criteria in `.github/copilot-instructions.md`
+- Review [docs/development_guidelines.md](docs/development_guidelines.md) for additional coding rules
 - Use [Conventional Commits](CONTRIBUTING.md#commit-messages) for commit messages
 
 ## License
 
 MIT License. See `LICENSE` or `pyproject.toml` for details.
+
+## Additional Documentation
+
+Detailed development and testing guidance can be found in
+[docs/development_guidelines.md](docs/development_guidelines.md). Information on
+debugging and error handling resides in
+[docs/debugging_and_error_handling.md](docs/debugging_and_error_handling.md).
 
 ## Static Plan Checker
 

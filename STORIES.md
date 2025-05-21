@@ -3,7 +3,10 @@
 This document outlines common user scenarios and provides step-by-step walkthroughs for interacting with Agent-S3, based on the actual implementation in the `agent_s3` Python package and the `vscode` extension.
 
 Together with `README.md`, this file constitutes the canonical documentation for
-Agent-S3. Refer to both documents for a complete understanding of the project.
+Agent-S3. Additional development guidance is available in
+[docs/development_guidelines.md](docs/development_guidelines.md) and
+[docs/debugging_and_error_handling.md](docs/debugging_and_error_handling.md).
+Refer to these resources for a complete understanding of the project.
 
 ## Story 1: Initializing Agent-S3 in a New Workspace
 
