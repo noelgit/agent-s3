@@ -14,8 +14,9 @@ Key responsibilities:
 
 import json
 import logging
+import os
 import re
-import time # Added for potential delays in retry
+import time  # Added for potential delays in retry
 from typing import Dict, Any, Optional, Tuple, List, Union
 
 from agent_s3.progress_tracker import progress_tracker
@@ -532,7 +533,13 @@ def pre_planning_workflow(
     current_prompt = user_prompt
     attempts = 0
     clarification_attempts = 0
-    max_clarifications = 3
+    env_value = os.environ.get("MAX_CLARIFICATION_ROUNDS", "3")
+    try:
+        max_clarifications = int(env_value)
+        if max_clarifications < 1:
+            raise ValueError
+    except (ValueError, TypeError):
+        max_clarifications = 3
 
     while attempts < max_attempts:
         response = router_agent.call_llm_by_role(

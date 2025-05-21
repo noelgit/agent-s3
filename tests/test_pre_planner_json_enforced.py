@@ -8,6 +8,7 @@ module is the primary implementation used throughout the system for pre-planning
 
 import json
 import logging
+import os
 import pytest
 from unittest.mock import MagicMock, patch
 
@@ -564,6 +565,44 @@ DESCRIPTION: Add error handling for connection failures
         
         # Verify the result
         assert result == json_data
+
+    @patch('agent_s3.pre_planner_json_enforced.progress_tracker.logger')
+    @patch('agent_s3.pre_planner_json_enforced.process_response')
+    def test_max_clarification_rounds_defaults_when_zero(self, mock_process, mock_logger):
+        """Environment variable zero should fallback to default of 3."""
+        router = MagicMock()
+        router.call_llm_by_role.return_value = "{}"
+
+        mock_process.side_effect = [
+            ("question", {"question": "Need more info?"}),
+            (True, {"original_request": "Task", "features": []})
+        ]
+
+        with patch.dict(os.environ, {"MAX_CLARIFICATION_ROUNDS": "0"}):
+            with patch('builtins.input', return_value='answer'):
+                success, _ = pre_planning_workflow(router, "Task")
+
+        assert success is True
+        mock_logger.info.assert_called_once()
+
+    @patch('agent_s3.pre_planner_json_enforced.progress_tracker.logger')
+    @patch('agent_s3.pre_planner_json_enforced.process_response')
+    def test_max_clarification_rounds_defaults_when_negative(self, mock_process, mock_logger):
+        """Negative environment variable should fallback to default of 3."""
+        router = MagicMock()
+        router.call_llm_by_role.return_value = "{}"
+
+        mock_process.side_effect = [
+            ("question", {"question": "Need more info?"}),
+            (True, {"original_request": "Task", "features": []})
+        ]
+
+        with patch.dict(os.environ, {"MAX_CLARIFICATION_ROUNDS": "-2"}):
+            with patch('builtins.input', return_value='ans'):
+                success, _ = pre_planning_workflow(router, "Task")
+
+        assert success is True
+        mock_logger.info.assert_called_once()
 
     @patch('agent_s3.pre_planner_json_enforced.process_response')
     def test_pre_planning_workflow_appends_clarification_to_file(self, mock_process, tmp_path):
