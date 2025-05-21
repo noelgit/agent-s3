@@ -139,7 +139,7 @@ class TestCoordinatorPlanValidation:
         
         # Configure mocks
         coordinator.prompt_moderator.ask_ternary_question.return_value = "yes"  # User proceeds
-        coordinator._present_pre_planning_results_to_user.return_value = ("yes", complex_task_data)
+        coordinator._present_pre_planning_results_to_user.return_value = ("yes", None)
         
         # Mock call_pre_planner_with_enforced_json
         with patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json', 
@@ -180,7 +180,7 @@ class TestCoordinatorPlanValidation:
         
         # Configure mocks
         coordinator.prompt_moderator.ask_ternary_question.return_value = "yes"  # User proceeds
-        coordinator._present_pre_planning_results_to_user.return_value = ("yes", complex_task_data)
+        coordinator._present_pre_planning_results_to_user.return_value = ("yes", None)
         
         # Mock call_pre_planner_with_enforced_json
         with patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json', 
@@ -312,7 +312,7 @@ class TestCoordinatorPlanValidation:
         }
         
         # Configure mocks
-        coordinator._present_pre_planning_results_to_user.return_value = ("yes", simple_task_data)
+        coordinator._present_pre_planning_results_to_user.return_value = ("yes", None)
         
         # Mock call_pre_planner_with_enforced_json
         with patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json', 
