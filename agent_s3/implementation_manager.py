@@ -9,8 +9,7 @@ import json
 import os
 import logging
 import datetime
-from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +174,6 @@ class ImplementationManager:
             List of task dictionaries
         """
         tasks = []
-        current_section = None
         
         # Process each line
         for line in design_content.split('\n'):

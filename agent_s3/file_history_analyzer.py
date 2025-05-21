@@ -3,11 +3,10 @@
 Analyzes file modification history for context prioritization.
 """
 
-import os
 import logging
 from pathlib import Path
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, List
 
 class FileHistoryAnalyzer:
     """Analyzes file modification history for context prioritization."""

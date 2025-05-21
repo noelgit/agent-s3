@@ -5,11 +5,10 @@ This module processes pre-planning output into feature groups that can be implem
 
 import json
 import logging
-import os
 import uuid
 import traceback
 import difflib
-from typing import Dict, Any, List, Optional, Tuple, Union
+from typing import Dict, Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -376,7 +375,7 @@ class FeatureGroupProcessor:
                         content = self.coordinator.file_tool.read(file_path)
                         if content:
                             file_contents[file_path] = content
-                    except Exception as e:
+                    except Exception:
                         # Silently continue if file doesn't exist - it might be a new file
                         pass
             
@@ -600,7 +599,7 @@ class FeatureGroupProcessor:
         Returns:
             Updated consolidated plan
         """
-        self.coordinator.scratchpad.log("FeatureGroupProcessor", f"Updating plan with user modifications")
+        self.coordinator.scratchpad.log("FeatureGroupProcessor", "Updating plan with user modifications")
         
         try:
             # Import planner helper for modification regeneration
@@ -758,7 +757,6 @@ class FeatureGroupProcessor:
         overridden or patched in tests to verify that results are
         communicated correctly.
         """
-        results = updated_plan.get("revalidation_results", {})
         status = updated_plan.get("revalidation_status", {})
         self.coordinator.scratchpad.log(
             "FeatureGroupProcessor",

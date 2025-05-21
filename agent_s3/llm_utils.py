@@ -5,7 +5,7 @@ backoff, and fallback strategies with advanced semantic caching.
 """
 
 import time
-from typing import Any, Dict, Optional, Callable, Type, List, Union, Tuple
+from typing import Any, Dict, Optional, List
 import requests
 
 # Optional Supabase client
@@ -14,9 +14,6 @@ try:
 except Exception:  # pragma: no cover - library optional
     create_client = None
 import json
-import os
-import threading
-import numpy as np
 import logging
 
 # Import GPTCache
@@ -24,6 +21,9 @@ try:
     from gptcache import cache
 except ImportError:
     cache = None
+
+from agent_s3.cache.helpers import read_cache, write_cache
+from agent_s3.progress_tracker import progress_tracker
 
 # Type hint for ScratchpadManager to avoid circular imports
 ScratchpadManagerType = Any
@@ -41,9 +41,6 @@ FALLBACK_PROMPT_TEMPLATE = "Previous attempt failed. Please re-evaluate the requ
                           "Original request summary: {prompt_summary}"
 
 # Initialize GPTCache if available
-from agent_s3.cache.helpers import read_cache, write_cache
-from agent_s3.progress_tracker import progress_tracker
-
 if cache:
     cache.init()
 
@@ -432,7 +429,7 @@ def call_llm_with_retry(
     return {
         'success': False,
         'error': (f"LLM API call failed after {max_retries} attempts" +
-                 (f" and fallback" if fallback_strategy != 'none' else "")),
+                 (" and fallback" if fallback_strategy != 'none' else "")),
         'details': f"Last error: {last_error_details}: {last_error}"
     }
 

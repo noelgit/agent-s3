@@ -5,15 +5,13 @@ This module defines a consistent hierarchy of exceptions, error categorization,
 and utilities for error handling across the entire agent_s3 system.
 """
 
-import enum
 import logging
-import os
 import re
 import traceback
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Pattern, Tuple, Union
+from typing import Any, Dict, Optional, Pattern, Tuple
 
 logger = logging.getLogger(__name__)
 

@@ -690,7 +690,7 @@ Ensure your response strictly adheres to the JSON schema provided in the system 
                             if not isinstance(test, dict):
                                 continue
 
-                            if ("target_element" in test and not "target_element_id" in test) or not test.get("target_element_id"):
+                            if ("target_element" in test and "target_element_id" not in test) or not test.get("target_element_id"):
                                 tests_missing_element_ids += 1
 
                         if tests_missing_element_ids > 0:
