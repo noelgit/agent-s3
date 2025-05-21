@@ -469,23 +469,47 @@ def regenerate_pre_planning_with_modifications(
 
 
 def pre_planning_workflow(
-    router_agent, task_description: str, context: Optional[Dict[str, Any]] = None
+    router_agent,
+    task_description: str,
+    context: Optional[Dict[str, Any]] = None,
+    max_clarification_rounds: int = 3,
 ) -> Tuple[bool, Dict[str, Any]]:
-    """Run the JSON-enforced pre-planning workflow."""
+    """Run the JSON-enforced pre-planning workflow.
+
+    The workflow will retry when the LLM requests clarification. Once the
+    clarification limit is reached, it aborts and returns an error prompting
+    manual review.
+    """
     system_prompt = get_json_system_prompt()
     user_prompt = get_json_user_prompt(task_description)
     openrouter_params = get_openrouter_params()
 
-    for _ in range(2):
+    clarification_rounds = 0
+    attempts = 0
+    max_attempts = 2
+
+    while attempts < max_attempts:
         response = router_agent.call_llm_by_role(
             role="pre_planner",
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             config=openrouter_params,
         )
-        success, data = process_response(response, task_description)
-        if success:
+        status, data = process_response(response, task_description)
+
+        if status is True:
             return True, data
+
+        if status == "question":
+            clarification_rounds += 1
+            if clarification_rounds >= max_clarification_rounds:
+                return False, {
+                    "error": "Clarification limit reached. Manual review required.",
+                    "question": data.get("question", ""),
+                }
+            continue
+
+        attempts += 1
 
     # Generate fallback then raise
     create_fallback_json(task_description)
@@ -999,7 +1023,10 @@ class PrePlanner:
         """Generate initial pre-planning data."""
         if self.config.get("use_json_enforcement", True):
             success, data = pre_planning_workflow(
-                self.router_agent, task_description, context
+                self.router_agent,
+                task_description,
+                context,
+                max_clarification_rounds=self.config.get("max_clarification_rounds", 3),
             )
         else:
             system_prompt = get_base_system_prompt()

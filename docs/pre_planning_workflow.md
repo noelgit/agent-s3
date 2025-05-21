@@ -18,7 +18,7 @@ The pre-planning workflow follows these steps:
 
 5. **Repair**: If validation issues are found, the system attempts to repair them automatically.
 
-6. **User Interaction**: The system may ask clarifying questions to the user if needed.
+6. **User Interaction**: The system may ask clarifying questions to the user if needed. Clarifications are limited by the `max_clarification_rounds` setting.
 
 7. **Complexity Assessment**: The complexity of the task is assessed to determine if user confirmation is required.
 
@@ -32,7 +32,7 @@ The `pre_planner_json_enforced.py` module is the canonical implementation for pr
 
 - Strict JSON schema definition and enforcement
 - Robust error handling and recovery
-- User interaction for clarifications
+- User interaction for clarifications (bounded by `max_clarification_rounds`)
 - Automatic repair of validation issues
 
 ### Pre-Planner JSON Validator

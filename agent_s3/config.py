@@ -65,6 +65,7 @@ LLM_FALLBACK_STRATEGY = os.getenv('LLM_FALLBACK_STRATEGY', 'retry_simplified')
 LLM_DEFAULT_TIMEOUT = float(os.getenv('LLM_DEFAULT_TIMEOUT', '60.0'))
 LLM_EXPLAIN_PROMPT_MAX_LEN = int(os.getenv('LLM_EXPLAIN_PROMPT_MAX_LEN', '1000'))
 LLM_EXPLAIN_RESPONSE_MAX_LEN = int(os.getenv('LLM_EXPLAIN_RESPONSE_MAX_LEN', '1000'))
+MAX_CLARIFICATION_ROUNDS = int(os.getenv('MAX_CLARIFICATION_ROUNDS', '3'))
 
 # CLI command execution parameters
 CLI_COMMAND_WARNINGS     = os.getenv('CLI_COMMAND_WARNINGS', 'true').lower() == 'true'
@@ -187,6 +188,7 @@ class ConfigModel(BaseModel):
     llm_default_timeout: float = LLM_DEFAULT_TIMEOUT
     llm_explain_prompt_max_len: int = LLM_EXPLAIN_PROMPT_MAX_LEN
     llm_explain_response_max_len: int = LLM_EXPLAIN_RESPONSE_MAX_LEN
+    max_clarification_rounds: int = MAX_CLARIFICATION_ROUNDS
     cli_command_warnings: bool = CLI_COMMAND_WARNINGS
     cli_command_max_size: int = CLI_COMMAND_MAX_SIZE
     query_cache_ttl_seconds: int = QUERY_CACHE_TTL_SECONDS

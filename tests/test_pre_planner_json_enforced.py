@@ -373,6 +373,29 @@ class TestPrePlannerJsonEnforced:
         assert mock_agent.call_llm_by_role.call_count == 2  # Both attempts fail
         mock_fallback.assert_called_once_with("Test request")
 
+    @patch('agent_s3.pre_planner_json_enforced.process_response')
+    @patch('agent_s3.pre_planner_json_enforced.get_json_system_prompt')
+    @patch('agent_s3.pre_planner_json_enforced.get_json_user_prompt')
+    @patch('agent_s3.pre_planner_json_enforced.get_openrouter_json_params')
+    def test_pre_planning_clarification_limit(self, mock_params, mock_user_prompt,
+                                              mock_system_prompt, mock_process):
+        """Ensure clarification loops stop at the configured limit."""
+        mock_system_prompt.return_value = "System prompt"
+        mock_user_prompt.return_value = "User prompt"
+        mock_params.return_value = {"temperature": 0.1}
+
+        mock_process.return_value = ("question", {"question": "Need info"})
+
+        mock_agent = MagicMock()
+        mock_agent.call_llm_by_role.return_value = "{}"
+
+        success, data = pre_planning_workflow(mock_agent, "Test request",
+                                              max_clarification_rounds=2)
+
+        assert success is False
+        assert "manual review" in data["error"].lower()
+        assert mock_agent.call_llm_by_role.call_count == 2
+
     def test_parse_structured_modifications_with_structured_format(self):
         """Test parsing of structured modifications with the STRUCTURED_MODIFICATIONS format."""
         modification_text = """STRUCTURED_MODIFICATIONS:
