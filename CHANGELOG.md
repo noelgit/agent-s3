@@ -17,6 +17,7 @@ Description: Release notes for Agent-S3.
 - `SUPABASE_ANON_KEY` – optional key for anonymous access when applicable.
 - `SUPABASE_FUNCTION_NAME` – optional name of the Supabase function used for LLM calls.
 - `MAX_CLARIFICATION_ROUNDS` – optional number of clarification rounds allowed during pre-planning (default: `3`).
+- `MAX_PREPLANNING_ATTEMPTS` – optional number of retries for generating pre-planning data (default: `2`).
 
 ### Security
 - API keys are now stored remotely via Supabase, reducing local exposure risk.

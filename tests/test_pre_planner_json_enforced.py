@@ -271,7 +271,7 @@ class TestPrePlannerJsonEnforced:
         mock_coordinator.config.config = {"pre_planning_mode": "json"}
         
         # Call the integration function
-        result = integrate_with_coordinator(mock_coordinator, task, max_attempts=4)
+        result = integrate_with_coordinator(mock_coordinator, task, max_preplanning_attempts=4)
 
         # Verify results
         assert result["success"] is True
@@ -290,7 +290,7 @@ class TestPrePlannerJsonEnforced:
         args, kwargs = mock_workflow.call_args
         assert args[0] == mock_coordinator.router_agent
         assert args[1] == task
-        assert kwargs.get("max_attempts") == 4
+        assert kwargs.get("max_preplanning_attempts") == 4
 
     @patch('agent_s3.pre_planner_json_enforced.pre_planning_workflow')
     @patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json')

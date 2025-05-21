@@ -9,7 +9,7 @@ def generate_plan_via_workflow(
     coordinator: Any,
     task_description: str,
     context: Optional[Dict[str, Any]] = None,
-    max_attempts: int = 2,
+    max_preplanning_attempts: int = 2,
 ) -> Dict[str, Any]:
     """Generate a consolidated plan via sequential pre-planning workflow.
 
@@ -22,7 +22,7 @@ def generate_plan_via_workflow(
             ``feature_group_processor``.
         task_description: Description of the task to plan.
         context: Optional context dictionary passed to the pre planner.
-        max_attempts: Maximum number of attempts for the pre-planning step.
+        max_preplanning_attempts: Maximum number of attempts for the pre-planning step.
 
     Returns:
         Dictionary with ``success`` flag and ``plan`` on success. On failure,
@@ -32,7 +32,7 @@ def generate_plan_via_workflow(
         coordinator.router_agent,
         task_description,
         context=context,
-        max_attempts=max_attempts,
+        max_preplanning_attempts=max_preplanning_attempts,
     )
     if not success:
         return {"success": False, "error": "Pre-planning failed", "plan": None}
