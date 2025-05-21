@@ -869,7 +869,11 @@ class Coordinator:
                 if stash_created and git_tool:
                     git_tool.run_git_command("stash drop")
                 return all_changes, True
-            self.debugging_manager.handle_error(plan=plan, validation_output=validation)
+            self.debugging_manager.handle_error(
+                error_message=f"Validation step '{validation.get('step')}' failed",
+                traceback_text=validation.get("output", ""),
+                metadata={"plan": plan, "validation_step": validation.get("step")}
+            )
             if stash_created and git_tool:
                 git_tool.run_git_command("stash pop --index")
         return all_changes, False
