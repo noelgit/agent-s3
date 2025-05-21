@@ -461,8 +461,22 @@ def test_implementation_retry_requests_user_guidance(coordinator):
     coordinator.code_generator.generate_code.return_value = {"auth.py": "code"}
     coordinator._apply_changes_and_manage_dependencies = MagicMock(return_value=True)
     coordinator._run_validation_phase.side_effect = [
-        {"success": False, "output": "fail"},
-        {"success": True},
+        {
+            "success": False,
+            "step": "lint",
+            "lint_output": "fail",
+            "type_output": None,
+            "test_output": None,
+            "coverage": None,
+        },
+        {
+            "success": True,
+            "step": None,
+            "lint_output": "No lint errors",
+            "type_output": "No type errors",
+            "test_output": "All checks passed",
+            "coverage": None,
+        },
     ]
     coordinator.debugging_manager.handle_error.return_value = {"success": False}
     coordinator.prompt_moderator.request_debugging_guidance.return_value = "Fix plan"

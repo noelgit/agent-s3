@@ -889,24 +889,59 @@ class Coordinator:
             return False
 
     def _run_validation_phase(self) -> Dict[str, Any]:
-        """Run linting, type checking and tests."""
-        results = {"success": True, "output": None}
+        """Run linting, type checking and tests.
+
+        Returns a dictionary with the following keys:
+            - ``success``: overall validation success
+            - ``step``: failing step (``"lint"``, ``"type_check"``, ``"tests"``) if any
+            - ``lint_output``: output from the linting command
+            - ``type_output``: output from the type checking command
+            - ``test_output``: output from running the tests
+            - ``coverage``: calculated test coverage when available
+        """
+
+        results = {
+            "success": True,
+            "step": None,
+            "lint_output": None,
+            "type_output": None,
+            "test_output": None,
+            "coverage": None,
+        }
         try:
             db_result = self.database_manager.setup_database()
             if not db_result.get("success", True):
-                return {"success": False, "step": "database", "output": db_result.get("error")}
+                return {
+                    "success": False,
+                    "step": "database",
+                    "lint_output": None,
+                    "type_output": None,
+                    "test_output": db_result.get("error"),
+                    "coverage": None,
+                }
+
             lint_exit, lint_output = self.bash_tool.run_command("flake8 .", timeout=120)
+            results["lint_output"] = lint_output
             if lint_exit != 0:
-                return {"success": False, "step": "lint", "output": lint_output}
+                results.update({"success": False, "step": "lint"})
+                return results
+
             type_exit, type_output = self.bash_tool.run_command("mypy .", timeout=120)
+            results["type_output"] = type_output
             if type_exit != 0:
-                return {"success": False, "step": "type_check", "output": type_output}
+                results.update({"success": False, "step": "type_check"})
+                return results
+
             test_result = self.run_tests()
+            results["test_output"] = test_result.get("output")
+            results["coverage"] = test_result.get("coverage")
             if not test_result.get("success"):
-                return {"success": False, "step": "tests", "output": test_result.get("output")}
+                results.update({"success": False, "step": "tests"})
+                return results
         except Exception as exc:  # pragma: no cover - safety net
             self.scratchpad.log("Coordinator", f"Validation error: {exc}", level=LogLevel.ERROR)
-            return {"success": True, "output": None}
+            return results
+
         return results
 
     def run_tests(self) -> Dict[str, Any]:
