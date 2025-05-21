@@ -152,6 +152,35 @@ def create_fallback_pre_planning_output(task_description: str) -> Dict[str, Any]
         }
     }
 
+def create_fallback_json(task_description: str) -> Dict[str, Any]:
+    """Public wrapper for legacy compatibility."""
+    return create_fallback_pre_planning_output(task_description)
+
+def get_json_user_prompt(task_description: str) -> str:
+    """Return the user prompt that instructs the LLM to output structured data."""
+    base = get_base_user_prompt(task_description)
+    return f"{base}\n\nRespond only with the required JSON schema. Provide structured data." 
+
+def _parse_structured_modifications(text: str) -> List[Dict[str, str]]:
+    """Parse structured modification blocks from text."""
+    modifications: List[Dict[str, str]] = []
+    current: Dict[str, str] = {}
+    expected = {"COMPONENT", "LOCATION", "CHANGE_TYPE", "DESCRIPTION"}
+    for line in text.splitlines():
+        if line.strip() == "---":
+            if current:
+                modifications.append(current)
+                current = {}
+            continue
+        if ":" in line:
+            key, value = line.split(":", 1)
+            key = key.strip().upper()
+            if key in expected:
+                current[key] = value.strip()
+    if current:
+        modifications.append(current)
+    return modifications
+
 # Validate pre-planning output
 def validate_pre_planning_output(data: Dict[str, Any]) -> Tuple[bool, str]:
     """
@@ -265,6 +294,89 @@ def validate_preplan_all(data) -> Tuple[bool, str]:
         errors.append(f"Planner compatibility check exception: {e}")
     
     return (len(errors) == 0), "\n".join(errors)
+
+def pre_planning_workflow(
+    router_agent,
+    task_description: str,
+    context: Optional[Dict[str, Any]] = None,
+) -> Tuple[bool, Dict[str, Any]]:
+    """Run the enforced pre-planning workflow with robust validation."""
+    system_prompt = get_json_system_prompt()
+    user_prompt = get_json_user_prompt(task_description)
+    params = get_openrouter_params()
+    scratchpad = getattr(router_agent, "scratchpad", None)
+
+    attempts = 2
+    last_error: Optional[str] = None
+    for _ in range(attempts):
+        response = router_agent.call_llm_by_role(
+            role="pre_planner",
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            config=params,
+        )
+        if scratchpad:
+            scratchpad.log("PrePlanner|RawOutput", response)
+        status, data = process_response(response, task_description)
+        if scratchpad:
+            scratchpad.log("PrePlanner|ParsedJSON", json.dumps(data))
+
+        if status is True:
+            valid, msg = validate_json_schema(data)
+            if not valid:
+                repaired = repair_json_structure(data)
+                if scratchpad:
+                    scratchpad.log("PrePlanner", f"Auto-repair applied: {msg}")
+                valid2, msg2 = validate_json_schema(repaired)
+                if valid2:
+                    data = repaired
+                else:
+                    raise PrePlanningError(
+                        f"JSON validation failed after repair: {msg2}",
+                        {"raw": response},
+                    )
+            return True, data
+        elif status == "question":
+            return False, data
+        last_error = str(data)
+
+    # All attempts failed
+    fallback = create_fallback_json(task_description)
+    raise JSONValidationError(
+        f"Failed to generate valid JSON after retries. Last error: {last_error}",
+        [last_error or "unknown"],
+    )
+
+
+def regenerate_pre_planning_with_modifications(
+    router_agent,
+    original_results: Dict[str, Any],
+    modification_text: str,
+) -> Dict[str, Any]:
+    """Regenerate pre-planning results incorporating user modifications."""
+    system_prompt = get_json_system_prompt()
+    base_prompt = get_json_user_prompt(original_results.get("original_request", ""))
+    mods = _parse_structured_modifications(modification_text)
+    if mods:
+        lines = ["Modification Request:"]
+        for mod in mods:
+            for k, v in mod.items():
+                lines.append(f"{k}: {v}")
+        mod_text = "\n".join(lines)
+    else:
+        mod_text = f"Modification Request:\n{modification_text}"
+    user_prompt = base_prompt + "\n\n" + mod_text
+    params = get_openrouter_params()
+    response = router_agent.call_llm_by_role(
+        role="pre_planner",
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        config=params,
+    )
+    status, data = process_response(response, original_results.get("original_request", ""))
+    if status is True:
+        return data
+    raise PrePlanningError("Failed to regenerate pre-planning data", {"status": status})
 
 def integrate_with_coordinator(coordinator, task_description: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
     """

@@ -30,7 +30,10 @@ from agent_s3.errors import (
 from agent_s3.feature_group_processor import FeatureGroupProcessor
 from agent_s3.file_history_analyzer import FileHistoryAnalyzer
 from agent_s3.planner import Planner
-from agent_s3.pre_planner_json_enforced import call_pre_planner_with_enforced_json
+from agent_s3.pre_planner_json_enforced import (
+    call_pre_planner_with_enforced_json,
+    regenerate_pre_planning_with_modifications,
+)
 from agent_s3.progress_tracker import ProgressTracker
 from agent_s3.prompt_moderator import PromptModerator
 from agent_s3.router_agent import RouterAgent
@@ -55,6 +58,8 @@ from agent_s3.tools.memory_manager import MemoryManager
 from agent_s3.tools.test_critic import TestCritic
 from agent_s3.tools.test_frameworks import TestFrameworks
 from agent_s3.tools.test_runner_tool import TestRunnerTool
+from agent_s3.tools.phase_validator import validate_user_modifications
+from agent_s3.pre_planning_errors import PrePlanningError
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -423,6 +428,17 @@ class Coordinator:
             task_keywords = self._extract_keywords_from_task(task_description)
             self.scratchpad.log("Coordinator", f"Extracted keywords for context preparation: {task_keywords}")
 
+            relevant_files = []
+            if self.coordinator_config.get_tool('code_analysis_tool'):
+                code_tool = self.coordinator_config.get_tool('code_analysis_tool')
+                try:
+                    query = " ".join(task_keywords)
+                    results = code_tool.find_relevant_files(query, top_n=5)
+                    relevant_files = [r.get('file_path') for r in results if r.get('file_path')]
+                    self.scratchpad.log("Coordinator", f"Found {len(relevant_files)} relevant files via code analysis")
+                except Exception as e:
+                    self.scratchpad.log("Coordinator", f"File search failed: {e}", level=LogLevel.WARNING)
+
             try:
                 # Primary context gathering using ContextManager and keywords
                 if self.context_manager:
@@ -430,18 +446,27 @@ class Coordinator:
                     task_type = "planning"  # Default for pre-planning
                     
                     gathered_context_items = self.context_manager.gather_context(
+                        current_files=relevant_files,
                         task_description=task_description,
                         task_type=task_type,
                         task_keywords=task_keywords,
-                        max_tokens=self.config.config.get('context_management', {}).get('max_tokens_for_pre_planning', 4000) 
+                        max_tokens=self.config.config.get('context_management', {}).get('max_tokens_for_pre_planning', 4000)
                     )
                     
                     processed_gathered_context = {}
+                    memory_manager = self.coordinator_config.get_tool('memory_manager')
                     for item in gathered_context_items:
+                        content = item.content
+                        if memory_manager and getattr(item, 'token_count', 0) and item.token_count > 800:
+                            try:
+                                summary = memory_manager.hierarchical_summarize(content, max_tokens=800)
+                                content = summary.get('summary', content)
+                            except Exception as e:
+                                self.scratchpad.log("Coordinator", f"Summary failed for {getattr(item, 'file_path', '')}: {e}", level=LogLevel.WARNING)
                         if item.file_path:
                             key_name = f"file_{item.file_path.replace('/', '_')}"
                             processed_gathered_context[key_name] = {
-                                "content": item.content,
+                                "content": content,
                                 "type": item.type,
                                 "importance": item.importance_score,
                                 "token_count": item.token_count,
@@ -449,7 +474,7 @@ class Coordinator:
                             }
                         elif item.identifier:
                              processed_gathered_context[item.identifier] = {
-                                "content": item.content,
+                                "content": content,
                                 "type": item.type,
                                 "importance": item.importance_score,
                                 "token_count": item.token_count,
@@ -457,7 +482,7 @@ class Coordinator:
                             }
                         else:
                             processed_gathered_context[f"context_item_{len(processed_gathered_context)}"] = {
-                                "content": item.content,
+                                "content": content,
                                 "type": item.type,
                                 "importance": item.importance_score,
                                 "token_count": item.token_count,
@@ -540,24 +565,46 @@ class Coordinator:
         ):
             display_results = dict(pre_planning_results)
             display_results.pop("test_requirements", None)
-            formatted_json = json.dumps(display_results, indent=2)
-            self.scratchpad.log("Coordinator", "Pre-planning complete. Review the proposed approach:")
-            print("\n" + formatted_json + "\n")
-            decision = self.prompt_moderator.ask_ternary_question(
-                "Do you want to proceed with this plan, modify it, or cancel?"
+            feature_groups = display_results.get("feature_groups", [])
+            approved_groups = []
+            modifications = []
+            for idx, group in enumerate(feature_groups, start=1):
+                print("\n" + json.dumps(group, indent=2) + "\n")
+                if self.prompt_moderator.ask_yes_no_question(
+                    f"Approve feature group {idx}: {group.get('group_name', '')}?"
+                ):
+                    approved_groups.append(group)
+                else:
+                    mod = self.prompt_moderator.ask_for_modification(
+                        f"Provide modifications for feature group {idx} ({group.get('group_name', '')})"
+                    )
+                    if mod:
+                        modifications.append(mod)
+
+            if modifications:
+                self.scratchpad.log("Coordinator", "User requested modifications to feature groups")
+                return "modify", "\n".join(modifications)
+            self.scratchpad.log("Coordinator", "User approved all feature groups")
+            display_results["feature_groups"] = approved_groups
+            return "yes", display_results
+
+    def _regenerate_pre_planning_with_modifications(
+        self, original_results: Dict[str, Any], modification_text: str
+    ) -> Dict[str, Any]:
+        """Regenerate pre-planning data after user modifications."""
+        with self.error_handler.error_context(
+            phase="pre_planning",
+            operation="regenerate_with_modifications",
+            inputs={"modifications": modification_text},
+        ):
+            valid, msg = validate_user_modifications(modification_text)
+            if not valid:
+                self.scratchpad.log("Coordinator", f"Invalid modifications: {msg}", level=LogLevel.ERROR)
+                raise PrePlanningError(msg)
+
+            return regenerate_pre_planning_with_modifications(
+                self.router_agent, original_results, modification_text
             )
-            if decision == "yes":
-                self.scratchpad.log("Coordinator", "User approved pre-planning results.")
-                return decision, pre_planning_results
-            elif decision == "no":
-                self.scratchpad.log("Coordinator", "User rejected pre-planning results.")
-                return decision, None
-            else:
-                self.scratchpad.log("Coordinator", "User chose to modify pre-planning results.")
-                modification = self.prompt_moderator.ask_for_modification(
-                    "Please describe your modifications:"
-                )
-                return "modify", modification
                 
     def plan_approval_loop(self, plan: Dict[str, Any], original_plan: Optional[Dict[str, Any]] = None) -> Tuple[str, Dict[str, Any]]:
         """Run the plan approval loop to get user approval for a plan.
