@@ -5,14 +5,12 @@ These tests focus on how the Coordinator validates code changes, handles test fa
 executes debugging workflows, and recovers from failures.
 """
 
-import os
-import json
 import pytest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 from agent_s3.coordinator import Coordinator
 from agent_s3.config import Config
-from agent_s3.enhanced_scratchpad_manager import LogLevel, Section
+from agent_s3.enhanced_scratchpad_manager import Section
 
 # Test fixtures
 

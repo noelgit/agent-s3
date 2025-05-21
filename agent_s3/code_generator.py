@@ -9,16 +9,12 @@ import re
 import os
 import ast
 import tempfile
-import subprocess
-import time
-import traceback
 import datetime
-from typing import Dict, Any, Optional, List, Tuple, Union
-from pathlib import Path
-import threading
+from typing import Dict, Any, Optional, List, Tuple
+
 
 from .enhanced_scratchpad_manager import LogLevel
-from .tools.test_critic.core import TestType, TestVerdict
+
 from .config import CONTEXT_WINDOW_GENERATOR
 
 
@@ -695,7 +691,9 @@ Please fix the code to address all these issues while maintaining security best 
 
     def _prioritize_context(self, context: Dict[str, Any], token_budget: int) -> Dict[str, Any]:
         """Trim context information so it fits within the token budget."""
-        approx_tokens = lambda s: len(s) // 4
+        def approx_tokens(s: str) -> int:
+            """Approximate token count based on string length."""
+            return len(s) // 4
 
         prioritized = {
             "existing_code": context.get("existing_code", ""),
@@ -740,11 +738,19 @@ Please fix the code to address all these issues while maintaining security best 
             if hasattr(self.coordinator, "bash_tool") and self.coordinator.bash_tool:
                 rc, output = self.coordinator.bash_tool.run_command(f"flake8 {tmp.name}")
                 if rc != 0 and output:
-                    issues.extend([f"Linting: {l}" for l in output.splitlines() if l.strip()])
+                    issues.extend(
+                        [f"Linting: {line}" for line in output.splitlines() if line.strip()]
+                    )
 
                 rc, output = self.coordinator.bash_tool.run_command(f"python -m mypy {tmp.name}")
                 if rc != 0 and output:
-                    issues.extend([f"Type checking: {l}" for l in output.splitlines() if l.strip()])
+                    issues.extend(
+                        [
+                            f"Type checking: {line}"
+                            for line in output.splitlines()
+                            if line.strip()
+                        ]
+                    )
         finally:
             tmp.close()
             os.unlink(tmp.name)
