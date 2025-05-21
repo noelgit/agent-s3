@@ -291,6 +291,7 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   - `SUPABASE_FUNCTION_NAME` (optional, defaults to `call-llm`)
   - `USE_REMOTE_LLM` to toggle remote LLM usage
   - `MAX_CLARIFICATION_ROUNDS` (optional, defaults to `3`) limits pre-planning clarification exchanges
+  - `pre_planning_mode` selects `off`, `json`, or `enforced_json` workflow. See `docs/pre_planning_workflow.md` for details.
 
   Example `.env`:
 
