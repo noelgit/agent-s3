@@ -31,6 +31,7 @@ from agent_s3.json_utils import (
     get_openrouter_json_params,
     validate_json_schema,
     repair_json_structure,
+    sanitize_text,
 )
 
 logger = logging.getLogger(__name__)
@@ -559,7 +560,7 @@ def pre_planning_workflow(
                         {
                             "phase": "pre-planning clarification",
                             "question": question,
-                            "answer": answer,
+                            "answer": sanitize_text(answer),
                         }
                     )
                 )
