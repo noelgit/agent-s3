@@ -16,6 +16,35 @@ class JSONValidationError(Exception):
     """Exception raised when JSON validation fails."""
     pass
 
+
+def sanitize_text(text: str) -> str:
+    """Escape newlines and control characters in ``text``.
+
+    This helper ensures strings written to logs or JSON files do not contain
+    raw control characters that could break formatting or terminal output.
+
+    Args:
+        text: The text to sanitize.
+
+    Returns:
+        The sanitized text with newlines and other control characters escaped.
+    """
+
+    if not isinstance(text, str):
+        text = str(text)
+
+    # Escape backslashes first to avoid double escaping
+    text = text.replace("\\", "\\\\")
+    # Replace common whitespace control chars with escaped sequences
+    text = (
+        text.replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    )
+    # Remove remaining ASCII control characters
+    text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", text)
+    return text
+
 def extract_json_from_text(text: str) -> Optional[str]:
     """
     Extract JSON from text that might contain markdown or other formatting.
