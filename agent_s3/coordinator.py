@@ -918,6 +918,7 @@ class Coordinator:
             "type_output": None,
             "test_output": None,
             "coverage": None,
+            "mutation_score": None,
         }
         try:
             db_result = self.database_manager.setup_database()
@@ -948,6 +949,15 @@ class Coordinator:
             results["coverage"] = test_result.get("coverage")
             if not test_result.get("success"):
                 results.update({"success": False, "step": "tests"})
+                return results
+
+            # Run mutation testing using TestCritic
+            critic_data = self.test_critic.run_analysis()
+            mutation_score = critic_data.get("details", {}).get("mutation_score")
+            results["mutation_score"] = mutation_score
+            threshold = float(self.config.config.get("mutation_score_threshold", 70.0))
+            if mutation_score is not None and mutation_score < threshold:
+                results.update({"success": False, "step": "mutation"})
                 return results
         except Exception as exc:  # pragma: no cover - safety net
             self.scratchpad.log("Coordinator", f"Validation error: {exc}", level=LogLevel.ERROR)
