@@ -10,6 +10,7 @@ import json
 import logging
 import re
 import ast
+import difflib
 from typing import Dict, Any, List, Set, Tuple, Optional
 from collections import defaultdict
 

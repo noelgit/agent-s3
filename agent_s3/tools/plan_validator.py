@@ -11,22 +11,19 @@ Implementation uses comprehensive AST parsing for multi-language code analysis.
 import json
 import re
 import os
-import glob
 import logging
 import keyword
 import ast
-import importlib.util
 import xml.etree.ElementTree as ET
 import datetime
-from typing import Dict, Any, List, Tuple, Set, Optional, Union, Callable
+from typing import Dict, Any, List, Tuple
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
 # Import AST tools for multi-language support
-from agent_s3.ast_tools.python_units import extract_units
+from agent_s3.ast_tools.parser import parse_js
 from .parsing.parser_registry import ParserRegistry
-from .parsing.base_parser import LanguageParser
 
 logger = logging.getLogger(__name__)
 

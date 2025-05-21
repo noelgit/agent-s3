@@ -3,12 +3,14 @@
 import unittest
 from unittest.mock import MagicMock, patch, mock_open
 import json
-import os
 import tempfile
 
 try:
     from agent_s3.code_generator import CodeGenerator
-    from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager, LogLevel
+    from agent_s3.enhanced_scratchpad_manager import (
+        EnhancedScratchpadManager,
+    )
+    ScratchpadManager = EnhancedScratchpadManager
 except ImportError:
     print("Warning: Could not import full agent_s3 modules for testing. Using stubs.")
     class CodeGenerator:
@@ -16,6 +18,7 @@ except ImportError:
     class EnhancedScratchpadManager:
         def log(self, *args, **kwargs):
             pass
+    ScratchpadManager = EnhancedScratchpadManager
 
 
 class TestCodeGenerator(unittest.TestCase):
@@ -141,7 +144,7 @@ class TestCodeGenerator(unittest.TestCase):
             self.code_generator.router = MagicMock()
             self.code_generator.router.call_llm_with_streaming.return_value = {'success': True, 'response': 'OK'}
         
-        result = self.code_generator.generate_code(task, plan)
+        _ = self.code_generator.generate_code(task, plan)
         
         # Verify cached_call_llm was called, which means _create_generation_prompt was used
         mock_cached_call_llm.assert_called_once()
@@ -172,7 +175,7 @@ class TestCodeGenerator(unittest.TestCase):
         
         # Call generate_code which will use _extract_files_from_plan
         task = "Update files according to plan"
-        result = self.code_generator.generate_code(task, plan)
+        _ = self.code_generator.generate_code(task, plan)
         
         # Verify that the task and prompt were set correctly
         args = mock_cached_call_llm.call_args[0]
@@ -199,7 +202,7 @@ class TestCodeGenerator(unittest.TestCase):
         self.code_generator._generation_attempts = {}
         
         # Call generate_code
-        result = self.code_generator.generate_code(task, plan)
+        _ = self.code_generator.generate_code(task, plan)
         
         # Check that the mock was called with the expected context
         args = mock_cached_call_llm.call_args[0]
@@ -274,7 +277,7 @@ class TestCodeGenerator(unittest.TestCase):
                 }
                 
                 # Call generate_code
-                result = self.code_generator.generate_code(task, plan)
+                _ = self.code_generator.generate_code(task, plan)
                 
                 # Check that the mock was called with the expected context
                 args = mock_cached_call_llm.call_args[0]

@@ -3,6 +3,7 @@ Prefix-aware Greedy-Dual-Size-Frequency (GDSF) eviction policy for GPTCache.
 """
 import time
 from gptcache.manager.eviction.base import BaseEvictionPolicy
+from gptcache.manager.eviction import registry
 
 class PrefixGDSF(BaseEvictionPolicy):
     def __init__(self):
@@ -20,5 +21,4 @@ class PrefixGDSF(BaseEvictionPolicy):
         return victim["uuid"]
 
 # Register the policy at import time
-from gptcache.manager.eviction import registry
 registry.register("custom_gdsf", PrefixGDSF)
