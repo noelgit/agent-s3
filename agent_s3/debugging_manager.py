@@ -358,7 +358,7 @@ class DebuggingManager:
             self.scratchpad.start_section(Section.WARNING, "DebuggingManager")
             self.scratchpad.log(
                 role="DebuggingManager",
-                message=f"Warning: This test failure might indicate an issue with the test itself rather than the implementation.",
+                message="Warning: This test failure might indicate an issue with the test itself rather than the implementation.",
                 level=LogLevel.WARNING,
                 section=Section.WARNING,
                 metadata={"failure_category": test_failure_info.get("failure_category", "UNKNOWN")}
@@ -572,9 +572,9 @@ class DebuggingManager:
         
         # Extract any test failure fields directly from metadata
         extracted_data = {}
-        for field in test_failure_fields:
-            if field in metadata:
-                extracted_data[field] = metadata[field]
+        for field_name in test_failure_fields:
+            if field_name in metadata:
+                extracted_data[field_name] = metadata[field_name]
                 
         return extracted_data
     
@@ -1681,7 +1681,7 @@ class DebuggingManager:
             test_name = error_context.metadata.get("test_name", "Unknown")
             test_file = error_context.metadata.get("test_file", "Unknown")
             
-            test_failure_section += f"\n## Test Failure Details\n"
+            test_failure_section += "\n## Test Failure Details\n"
             test_failure_section += f"Failure Category: {failure_category}\n"
             test_failure_section += f"Test: {test_name} in {test_file}\n"
             
@@ -1702,7 +1702,7 @@ class DebuggingManager:
             # Include implementation plan for the file if available
             if "file_implementation_plan" in error_context.metadata:
                 file_plan = error_context.metadata["file_implementation_plan"]
-                test_failure_section += f"\n## Implementation Plan for this File\n"
+                test_failure_section += "\n## Implementation Plan for this File\n"
                 test_failure_section += f"```json\n{json.dumps(file_plan, indent=2)}\n```\n"
                 
             # Include architecture review if available for relevant context
@@ -1712,7 +1712,7 @@ class DebuggingManager:
                 optimizations = arch_review.get("optimization_suggestions", [])
                 
                 if logical_gaps or optimizations:
-                    test_failure_section += f"\n## Relevant Architecture Review Points\n"
+                    test_failure_section += "\n## Relevant Architecture Review Points\n"
                     
                     if logical_gaps:
                         test_failure_section += "Logical Gaps Identified:\n"

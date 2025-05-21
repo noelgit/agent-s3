@@ -9,8 +9,6 @@ import logging
 import os
 import re
 import traceback
-from datetime import datetime
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 # Third-party imports
@@ -20,13 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from agent_s3.config import Config
 from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager, LogLevel
 from agent_s3.error_handler import ErrorHandler
-from agent_s3.errors import (
-    AgentError,
-    CoordinationError,
-    ErrorCategory,
-    ErrorContext,
-    PlanningError
-)
+
 from agent_s3.feature_group_processor import FeatureGroupProcessor
 from agent_s3.file_history_analyzer import FileHistoryAnalyzer
 from agent_s3.planner import Planner
@@ -57,6 +49,8 @@ from agent_s3.tools.test_critic import TestCritic
 from agent_s3.tools.test_frameworks import TestFrameworks
 from agent_s3.tools.test_runner_tool import TestRunnerTool
 from agent_s3.workflows import PlanningWorkflow, ImplementationWorkflow
+from agent_s3.debugging_manager import DebuggingManager
+from agent_s3.code_generator import CodeGenerator
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -469,12 +463,21 @@ class Coordinator:
                     self.scratchpad.log("Coordinator", f"Focused context gathered with {len(gathered_context_items)} items.")
 
                 # Supplementary context from registry (less focused, more general)
-                tech_stack_snapshot = self.get_current_context_snapshot(context_type="tech_stack")
-                if tech_stack_snapshot: context.update(tech_stack_snapshot)
-                project_structure_snapshot = self.get_current_context_snapshot(context_type="project_structure")
-                if project_structure_snapshot: context.update(project_structure_snapshot)
-                deps_snapshot = self.get_current_context_snapshot(context_type="dependencies")
-                if deps_snapshot: context.update(deps_snapshot)
+                tech_stack_snapshot = self.get_current_context_snapshot(
+                    context_type="tech_stack"
+                )
+                if tech_stack_snapshot:
+                    context.update(tech_stack_snapshot)
+                project_structure_snapshot = self.get_current_context_snapshot(
+                    context_type="project_structure"
+                )
+                if project_structure_snapshot:
+                    context.update(project_structure_snapshot)
+                deps_snapshot = self.get_current_context_snapshot(
+                    context_type="dependencies"
+                )
+                if deps_snapshot:
+                    context.update(deps_snapshot)
                 
             except Exception as e:
                 self.scratchpad.log("Coordinator", f"Error preparing context: {e}\n{traceback.format_exc()}", level=LogLevel.WARNING)
@@ -912,8 +915,8 @@ class Coordinator:
     def run_tests(self) -> Dict[str, Any]:
         """Run project tests using the configured test runner."""
         try:
-            activate_cmd = self.env_tool.activate_virtual_env()
-            runner = self.test_runner_tool.detect_runner()
+            self.env_tool.activate_virtual_env()
+            self.test_runner_tool.detect_runner()
             success, output = self.test_runner_tool.run_tests()
             coverage = 0.0
             if success and hasattr(self.test_runner_tool, "parse_coverage_report"):

@@ -1,8 +1,7 @@
 """Tests for the agentic code generator."""
 
-import os
 import pytest
-from unittest.mock import MagicMock, patch, ANY
+from unittest.mock import MagicMock, patch
 
 from agent_s3.code_generator import CodeGenerator
 from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager
