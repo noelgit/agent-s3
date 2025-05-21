@@ -18,6 +18,8 @@ import re
 import time # Added for potential delays in retry
 from typing import Dict, Any, Optional, Tuple, List, Union
 
+from agent_s3.progress_tracker import progress_tracker
+
 from agent_s3.pre_planning_errors import (
     AgentS3BaseError, PrePlanningError, ValidationError, SchemaError,
     ComplexityError, RepairError, handle_pre_planning_errors
@@ -494,18 +496,44 @@ def pre_planning_workflow(
     user_prompt = get_json_user_prompt(task_description)
     openrouter_params = get_openrouter_params()
 
-    for _ in range(2):
+    current_prompt = user_prompt
+    max_attempts = 2
+    attempts = 0
+    clarification_attempts = 0
+    max_clarifications = 3
+
+    while attempts < max_attempts:
         response = router_agent.call_llm_by_role(
             role="pre_planner",
             system_prompt=system_prompt,
-            user_prompt=user_prompt,
+            user_prompt=current_prompt,
             config=openrouter_params,
         )
-        success, data = process_response(response, task_description)
-        if success:
+        status, data = process_response(response, task_description)
+        if status is True:
             return True, data
 
-    # Generate fallback then raise
+        if status == "question" and clarification_attempts < max_clarifications:
+            question = data.get("question", "") if isinstance(data, dict) else ""
+            answer = input(question + " ")
+            try:
+                progress_tracker.logger.info(
+                    json.dumps(
+                        {
+                            "phase": "pre-planning clarification",
+                            "question": question,
+                            "answer": answer,
+                        }
+                    )
+                )
+            except Exception:  # pragma: no cover - logging failure should not crash
+                logger.error("Failed to log clarification", exc_info=True)
+            current_prompt = answer
+            clarification_attempts += 1
+            continue
+
+        attempts += 1
+
     create_fallback_json(task_description)
     raise JSONValidationError("Failed to generate valid pre-planning data")
 
