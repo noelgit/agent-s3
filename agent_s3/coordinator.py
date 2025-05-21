@@ -22,7 +22,10 @@ from agent_s3.error_handler import ErrorHandler
 from agent_s3.feature_group_processor import FeatureGroupProcessor
 from agent_s3.file_history_analyzer import FileHistoryAnalyzer
 from agent_s3.planner import Planner
-from agent_s3.pre_planner_json_enforced import call_pre_planner_with_enforced_json
+from agent_s3.pre_planner_json_enforced import (
+    call_pre_planner_with_enforced_json,
+    pre_planning_workflow,
+)
 from agent_s3.progress_tracker import ProgressTracker
 from agent_s3.prompt_moderator import PromptModerator
 from agent_s3.router_agent import RouterAgent
@@ -810,9 +813,17 @@ class Coordinator:
     ) -> List[Dict[str, Any]]:
         """Run the planning workflow and return approved plans."""
         self.progress_tracker.update_progress({"phase": "pre_planning", "status": "started"})
+        mode = self.config.config.get("pre_planning_mode", "enforced_json")
+
+        if mode == "off":
+            self.scratchpad.log("Coordinator", "Pre-planning disabled")
+            return []
 
         if pre_planning_input is None:
-            success, pre_plan = call_pre_planner_with_enforced_json(self.router_agent, task)
+            if mode == "enforced_json":
+                success, pre_plan = call_pre_planner_with_enforced_json(self.router_agent, task)
+            else:  # "json"
+                success, pre_plan = pre_planning_workflow(self.router_agent, task)
             if not success:
                 self.scratchpad.log("Coordinator", "Pre-planning failed", level=LogLevel.ERROR)
                 return []

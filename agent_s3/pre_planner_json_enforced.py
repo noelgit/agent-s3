@@ -292,9 +292,27 @@ def integrate_with_coordinator(coordinator, task_description: str, context: Dict
     """
     # Get the router agent from the coordinator
     router_agent = coordinator.router_agent
-    
-    # Call the pre-planning workflow using the new entry point
-    success, pre_planning_data = call_pre_planner_with_enforced_json(router_agent, task_description, context)
+
+    mode = getattr(coordinator, "config", None)
+    if mode:
+        mode = coordinator.config.config.get("pre_planning_mode", "enforced_json")
+    else:
+        mode = "enforced_json"
+
+    if mode == "off":
+        return {
+            "success": False,
+            "uses_enforced_json": False,
+            "status": "skipped",
+        }
+    if mode == "json":
+        success, pre_planning_data = pre_planning_workflow(
+            router_agent, task_description, context
+        )
+    else:
+        success, pre_planning_data = call_pre_planner_with_enforced_json(
+            router_agent, task_description, context
+        )
     
     if success:
         # Extract key information for the coordinator
