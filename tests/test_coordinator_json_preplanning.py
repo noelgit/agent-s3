@@ -19,10 +19,7 @@ class TestCoordinatorJsonPrePlanning:
         """Test that enforced JSON integration is used."""
         coordinator = MagicMock()
         coordinator.config = MagicMock()
-        coordinator.config.config = {
-            "use_enforced_json_pre_planning": True,
-            "use_json_pre_planning": True
-        }
+        coordinator.config.config = {"pre_planning_mode": "enforced_json"}
 
         mock_enforced_json.return_value = {
             "status": "completed",
@@ -43,10 +40,7 @@ class TestCoordinatorJsonPrePlanning:
         """Test that errors propagate when enforced JSON fails."""
         coordinator = MagicMock()
         coordinator.config = MagicMock()
-        coordinator.config.config = {
-            "use_enforced_json_pre_planning": True,
-            "use_json_pre_planning": True,
-        }
+        coordinator.config.config = {"pre_planning_mode": "enforced_json"}
 
         mock_enforced_json.side_effect = Exception("Enforced JSON failed")
 
@@ -180,10 +174,7 @@ class TestCoordinatorJsonPrePlanning:
         """Test that complexity scoring is reflected in results."""
         coordinator = MagicMock()
         coordinator.config = MagicMock()
-        coordinator.config.config = {
-            "use_enforced_json_pre_planning": True,
-            "use_json_pre_planning": True,
-        }
+        coordinator.config.config = {"pre_planning_mode": "enforced_json"}
         coordinator.pre_planner.assess_complexity.return_value = {
             "score": 60,
             "is_complex": True,
@@ -211,10 +202,7 @@ class TestCoordinatorJsonPrePlanning:
         """Test repeated integration calls."""
         coordinator = MagicMock()
         coordinator.config = MagicMock()
-        coordinator.config.config = {
-            "use_enforced_json_pre_planning": True,
-            "use_json_pre_planning": True,
-        }
+        coordinator.config.config = {"pre_planning_mode": "enforced_json"}
 
         with patch(
             'agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json'

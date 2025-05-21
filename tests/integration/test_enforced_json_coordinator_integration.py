@@ -22,8 +22,7 @@ class TestEnforcedJsonCoordinatorIntegration:
         """Create a mock configuration with enforced JSON pre-planning enabled."""
         config = MagicMock(spec=Config)
         config.config = {
-            "use_enforced_json_pre_planning": True,
-            "use_json_pre_planning": False,  # Should prioritize enforced JSON
+            "pre_planning_mode": "enforced_json",
             "workspace_path": "/tmp/test",
             "log_file_path": "/tmp/test/logs",
             "sandbox_environment": True,
