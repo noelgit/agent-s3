@@ -494,6 +494,12 @@ def pre_planning_workflow(
     """Run the JSON-enforced pre-planning workflow."""
     system_prompt = get_json_system_prompt()
     user_prompt = get_json_user_prompt(task_description)
+    if context:
+        try:
+            context_str = json.dumps(context, indent=2)
+        except TypeError:
+            context_str = str(context)
+        user_prompt += "\n\nContext:\n" + context_str
     openrouter_params = get_openrouter_params()
 
     current_prompt = user_prompt

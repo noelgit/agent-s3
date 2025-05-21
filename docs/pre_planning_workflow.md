@@ -104,3 +104,10 @@ When working with the pre-planning phase:
 3. Pay attention to complexity assessments to determine if user confirmation is needed
 4. Use the repair capabilities to fix validation issues automatically when possible
 5. Provide clear, detailed feature descriptions to ensure accurate implementation
+
+## Context-Aware Prompts
+
+`pre_planning_workflow` accepts an optional `context` dictionary. When supplied,
+the context is serialized to JSON and appended to the user prompt before calling
+the language model. This enables the pre-planner to consider project specifics
+such as the tech stack or current project structure during analysis.
