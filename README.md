@@ -290,6 +290,7 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   - `SUPABASE_ANON_KEY` for client requests
   - `SUPABASE_FUNCTION_NAME` (optional, defaults to `call-llm`)
   - `USE_REMOTE_LLM` to toggle remote LLM usage
+  - `MAX_CLARIFICATION_ROUNDS` (optional, defaults to `3`) limits pre-planning clarification exchanges
 
   Example `.env`:
 
@@ -299,6 +300,7 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
   SUPABASE_FUNCTION_NAME=call-llm
   USE_REMOTE_LLM=true
+  MAX_CLARIFICATION_ROUNDS=3
   ```
 
 ## Coding Guidelines
