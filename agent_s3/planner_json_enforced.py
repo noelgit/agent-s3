@@ -13,9 +13,7 @@ import time
 import random
 from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime
-import os
 from pathlib import Path
-import warnings
 from collections import defaultdict
 
 from agent_s3.json_utils import extract_json_from_text
@@ -294,7 +292,6 @@ def get_openrouter_params() -> Dict[str, Any]:
     }
 
 # Add import for implementation validator
-from agent_s3.tools.implementation_validator import validate_implementation_plan, repair_implementation_plan
 
 logger = logging.getLogger(__name__)
 
@@ -1057,12 +1054,6 @@ def generate_refined_test_specifications(
                         system_design[key].extend(value)
     
     # Prepare input data for the LLM
-    input_data = {
-        "task_description": task_description,
-        "test_requirements": test_requirements,
-        "system_design": system_design,
-        "architecture_review": architecture_review
-    }
     
     # Create the user prompt
     user_prompt = f"""Please refine and enhance the test specifications for the following feature based on the system design and architecture review.
@@ -2479,12 +2470,9 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
             # Import validation tools with error handling
             try:
                 from .tools.implementation_validator import (
-                    validate_implementation_plan, 
-                    repair_implementation_plan, 
-                    _validate_implementation_quality,
-                    _validate_implementation_security,
-                    _validate_implementation_test_alignment,
-                    _calculate_implementation_metrics
+                    validate_implementation_plan,
+                    repair_implementation_plan,
+                    _calculate_implementation_metrics,
                 )
             except ImportError as import_error:
                 logger.error(f"Failed to import validation tools: {import_error}")
@@ -2661,7 +2649,7 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                     # Add metrics improvement summary
                     if new_metrics["overall_score"] > metrics["overall_score"]:
                         improvement = (new_metrics["overall_score"] - metrics["overall_score"]) * 100
-                        repair_note += f"\n### Quality Improvement\n\n"
+                        repair_note += "\n### Quality Improvement\n\n"
                         repair_note += f"Overall quality score improved by {improvement:.1f}%.\n"
                         repair_note += f"- Element coverage: {metrics['element_coverage_score']:.2f} → {new_metrics['element_coverage_score']:.2f}\n"
                         repair_note += f"- Architecture issue addressal: {metrics['architecture_issue_addressal_score']:.2f} → {new_metrics['architecture_issue_addressal_score']:.2f}\n"
@@ -2714,7 +2702,7 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                             response_data["discussion"] = ""
                         
                         coherence_note = "\n\n## Semantic Coherence Validation Results\n\n"
-                        coherence_note += f"The implementation plan was validated for semantic coherence across architecture review, test implementation, and system design.\n\n"
+                        coherence_note += "The implementation plan was validated for semantic coherence across architecture review, test implementation, and system design.\n\n"
                         
                         # Add scores
                         coherence_note += "### Validation Scores\n\n"
@@ -2790,7 +2778,7 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                 logger.info("Attempting aggressive JSON structure repair")
                 
                 # Import required utilities
-                from .json_utils import extract_json_from_text, repair_json_structure
+                from .json_utils import repair_json_structure
                 
                 # Define a more tolerant JSON extraction regex pattern
                 json_pattern = r'({[\s\S]*?})'
