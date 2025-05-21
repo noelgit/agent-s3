@@ -172,14 +172,16 @@ def validate_architecture_implementation(architecture_review: Dict[str, Any], im
     for suggestion in optimization_suggestions:
         # Extract affected components from suggestion
         affected_components = suggestion.get("affected_components", [])
-        
+
+        # Precompute keywords outside the loop so they're always defined
+        suggestion_keywords = _extract_keywords(suggestion.get("description", ""))
+
         # Check if those components appear in implementation plan with the optimization
         suggestion_addressed = False
         for component in affected_components:
             # Check if component is a file path
             if os.path.basename(component) in [os.path.basename(file) for file in implementation_plan.keys()]:
                 # Look for keywords from suggestion in implementation steps
-                suggestion_keywords = _extract_keywords(suggestion.get("description", ""))
                 for file_path, implementations in implementation_plan.items():
                     if os.path.basename(component) == os.path.basename(file_path):
                         for impl in implementations:
@@ -187,10 +189,10 @@ def validate_architecture_implementation(architecture_review: Dict[str, Any], im
                             if any(keyword in steps_text.lower() for keyword in suggestion_keywords):
                                 suggestion_addressed = True
                                 break
-            
+
             if suggestion_addressed:
                 break
-        
+
         if not suggestion_addressed and affected_components and suggestion_keywords:
             validation_details["unaddressed_optimizations"].append({
                 "description": suggestion.get("description", "Unknown suggestion"),
