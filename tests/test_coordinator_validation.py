@@ -194,19 +194,18 @@ def test_validation_phase_database_exception(coordinator):
     """Test validation phase with database validation exception."""
     # Set up mocks for database exception
     coordinator.database_manager.setup_database.side_effect = Exception("Database exception")
-    
+
     # Execute
     result = coordinator._run_validation_phase()
 
     # Assert
-    assert result["success"] is True  # Validation continues despite db exception
-    assert result["step"] is None  # No specific failing step
-    assert result["lint_output"] is not None  # Lint still executed
-    
-    # Verify db validation was attempted and other validations continued
+    assert result["success"] is False  # Validation fails on exception
+    assert result["step"] == "unknown_error"  # Unknown error step
+
+    # Verify db validation was attempted and subsequent steps were skipped
     coordinator.database_manager.setup_database.assert_called()
-    coordinator.bash_tool.run_command.assert_called()  # Lint was still executed
-    coordinator.run_tests.assert_called()  # Tests were still executed
+    coordinator.bash_tool.run_command.assert_not_called()
+    coordinator.run_tests.assert_not_called()
 
 # Test run_tests method
 

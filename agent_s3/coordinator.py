@@ -976,6 +976,7 @@ class Coordinator:
                 return results
         except Exception as exc:  # pragma: no cover - safety net
             self.scratchpad.log("Coordinator", f"Validation error: {exc}", level=LogLevel.ERROR)
+            results.update({"success": False, "step": "unknown_error"})
             return results
 
         return results
