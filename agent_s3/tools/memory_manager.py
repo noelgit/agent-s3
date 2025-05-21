@@ -79,6 +79,8 @@ class MemoryManager:
         self._executor = ThreadPoolExecutor(max_workers=4)
         self._batch_queue: Set[str] = set()
         self._batch_lock = threading.Lock()
+        # Lock for protecting file writes and shared state updates
+        self._lock = threading.RLock()
         self._batch_timer: Optional[threading.Timer] = None
         self.batch_delay = config.get('cache_debounce_delay', 0.2)
 
@@ -155,33 +157,34 @@ class MemoryManager:
 
     def _save_memory(self):
         """Save memory state (history, summaries) to disk atomically with checkpoint retention."""
-        # Ensure cache directory exists
-        self.store_path_base.mkdir(exist_ok=True)
+        with self._lock:
+            # Ensure cache directory exists
+            self.store_path_base.mkdir(exist_ok=True)
 
-        state = {
-            'context_history': self.context_history,
-            'summaries': self.summaries
-        }
-        try:
-            # Write compressed JSON atomically
-            temp_path = self.memory_state_path.with_suffix(self.memory_state_path.suffix + ".tmp")
-            with gzip.open(temp_path, 'wt', encoding='utf-8') as f:
-                json.dump(state, f, indent=2)
-            shutil.move(str(temp_path), str(self.memory_state_path))
-            logger.info(f"Saved memory state to {self.memory_state_path}")
-            # Create checkpoint after save
-            ts = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
-            cp_name = f'memory_state_{ts}.json.gz'
+            state = {
+                'context_history': self.context_history,
+                'summaries': self.summaries
+            }
             try:
-                shutil.copy2(self.memory_state_path, self.checkpoint_dir / cp_name)
-                # Prune old checkpoints, keep last 3
-                cps = sorted(self.checkpoint_dir.iterdir(), key=lambda p: p.stat().st_mtime)
-                for old in cps[:-3]:
-                    old.unlink()
-            except Exception as e:
-                logger.error(f"Error creating memory checkpoint: {e}")
-        except (OSError, TypeError) as e:
-            logger.error(f"Error saving memory state to {self.memory_state_path}: {e}")
+                # Write compressed JSON atomically
+                temp_path = self.memory_state_path.with_suffix(self.memory_state_path.suffix + ".tmp")
+                with gzip.open(temp_path, 'wt', encoding='utf-8') as f:
+                    json.dump(state, f, indent=2)
+                shutil.move(str(temp_path), str(self.memory_state_path))
+                logger.info(f"Saved memory state to {self.memory_state_path}")
+                # Create checkpoint after save
+                ts = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+                cp_name = f'memory_state_{ts}.json.gz'
+                try:
+                    shutil.copy2(self.memory_state_path, self.checkpoint_dir / cp_name)
+                    # Prune old checkpoints, keep last 3
+                    cps = sorted(self.checkpoint_dir.iterdir(), key=lambda p: p.stat().st_mtime)
+                    for old in cps[:-3]:
+                        old.unlink()
+                except Exception as e:
+                    logger.error(f"Error creating memory checkpoint: {e}")
+            except (OSError, TypeError) as e:
+                logger.error(f"Error saving memory state to {self.memory_state_path}: {e}")
 
     def _load_embedding_access_log(self):
         """Load embedding access log from disk."""
@@ -199,48 +202,51 @@ class MemoryManager:
 
     def _save_embedding_access_log(self):
         """Save embedding access log to disk atomically."""
-        try:
-            temp_path = self.access_log_path.with_suffix(self.access_log_path.suffix + ".tmp")
-            with open(temp_path, 'w', encoding='utf-8') as f:
-                json.dump(self.embedding_access_log, f, indent=2)
-            shutil.move(str(temp_path), str(self.access_log_path))
-            logger.debug(f"Saved embedding access log to {self.access_log_path}")
-        except (OSError, TypeError) as e:
-            logger.error(f"Error saving embedding access log: {e}")
+        with self._lock:
+            try:
+                temp_path = self.access_log_path.with_suffix(self.access_log_path.suffix + ".tmp")
+                with open(temp_path, 'w', encoding='utf-8') as f:
+                    json.dump(self.embedding_access_log, f, indent=2)
+                shutil.move(str(temp_path), str(self.access_log_path))
+                logger.debug(f"Saved embedding access log to {self.access_log_path}")
+            except (OSError, TypeError) as e:
+                logger.error(f"Error saving embedding access log: {e}")
 
     def _record_embedding_access(self, file_path: str):
         """Record access to an embedding for a specific file."""
         abs_path = str(Path(file_path).resolve())
         current_time = time.time()
-        
-        if abs_path in self.embedding_access_log:
-            # Update existing record
-            self.embedding_access_log[abs_path]["last_access"] = current_time
-            self.embedding_access_log[abs_path]["access_count"] += 1
-        else:
-            # Create new record
-            self.embedding_access_log[abs_path] = {
-                "last_access": current_time,
-                "access_count": 1,
-                "created": current_time
-            }
-        
-        # Save periodically (e.g., every 10 accesses)
-        if sum(record.get("access_count", 0) % 10 == 0 for record in self.embedding_access_log.values()) > 0:
-            self._save_embedding_access_log()
+
+        with self._lock:
+            if abs_path in self.embedding_access_log:
+                # Update existing record
+                self.embedding_access_log[abs_path]["last_access"] = current_time
+                self.embedding_access_log[abs_path]["access_count"] += 1
+            else:
+                # Create new record
+                self.embedding_access_log[abs_path] = {
+                    "last_access": current_time,
+                    "access_count": 1,
+                    "created": current_time
+                }
+
+            # Save periodically (e.g., every 10 accesses)
+            if sum(record.get("access_count", 0) % 10 == 0 for record in self.embedding_access_log.values()) > 0:
+                self._save_embedding_access_log()
 
     def _clean_deleted_files_from_logs(self):
         """Remove entries from access logs for files that no longer exist."""
-        to_remove = []
-        for file_path in self.embedding_access_log:
-            if not Path(file_path).is_file():
-                to_remove.append(file_path)
+        with self._lock:
+            to_remove = []
+            for file_path in list(self.embedding_access_log):
+                if not Path(file_path).is_file():
+                    to_remove.append(file_path)
 
-        if to_remove:
-            for file_path in to_remove:
-                del self.embedding_access_log[file_path]
-            logger.info(f"Removed {len(to_remove)} deleted files from embedding access log")
-            self._save_embedding_access_log()
+            if to_remove:
+                for file_path in to_remove:
+                    del self.embedding_access_log[file_path]
+                logger.info(f"Removed {len(to_remove)} deleted files from embedding access log")
+                self._save_embedding_access_log()
 
     def apply_progressive_eviction(self, force=False):
         """
@@ -252,87 +258,88 @@ class MemoryManager:
         Returns:
             Number of embeddings evicted
         """
-        # Get current embedding count
-        try:
-            if self.embedding_client is not None and hasattr(self.embedding_client, 'get_embedding_count'):
-                current_count = self.embedding_client.get_embedding_count()
-            else:
-                # Estimate if not available
-                current_count = len(self.embedding_access_log)
-        except Exception as e:
-            logger.error(f"Error getting embedding count: {e}")
-            current_count = 0
-            
-        # Clean up deleted files first
-        self._clean_deleted_files_from_logs()
-            
-        # Check if we need to evict
-        if not force and current_count < self.max_embeddings:
-            logger.debug(f"No eviction needed: {current_count}/{self.max_embeddings} embeddings used")
-            return 0
-            
-        logger.info(
-            f"Starting progressive embedding eviction: {current_count}/{self.max_embeddings} embeddings used"
-        )
+        with self._lock:
+            # Get current embedding count
+            try:
+                if self.embedding_client is not None and hasattr(self.embedding_client, 'get_embedding_count'):
+                    current_count = self.embedding_client.get_embedding_count()
+                else:
+                    # Estimate if not available
+                    current_count = len(self.embedding_access_log)
+            except Exception as e:
+                logger.error(f"Error getting embedding count: {e}")
+                current_count = 0
 
-        # Determine how many embeddings to evict
-        to_evict = min(
-            self.eviction_batch_size,
-            max(0, current_count - self.max_embeddings + self.eviction_batch_size // 2),
-        )
-        if force:
-            to_evict = max(to_evict, self.eviction_batch_size)
+            # Clean up deleted files first
+            self._clean_deleted_files_from_logs()
 
-        evicted_count = 0
+            # Check if we need to evict
+            if not force and current_count < self.max_embeddings:
+                logger.debug(f"No eviction needed: {current_count}/{self.max_embeddings} embeddings used")
+                return 0
 
-        # Prefix-aware eviction strategy
-        now = time.time()
-        max_idle_seconds = self.access_threshold_days * 86400
-        prefix_groups: Dict[str, List[Dict[str, Any]]] = {}
-
-        for fp, rec in self.embedding_access_log.items():
-            prefix = str(Path(fp).parent)
-            last_access = rec.get("last_access", now)
-            idle_factor = (
-                min(1.0, (now - last_access) / max_idle_seconds)
-                if max_idle_seconds > 0
-                else 0.5
+            logger.info(
+                f"Starting progressive embedding eviction: {current_count}/{self.max_embeddings} embeddings used"
             )
-            access_factor = 1.0 / (rec.get("access_count", 0) + 1)
-            age_factor = (
-                min(1.0, (now - rec.get("created", last_access)) / (max_idle_seconds / 2))
-                if max_idle_seconds > 0
-                else 0.5
+
+            # Determine how many embeddings to evict
+            to_evict = min(
+                self.eviction_batch_size,
+                max(0, current_count - self.max_embeddings + self.eviction_batch_size // 2),
             )
-            score = (0.6 * idle_factor) + (0.3 * access_factor) + (0.1 * age_factor)
-            prefix_groups.setdefault(prefix, []).append({"file_path": fp, "score": score})
+            if force:
+                to_evict = max(to_evict, self.eviction_batch_size)
 
-        group_scores: List[Tuple[str, float, List[str]]] = []
-        for prefix, files in prefix_groups.items():
-            avg_score = sum(f["score"] for f in files) / len(files)
-            paths = [f["file_path"] for f in files]
-            group_scores.append((prefix, avg_score, paths))
+            evicted_count = 0
 
-        group_scores.sort(key=lambda x: x[1], reverse=True)
+            # Prefix-aware eviction strategy
+            now = time.time()
+            max_idle_seconds = self.access_threshold_days * 86400
+            prefix_groups: Dict[str, List[Dict[str, Any]]] = {}
 
-        for _, _, paths in group_scores:
-            for fp in paths:
+            for fp, rec in self.embedding_access_log.items():
+                prefix = str(Path(fp).parent)
+                last_access = rec.get("last_access", now)
+                idle_factor = (
+                    min(1.0, (now - last_access) / max_idle_seconds)
+                    if max_idle_seconds > 0
+                    else 0.5
+                )
+                access_factor = 1.0 / (rec.get("access_count", 0) + 1)
+                age_factor = (
+                    min(1.0, (now - rec.get("created", last_access)) / (max_idle_seconds / 2))
+                    if max_idle_seconds > 0
+                    else 0.5
+                )
+                score = (0.6 * idle_factor) + (0.3 * access_factor) + (0.1 * age_factor)
+                prefix_groups.setdefault(prefix, []).append({"file_path": fp, "score": score})
+
+            group_scores: List[Tuple[str, float, List[str]]] = []
+            for prefix, files in prefix_groups.items():
+                avg_score = sum(f["score"] for f in files) / len(files)
+                paths = [f["file_path"] for f in files]
+                group_scores.append((prefix, avg_score, paths))
+
+            group_scores.sort(key=lambda x: x[1], reverse=True)
+
+            for _, _, paths in group_scores:
+                for fp in paths:
+                    if evicted_count >= to_evict:
+                        break
+                    try:
+                        if self.remove_embedding(fp, record_removal=True):
+                            evicted_count += 1
+                    except Exception as e:  # pragma: no cover - ignore during tests
+                        logger.error(f"Error evicting embedding for {fp}: {e}")
                 if evicted_count >= to_evict:
                     break
-                try:
-                    if self.remove_embedding(fp, record_removal=True):
-                        evicted_count += 1
-                except Exception as e:  # pragma: no cover - ignore during tests
-                    logger.error(f"Error evicting embedding for {fp}: {e}")
-            if evicted_count >= to_evict:
-                break
 
-        if evicted_count > 0:
-            self.prefix_evictions += evicted_count
+            if evicted_count > 0:
+                self.prefix_evictions += evicted_count
 
-        logger.info(f"Progressive eviction complete: {evicted_count} embeddings evicted")
-        self._save_embedding_access_log()
-        return evicted_count
+            logger.info(f"Progressive eviction complete: {evicted_count} embeddings evicted")
+            self._save_embedding_access_log()
+            return evicted_count
 
     def add_to_history(self, entry: Dict[str, Any]):
         """Add an entry to the context history and save."""
