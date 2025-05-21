@@ -540,6 +540,32 @@ DESCRIPTION: Add error handling for connection failures
         # Verify the result
         assert result == json_data
 
+    def test_max_clarification_rounds_env_var(self, monkeypatch):
+        """Pre-planning should honor MAX_CLARIFICATION_ROUNDS from the env."""
+        router = MagicMock()
+        router.call_llm_by_role.return_value = "{}"
+
+        monkeypatch.setenv("MAX_CLARIFICATION_ROUNDS", "1")
+        import importlib
+        import agent_s3.pre_planner_json_enforced as ppje
+        importlib.reload(ppje)
+
+        with patch.object(ppje, "process_response") as mock_process:
+            mock_process.side_effect = [
+                ("question", {"question": "Q?"}),
+                ("question", {"question": "Q2?"}),
+                (True, {"original_request": "Task", "features": []}),
+            ]
+            with patch("builtins.input", return_value="A1") as mock_input:
+                success, data = ppje.pre_planning_workflow(
+                    router, "Task", max_attempts=3
+                )
+
+        assert success is True
+        assert data == {"original_request": "Task", "features": []}
+        assert mock_input.call_count == 1
+        assert ppje.MAX_CLARIFICATION_ROUNDS == 1
+
     @patch('agent_s3.pre_planner_json_enforced.progress_tracker.logger')
     @patch('agent_s3.pre_planner_json_enforced.process_response')
     def test_pre_planning_workflow_logs_single_clarification(self, mock_process, mock_logger):
