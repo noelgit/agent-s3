@@ -216,3 +216,4 @@ def test_func():
         assert result["file1.py"] == "content1"
         assert result["file2.py"] == "content2"
         assert code_generator.generate_file.call_count == 2
+
