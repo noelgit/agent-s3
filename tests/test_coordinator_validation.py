@@ -190,6 +190,29 @@ def test_validation_phase_mutation_failure(coordinator):
     assert result["mutation_score"] == 60.0
     coordinator.test_critic.run_analysis.assert_called_once()
 
+
+def test_validation_phase_invalid_threshold(coordinator):
+    """Test invalid mutation_score_threshold defaults to 70.0."""
+    coordinator.database_manager.setup_database.return_value = {"success": True}
+    coordinator.bash_tool.run_command.side_effect = [(0, "No lint errors"), (0, "No type errors")]
+    coordinator.run_tests = MagicMock(return_value={"success": True, "output": "All tests passed", "coverage": 80.0})
+    coordinator.config.config["mutation_score_threshold"] = "invalid"
+    coordinator.test_critic.run_analysis.return_value = {
+        "verdict": None,
+        "details": {"mutation_score": 60.0},
+    }
+
+    result = coordinator._run_validation_phase()
+
+    assert result["success"] is False
+    assert result["step"] == "mutation"
+    assert result["mutation_score"] == 60.0
+    coordinator.test_critic.run_analysis.assert_called_once()
+    assert any(
+        "Invalid mutation_score_threshold" in call.args[1]
+        for call in coordinator.scratchpad.log.call_args_list
+    )
+
 def test_validation_phase_database_exception(coordinator):
     """Test validation phase with database validation exception."""
     # Set up mocks for database exception

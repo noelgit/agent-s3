@@ -970,7 +970,16 @@ class Coordinator:
             critic_data = self.test_critic.run_analysis()
             mutation_score = critic_data.get("details", {}).get("mutation_score")
             results["mutation_score"] = mutation_score
-            threshold = float(self.config.config.get("mutation_score_threshold", 70.0))
+            threshold_config = self.config.config.get("mutation_score_threshold", 70.0)
+            try:
+                threshold = float(threshold_config)
+            except (TypeError, ValueError):
+                self.scratchpad.log(
+                    "Coordinator",
+                    f"Invalid mutation_score_threshold '{threshold_config}', defaulting to 70.0",
+                    level=LogLevel.ERROR,
+                )
+                threshold = 70.0
             if mutation_score is not None and mutation_score < threshold:
                 results.update({"success": False, "step": "mutation"})
                 return results
