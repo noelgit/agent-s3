@@ -1,10 +1,4 @@
-"""Implements user authe    logging.error("Missing required dependency: %s", str(e))
-    print(
-        "ERROR: Missing required dependency:", str(e),
-        file=sys.stderr
-    )
-    print("\nPlease install the missing dependencies with:", file=sys.stderr)
-    print("  pip install -r requirements.txt", file=sys.stderr)on via GitHub SSO (OAuth integration)."""
+"""Implements user authentication via GitHub SSO (OAuth integration)."""
 
 import json
 import logging
@@ -37,9 +31,14 @@ except ImportError as e:
     print("  pip install -r requirements.txt", file=sys.stderr)
 
     # Only raise if actually running the code (not during static analysis)
-    if not any(analyzer in sys.modules for analyzer in ['pyright', 'pylance', 'jedi']):            raise ImportError(
-                "Required dependencies missing. See above for installation instructions."
-            ) from e
+    if not any(analyzer in sys.modules for analyzer in [
+        'pyright',
+        'pylance',
+        'jedi',
+    ]):
+        raise ImportError(
+            "Required dependencies missing. See above for installation instructions."
+        ) from e
 
 # Import local modules
 try:
