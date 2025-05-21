@@ -18,11 +18,37 @@ import shlex # Added for safer command building
 
 try:
     import sqlalchemy
-    from sqlalchemy import create_engine, text, inspect # Added inspect
-    from sqlalchemy.exc import SQLAlchemyError, OperationalError, ProgrammingError, IntegrityError # More specific exceptions
+    from sqlalchemy import create_engine, text, inspect
+    from sqlalchemy.exc import (
+        SQLAlchemyError,
+        OperationalError,
+        ProgrammingError,
+        IntegrityError,
+    )
     SQLALCHEMY_AVAILABLE = True
-except ImportError:
+except ImportError:  # pragma: no cover - optional dependency
+    # Provide lightweight fallbacks when SQLAlchemy is not installed so that
+    # tests which monkeypatch these objects can still run without raising
+    # AttributeError. These stub classes mimic the SQLAlchemy exception
+    # hierarchy used within this module.
     SQLALCHEMY_AVAILABLE = False
+
+    class SQLAlchemyError(Exception):
+        """Base class used when SQLAlchemy is unavailable."""
+
+    class OperationalError(SQLAlchemyError):
+        pass
+
+    class ProgrammingError(SQLAlchemyError):
+        pass
+
+    class IntegrityError(SQLAlchemyError):
+        pass
+
+    sqlalchemy = None
+    create_engine = None
+    text = None
+    inspect = None
 
 from agent_s3.tools.bash_tool import BashTool
 
@@ -236,7 +262,7 @@ class DatabaseTool:
                 logger.debug(f"Closed connection for {db_name}")
 
     # --- Explicit Transaction Control ---
-    def begin_transaction(self, db_name: str = "default") -> Optional[sqlalchemy.engine.Connection]:
+    def begin_transaction(self, db_name: str = "default") -> Optional["sqlalchemy.engine.Connection"]:
         """Begin a transaction manually. Returns the connection. Caller must commit/rollback and close."""
         if not self.use_sqlalchemy:
             logger.warning("Manual transactions require SQLAlchemy. Operation skipped.")
@@ -258,7 +284,7 @@ class DatabaseTool:
                 connection.close()
             return None
 
-    def commit_transaction(self, connection: sqlalchemy.engine.Connection) -> bool:
+    def commit_transaction(self, connection: "sqlalchemy.engine.Connection") -> bool:
         """Commit a manually started transaction and close the connection."""
         if not connection or connection.closed:
             logger.error("Cannot commit: Invalid or closed connection provided.")
@@ -277,7 +303,7 @@ class DatabaseTool:
             connection.close()
             logger.debug("Manual transaction connection closed after commit attempt.")
 
-    def rollback_transaction(self, connection: sqlalchemy.engine.Connection) -> bool:
+    def rollback_transaction(self, connection: "sqlalchemy.engine.Connection") -> bool:
         """Roll back a manually started transaction and close the connection."""
         if not connection or connection.closed:
             logger.error("Cannot rollback: Invalid or closed connection provided.")
