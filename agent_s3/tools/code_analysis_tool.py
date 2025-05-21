@@ -15,7 +15,13 @@ import hashlib
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple, Union, Set
 import numpy as np
-import toml  # Added for pyproject.toml parsing
+try:
+    import tomllib as toml
+except Exception:  # pragma: no cover - python <3.11 or missing
+    try:
+        import toml  # type: ignore
+    except Exception:
+        toml = None
 
 # Try to import faiss, but provide graceful degradation if not available
 try:
