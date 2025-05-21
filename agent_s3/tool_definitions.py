@@ -310,6 +310,17 @@ class ToolRegistry:
                     )
                     logger.warning("Registered git tool with limited functionality (no GitHub API access)")
                 return True
+            elif tool_name == "tech_stack_manager":
+                try:
+                    from agent_s3.tools.tech_stack_manager import TechStackManager
+                except ImportError:
+                    logger.error("TechStackManager module not available")
+                    return False
+
+                self.tools["tech_stack_manager"] = TechStackManager(
+                    workspace_path=self.config.config.get("workspace_path", os.getcwd())
+                )
+                return True
             elif tool_name == "embedding_client":
                 if self._validate_config("embedding_client", ["vector_store_path"]):
                     self.tools["embedding_client"] = EmbeddingClient(
@@ -362,7 +373,7 @@ class ToolRegistry:
                     logger.warning(f"Failed to register core tool: {tool_name}")
             
             # Register optional tools
-            optional_tools = ["embedding_client", "database_tool"]
+            optional_tools = ["embedding_client", "database_tool", "tech_stack_manager"]
             for tool_name in optional_tools:
                 success = self.register_tool(tool_name)
                 if success:
