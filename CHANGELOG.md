@@ -15,6 +15,7 @@ Description: Release notes for Agent-S3.
 - `SUPABASE_SERVICE_ROLE_KEY` – key used for privileged Supabase operations.
 - `SUPABASE_ANON_KEY` – optional key for anonymous access when applicable.
 - `SUPABASE_FUNCTION_NAME` – optional name of the Supabase function used for LLM calls.
+- `MAX_CLARIFICATION_ROUNDS` – optional number of clarification rounds allowed during pre-planning (default: `3`).
 
 ### Security
 - API keys are now stored remotely via Supabase, reducing local exposure risk.
