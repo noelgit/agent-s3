@@ -5,9 +5,8 @@ This module provides structured validation for feature-based pre-planning data.
 It validates structure, semantic coherence, and security aspects of pre-planning data.
 """
 
-from typing import Dict, Any, Tuple, List, Optional
+from typing import Any, Dict, List, Tuple
 import logging
-from agent_s3.pre_planning_errors import ValidationError
 
 logger = logging.getLogger(__name__)
 

@@ -9,11 +9,8 @@ proceeding to implementation planning.
 import json
 import logging
 import re
-from typing import Dict, Any, List, Optional, Tuple
-from datetime import datetime
-import uuid
+from typing import Any, Dict, Optional
 import traceback
-from collections import defaultdict
 
 from .pre_planner_json_enforced import get_openrouter_json_params
 
