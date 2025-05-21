@@ -97,6 +97,18 @@ class TestPhaseValidation(unittest.TestCase):
         is_valid, message = validate_user_modifications(invalid_modification_2)
         self.assertFalse(is_valid)
         self.assertTrue(any(pattern in message for pattern in ["delete everything", "start over"]))
+
+        # Invalid modification - references unknown multi-word feature
+        invalid_modification_3 = "Please integrate unknown feature Rocket Launch Control into the plan."
+        is_valid, message = validate_user_modifications(invalid_modification_3)
+        self.assertFalse(is_valid)
+        self.assertIn("Unknown feature: Rocket Launch Control", message)
+
+        # Invalid modification with newline
+        invalid_modification_4 = "unknown feature Advanced Payment Gateway\nPlease add it"
+        is_valid, message = validate_user_modifications(invalid_modification_4)
+        self.assertFalse(is_valid)
+        self.assertIn("Unknown feature: Advanced Payment Gateway", message)
     
     def test_validate_architecture_implementation(self):
         """Test validation of architecture-implementation consistency."""
