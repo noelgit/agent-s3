@@ -43,7 +43,14 @@ class TestFeatureBasedWorkflow:
         coordinator._regenerate_pre_planning_with_modifications = MagicMock()
         coordinator._present_pre_planning_results_to_user = MagicMock(return_value=("yes", None))
         coordinator._apply_changes_and_manage_dependencies = MagicMock(return_value=True)
-        coordinator._run_validation_phase = MagicMock(return_value=(True, "validation", "All checks passed"))
+        coordinator._run_validation_phase = MagicMock(return_value={
+            "success": True,
+            "step": None,
+            "lint_output": "No lint errors",
+            "type_output": "No type errors",
+            "test_output": "All checks passed",
+            "coverage": None,
+        })
         coordinator._finalize_task = MagicMock()
         coordinator.run_persona_debate = MagicMock()
         coordinator.code_generator = MagicMock()

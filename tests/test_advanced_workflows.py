@@ -186,7 +186,14 @@ def mock_coordinator(setup_test_files):
         
         # Patch file operations
         coordinator._apply_changes_and_manage_dependencies = MagicMock(return_value=True)
-        coordinator._run_validation_phase = MagicMock(return_value=(True, "validation", "All checks passed"))
+        coordinator._run_validation_phase = MagicMock(return_value={
+            "success": True,
+            "step": None,
+            "lint_output": "No lint errors",
+            "type_output": "No type errors",
+            "test_output": "All checks passed",
+            "coverage": None,
+        })
         coordinator._finalize_task = MagicMock(return_value={"status": "completed"})
         
         # Return coordinator with its mocks
@@ -469,8 +476,22 @@ class TestMultiStepDebugging:
         
         # Set up to fail validation on first attempt, succeed on second
         coordinator._run_validation_phase = MagicMock(side_effect=[
-            (False, "tests", "Tests failed: Authentication still has security issues"),
-            (True, "validation", "All checks passed")
+            {
+                "success": False,
+                "step": "tests",
+                "lint_output": None,
+                "type_output": None,
+                "test_output": "Tests failed: Authentication still has security issues",
+                "coverage": None,
+            },
+            {
+                "success": True,
+                "step": None,
+                "lint_output": "No lint errors",
+                "type_output": "No type errors",
+                "test_output": "All checks passed",
+                "coverage": None,
+            },
         ])
         
         # Execute task

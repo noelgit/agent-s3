@@ -325,7 +325,14 @@ def mock_coordinator():
         
         # Patch internal methods that interact with the filesystem
         coordinator._apply_changes_and_manage_dependencies = MagicMock(return_value=True)
-        coordinator._run_validation_phase = MagicMock(return_value=(True, "validation", "All checks passed"))
+        coordinator._run_validation_phase = MagicMock(return_value={
+            "success": True,
+            "step": None,
+            "lint_output": "No lint errors",
+            "type_output": "No type errors",
+            "test_output": "All checks passed",
+            "coverage": None,
+        })
         coordinator._finalize_task = MagicMock(return_value={"status": "completed"})
         
         # Return the coordinator with all its mocks for testing
@@ -525,8 +532,22 @@ class TestErrorHandling:
         
         # First validation fails, second succeeds
         coordinator._run_validation_phase = MagicMock(side_effect=[
-            (False, "lint", "Linting error"), 
-            (True, "validation", "All checks passed")
+            {
+                "success": False,
+                "step": "lint",
+                "lint_output": "Linting error",
+                "type_output": None,
+                "test_output": None,
+                "coverage": None,
+            },
+            {
+                "success": True,
+                "step": None,
+                "lint_output": "No lint errors",
+                "type_output": "No type errors",
+                "test_output": "All checks passed",
+                "coverage": None,
+            },
         ])
         
         # Set up error context
