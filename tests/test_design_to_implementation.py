@@ -54,101 +54,28 @@ def test_design_manager_initialization():
     assert isinstance(design_manager.conversation_history, list)
 
 
-def test_transition_to_pre_planning_success(coordinator):
-    """Test successful transition from design to pre-planning phase."""
-    # Create DesignManager with mocked coordinator
-    design_manager = DesignManager(coordinator)
-    design_manager.design_objective = "Create a TODO application"
-    
-    # Mock file operations
-    design_exists = True
-    progress_exists = True
-    mock_progress_data = {
-        "tasks": [
-            {"id": "1", "description": "Feature 1", "status": "pending"},
-            {"id": "1.1", "description": "Subfeature 1.1", "status": "pending"},
-            {"id": "2", "description": "Feature 2", "status": "pending"},
-            {"id": "2.1", "description": "Subfeature 2.1", "status": "pending"}
-        ]
-    }
-    
-    # Set up the patch for file operations
-    with patch('os.path.exists', side_effect=lambda path: 
-               design_exists if path.endswith('design.txt') else progress_exists), \
-         patch('builtins.open', mock_open(read_data=json.dumps(mock_progress_data))), \
-         patch('json.load', return_value=mock_progress_data):
-        
-        # Call the method
-        result = design_manager._transition_to_pre_planning()
-        
-        # Assertions
-        assert result is True
-        
-        # Check if either of the coordinator methods was called
-        if coordinator.start_pre_planning_from_design.called:
-            # Verify the pre-planning input has feature_groups
-            assert "feature_groups" in coordinator.start_pre_planning_from_design.call_args[0][0]
-            assert coordinator.start_pre_planning_from_design.call_args[0][0]["original_request"] == "Create a TODO application"
-        else:
-            # Verify the run_task was called correctly
-            coordinator.run_task.assert_called_once()
-            # Verify the task is the design objective
-            assert coordinator.run_task.call_args[1]['task'] == "Create a TODO application"
-            # Verify from_design flag is True
-            assert coordinator.run_task.call_args[1]['from_design'] is True
-            # Verify pre_planning_input has the right structure
-            assert "feature_groups" in coordinator.run_task.call_args[1]['pre_planning_input']
-
-
-def test_transition_to_pre_planning_no_design_file(coordinator):
-    """Test transition failure when design file doesn't exist."""
-    # Create DesignManager with mocked coordinator
-    design_manager = DesignManager(coordinator)
-    design_manager.design_objective = "Create a TODO application"
-    
-    # Mock file operations - design file doesn't exist
-    with patch('os.path.exists', return_value=False):
-        # Call the method
-        result = design_manager._transition_to_pre_planning()
-        
-        # Assertions
-        assert result is False
-        # Verify coordinator method wasn't called
-        coordinator.run_task.assert_not_called()
 
 
 def test_prompt_for_implementation_chooses_implementation(coordinator):
-    """Test that prompt_for_implementation calls _transition_to_pre_planning when implementation is chosen."""
-    # Create DesignManager with mocked components
+    """Test that prompt_for_implementation handles implementation choice."""
     design_manager = DesignManager(coordinator)
-    design_manager._transition_to_pre_planning = MagicMock(return_value=True)
-    
-    # Mock user input to choose implementation
+
     with patch('builtins.input', return_value="yes"):
         result = design_manager.prompt_for_implementation()
-        
-        # Assertions
-        assert result["implementation"] is True
-        assert result["deployment"] is False
-        # Verify transition method was called
-        design_manager._transition_to_pre_planning.assert_called_once()
+
+    assert result["implementation"] is True
+    assert result["deployment"] is False
 
 
 def test_prompt_for_implementation_chooses_deployment(coordinator):
-    """Test that prompt_for_implementation doesn't call _transition_to_pre_planning when deployment is chosen."""
-    # Create DesignManager with mocked components
+    """Test that prompt_for_implementation handles deployment choice."""
     design_manager = DesignManager(coordinator)
-    design_manager._transition_to_pre_planning = MagicMock()
-    
-    # Mock user input to choose deployment
+
     with patch('builtins.input', side_effect=["no", "yes"]):
         result = design_manager.prompt_for_implementation()
-        
-        # Assertions
-        assert result["implementation"] is False
-        assert result["deployment"] is True
-        # Verify transition method was NOT called
-        design_manager._transition_to_pre_planning.assert_not_called()
+
+    assert result["implementation"] is False
+    assert result["deployment"] is True
 
 
 def test_coordinator_run_task_from_design(coordinator):
