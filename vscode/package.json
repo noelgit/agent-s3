@@ -64,7 +64,7 @@
     "lint": "eslint src --ext ts",
     "build-webview": "cd webview-ui && npm install && npm run build",
     "watch-webview": "cd webview-ui && npm run start",
-    "test-server": "node ../simple-test-server.js"
+    "test-server": "node ../tests/node_servers/simple-test-server.js"
   },
   "devDependencies": {
     "@types/node": "^22.14.1",
