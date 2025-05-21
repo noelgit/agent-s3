@@ -8,6 +8,7 @@ import logging
 import os
 import uuid
 import traceback
+import difflib
 from typing import Dict, Any, List, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
@@ -79,112 +80,117 @@ class FeatureGroupProcessor:
                                     system_design[key].extend(value)
                     
                     # STEP 1: Architecture Review
-                    self.coordinator.scratchpad.log("FeatureGroupProcessor", f"Generating architecture review for {group_name}...")
-                    self.coordinator.progress_tracker.update_progress({
-                        "phase": "architecture_review",
-                        "status": "started",
-                        "group": group_name
-                    })
-                    
-                    # Import both base and specialized planner modules to maintain consistency
-                    from .planner import Planner
-                    from .planner_json_enforced import generate_architecture_review
+                    self.coordinator.scratchpad.log(
+                        "FeatureGroupProcessor",
+                        f"Generating architecture review for {group_name}...",
+                    )
+                    self.coordinator.progress_tracker.update_progress(
+                        {
+                            "phase": "architecture_review",
+                            "status": "started",
+                            "group": group_name,
+                        }
+                    )
 
-                    # Use the specialized JSON-enforced version for architecture reviews
-                    architecture_review_data = generate_architecture_review(
-                        self.coordinator.router_agent,
+                    architecture_review, arch_discussion = self._generate_architecture_review(
                         feature_group,
                         task_description,
-                        context
+                        context,
+                    )
+
+                    self.coordinator.progress_tracker.update_progress(
+                        {
+                            "phase": "architecture_review",
+                            "status": "completed",
+                            "group": group_name,
+                        }
                     )
                     
-                    architecture_review = architecture_review_data.get("architecture_review", {})
-                    self.coordinator.progress_tracker.update_progress({
-                        "phase": "architecture_review",
-                        "status": "completed",
-                        "group": group_name
-                    })
-                    
-                    # STEP 2: Test Specification Refinement
-                    self.coordinator.scratchpad.log("FeatureGroupProcessor", f"Refining test specifications for {group_name}...")
-                    self.coordinator.progress_tracker.update_progress({
-                        "phase": "test_refinement",
-                        "status": "started",
-                        "group": group_name
-                    })
-                    
-                    from .planner_json_enforced import generate_refined_test_specifications
-                    refined_test_specs_data = generate_refined_test_specifications(
-                        self.coordinator.router_agent,
+                    # STEP 2 & 3: Tests
+                    self.coordinator.scratchpad.log(
+                        "FeatureGroupProcessor",
+                        f"Refining test specifications for {group_name}...",
+                    )
+                    self.coordinator.progress_tracker.update_progress(
+                        {
+                            "phase": "test_refinement",
+                            "status": "started",
+                            "group": group_name,
+                        }
+                    )
+
+                    (
+                        tests,
+                        test_strategy,
+                        refined_test_specs,
+                        test_implementations_data,
+                        test_refinement_discussion,
+                        test_implementation_discussion,
+                    ) = self._generate_tests(
                         feature_group,
                         architecture_review,
                         task_description,
-                        context
-                    )
-                    
-                    refined_test_specs = refined_test_specs_data.get("refined_test_requirements", {})
-                    test_refinement_discussion = refined_test_specs_data.get("discussion", "")
-                    self.coordinator.progress_tracker.update_progress({
-                        "phase": "test_refinement",
-                        "status": "completed",
-                        "group": group_name
-                    })
-                    
-                    # STEP 3: Test Implementation
-                    self.coordinator.scratchpad.log("FeatureGroupProcessor", f"Generating test implementations for {group_name}...")
-                    self.coordinator.progress_tracker.update_progress({
-                        "phase": "test_implementation",
-                        "status": "started",
-                        "group": group_name
-                    })
-                    
-                    from .planner_json_enforced import generate_test_implementations
-                    test_implementations_data = generate_test_implementations(
-                        self.coordinator.router_agent,
-                        refined_test_specs,
+                        context,
                         system_design,
-                        task_description,
-                        context
                     )
-                    
-                    tests = test_implementations_data.get("tests", {})
-                    test_strategy = test_implementations_data.get("test_strategy_implementation", {})
-                    test_implementation_discussion = test_implementations_data.get("discussion", "")
-                    self.coordinator.progress_tracker.update_progress({
-                        "phase": "test_implementation",
-                        "status": "completed",
-                        "group": group_name
-                    })
+
+                    self.coordinator.progress_tracker.update_progress(
+                        {
+                            "phase": "test_refinement",
+                            "status": "completed",
+                            "group": group_name,
+                        }
+                    )
+                    self.coordinator.progress_tracker.update_progress(
+                        {
+                            "phase": "test_implementation",
+                            "status": "completed",
+                            "group": group_name,
+                        }
+                    )
                     
                     # Run Test Critic on generated tests
-                    self.coordinator.scratchpad.log("FeatureGroupProcessor", f"Running Test Critic for {group_name}...")
-                    test_critic_results = self.test_critic.critique_tests(tests, feature_group.get("risk_assessment", {}))
+                    self.coordinator.scratchpad.log(
+                        "FeatureGroupProcessor",
+                        f"Running Test Critic for {group_name}...",
+                    )
+                    test_critic_results = self.test_critic.critique_tests(
+                        tests,
+                        feature_group.get("risk_assessment", {}),
+                    )
                     
                     # STEP 4: Implementation Planning
-                    self.coordinator.scratchpad.log("FeatureGroupProcessor", f"Generating implementation plan for {group_name}...")
-                    self.coordinator.progress_tracker.update_progress({
-                        "phase": "implementation_planning",
-                        "status": "started",
-                        "group": group_name
-                    })
-                    
-                    from .planner_json_enforced import generate_implementation_plan
-                    implementation_plan_data = generate_implementation_plan(
-                        self.coordinator.router_agent,
+                    self.coordinator.scratchpad.log(
+                        "FeatureGroupProcessor",
+                        f"Generating implementation plan for {group_name}...",
+                    )
+                    self.coordinator.progress_tracker.update_progress(
+                        {
+                            "phase": "implementation_planning",
+                            "status": "started",
+                            "group": group_name,
+                        }
+                    )
+
+                    (
+                        implementation_plan,
+                        implementation_plan_data,
+                        implementation_discussion,
+                    ) = self._generate_implementation_plan(
                         system_design,
                         architecture_review,
                         tests,
                         task_description,
-                        context
+                        context,
                     )
-                    
-                    implementation_plan = implementation_plan_data.get("implementation_plan", {})
-                    implementation_discussion = implementation_plan_data.get("discussion", "")
-                    self.coordinator.progress_tracker.update_progress({
-                        "phase": "implementation_planning",
-                        "status": "completed",
-                        "group": group_name
-                    })
+
+                    self.coordinator.progress_tracker.update_progress(
+                        {
+                            "phase": "implementation_planning",
+                            "status": "completed",
+                            "group": group_name,
+                        }
+                    )
                     
                     # STEP 5: Semantic Validation to ensure coherence between phases
                     self.coordinator.scratchpad.log("FeatureGroupProcessor", f"Validating semantic coherence for {group_name}...")
@@ -228,7 +234,7 @@ class FeatureGroupProcessor:
                     
                     # Combine discussions into an overall plan discussion
                     plan_discussion = (
-                        f"Architecture Review: {architecture_review_data.get('discussion', '')}\n\n"
+                        f"Architecture Review: {arch_discussion}\n\n"
                         f"Test Refinement: {test_refinement_discussion}\n\n"
                         f"Test Implementation: {test_implementation_discussion}\n\n"
                         f"Implementation Planning: {implementation_discussion}"
@@ -417,8 +423,136 @@ class FeatureGroupProcessor:
         }
         
         return consolidated_plan
+
+    # ------------------------------------------------------------------
+    # Helper methods for modularized planning steps
+    # ------------------------------------------------------------------
+
+    def _generate_architecture_review(
+        self,
+        feature_group: Dict[str, Any],
+        task_description: str,
+        context: Dict[str, Any],
+    ) -> Tuple[Dict[str, Any], str]:
+        """Generate architecture review for a feature group."""
+        try:
+            from .planner_json_enforced import generate_architecture_review
+
+            review_data = generate_architecture_review(
+                self.coordinator.router_agent,
+                feature_group,
+                task_description,
+                context,
+            )
+            return (
+                review_data.get("architecture_review", {}),
+                review_data.get("discussion", ""),
+            )
+        except Exception as e:
+            self.coordinator.scratchpad.log(
+                "FeatureGroupProcessor",
+                f"Architecture review error for {feature_group.get('group_name')}: {e}",
+                level="ERROR",
+            )
+            raise
+
+    def _generate_tests(
+        self,
+        feature_group: Dict[str, Any],
+        architecture_review: Dict[str, Any],
+        task_description: str,
+        context: Dict[str, Any],
+        system_design: Dict[str, Any],
+    ) -> Tuple[
+        Dict[str, Any],
+        Dict[str, Any],
+        Dict[str, Any],
+        Dict[str, Any],
+        str,
+        str,
+    ]:
+        """Generate refined tests and implementations."""
+        from .planner_json_enforced import (
+            generate_refined_test_specifications,
+            generate_test_implementations,
+        )
+
+        try:
+            refined_data = generate_refined_test_specifications(
+                self.coordinator.router_agent,
+                feature_group,
+                architecture_review,
+                task_description,
+                context,
+            )
+            refined_specs = refined_data.get("refined_test_requirements", {})
+            refinement_discussion = refined_data.get("discussion", "")
+
+            impl_data = generate_test_implementations(
+                self.coordinator.router_agent,
+                refined_specs,
+                system_design,
+                task_description,
+                context,
+            )
+            tests = impl_data.get("tests", {})
+            strategy = impl_data.get("test_strategy_implementation", {})
+            impl_discussion = impl_data.get("discussion", "")
+
+            return (
+                tests,
+                strategy,
+                refined_specs,
+                impl_data,
+                refinement_discussion,
+                impl_discussion,
+            )
+        except Exception as e:
+            self.coordinator.scratchpad.log(
+                "FeatureGroupProcessor",
+                f"Test generation error for {feature_group.get('group_name')}: {e}",
+                level="ERROR",
+            )
+            raise
+
+    def _generate_implementation_plan(
+        self,
+        system_design: Dict[str, Any],
+        architecture_review: Dict[str, Any],
+        tests: Dict[str, Any],
+        task_description: str,
+        context: Dict[str, Any],
+    ) -> Tuple[Dict[str, Any], Dict[str, Any], str]:
+        """Generate implementation plan based on prior steps."""
+        from .planner_json_enforced import generate_implementation_plan
+
+        try:
+            impl_data = generate_implementation_plan(
+                self.coordinator.router_agent,
+                system_design,
+                architecture_review,
+                tests,
+                task_description,
+                context,
+            )
+            return (
+                impl_data.get("implementation_plan", {}),
+                impl_data,
+                impl_data.get("discussion", ""),
+            )
+        except Exception as e:
+            self.coordinator.scratchpad.log(
+                "FeatureGroupProcessor",
+                f"Implementation planning error: {e}",
+                level="ERROR",
+            )
+            raise
     
-    def present_consolidated_plan_to_user(self, consolidated_plan: Dict[str, Any]) -> Tuple[str, Optional[str]]:
+    def present_consolidated_plan_to_user(
+        self,
+        consolidated_plan: Dict[str, Any],
+        original_plan: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[str, Optional[str]]:
         """
         Present the consolidated plan to the user for approval.
         
@@ -432,10 +566,28 @@ class FeatureGroupProcessor:
             return "no", "No consolidated plan provided"
         
         group_name = consolidated_plan.get("group_name", "Unnamed Group")
-        self.coordinator.scratchpad.log("FeatureGroupProcessor", f"Presenting consolidated plan for {group_name} to user")
+        self.coordinator.scratchpad.log(
+            "FeatureGroupProcessor",
+            f"Presenting consolidated plan for {group_name} to user",
+        )
+
+        if original_plan:
+            original_text = json.dumps(original_plan, indent=2, sort_keys=True)
+            new_text = json.dumps(consolidated_plan, indent=2, sort_keys=True)
+            diff = "\n".join(
+                difflib.unified_diff(
+                    original_text.splitlines(),
+                    new_text.splitlines(),
+                    fromfile="original",
+                    tofile="modified",
+                )
+            )
+            print("\nPLAN MODIFICATIONS DIFF:\n" + diff)
         
         # Use the PromptModerator to present the consolidated plan
-        return self.coordinator.prompt_moderator.present_consolidated_plan(consolidated_plan)
+        return self.coordinator.prompt_moderator.present_consolidated_plan(
+            consolidated_plan
+        )
     
     def update_plan_with_modifications(self, plan: Dict[str, Any], modifications: str) -> Dict[str, Any]:
         """
