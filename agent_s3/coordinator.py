@@ -704,7 +704,7 @@ class Coordinator:
                         return "no", current_plan
             
             # Default return if loop exits unexpectedly
-            return "no",
+            return "no", current_plan
 
     def execute_design(self, objective: str) -> Dict[str, Any]:
         """Orchestrate the interactive design workflow.
