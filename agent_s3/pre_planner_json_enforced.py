@@ -36,6 +36,9 @@ from agent_s3.json_utils import (
 
 logger = logging.getLogger(__name__)
 
+# Maximum clarification rounds allowed regardless of environment setting
+MAX_CLARIFICATION_ROUNDS_CAP = 10
+
 # Base system prompt for pre-planning
 def get_base_system_prompt() -> str:
     """
@@ -539,6 +542,7 @@ def pre_planning_workflow(
         max_clarifications = int(os.getenv("MAX_CLARIFICATION_ROUNDS", "3"))
     except ValueError:
         max_clarifications = 3
+    max_clarifications = min(max_clarifications, MAX_CLARIFICATION_ROUNDS_CAP)
 
     while attempts < max_attempts:
         response = router_agent.call_llm_by_role(

@@ -24,6 +24,7 @@ from agent_s3.pre_planner_json_enforced import (
     regenerate_pre_planning_with_modifications,
     JSONValidationError,
     pre_planning_workflow,
+    MAX_CLARIFICATION_ROUNDS_CAP,
 )
 from agent_s3.json_utils import extract_json_from_text
 
@@ -606,6 +607,30 @@ DESCRIPTION: Add error handling for connection failures
         assert success is True
         assert data == {"original_request": "Task", "features": []}
         assert mock_input.call_count == 3
+
+    @patch('agent_s3.pre_planner_json_enforced.process_response')
+    def test_pre_planning_workflow_clarification_cap(self, mock_process):
+        """Clarification rounds above the cap are limited."""
+        router = MagicMock()
+        router.call_llm_by_role.return_value = "{}"
+
+        mock_process.side_effect = [
+            ("question", {"question": "Q1?"}),
+            ("question", {"question": "Q2?"}),
+            ("question", {"question": "Q3?"}),
+            ("question", {"question": "Q4?"}),
+            ("question", {"question": "Q5?"}),
+            (True, {"original_request": "Task", "features": []})
+        ]
+
+        env_val = str(MAX_CLARIFICATION_ROUNDS_CAP + 5)
+        with patch.dict(os.environ, {"MAX_CLARIFICATION_ROUNDS": env_val}), \
+             patch('builtins.input', side_effect=['A1', 'A2', 'A3', 'A4', 'A5']) as mock_input:
+            success, data = pre_planning_workflow(router, "Task")
+
+        assert success is True
+        assert data == {"original_request": "Task", "features": []}
+        assert mock_input.call_count == MAX_CLARIFICATION_ROUNDS_CAP
 
     @patch('agent_s3.pre_planner_json_enforced.process_response')
     def test_pre_planning_workflow_appends_clarification_to_file(self, mock_process, tmp_path):
