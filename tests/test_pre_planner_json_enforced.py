@@ -201,8 +201,9 @@ class TestPrePlannerJsonEnforced:
         is_valid, _ = validate_json_schema(fallback)
         assert is_valid is True
 
+    @patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json')
     @patch('agent_s3.pre_planner_json_enforced.pre_planning_workflow')
-    def test_integrate_with_coordinator(self, mock_workflow):
+    def test_integrate_with_coordinator(self, mock_workflow, mock_call):
         """Test integration with coordinator."""
         # Setup mock data
         task = "Implement user authentication"
@@ -260,17 +261,19 @@ class TestPrePlannerJsonEnforced:
             ]
         }
         mock_workflow.return_value = (True, json_data)
-        
+
         # Create mock coordinator
         mock_coordinator = MagicMock()
         mock_coordinator.get_current_timestamp.return_value = "2025-01-01T00:00:00"
+        mock_coordinator.config = MagicMock()
+        mock_coordinator.config.config = {"pre_planning_mode": "json"}
         
         # Call the integration function
         result = integrate_with_coordinator(mock_coordinator, task, max_attempts=4)
-        
+
         # Verify results
         assert result["success"] is True
-        assert result["uses_enforced_json"] is True
+        assert result["uses_enforced_json"] is False
         assert result["status"] == "completed"
         assert "test_requirements" in result
         assert "dependencies" in result
@@ -281,10 +284,31 @@ class TestPrePlannerJsonEnforced:
         # Verify the function called the pre-planner with the right arguments
         # Context dict is passed, only check that the router agent and task are correct
         mock_workflow.assert_called_once()
+        mock_call.assert_not_called()
         args, kwargs = mock_workflow.call_args
         assert args[0] == mock_coordinator.router_agent
         assert args[1] == task
         assert kwargs.get("max_attempts") == 4
+
+    @patch('agent_s3.pre_planner_json_enforced.pre_planning_workflow')
+    @patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json')
+    def test_integrate_with_coordinator_enforced_mode(self, mock_call, mock_workflow):
+        """Ensure enforced JSON mode sets the flag correctly."""
+        task = "Implement user auth"
+        json_data = {"original_request": task, "feature_groups": []}
+        mock_call.return_value = (True, json_data)
+
+        coordinator = MagicMock()
+        coordinator.get_current_timestamp.return_value = "2025-01-01T00:00:00"
+        coordinator.config = MagicMock()
+        coordinator.config.config = {"pre_planning_mode": "enforced_json"}
+
+        result = integrate_with_coordinator(coordinator, task)
+
+        assert result["success"] is True
+        assert result["uses_enforced_json"] is True
+        mock_call.assert_called_once_with(coordinator.router_agent, task)
+        mock_workflow.assert_not_called()
 
     @patch('agent_s3.pre_planner_json_enforced.process_response')
     @patch('agent_s3.pre_planner_json_enforced.get_json_system_prompt')
