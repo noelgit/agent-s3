@@ -49,4 +49,3 @@ class DatabaseManager:
         except Exception as e:  # Catch unexpected errors
             self._log(f"Query execution failed: {e}")
             return {"success": False, "error": str(e)}
-
