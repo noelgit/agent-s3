@@ -783,15 +783,70 @@ class Coordinator:
         """
         self.run_task(task=request_text)
 
-    def run_task(self, task: str, pre_planning_input: Optional[Dict[str, Any]] = None) -> None:
-        """Execute the full planning and implementation workflow for a task."""
+    def start_pre_planning_from_design(self, design_file: str = "design.txt") -> None:
+        """Trigger pre-planning for each numbered task found in a design file.
+
+        The design document is expected to contain tasks listed in a numbered
+        format (e.g. ``1. Setup project``). Each parsed task is forwarded to
+        :meth:`run_task` with ``from_design`` enabled so the usual planning
+        workflow proceeds without additional confirmation steps.
+
+        Args:
+            design_file: Path to the design file to parse.
+        """
+        if not os.path.exists(design_file):
+            self.scratchpad.log(
+                "Coordinator",
+                f"Design file not found: {design_file}",
+                level=LogLevel.ERROR,
+            )
+            return
+
+        try:
+            with open(design_file, "r", encoding="utf-8") as f:
+                content = f.read()
+        except Exception as exc:  # pragma: no cover - filesystem safety
+            self.scratchpad.log(
+                "Coordinator",
+                f"Failed reading design file: {exc}",
+                level=LogLevel.ERROR,
+            )
+            return
+
+        tasks: list[str] = []
+        for line in content.splitlines():
+            match = re.match(r"\s*\d+(?:\.\d+)*\.\s+(.*)", line)
+            if match:
+                tasks.append(match.group(1).strip())
+
+        for task in tasks:
+            self.run_task(task=task, from_design=True)
+
+    def run_task(
+        self,
+        task: str,
+        pre_planning_input: Optional[Dict[str, Any]] = None,
+        *,
+        from_design: bool = False,
+    ) -> None:
+        """Execute the full planning and implementation workflow for a task.
+
+        Args:
+            task: Task description to implement.
+            pre_planning_input: Optional pre-planning data to reuse.
+            from_design: True when invoked as part of a design handoff.
+        """
         with self.error_handler.error_context(
             phase="run_task",
             operation="run_task",
             inputs={"request_text": task},
         ):
             try:
-                plans = self.planning_workflow.execute(task, pre_planning_input)
+                plans = self.planning_workflow.execute(
+                    task,
+                    pre_planning_input,
+                    from_design=from_design,
+                )
                 if not plans:
                     return
                 all_changes, overall_success = self.implementation_workflow.execute(plans)
@@ -817,7 +872,11 @@ class Coordinator:
         pre_planning_input: Dict[str, Any] | None = None,
         from_design: bool = False,
     ) -> List[Dict[str, Any]]:
-        """Run the planning workflow and return approved plans."""
+        """Run the planning workflow and return approved plans.
+
+        When ``from_design`` is ``True`` the pre-planning results are assumed to
+        be approved and no interactive confirmation is performed.
+        """
         self.progress_tracker.update_progress({"phase": "pre_planning", "status": "started"})
         mode = self.config.config.get("pre_planning_mode", "enforced_json")
 
@@ -840,13 +899,15 @@ class Coordinator:
         else:
             pre_plan = pre_planning_input
 
-        decision, _ = self._present_pre_planning_results_to_user(pre_plan)
-        if decision != "yes":
-            if decision == "modify":
-                self.scratchpad.log("Coordinator", "User chose to refine the request.")
-            elif decision == "no":
-                self.scratchpad.log("Coordinator", "User cancelled the complex task.")
-            return []
+        decision = "yes"
+        if not from_design:
+            decision, _ = self._present_pre_planning_results_to_user(pre_plan)
+            if decision != "yes":
+                if decision == "modify":
+                    self.scratchpad.log("Coordinator", "User chose to refine the request.")
+                elif decision == "no":
+                    self.scratchpad.log("Coordinator", "User cancelled the complex task.")
+                return []
 
         fg_result = self.feature_group_processor.process_pre_planning_output(pre_plan, task)
         if not fg_result.get("success"):
