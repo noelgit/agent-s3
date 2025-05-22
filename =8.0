@@ -1,4 +1,0 @@
-Requirement already satisfied: pytest in /root/.pyenv/versions/3.11.12/lib/python3.11/site-packages (8.3.5)
-Requirement already satisfied: iniconfig in /root/.pyenv/versions/3.11.12/lib/python3.11/site-packages (from pytest) (2.1.0)
-Requirement already satisfied: packaging in /root/.pyenv/versions/3.11.12/lib/python3.11/site-packages (from pytest) (25.0)
-Requirement already satisfied: pluggy<2,>=1.5 in /root/.pyenv/versions/3.11.12/lib/python3.11/site-packages (from pytest) (1.6.0)
