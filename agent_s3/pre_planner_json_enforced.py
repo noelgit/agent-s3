@@ -1025,7 +1025,6 @@ def call_pre_planner_with_enforced_json(
     import traceback
     max_preplanning_attempts = 3
     last_error = None
-    pre_planning_data = None
     system_prompt = get_json_system_prompt()
     user_prompt = get_base_user_prompt(task_description)
     openrouter_params = get_openrouter_params()
@@ -1054,7 +1053,6 @@ def call_pre_planner_with_enforced_json(
                     return True, data
                 else:
                     last_error = f"Validation failed: {validation_msg}"
-                    pre_planning_data = data
             elif status == "question":
                 # LLM is asking for clarification, return as-is
                 return False, data
@@ -1067,7 +1065,8 @@ def call_pre_planner_with_enforced_json(
 
     # If all attempts failed, return fallback JSON
     logger.warning(
-        "Pre-planning attempts exhausted; returning fallback JSON output"
+        "Pre-planning attempts exhausted; returning fallback JSON output."
+        f" Last error: {last_error}"
     )
     fallback_data = create_fallback_pre_planning_output(task_description)
     return False, fallback_data
