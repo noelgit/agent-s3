@@ -7,7 +7,6 @@ Implements secure tool registration, validation, and resource management.
 from typing import Dict, Any, Optional, List
 import os
 import logging
-import re
 import traceback
 
 from agent_s3.tools.file_tool import FileTool
