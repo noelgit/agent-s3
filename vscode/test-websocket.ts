@@ -12,7 +12,7 @@ export async function testWebSocketConnection(): Promise<void> {
     const wsClient = new WebSocketClient();
     
     // Register test message handler
-    wsClient.registerMessageHandler('test', (message) => {
+    wsClient.registerMessageHandler('test', (message: any) => {
         console.log("Received test message:", message);
     });
     

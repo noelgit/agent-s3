@@ -35,7 +35,7 @@ export class WebSocketPerformanceTest {
     this.log("Connected to WebSocket server");
     
     // Register a handler for large message responses
-    this.wsClient.registerMessageHandler('large_message_response', (message) => {
+    this.wsClient.registerMessageHandler('large_message_response', (message: any) => {
       this.log(`Received large message response: Size=${message.size} bytes, Time=${message.time}ms`);
     });
     

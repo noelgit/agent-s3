@@ -391,7 +391,7 @@ export class BackendConnection implements vscode.Disposable {
     const progressPath = path.join(folders[0].uri.fsPath, 'progress_log.jsonl');
     let position = 0;
     this.progressInterval = setInterval(() => {
-      fs.stat(progressPath, (err, stats) => {
+      fs.stat(progressPath, (err: NodeJS.ErrnoException | null, stats: fs.Stats) => {
         if (err) {
           this.outputChannel.appendLine(`Error reading progress log: ${err.message}`);
           return;
@@ -407,11 +407,11 @@ export class BackendConnection implements vscode.Disposable {
         });
 
         let buffer = '';
-        stream.on('data', chunk => {
+        stream.on('data', (chunk: Buffer) => {
           buffer += chunk.toString();
         });
 
-        stream.on('error', streamErr => {
+        stream.on('error', (streamErr: Error) => {
           this.outputChannel.appendLine(`Progress stream error: ${streamErr.message}`);
         });
 

@@ -65,7 +65,7 @@ export function activate(context: vscode.ExtensionContext) {
     const panel = interactiveWebviewManager.createOrShowPanel();
     
     // Set up message handler for the interactive webview
-    interactiveWebviewManager.setMessageHandler((message) => {
+    interactiveWebviewManager.setMessageHandler((message: any) => {
       console.log('Received message from interactive webview:', message);
       
       // Handle messages from the interactive components
@@ -203,7 +203,7 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     // Set up message handler for chat and interactive messages
-    interactiveWebviewManager.setMessageHandler((message) => {
+    interactiveWebviewManager.setMessageHandler((message: any) => {
       console.log('Received message from chat webview:', message);
 
       if (!message.type) {
