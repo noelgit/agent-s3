@@ -10,7 +10,7 @@ import json
 import logging
 import re
 import difflib
-from typing import Dict, Any, List, Set, Tuple, Optional
+from typing import Dict, Any, List, Set, Tuple
 from collections import defaultdict
 
 # Import canonical and coherence validators
@@ -466,7 +466,7 @@ def _validate_single_function(
         issues.append({
             "issue_type": "missing_steps",
             "severity": "high",
-            "description": f"Function has empty steps list",
+            "description": "Function has empty steps list",
             "file_path": file_path,
             "function_index": function_index,
             "element_id": element_id
@@ -556,9 +556,6 @@ def _validate_architecture_issue_coverage(
 ) -> List[Dict[str, Any]]:
     """Validate coverage of architecture issues by implementation plan."""
     issues = []
-    
-    # Extract all architecture issue IDs
-    arch_issue_ids = {issue["id"] for issue in architecture_issues if issue["id"]}
     
     # Extract all addressed issues from implementation plan
     addressed_issues = set()
@@ -1123,7 +1120,6 @@ def _check_error_handling_patterns(implementation_plan: Dict[str, Any]) -> List[
                 continue
                 
             total_functions += 1
-            function_name = function.get("function", "Unknown function")
             has_error_handling = False
             
             # Check for error handling in steps
@@ -1372,7 +1368,6 @@ def _validate_implementation_security(
                         addressed_concerns.add(issue_id)
             
             # Convert function data to text for analysis
-            function_text = json.dumps(function).lower()
             function_name = function.get("function", "").lower()
             description = function.get("description", "").lower()
             steps_text = ""
@@ -1904,7 +1899,6 @@ def _extract_edge_cases_from_tests(test_requirements: List[Dict[str, Any]]) -> L
         for i, line in enumerate(code_lines):
             line_lower = line.lower()
             if any(term in line_lower for term in ["edge case", "boundary", "invalid input", "null value", "empty"]):
-                edge_case_text = line.strip()
                 # Get a few lines of context
                 start = max(0, i - 1)
                 end = min(len(code_lines), i + 2)
@@ -2317,7 +2311,6 @@ def _repair_incomplete_implementations(
                     if element:
                         # Create steps based on element type and description
                         element_type = element.get("element_type", "")
-                        description = element.get("description", "")
                         
                         # Generate basic steps based on element type
                         if "class" in element_type.lower():

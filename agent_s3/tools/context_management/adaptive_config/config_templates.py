@@ -7,7 +7,7 @@ and sizes, as well as validation for configuration parameters.
 
 import json
 import logging
-from typing import Dict, Any, Optional, List, Union, Tuple
+from typing import Dict, Any, List, Tuple
 import jsonschema
 
 logger = logging.getLogger(__name__)

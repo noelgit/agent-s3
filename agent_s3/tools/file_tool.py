@@ -1,10 +1,9 @@
 """Provides functions for reading/writing files securely."""
 
 import os
-import re
 import mimetypes
 from pathlib import Path
-from typing import Optional, List, Tuple, Set, Dict, Any
+from typing import Optional, List, Tuple
 
 
 class FileTool:
@@ -226,7 +225,7 @@ class FileTool:
                 
             content_size = len(content.encode('utf-8'))
             if current_size + content_size > self.max_file_size:
-                return False, f"Resulting file size would exceed maximum allowed size"
+                return False, "Resulting file size would exceed maximum allowed size"
         
         try:
             # Ensure the directory exists

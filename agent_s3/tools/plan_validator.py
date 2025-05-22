@@ -664,7 +664,6 @@ def validate_identifier_hygiene(data: Dict[str, Any]) -> List[str]:
             logger.warning(f"Skipping feature group at index {group_idx} due to unexpected type: {type(group_data)}")
             continue
         group_name = group_data.get("group_name", f"Group {group_idx}")
-
         for feature_idx, feature_data in enumerate(group_data.get("features", [])):
             if not isinstance(feature_data, dict):
                 logger.warning(f"Skipping feature at index {feature_idx} in group '{group_name}' due to unexpected type: {type(feature_data)}")
@@ -879,9 +878,7 @@ def validate_duplicate_symbols(data: Dict[str, Any]) -> List[str]:
     for group_idx, group_data in enumerate(data.get("feature_groups", [])):
         if not isinstance(group_data, dict):
             continue
-        
         group_name = group_data.get("group_name", f"Group {group_idx}")
-        
         for feature_idx, feature_data in enumerate(group_data.get("features", [])):
             if not isinstance(feature_data, dict):
                 continue
@@ -960,7 +957,6 @@ def validate_reserved_prefixes(data: Dict[str, Any]) -> List[str]:
         if not isinstance(group_data, dict):
             continue
         group_name = group_data.get("group_name", f"Group {group_idx}")
-
         for feature_idx, feature_data in enumerate(group_data.get("features", [])):
             if not isinstance(feature_data, dict):
                 continue
@@ -1057,12 +1053,13 @@ def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
             logger.warning(f"Skipping feature group at index {group_idx} in stub/test coherence check due to unexpected type: {type(group_data)}")
             continue
         group_name = group_data.get("group_name", f"Group {group_idx}")
-
         for feature_idx, feature_data in enumerate(group_data.get("features", [])):
             if not isinstance(feature_data, dict):
-                logger.warning(f"Skipping feature at index {feature_idx} in group '{group_name}' (stub/test coherence) due to unexpected type: {type(feature_data)}")
+                logger.warning(
+                    f"Skipping feature at index {feature_idx} in group '{group_name}' (stub/test coherence) due to unexpected type: {type(feature_data)}"
+                )
                 continue
-            
+
             current_feature_name = feature_data.get("name", f"Feature {feature_idx}")
             feature_log_prefix = f"Feature '{current_feature_name}' in group '{group_name}'"
             
@@ -1164,8 +1161,10 @@ def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
                         if target_design_el not in defined_element_names_in_design:
                             available_symbols_preview = list(defined_element_names_in_design)[:5]
                             preview_str = ", ".join(available_symbols_preview)
-                            if len(defined_element_names_in_design) > 5: preview_str += "..."
-                            elif not defined_element_names_in_design: preview_str = "None defined in system_design"
+                            if len(defined_element_names_in_design) > 5:
+                                preview_str += "..."
+                            elif not defined_element_names_in_design:
+                                preview_str = "None defined in system_design"
                             errors.append(
                                 f"{feature_log_prefix}: {display_name}[{tc_idx}].target_element '{target_design_el}' "
                                 f"does not match any 'name' in system_design.code_elements. Available: {preview_str}."
@@ -1202,7 +1201,8 @@ def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
                                         else: # General mismatch
                                             preview_impl_sigs = list(implemented_code_signatures)[:3]
                                             error_msg += f"Available in implementation_plan: {preview_impl_sigs}"
-                                            if len(implemented_code_signatures) > 3: error_msg += "..."
+                                            if len(implemented_code_signatures) > 3:
+                                                error_msg += "..."
                                     errors.append(error_msg)
                             except ValueError:
                                 errors.append(f"{feature_log_prefix}: {display_name}[{tc_idx}].tested_functions[{tf_idx}] ('{tested_func_str}') is malformed. Expected 'file_path::element_name'.")
@@ -1259,15 +1259,13 @@ def validate_code_syntax(data: Dict[str, Any]) -> List[Dict[str, Any]]:
     # analyzer = CodeAnalyzer() # Not strictly needed if only parsing signatures with ast/tree-sitter directly
 
     for group_idx, group_data in enumerate(data.get("feature_groups", [])):
-        if not isinstance(group_data, dict): continue
-        
-        group_name = group_data.get("group_name", f"Group {group_idx}")
-        
+        if not isinstance(group_data, dict):
+            continue
         for feature_idx, feature_data in enumerate(group_data.get("features", [])):
-            if not isinstance(feature_data, dict): continue
+            if not isinstance(feature_data, dict):
+                continue
             
             current_feature_name = feature_data.get("name", f"Feature {feature_idx}")
-            feature_log_prefix = f"Feature '{current_feature_name}' in group '{group_name}'"
             
             system_design = feature_data.get("system_design")
             if not isinstance(system_design, dict):
@@ -1293,17 +1291,21 @@ def validate_code_syntax(data: Dict[str, Any]) -> List[Dict[str, Any]]:
                     errors.append({
                         "feature_name": current_feature_name, "group_idx": group_idx, "feature_idx": feature_idx,
                         "element_idx": el_idx, "element_name": element_name,
-                        "message": f"Missing or empty 'signature' for code_element."
+                        "message": "Missing or empty 'signature' for code_element."
                     })
                     continue
 
                 # Determine language for parsing
                 lang = "python" # Default
                 if isinstance(target_file, str):
-                    if target_file.endswith((".js", ".jsx", ".mjs")): lang = "javascript"
-                    elif target_file.endswith((".ts", ".tsx")): lang = "typescript"
-                    elif target_file.endswith(".php"): lang = "php"
-                    elif target_file.endswith(".java"): lang = "java"
+                    if target_file.endswith((".js", ".jsx", ".mjs")):
+                        lang = "javascript"
+                    elif target_file.endswith((".ts", ".tsx")):
+                        lang = "typescript"
+                    elif target_file.endswith(".php"):
+                        lang = "php"
+                    elif target_file.endswith(".java"):
+                        lang = "java"
                 
                 parse_content = signature_str
                 try:

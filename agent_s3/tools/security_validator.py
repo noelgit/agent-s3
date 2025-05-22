@@ -20,8 +20,7 @@ are explicitly referenced in implementation plans and tests.
 
 import json
 import logging
-import re
-from typing import Dict, List, Any, Tuple, Set, Optional
+from typing import Dict, List, Any, Tuple, Set
 from collections import defaultdict
 
 # Import validation functions from other modules for cross-phase validation

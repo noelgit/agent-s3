@@ -8,12 +8,9 @@ the existing CodeAnalysisTool, enabling efficient updates to the code search ind
 import os
 import logging
 import threading
-from typing import Dict, List, Set, Optional, Tuple, Any, Union, Callable
+from typing import Dict, List, Optional, Any, Callable
 
-from agent_s3.tools.file_change_tracker import FileChangeTracker
-from agent_s3.tools.dependency_impact_analyzer import DependencyImpactAnalyzer
 from agent_s3.tools.repository_event_system import RepositoryEventSystem
-from agent_s3.tools.index_partition_manager import IndexPartitionManager
 from agent_s3.tools.incremental_indexer import IncrementalIndexer
 
 logger = logging.getLogger(__name__)

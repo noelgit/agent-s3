@@ -9,7 +9,7 @@ main application workflow.
 import logging
 import traceback
 import os
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional
 
 from agent_s3.tools.context_management.context_manager import ContextManager
 from agent_s3.tools.context_management.adaptive_config import (
@@ -43,7 +43,6 @@ class CoordinatorContextIntegration:
         
         # Create context manager if not provided
         if context_manager is None:
-            from agent_s3.config import Config
             config = coordinator.config.config if hasattr(coordinator, 'config') else {}
             
             # Initialize context management configuration if not present
@@ -512,7 +511,6 @@ def setup_context_management(coordinator):
             return True
         
         # Create context manager through integration
-        from agent_s3.config import Config
         config = coordinator.config.config if hasattr(coordinator, 'config') else {}
         
         # Initialize context management configuration if not present

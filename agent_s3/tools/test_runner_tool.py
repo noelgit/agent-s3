@@ -4,9 +4,8 @@ Provides structured failure information for debugging.
 """
 import os
 import re
-import subprocess
 import json
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 
 class TestRunnerTool:
     """Detects test runner, runs tests, parses outputs and coverage reports."""
@@ -381,9 +380,7 @@ class TestRunnerTool:
         Returns:
             True if the test itself might be problematic, False otherwise
         """
-        details = failure.get("details", "").lower()
         test_name = failure.get("test_name", "").lower()
-        test_file = failure.get("test_file", "").lower()
         traceback = failure.get("traceback", "").lower()
         
         # Heuristics for suspicious test failures

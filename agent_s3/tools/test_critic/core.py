@@ -10,8 +10,8 @@ import logging
 import re
 import json
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Union, Set
-from enum import Enum, auto, StrEnum
+from typing import Dict, Any, List, Optional, Set
+from enum import StrEnum
 from abc import ABC, abstractmethod
 
 class Adapter(ABC):

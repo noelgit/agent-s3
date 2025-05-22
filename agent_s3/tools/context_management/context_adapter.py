@@ -9,7 +9,7 @@ import os
 import re
 import json
 import logging
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any
 
 logger = logging.getLogger(__name__)
 
@@ -253,8 +253,7 @@ class ContextAdapter:
                 r'from\s+([^\s]+)\s+import\s+([a-zA-Z0-9_., {}]+)'  # Python
             ]
             for pattern in import_patterns:
-                import_matches = re.finditer(pattern, content)
-                for match in matches:
+                for match in re.finditer(pattern, content):
                     structures["imports"].append({
                         "module": match.group(1) if pattern.startswith('import') else match.group(2),
                         "from": match.group(2) if pattern.startswith('import') else match.group(1),

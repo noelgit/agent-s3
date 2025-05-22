@@ -9,7 +9,7 @@ requirements, and follow appropriate architectural patterns and component relati
 import json
 import logging
 import re
-from typing import Dict, Any, List, Set, Tuple, Optional
+from typing import Dict, Any, List, Set, Tuple
 from collections import defaultdict
 
 logger = logging.getLogger(__name__)
@@ -1083,9 +1083,6 @@ def _repair_component_relationships(
             # Update data_flow to remove the dependency
             if "data_flow" in repaired_design and isinstance(repaired_design["data_flow"], list):
                 # First identify which element IDs correspond to these components
-                from_elements = []
-                to_elements = []
-                
                 element_to_component = {}
                 for element in repaired_design.get("code_elements", []):
                     if not isinstance(element, dict) or "element_id" not in element:
@@ -1156,7 +1153,7 @@ def _repair_architectural_patterns(
                 if patterns:
                     # Suggest focusing on fewer patterns
                     dominant_patterns = patterns[:2]
-                    note = (f"\nArchitectural pattern recommendation: Focus on a smaller set of patterns" +
+                    note = ("\nArchitectural pattern recommendation: Focus on a smaller set of patterns" +
                             f" such as {' and '.join(dominant_patterns)} for more consistency.")
                     
                     if note not in repaired_design["overview"]:

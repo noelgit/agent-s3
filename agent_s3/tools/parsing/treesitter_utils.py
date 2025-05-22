@@ -1,7 +1,7 @@
 """
 Utility functions for tree-sitter grammar loading and query execution.
 """
-from typing import Any, List, Dict, Generator
+from typing import Any, List, Dict
 
 GRAMMAR_CACHE = {}
 

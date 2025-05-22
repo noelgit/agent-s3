@@ -5,15 +5,12 @@ This module serves as the central orchestrator for context management,
 providing background optimization and continuous adaptation of context.
 """
 
-import asyncio
 import copy
 import threading
 import time
 import logging
-import heapq
-from typing import Dict, Any, List, Optional, Tuple, Callable, Union, Set
+from typing import Dict, Any, List, Optional, Union, Set
 import os
-import ast  # added for framework-specific parsing
 from dataclasses import dataclass, field
 from collections import defaultdict
 
@@ -28,14 +25,8 @@ from enum import Enum, auto
 from agent_s3.tools.context_management.compression import CompressionManager
 from agent_s3.tools.context_management.token_budget import TokenBudgetAnalyzer, DynamicAllocationStrategy, TaskAdaptiveAllocation
 from agent_s3.tools.context_management.context_adapter import ContextAdapter
-from agent_s3.tools.context_management.interfaces import (
-    ContextProvider, TechStackProvider, FileContextProvider, ProjectContextProvider, 
-    TestContextProvider, MemoryContextProvider, DependencyGraphProvider, 
-    DependencyNode, DependencyEdge
-)
 from agent_s3.tools.context_management.adaptive_config import (
-    AdaptiveConfigManager, ProjectProfiler, ConfigTemplateManager, 
-    MetricsCollector, ConfigExplainer
+    AdaptiveConfigManager
 )
 
 logger = logging.getLogger(__name__)
@@ -312,7 +303,6 @@ class ContextManager:
         self.context_adapter = ContextAdapter()
         
         # Set up allocation strategy with importance weights from adaptive config
-        importance_scoring = cm_config.get("importance_scoring", {})
         self.allocation_strategy = TaskAdaptiveAllocation(
             max_tokens=max_tokens,
             reserved_tokens=reserved_tokens
@@ -1025,7 +1015,7 @@ class ContextManager:
                         logger.debug(f"Using adaptive documentation weight: {documentation_weight}")
                         self.allocation_strategy.documentation_weight = documentation_weight
                     
-                    logger.debug(f"Updated importance weights from adaptive configuration")
+                    logger.debug("Updated importance weights from adaptive configuration")
                 
                 # Update token budget settings
                 token_budget = cm_config.get("token_budget", {})

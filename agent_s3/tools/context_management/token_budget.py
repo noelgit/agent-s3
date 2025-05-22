@@ -7,14 +7,12 @@ It uses tiktoken for accurate token counting with support for multiple models.
 """
 
 import re
-import math
 import logging
 import tiktoken
 import os
 import ast
 from abc import ABC, abstractmethod
-from typing import Dict, List, Any, Optional, Set, Tuple, Union, Callable
-from collections import defaultdict
+from typing import Dict, List, Any, Optional, Tuple, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -404,9 +402,6 @@ class TokenBudgetAnalyzer:
         
         for file_path, content in code_context.items():
             # Calculate basic metrics
-            lines = content.count('\n') + 1
-            avg_line_length = len(content) / lines if lines > 0 else 0
-            
             # Calculate language-specific complexity
             ext = "." + file_path.split('.')[-1].lower() if '.' in file_path else ""
             language = EXTENSION_TO_LANGUAGE.get(ext, "text")
@@ -651,9 +646,6 @@ class TokenBudgetAnalyzer:
                             lines = content.split('\n')
                             
                             # Use tiktoken for more accurate token counting
-                            ext = "." + file_path.split('.')[-1].lower() if '.' in file_path else ""
-                            language = EXTENSION_TO_LANGUAGE.get(ext, "text")
-                            
                             # Calculate tokens more accurately using tiktoken
                             tokens_per_line = []
                             for line in lines:

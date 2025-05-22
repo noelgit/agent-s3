@@ -9,7 +9,7 @@ import logging
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 

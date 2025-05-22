@@ -9,9 +9,9 @@ import time
 import logging
 import json
 import os
-from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional, Tuple, Set, Union
-from collections import defaultdict, deque
+from datetime import datetime
+from typing import Dict, Any, List, Optional
+from collections import defaultdict
 import statistics
 
 logger = logging.getLogger(__name__)
@@ -549,7 +549,7 @@ class MetricsCollector:
                         "current_value": stats.get("avg_relevance", 0),
                         "recommendation": f"Adjust importance weights for {task_type} tasks",
                         "suggested_change": {
-                            "parameter": f"context_management.importance_scoring.code_weight",
+                            "parameter": "context_management.importance_scoring.code_weight",
                             "current_value": current_config.get("context_management", {}).get("importance_scoring", {}).get("code_weight", 1.0),
                             "suggested_value": current_config.get("context_management", {}).get("importance_scoring", {}).get("code_weight", 1.0) * 1.1
                         },

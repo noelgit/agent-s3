@@ -9,10 +9,10 @@ import os
 import logging
 import json
 import time
-from typing import Dict, Any, Optional, List, Tuple, Set, Union
+from typing import Dict, Any, Optional, List
 import threading
 import copy
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from agent_s3.tools.context_management.adaptive_config.project_profiler import ProjectProfiler
 from agent_s3.tools.context_management.adaptive_config.config_templates import ConfigTemplateManager
@@ -499,7 +499,8 @@ class AdaptiveConfigManager:
         """
         try:
             # Generate new configuration based on repository characteristics
-            repo_metrics = self.profiler.analyze_repository()
+            # Analyze the repository and fetch a recommended configuration
+            self.profiler.analyze_repository()
             config = self.profiler.get_recommended_config()
             
             # Update configuration

@@ -11,7 +11,7 @@ import logging
 import re
 import ast
 import difflib
-from typing import Dict, Any, List, Set, Tuple, Optional
+from typing import Dict, Any, List, Set, Tuple
 from collections import defaultdict
 
 logger = logging.getLogger(__name__)
@@ -363,7 +363,7 @@ def _validate_test_code(test: Dict[str, Any], category: str, test_index: int) ->
         issues.append({
             "issue_type": "missing_imports",
             "severity": "medium",
-            "description": f"Test appears to be missing imports",
+            "description": "Test appears to be missing imports",
             "category": category,
             "test_index": test_index
         })
@@ -378,9 +378,6 @@ def _validate_architecture_issue_coverage(
 ) -> List[Dict[str, Any]]:
     """Validate coverage of architecture issues by tests."""
     issues = []
-    
-    # Extract all architecture issue IDs
-    arch_issue_ids = {issue["id"] for issue in architecture_issues if issue["id"]}
     
     # Extract all addressed issues from tests
     addressed_issues = set()

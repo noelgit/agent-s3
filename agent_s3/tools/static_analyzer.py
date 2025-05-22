@@ -1,13 +1,10 @@
 import os
 import re
-import ast
 import logging
-import json
 from typing import Any, Dict, List, Optional, Tuple
 
 from .file_tool import FileTool
 from .parsing.parser_registry import ParserRegistry
-from .parsing.base_parser import LanguageParser
 
 logger = logging.getLogger(__name__)
 
