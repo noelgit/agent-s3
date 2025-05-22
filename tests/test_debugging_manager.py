@@ -829,3 +829,28 @@ class TestDebuggingManager:
             assert "SYNTAX" in stats["errors_by_category"]
             assert "TYPE" in stats["errors_by_category"]
             assert stats["success_rate"] == 2/3
+
+
+class TestDebuggingManagerGenerationIssueLogging:
+    """Tests for generation issue logging and summarization."""
+
+    def test_register_and_log_generation_issues(self, debugging_manager, mock_scratchpad):
+        """Ensure generation issues are recorded and summarized."""
+        debug_info = {
+            "issues": ["Syntax error"],
+            "categorized_issues": ["syntax"],
+            "issue_count": 1,
+        }
+
+        debugging_manager.register_generation_issues("module.py", debug_info)
+
+        assert "module.py" in debugging_manager.generation_issue_log
+        assert debugging_manager.generation_issue_log["module.py"][0]["issues"] == ["Syntax error"]
+
+        debugging_manager.log_diagnostic_result()
+
+        mock_scratchpad.start_section.assert_called_with(Section.ANALYSIS, "DebuggingManager")
+        assert mock_scratchpad.log.called
+        mock_scratchpad.end_section.assert_called_with(Section.ANALYSIS)
+
+        assert debugging_manager.generation_issue_log == {}

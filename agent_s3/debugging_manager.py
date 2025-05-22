@@ -186,10 +186,10 @@ class DebuggingManager:
         self.file_tool = coordinator.file_tool if coordinator else None
         self.code_generator = coordinator.code_generator if coordinator else None
         self.error_context_manager = coordinator.error_context_manager if coordinator else None
-        
+
         # Set up the logger
         self.logger = logging.getLogger("debugging_manager")
-        
+
         # Initialize debugging state
         self.current_error: Optional[ErrorContext] = None
         self.current_phase = DebuggingPhase.ANALYSIS
@@ -197,6 +197,9 @@ class DebuggingManager:
         self.generator_attempts = 0
         self.debugger_attempts = 0
         self.restart_attempts = 0
+
+        # Track diagnostics for generation issues
+        self.generation_issue_log: Dict[str, List[Dict[str, Any]]] = {}
         
         # Track debugging history
         self.debug_history: List[DebugAttempt] = []
@@ -2343,3 +2346,51 @@ class DebuggingManager:
                 stats["tier_success_rates"][phase_name] = success_count / len(phase_attempts)
                 
         return stats
+
+    def register_generation_issues(self, file_path: str, debug_info: Dict[str, Any]) -> None:
+        """Record generation diagnostics for later summarization."""
+        if file_path not in self.generation_issue_log:
+            self.generation_issue_log[file_path] = []
+
+        entry = {
+            "timestamp": datetime.now().isoformat(),
+            **debug_info,
+        }
+        self.generation_issue_log[file_path].append(entry)
+
+        if self.scratchpad:
+            self.scratchpad.log(
+                role="DebuggingManager",
+                message=f"Recorded generation issues for {file_path}",
+                level=LogLevel.INFO,
+                section=Section.DEBUGGING,
+                metadata={
+                    "issue_count": debug_info.get("issue_count"),
+                    "categories": debug_info.get("categorized_issues", []),
+                },
+            )
+
+    def log_diagnostic_result(self) -> None:
+        """Summarize recorded generation issues and log them."""
+        if not self.generation_issue_log:
+            return
+
+        summary: Dict[str, Dict[str, int]] = {}
+        for path, entries in self.generation_issue_log.items():
+            file_summary: Dict[str, int] = {}
+            for info in entries:
+                for cat in info.get("categorized_issues", []):
+                    file_summary[cat] = file_summary.get(cat, 0) + 1
+            summary[path] = file_summary
+
+        if self.scratchpad:
+            self.scratchpad.start_section(Section.ANALYSIS, "DebuggingManager")
+            self.scratchpad.log(
+                role="DebuggingManager",
+                message=f"Generation diagnostic summary:\n{json.dumps(summary, indent=2)}",
+                level=LogLevel.INFO,
+                section=Section.ANALYSIS,
+            )
+            self.scratchpad.end_section(Section.ANALYSIS)
+
+        self.generation_issue_log.clear()
