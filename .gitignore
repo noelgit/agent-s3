@@ -64,6 +64,7 @@ Thumbs.db
 
 # Project-specific artifacts and cache
 .cache/
+.agent_s3/
 .claude/
 .hypothesis/
 .mypy_cache/
