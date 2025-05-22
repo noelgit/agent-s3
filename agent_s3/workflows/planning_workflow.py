@@ -17,6 +17,7 @@ class PlanningWorkflow:
         self,
         task: str,
         pre_planning_input: Dict[str, Any] | None = None,
+        *,
         from_design: bool = False,
     ) -> List[Dict[str, Any]]:
         """Run the planning workflow and return approved consolidated plans."""

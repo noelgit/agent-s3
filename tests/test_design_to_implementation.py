@@ -5,7 +5,7 @@ This module tests the flow from the design phase through to pre-planning and imp
 
 import os
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
 
 from agent_s3.design_manager import DesignManager
 from agent_s3.coordinator import Coordinator
@@ -38,7 +38,6 @@ def coordinator():
     coordinator.error_handler.error_context = MagicMock(return_value=MagicMock(__enter__=lambda self: None, __exit__=lambda self, exc, val, tb: False))
     coordinator._prepare_context = MagicMock(return_value="test context")
     coordinator.run_task = MagicMock()
-    coordinator.start_pre_planning_from_design = MagicMock()
     return coordinator
 
 
@@ -138,4 +137,23 @@ def test_execute_design_facade(coordinator):
 
     assert result == expected_result
     coordinator.design_manager.start_design_conversation.assert_called_once_with("Create a TODO app")
-    assert coordinator.design_manager.continue_conversation.call_count == 2
+    assert coordinator.design_manager.continue_conversation.call_count == 1
+
+
+def test_start_pre_planning_from_design(tmp_path, coordinator):
+    """Verify tasks parsed from design trigger planning with from_design flag."""
+    design_file = tmp_path / "design.txt"
+    design_file.write_text(
+        "1. Setup environment\n2. Build feature\n3. Write tests"
+    )
+
+    coordinator.run_task = MagicMock()
+
+    coordinator.start_pre_planning_from_design(str(design_file))
+
+    expected_calls = [
+        call(task="Setup environment", from_design=True),
+        call(task="Build feature", from_design=True),
+        call(task="Write tests", from_design=True),
+    ]
+    coordinator.run_task.assert_has_calls(expected_calls)
