@@ -2,7 +2,7 @@
 """Test the PrePlanningValidator with more complex and error-prone data."""
 
 import unittest
-from agent_s3.pre_planning_validator import PrePlanningValidator, ValidationError
+from agent_s3.pre_planning_validator import PrePlanningValidator
 
 class TestComplexValidation(unittest.TestCase):
     """Tests for complex validation scenarios."""
