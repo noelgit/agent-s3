@@ -204,10 +204,11 @@ class DesignManager:
         
         impl_choice = impl_response in ["yes", "y", "true", "1"]
         deploy_choice = False
-        
+
         if impl_choice:
-            # User wants to implement; in this simplified version just acknowledge the choice
             print("Implementation phase selected.")
+            if self.coordinator and hasattr(self.coordinator, "start_pre_planning_from_design"):
+                self.coordinator.start_pre_planning_from_design("design.txt")
         else:
             # If user doesn't want implementation, ask about deployment
             deploy_message = (
