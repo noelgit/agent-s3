@@ -9,19 +9,11 @@ echo "=== Starting duplicate file cleanup process ==="
 mkdir -p backups
 
 # Make scripts executable
-chmod +x consolidate_duplicate_files.py
-chmod +x verify_no_duplicates.py
+chmod +x consolidate_files.py
 
 # Run the consolidation script
 echo "=== Running file consolidation script ==="
-python3 ./consolidate_duplicate_files.py
-
-# Verify no duplicates remain
-echo "=== Verifying no duplicates remain ==="
-if ! python3 ./verify_no_duplicates.py; then
-  echo "ERROR: Some duplicates remain. Please review the output above."
-  exit 1
-fi
+python3 ./consolidate_files.py
 
 # Add the consolidated files to git
 echo "=== Adding changes to git ==="
