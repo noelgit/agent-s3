@@ -1,7 +1,6 @@
 import os
 import re
 import time
-import json
 import logging
 import shlex
 
@@ -781,9 +780,6 @@ class ErrorContextManager:
         
         # If we have an error location, prioritize it
         if error_info.get("file_paths") and error_info.get("line_numbers"):
-            primary_file = error_info["file_paths"][0]
-            primary_line = error_info["line_numbers"][0]
-            
             # Allocate more tokens to error location if it exists
             budgets["error_location"] = int(max_token_count * 0.3)
         else:

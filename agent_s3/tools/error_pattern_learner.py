@@ -40,11 +40,7 @@ class ErrorPatternLearner:
 
     def _save(self) -> None:
         os.makedirs(os.path.dirname(PATTERN_DB_PATH), exist_ok=True)
-        data = {
-            "category_counts": self.category_counts,
-            "word_category_counts": self.word_category_counts,
-        }
-        # Convert Counters to regular dicts for JSON serialization
+        # Prepare data for JSON serialization
         serializable = {
             "category_counts": dict(self.category_counts),
             "word_category_counts": {
