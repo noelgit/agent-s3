@@ -11,6 +11,15 @@ class PlanningWorkflow:
     def __init__(self, coordinator: Coordinator) -> None:
         self.coordinator = coordinator
 
-    def execute(self, task: str, pre_planning_input: Dict[str, Any] | None = None, from_design: bool = False) -> List[Dict[str, Any]]:
+    def execute(
+        self,
+        task: str,
+        pre_planning_input: Dict[str, Any] | None = None,
+        from_design: bool = False,
+    ) -> List[Dict[str, Any]]:
         """Run the planning workflow and return approved consolidated plans."""
-        return self.coordinator._planning_workflow(task, pre_planning_input, from_design)
+        return self.coordinator._planning_workflow(
+            task,
+            pre_planning_input,
+            from_design,
+        )
