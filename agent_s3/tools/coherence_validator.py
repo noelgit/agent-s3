@@ -10,8 +10,7 @@ patterns across the entire codebase.
 import json
 import logging
 import re
-from typing import Dict, Any, List, Set, Tuple, Optional
-from collections import defaultdict
+from typing import Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
@@ -285,7 +284,7 @@ def check_error_handling_consistency(implementation_plan: Dict[str, Any]) -> Lis
             issues.append({
                 "issue_type": "inconsistent_error_handling",
                 "severity": "medium",
-                "description": f"Inconsistent error handling approaches detected. " +
+                "description": "Inconsistent error handling approaches detected. " +
                               f"Dominant approach is {dominant_approach}, but found {len(inconsistent_functions)} exceptions.",
                 "dominant_approach": dominant_approach,
                 "error_consistency_score": error_consistency_score,
@@ -396,7 +395,7 @@ def check_api_design_consistency(implementation_plan: Dict[str, Any]) -> List[Di
             issues.append({
                 "issue_type": "inconsistent_api_design",
                 "severity": "medium",
-                "description": f"Inconsistent API design patterns detected. " +
+                "description": "Inconsistent API design patterns detected. " +
                               f"Dominant pattern is {dominant_pattern}, but found {len(inconsistent_functions)} exceptions.",
                 "dominant_pattern": dominant_pattern,
                 "api_consistency_score": api_consistency_score,
@@ -525,7 +524,7 @@ def check_data_flow_consistency(implementation_plan: Dict[str, Any]) -> List[Dic
             issues.append({
                 "issue_type": "inconsistent_data_flow",
                 "severity": "medium",
-                "description": f"Inconsistent data flow patterns detected. " +
+                "description": "Inconsistent data flow patterns detected. " +
                               f"Dominant pattern is {dominant_flow}, but found {len(inconsistent_functions)} exceptions.",
                 "dominant_flow": dominant_flow,
                 "flow_consistency_score": flow_consistency_score,

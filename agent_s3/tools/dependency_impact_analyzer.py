@@ -8,7 +8,7 @@ are affected by changes to a particular file based on dependency relationships.
 import os
 import logging
 from collections import defaultdict, deque
-from typing import Dict, List, Set, Optional, Tuple, Any, Union
+from typing import Dict, List, Set, Any
 
 logger = logging.getLogger(__name__)
 

@@ -1,4 +1,3 @@
-import os
 import hashlib
 import faiss
 import json
@@ -9,7 +8,7 @@ import time  # Adding missing import for time functions
 import gzip  # Adding import for gzip compression
 import textwrap  # Adding import for text formatting
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
