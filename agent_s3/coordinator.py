@@ -54,6 +54,7 @@ from agent_s3.tools.test_runner_tool import TestRunnerTool
 from agent_s3.workflows import PlanningWorkflow, ImplementationWorkflow
 from agent_s3.debugging_manager import DebuggingManager
 from agent_s3.code_generator import CodeGenerator
+from agent_s3.implementation_manager import ImplementationManager
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -263,6 +264,9 @@ class Coordinator:
             coordinator=self,
             enhanced_scratchpad=self.scratchpad
         )
+
+        # Implementation manager handles step-by-step execution of design tasks
+        self.implementation_manager = ImplementationManager(coordinator=self)
 
         # Initialize core workflow components
         self._initialize_workflow_components()
@@ -1014,6 +1018,60 @@ class Coordinator:
         except Exception as exc:  # pragma: no cover - safety net
             self.scratchpad.log("Coordinator", f"Test execution failed: {exc}", level=LogLevel.ERROR)
             return {"success": False, "output": str(exc), "coverage": 0.0}
+
+    def execute_implementation(self, design_file: str = "design.txt") -> Dict[str, Any]:
+        """Start implementation of tasks described in the design file.
+
+        Args:
+            design_file: Path to the design file to implement.
+
+        Returns:
+            Dictionary with implementation results.
+        """
+        with self.error_handler.error_context(
+            phase="implementation",
+            operation="execute_implementation",
+            inputs={"design_file": design_file},
+        ):
+            if not os.path.exists(design_file):
+                return {"success": False, "error": f"{design_file} not found"}
+
+            if not hasattr(self, "implementation_manager"):
+                self.implementation_manager = ImplementationManager(coordinator=self)
+
+            try:
+                return self.implementation_manager.start_implementation(design_file)
+            except Exception as exc:
+                self.scratchpad.log("Coordinator", f"Implementation failed: {exc}", level=LogLevel.ERROR)
+                return {"success": False, "error": str(exc)}
+
+    def execute_continue(self, continue_type: str = "implementation") -> Dict[str, Any]:
+        """Continue a previously started workflow.
+
+        Currently supports resuming implementation tasks.
+
+        Args:
+            continue_type: Type of continuation. Only ``"implementation"`` is supported.
+
+        Returns:
+            Dictionary with continuation results.
+        """
+        with self.error_handler.error_context(
+            phase="implementation",
+            operation="execute_continue",
+            inputs={"type": continue_type},
+        ):
+            if continue_type != "implementation":
+                return {"success": False, "error": f"Unknown continuation type '{continue_type}'"}
+
+            if not hasattr(self, "implementation_manager"):
+                return {"success": False, "error": "Implementation manager not available"}
+
+            try:
+                return self.implementation_manager.continue_implementation()
+            except Exception as exc:
+                self.scratchpad.log("Coordinator", f"Continuation failed: {exc}", level=LogLevel.ERROR)
+                return {"success": False, "error": str(exc)}
 
     def _finalize_task(self, changes: Dict[str, str]) -> None:
         """Finalize the task after successful validation."""
