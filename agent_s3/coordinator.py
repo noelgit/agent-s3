@@ -55,7 +55,6 @@ from agent_s3.tools.test_runner_tool import TestRunnerTool
 from agent_s3.workflows import PlanningWorkflow, ImplementationWorkflow
 from agent_s3.debugging_manager import DebuggingManager
 from agent_s3.code_generator import CodeGenerator
-from agent_s3.implementation_manager import ImplementationManager
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -784,44 +783,6 @@ class Coordinator:
         """
         self.run_task(task=request_text)
 
-    def start_pre_planning_from_design(self, design_file: str = "design.txt") -> None:
-        """Trigger pre-planning for each numbered task found in a design file.
-
-        The design document is expected to contain tasks listed in a numbered
-        format (e.g. ``1. Setup project``). Each parsed task is forwarded to
-        :meth:`run_task` with ``from_design`` enabled so the usual planning
-        workflow proceeds without additional confirmation steps.
-
-        Args:
-            design_file: Path to the design file to parse.
-        """
-        if not os.path.exists(design_file):
-            self.scratchpad.log(
-                "Coordinator",
-                f"Design file not found: {design_file}",
-                level=LogLevel.ERROR,
-            )
-            return
-
-        try:
-            with open(design_file, "r", encoding="utf-8") as f:
-                content = f.read()
-        except Exception as exc:  # pragma: no cover - filesystem safety
-            self.scratchpad.log(
-                "Coordinator",
-                f"Failed reading design file: {exc}",
-                level=LogLevel.ERROR,
-            )
-            return
-
-        tasks: list[str] = []
-        for line in content.splitlines():
-            match = re.match(r"\s*\d+(?:\.\d+)*\.\s+(.*)", line)
-            if match:
-                tasks.append(match.group(1).strip())
-
-        for task in tasks:
-            self.run_task(task=task, from_design=True)
 
     def run_task(
         self,
@@ -1184,23 +1145,3 @@ class Coordinator:
             if match:
                 tasks.append(match.group(2))
         return tasks
-
-    def execute_implementation(self, design_file: str = "design.txt") -> Dict[str, Any]:
-        """Delegate to ImplementationManager to start implementation."""
-        if not hasattr(self, "implementation_manager"):
-            self.implementation_manager = ImplementationManager(self)
-
-        file_tool = self.coordinator_config.get_tool('file_tool')
-        success, _ = file_tool.read_file(design_file)
-        if not success:
-            return {"success": False, "error": f"{design_file} not found or inaccessible"}
-
-        return self.implementation_manager.start_implementation(design_file)
-
-    def execute_continue(self, continue_type: str) -> Dict[str, Any]:
-        """Delegate continuation based on type."""
-        if continue_type != "implementation":
-            return {"success": False, "error": "Unsupported continuation type"}
-        if not hasattr(self, "implementation_manager"):
-            self.implementation_manager = ImplementationManager(self)
-        return self.implementation_manager.continue_implementation()
