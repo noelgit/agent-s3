@@ -884,7 +884,7 @@ class EnhancedWebSocketServer:
             
             # Close client connections
             close_tasks = []
-            for client_id, websocket in list(self.clients.items()):
+            for _client_id, websocket in list(self.clients.items()):
                 close_tasks.append(websocket.close())
             
             if close_tasks:
