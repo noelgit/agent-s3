@@ -126,7 +126,8 @@ class DesignManager:
                 "Here are the distinct features:", "The system can be decomposed into:"
             ]
             
-            if any(indicator in last_ai_message for indicator in feature_indicators):
+            last_ai_message_lower = last_ai_message.lower()
+            if any(indicator.lower() in last_ai_message_lower for indicator in feature_indicators):
                 self.features_identified = True
                 self.consecutive_feature_messages += 1
             elif self.features_identified:
@@ -137,7 +138,7 @@ class DesignManager:
                     "Would you like me to create", "Would you like to implement",
                     "Should I finalize", "Ready to finalize"
                 ]
-                if any(indicator in last_ai_message for indicator in conclusion_indicators):
+                if any(indicator.lower() in last_ai_message_lower for indicator in conclusion_indicators):
                     return True
             
             # If we've had consecutive messages with feature listings, likely finished
