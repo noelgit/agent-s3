@@ -4,9 +4,6 @@ This module provides embedding-based code search capabilities as specified in in
 """
 
 import os
-import subprocess
-import tempfile
-import json
 import re
 import time
 import logging
@@ -14,7 +11,7 @@ import traceback
 import hashlib
 import importlib.util
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional
 import numpy as np
 try:
     import tomllib as toml
@@ -615,7 +612,6 @@ class CodeAnalysisTool:
         Returns:
             Similarity score (0-1) or None if calculation fails
         """
-        import numpy as np
         
         try:
             # Convert to numpy arrays
@@ -668,7 +664,6 @@ class CodeAnalysisTool:
         Returns:
             Current timestamp
         """
-        import time
         return int(time.time())
     
     def _prune_cache_if_needed(self):
