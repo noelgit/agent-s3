@@ -44,3 +44,32 @@ def test_symlink_outside_directory(tmp_path):
     is_valid, msg = executor._validate_command(f"cat {link}")
     assert not is_valid
     assert "restricted path" in msg
+
+
+def test_command_substitution_backticks(tmp_path):
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    executor = TerminalExecutor(DummyConfig([str(allowed)]))
+    is_valid, msg = executor._validate_command("echo `whoami`")
+    assert not is_valid
+    assert "substitution" in msg.lower()
+
+
+def test_command_substitution_dollar_parens(tmp_path):
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    executor = TerminalExecutor(DummyConfig([str(allowed)]))
+    is_valid, msg = executor._validate_command("echo $(whoami)")
+    assert not is_valid
+    assert "substitution" in msg.lower()
+
+
+def test_validate_path_with_spaces(tmp_path):
+    allowed = tmp_path / "allowed dir"
+    allowed.mkdir()
+    file_path = allowed / "file.txt"
+    file_path.write_text("data")
+    executor = TerminalExecutor(DummyConfig([str(tmp_path)]))
+    cmd = f'cat "{file_path}"'
+    is_valid, _ = executor._validate_command(cmd)
+    assert is_valid

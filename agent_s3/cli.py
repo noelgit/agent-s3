@@ -243,13 +243,14 @@ User input: ''' + repr(prompt)
             print("Routing to general_qa: querying codebase context...")
             from pathlib import Path
             import glob
-            # Gather code files (e.g., .py) as context
+            import itertools
+            # Gather a limited set of code files to avoid excessive memory usage
             code_context = {}
-            for path in glob.glob("**/*.py", recursive=True):
+            for path in itertools.islice(glob.glob("**/*.py", recursive=True), 200):
                 try:
-                    content = Path(path).read_text(encoding="utf-8")
-                    code_context[path] = content[:5000]  # truncate large files
-                except Exception:
+                    with open(path, "r", encoding="utf-8") as f:
+                        code_context[path] = f.read(5000)
+                except OSError:
                     continue
             system_prompt = (
                 "You are a Q&A assistant. Use the provided codebase context to answer questions about the project."

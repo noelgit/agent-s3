@@ -398,7 +398,7 @@ class ErrorContextManager:
         message = error_info.get("message", "")
         # ImportError: try pip install for missing package
         if error_type == "import":
-            match = re.search(r"No module named ['\"]([a-zA-Z0-9_\-]+)['\"]", message)
+            match = re.search(r"No module named ['\"]([^'\"]+)['\"]", message)
             if match:
                 package = match.group(1)
                 try:

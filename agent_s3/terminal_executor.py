@@ -61,10 +61,15 @@ class TerminalExecutor:
                     self.logger.warning(f"Command contains forbidden token: {forbidden}")
                 return False, f"Error: Command contains forbidden token '{forbidden}'"
 
-        # Extract file paths and check if they're allowed
-        # More robust pattern to capture path even in quotes or parentheses
-        path_pattern = re.compile(r'(?:^|\s|"|\'|\()(\/[^\s"\')\|;&<>]+)')
-        paths = path_pattern.findall(command)
+        # Detect command substitution using backticks or $( ) syntax
+        if re.search(r"`[^`]*`", command) or re.search(r"\$\((.*?)\)", command):
+            if self.logger:
+                self.logger.warning("Command uses disallowed substitution syntax")
+            return False, "Error: Command substitution is not allowed"
+
+        # Extract file paths using shlex to respect quoting
+        tokens = shlex.split(command)
+        paths = [t for t in tokens if t.startswith(('/', './', '../'))]
         
         for path in paths:
             path = path.strip()
