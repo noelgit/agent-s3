@@ -61,7 +61,7 @@
     "vscode:prepublish": "npm run compile && npm run build-webview",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext ts",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --ext ts",
     "build-webview": "cd webview-ui && npm install && npm run build",
     "watch-webview": "cd webview-ui && npm run start",
     "test-server": "node ../tests/node_servers/simple-test-server.js"
