@@ -129,7 +129,7 @@ export class WebSocketClient implements vscode.Disposable {
         .getConfiguration('agent-s3')
         .get<string>('websocketProtocol');
       const protocol =
-        this.options.protocol || (configProtocol as 'ws' | 'wss' | undefined) || fileProtocol || 'ws';
+        this.options.protocol || (configProtocol as 'ws' | 'wss' | undefined) || fileProtocol || 'wss';
 
       // Create the WebSocket connection
       const url = `${protocol}://${host}:${port}`;
