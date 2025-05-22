@@ -282,7 +282,7 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   - **GitHub App:** `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`
   - `GITHUB_ORG` (optional membership filter)
   - `OPENROUTER_KEY` (or other LLM keys such as `OPENAI_KEY`)
-  - **Token Encryption:** `AGENT_S3_ENCRYPTION_KEY` (required for GitHub token storage)
+  - **Token Encryption:** `AGENT_S3_ENCRYPTION_KEY` (required for GitHub token storage; the CLI fails to save tokens when unset)
   - `DENYLIST_COMMANDS`, `COMMAND_TIMEOUT`, `CLI_COMMAND_WARNINGS` in config
   - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` for Supabase integration
     (the service role key is only used by the Supabase function after
