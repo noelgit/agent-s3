@@ -434,69 +434,6 @@ class ContextManager:
                 file_paths.add(fpath)
         return file_paths
 
-    def _select_prioritized_file_paths(self, current_files: List[str], max_tokens: int) -> List[str]:
-        """
-        DEPRECATED: Use _refine_current_context() or direct allocation strategy.
-        This method is deprecated and will be removed in a future release.
-        """
-        import warnings
-        warnings.warn("_select_prioritized_file_paths is deprecated and will be removed in a future release. Use a proper allocation strategy.", DeprecationWarning)
-        logger.warning("_select_prioritized_file_paths is deprecated. Use a proper allocation strategy.")
-        relevant_files = self._get_relevant_files_from_graph(current_files)
-        temp_code_context = {}
-        file_tool = self._tool_registry.get_tool_by_capability(ToolCapability.FILE_OPERATIONS)
-        all_candidate_files = list(current_files) + [f for f in relevant_files if f not in current_files]
-        if file_tool:
-            for f_path in all_candidate_files:
-                try:
-                    content = file_tool.read_file(f_path)
-                    if content is not None:
-                        temp_code_context[f_path] = content
-                    else:
-                        logger.debug(f"Content for {f_path} is None, skipping.")
-                except Exception as e:
-                    logger.warning(f"Could not read file {f_path} for prioritization: {e}")
-        else:
-            logger.warning("File tool not available for reading file content during prioritization.")
-            selected = []
-            tokens_used = 0
-            estimated_tokens_per_file = 200 
-            for f in all_candidate_files:
-                if tokens_used + estimated_tokens_per_file > max_tokens:
-                    break
-                selected.append(f)
-                tokens_used += estimated_tokens_per_file
-            return selected
-        if not temp_code_context:
-            return []
-        importance_scores = self.token_budget_analyzer.calculate_importance_scores(
-            context={"code_context": temp_code_context},
-            task_type="unknown"
-        )
-        sorted_files = sorted(
-            temp_code_context.keys(),
-            key=lambda f: importance_scores.get("code_context", {}).get(f, 0),
-            reverse=True
-        )
-        selected_files = []
-        current_tokens = 0
-        for f_path in sorted_files:
-            file_content = temp_code_context[f_path]
-            file_token_count = self.token_budget_analyzer.estimator.estimate_tokens_for_file(f_path, file_content)
-            if current_tokens + file_token_count <= max_tokens:
-                selected_files.append(f_path)
-                current_tokens += file_token_count
-            else:
-                if importance_scores.get("code_context", {}).get(f_path, 0) > 1.5:
-                    remaining_budget = max_tokens - current_tokens
-                    if remaining_budget > 50:
-                        truncated_content = file_content[:int(len(file_content) * (remaining_budget / file_token_count))]
-                        truncated_token_count = self.token_budget_analyzer.estimator.estimate_tokens_for_text(truncated_content)
-                        if truncated_token_count <= remaining_budget:
-                            selected_files.append(f_path) 
-                            current_tokens += truncated_token_count
-                break
-        return selected_files
 
     def get_nested_value(self, source_dict: Dict[str, Any], key_path: Union[str, List[str]], default: Any = None) -> Any:
         """
