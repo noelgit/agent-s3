@@ -12,8 +12,10 @@ from typing import Dict, Any, Optional, List, Tuple, Callable
 
 logger = logging.getLogger(__name__)
 
+
 class JSONValidationError(Exception):
     """Exception raised when JSON validation fails."""
+
     pass
 
 
@@ -36,33 +38,30 @@ def sanitize_text(text: str) -> str:
     # Escape backslashes first to avoid double escaping
     text = text.replace("\\", "\\\\")
     # Replace common whitespace control chars with escaped sequences
-    text = (
-        text.replace("\n", "\\n")
-        .replace("\r", "\\r")
-        .replace("\t", "\\t")
-    )
+    text = text.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
     # Remove remaining ASCII control characters
     text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", text)
     return text
 
+
 def extract_json_from_text(text: str) -> Optional[str]:
     """
     Extract JSON from text that might contain markdown or other formatting.
-    
+
     This function attempts multiple strategies to find valid JSON content:
     1. Extract from code blocks (```json ... ```)
     2. Look for properly formed JSON objects with outer braces
     3. Try to parse the whole text as JSON if it appears to be JSON
-    
+
     Args:
         text: Text that might contain JSON
-    
+
     Returns:
         Extracted JSON string or None if no valid JSON found
     """
     if not text:
         return None
-        
+
     # Try to extract JSON from code blocks first
     code_block_pattern = r"```(?:json)?\s*([\s\S]*?)\s*```"
     matches = re.findall(code_block_pattern, text)
@@ -85,30 +84,33 @@ def extract_json_from_text(text: str) -> Optional[str]:
         potential_jsons = []
         for potential_json in matches:
             try:
-                json.loads(potential_json) # Test if valid
+                json.loads(potential_json)  # Test if valid
                 potential_jsons.append(potential_json)
             except json.JSONDecodeError:
                 continue
         if potential_jsons:
-            return max(potential_jsons, key=len) # Return largest valid JSON found
+            return max(potential_jsons, key=len)  # Return largest valid JSON found
 
     # Last resort: try parsing the whole text if it looks like JSON
-    if text.strip().startswith('{') and text.strip().endswith('}'):
+    if text.strip().startswith("{") and text.strip().endswith("}"):
         try:
             json.loads(text.strip())
             return text.strip()
         except json.JSONDecodeError:
-            pass # Fall through if parsing whole text fails
+            pass  # Fall through if parsing whole text fails
 
     return None
 
-def parse_json_from_llm_response(response: str) -> Tuple[bool, Dict[str, Any], Optional[str]]:
+
+def parse_json_from_llm_response(
+    response: str,
+) -> Tuple[bool, Dict[str, Any], Optional[str]]:
     """
     Parse and validate JSON from an LLM response with detailed error reporting.
-    
+
     Args:
         response: LLM response that may contain JSON
-    
+
     Returns:
         Tuple of:
         - success: Boolean indicating if valid JSON was extracted
@@ -126,7 +128,9 @@ def parse_json_from_llm_response(response: str) -> Tuple[bool, Dict[str, Any], O
             # Response might already be parsed JSON
             data = response
         else:
-            error_message = f"LLM response is not a string or dictionary. Type: {type(response)}"
+            error_message = (
+                f"LLM response is not a string or dictionary. Type: {type(response)}"
+            )
             logger.warning(error_message)
 
     except json.JSONDecodeError as e:
@@ -139,11 +143,11 @@ def parse_json_from_llm_response(response: str) -> Tuple[bool, Dict[str, Any], O
         if json_text:
             try:
                 data = json.loads(json_text)
-                error_message = None # Reset error if extraction and parsing succeeded
+                error_message = None  # Reset error if extraction and parsing succeeded
             except json.JSONDecodeError as e:
                 error_message = f"Extracted text is not valid JSON: {e}"
                 logger.warning(error_message)
-                data = {} # Ensure data is empty dict if parsing extracted text fails
+                data = {}  # Ensure data is empty dict if parsing extracted text fails
         else:
             error_message = "Could not extract JSON object from LLM response text."
             logger.warning(error_message)
@@ -151,54 +155,61 @@ def parse_json_from_llm_response(response: str) -> Tuple[bool, Dict[str, Any], O
     # Return the results
     return bool(data), data, error_message
 
-def validate_json_against_schema(data: Dict[str, Any], schema: Dict[str, Any]) -> Tuple[bool, List[str]]:
+
+def validate_json_against_schema(
+    data: Dict[str, Any], schema: Dict[str, Any]
+) -> Tuple[bool, List[str]]:
     """
     Validate JSON data against a schema definition.
-    
+
     Args:
         data: The JSON data to validate
         schema: A schema defining required keys and value types
-        
+
     Returns:
         Tuple of:
         - is_valid: Boolean indicating if the data is valid
         - errors: List of validation error messages
     """
     errors = []
-    
+
     # Base case: schema is a primitive type
     if not isinstance(schema, dict):
         if schema is not None and not isinstance(data, schema):
             errors.append(f"Expected {schema.__name__}, got {type(data).__name__}")
         return not errors, errors
-    
+
     # Check required fields are present and have correct types
     for key, expected_type in schema.items():
         if key not in data:
             errors.append(f"Missing required key: '{key}'")
             continue
-            
+
         value = data[key]
-        
+
         # Handle different schema types
         if isinstance(expected_type, dict):
             # Nested schema
             if not isinstance(value, dict):
-                errors.append(f"Value for '{key}' should be an object, got {type(value).__name__}")
+                errors.append(
+                    f"Value for '{key}' should be an object, got {type(value).__name__}"
+                )
                 continue
-                
+
             # Recursively validate nested schema
             valid, sub_errors = validate_json_against_schema(value, expected_type)
             if not valid:
                 for error in sub_errors:
                     errors.append(f"{key}.{error}")
-                    
+
         elif isinstance(expected_type, list) and len(expected_type) == 1:
             # Array with schema for items
             if not isinstance(value, list):
-                errors.append(f"Value for '{key}' should be an array, got {type(value).__name__}")
+                errors.append(
+                    f"Value for '{key}' should be an array, got {type(value).__name__}"
+                )
                 continue
-                
+
             # Validate each item in the array
             item_schema = expected_type[0]
             for i, item in enumerate(value):
@@ -208,13 +219,18 @@ def validate_json_against_schema(data: Dict[str, Any], schema: Dict[str, Any]) -
                         for error in sub_errors:
                             errors.append(f"{key}[{i}].{error}")
                 elif not isinstance(item, item_schema):
-                    errors.append(f"{key}[{i}] should be {item_schema.__name__}, got {type(item).__name__}")
-                    
+                    errors.append(
+                        f"{key}[{i}] should be {item_schema.__name__}, got {type(item).__name__}"
+                    )
+
         elif not isinstance(value, expected_type):
             # Simple type validation
-            errors.append(f"Value for '{key}' should be {expected_type.__name__}, got {type(value).__name__}")
-    
+            errors.append(
+                f"Value for '{key}' should be {expected_type.__name__}, got {type(value).__name__}"
+            )
+
     return not errors, errors
+
 
 def repair_json_structure(
     data: Dict[str, Any],
@@ -272,21 +288,22 @@ def repair_json_structure(
 
     return repaired
 
+
 def validate_and_repair_json(
     response_text: str,
     schema: Dict[str, Any],
     default_generators: Optional[Dict[str, Callable]] = None,
-    original_request: Optional[str] = None
+    original_request: Optional[str] = None,
 ) -> Tuple[bool, Dict[str, Any], Optional[str]]:
     """
     Combined function to extract, validate, and optionally repair JSON from an LLM response.
-    
+
     Args:
         response_text: The LLM response text
         schema: Schema to validate against
         default_generators: Optional mapping of keys to functions that generate default values
         original_request: Optional original request text for context in errors
-    
+
     Returns:
         Tuple of:
         - success: Whether valid JSON was obtained (either directly or after repair)
@@ -295,55 +312,72 @@ def validate_and_repair_json(
     """
     # Extract and parse JSON
     success, data, error_message = parse_json_from_llm_response(response_text)
-    
+
     if not success:
         return False, {}, error_message
-    
+
     # Validate against schema
     is_valid, validation_errors = validate_json_against_schema(data, schema)
-    
+
     if is_valid:
         return True, data, None
-    
+
     # Attempt repair if validation failed
     if default_generators:
         try:
             repaired_data = repair_json_structure(data, schema, default_generators)
-            
+
             # Validate the repaired data
-            repaired_valid, repaired_errors = validate_json_against_schema(repaired_data, schema)
-            
+            repaired_valid, repaired_errors = validate_json_against_schema(
+                repaired_data, schema
+            )
+
             if repaired_valid:
                 # Repaired successfully
-                return True, repaired_data, f"JSON was repaired. Original issues: {', '.join(validation_errors)}"
+                return (
+                    True,
+                    repaired_data,
+                    f"JSON was repaired. Original issues: {', '.join(validation_errors)}",
+                )
             else:
                 # Repair didn't fully fix issues
-                return False, data, f"Validation failed and repair was incomplete: {', '.join(repaired_errors)}"
+                return (
+                    False,
+                    data,
+                    f"Validation failed and repair was incomplete: {', '.join(repaired_errors)}",
+                )
         except Exception as e:
             # Repair failed with exception
-            return False, data, f"JSON repair failed: {str(e)}. Original validation errors: {', '.join(validation_errors)}"
-    
+            return (
+                False,
+                data,
+                f"JSON repair failed: {str(e)}. Original validation errors: {', '.join(validation_errors)}",
+            )
+
     # No repair attempted
     return False, data, f"JSON validation failed: {', '.join(validation_errors)}"
+
 
 def get_openrouter_json_params() -> Dict[str, Any]:
     """
     Get parameters for OpenRouter API to enforce JSON output.
-    
+
     Returns:
         Dictionary of parameters for the API call
     """
     return {
         "response_format": {"type": "json_object"},  # Force JSON output format
-        "headers": {"Accept": "application/json"},   # Request JSON MIME type
-        "temperature": 0.1,                          # Lower temperature for consistent formatting
-        "max_tokens": 4096,                          # Ensure enough space for full JSON response
-        "top_p": 0.2                                 # Narrow token selection for consistent formatting
+        "headers": {"Accept": "application/json"},  # Request JSON MIME type
+        "temperature": 0.1,  # Lower temperature for consistent formatting
+        "max_tokens": 4096,  # Ensure enough space for full JSON response
+        "top_p": 0.2,  # Narrow token selection for consistent formatting
     }
+
 
 try:
     from agent_s3.planner_json_enforced import validate_json_schema
 except ImportError:
+
     def validate_json_schema(data: Dict[str, Any]) -> None:
         """Fallback stub when planner_json_enforced.validate_json_schema is unavailable."""
         raise ImportError(

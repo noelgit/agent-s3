@@ -12,60 +12,65 @@ from typing import Dict, Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+
 class FeatureGroupProcessor:
     """Processes feature groups from pre-planning output."""
-    
+
     def __init__(self, coordinator):
         """Initialize the feature group processor.
-        
+
         Args:
             coordinator: The coordinator instance that manages components
         """
         self.coordinator = coordinator
-        
+
         # Access the test critic through the coordinator if available
-        if hasattr(coordinator, 'test_critic'):
+        if hasattr(coordinator, "test_critic"):
             self.test_critic = coordinator.test_critic
         else:
             self.test_critic = None
             logger.warning("Test critic not available in coordinator")
-    
-    def process_pre_planning_output(self, pre_plan_data: Dict[str, Any], task_description: str) -> Dict[str, Any]:
+
+    def process_pre_planning_output(
+        self, pre_plan_data: Dict[str, Any], task_description: str
+    ) -> Dict[str, Any]:
         """
         Process the pre-planning output to generate consolidated plans for each feature group.
-        
+
         Args:
             pre_plan_data: The pre-planning output data containing feature groups
             task_description: The original task description
-            
+
         Returns:
             Dictionary with processed groups, success flag, and potential error information
         """
-        result = {
-            "success": False,
-            "processed_groups": []
-        }
-        
+        result = {"success": False, "processed_groups": []}
+
         try:
             # Extract feature groups from pre-planning output
             feature_groups = pre_plan_data.get("feature_groups", [])
-            
+
             if not feature_groups:
                 raise ValueError("No feature groups found in pre-planning output")
-            
-            self.coordinator.scratchpad.log("FeatureGroupProcessor", f"Processing {len(feature_groups)} feature groups...")
-            
+
+            self.coordinator.scratchpad.log(
+                "FeatureGroupProcessor",
+                f"Processing {len(feature_groups)} feature groups...",
+            )
+
             processed_groups = []
             all_groups_valid = True
-            
+
             for feature_group in feature_groups:
                 group_name = feature_group.get("group_name", "Unnamed Group")
-                self.coordinator.scratchpad.log("FeatureGroupProcessor", f"Processing feature group: {group_name}")
-                
+                self.coordinator.scratchpad.log(
+                    "FeatureGroupProcessor", f"Processing feature group: {group_name}"
+                )
+
                 try:
                     # Set up context for the feature group
                     context = self._gather_context_for_feature_group(feature_group)
-                    
+
                     # Extract system design from feature group
                     system_design = {}
                     for feature in feature_group.get("features", []):
@@ -75,9 +80,11 @@ class FeatureGroupProcessor:
                             for key, value in feature_system_design.items():
                                 if key not in system_design:
                                     system_design[key] = value
-                                elif isinstance(value, list) and isinstance(system_design[key], list):
+                                elif isinstance(value, list) and isinstance(
+                                    system_design[key], list
+                                ):
                                     system_design[key].extend(value)
-                    
+
                     # STEP 1: Architecture Review
                     self.coordinator.scratchpad.log(
                         "FeatureGroupProcessor",
@@ -91,10 +98,12 @@ class FeatureGroupProcessor:
                         }
                     )
 
-                    architecture_review, arch_discussion = self._generate_architecture_review(
-                        feature_group,
-                        task_description,
-                        context,
+                    architecture_review, arch_discussion = (
+                        self._generate_architecture_review(
+                            feature_group,
+                            task_description,
+                            context,
+                        )
                     )
 
                     self.coordinator.progress_tracker.update_progress(
@@ -104,7 +113,7 @@ class FeatureGroupProcessor:
                             "group": group_name,
                         }
                     )
-                    
+
                     # STEP 2 & 3: Tests
                     self.coordinator.scratchpad.log(
                         "FeatureGroupProcessor",
@@ -147,7 +156,7 @@ class FeatureGroupProcessor:
                             "group": group_name,
                         }
                     )
-                    
+
                     # Run Test Critic on generated tests
                     self.coordinator.scratchpad.log(
                         "FeatureGroupProcessor",
@@ -159,7 +168,7 @@ class FeatureGroupProcessor:
                             tests,
                             feature_group.get("risk_assessment", {}),
                         )
-                    
+
                     # STEP 4: Implementation Planning
                     self.coordinator.scratchpad.log(
                         "FeatureGroupProcessor",
@@ -192,17 +201,25 @@ class FeatureGroupProcessor:
                             "group": group_name,
                         }
                     )
-                    
+
                     # STEP 5: Semantic Validation to ensure coherence between phases
-                    self.coordinator.scratchpad.log("FeatureGroupProcessor", f"Validating semantic coherence for {group_name}...")
-                    self.coordinator.progress_tracker.update_progress({
-                        "phase": "semantic_validation",
-                        "status": "started",
-                        "group": group_name
-                    })
-                    
+                    self.coordinator.scratchpad.log(
+                        "FeatureGroupProcessor",
+                        f"Validating semantic coherence for {group_name}...",
+                    )
+                    self.coordinator.progress_tracker.update_progress(
+                        {
+                            "phase": "semantic_validation",
+                            "status": "started",
+                            "group": group_name,
+                        }
+                    )
+
                     try:
-                        from .planner_json_enforced import validate_planning_semantic_coherence
+                        from .planner_json_enforced import (
+                            validate_planning_semantic_coherence,
+                        )
+
                         validation_results = validate_planning_semantic_coherence(
                             self.coordinator.router_agent,
                             architecture_review,
@@ -210,29 +227,38 @@ class FeatureGroupProcessor:
                             test_implementations_data,
                             implementation_plan_data,
                             task_description,
-                            context
+                            context,
                         )
-                        
-                        semantic_validation = validation_results.get("validation_results", {})
+
+                        semantic_validation = validation_results.get(
+                            "validation_results", {}
+                        )
                         coherence_score = semantic_validation.get("coherence_score", 0)
-                        consistency_score = semantic_validation.get("technical_consistency_score", 0)
-                        critical_issues = semantic_validation.get("critical_issues", [])
-                        
-                        self.coordinator.scratchpad.log(
-                            "FeatureGroupProcessor", 
-                            f"Semantic validation complete: Coherence={coherence_score:.2f}, Consistency={consistency_score:.2f}, Issues={len(critical_issues)}"
+                        consistency_score = semantic_validation.get(
+                            "technical_consistency_score", 0
                         )
-                        
+                        critical_issues = semantic_validation.get("critical_issues", [])
+
+                        self.coordinator.scratchpad.log(
+                            "FeatureGroupProcessor",
+                            f"Semantic validation complete: Coherence={coherence_score:.2f}, Consistency={consistency_score:.2f}, Issues={len(critical_issues)}",
+                        )
+
                     except Exception as validation_error:
-                        self.coordinator.scratchpad.log("FeatureGroupProcessor", f"Semantic validation error: {str(validation_error)}")
+                        self.coordinator.scratchpad.log(
+                            "FeatureGroupProcessor",
+                            f"Semantic validation error: {str(validation_error)}",
+                        )
                         semantic_validation = {"error": str(validation_error)}
-                    
-                    self.coordinator.progress_tracker.update_progress({
-                        "phase": "semantic_validation",
-                        "status": "completed",
-                        "group": group_name
-                    })
-                    
+
+                    self.coordinator.progress_tracker.update_progress(
+                        {
+                            "phase": "semantic_validation",
+                            "status": "completed",
+                            "group": group_name,
+                        }
+                    )
+
                     # Combine discussions into an overall plan discussion
                     plan_discussion = (
                         f"Architecture Review: {arch_discussion}\n\n"
@@ -240,7 +266,7 @@ class FeatureGroupProcessor:
                         f"Test Implementation: {test_implementation_discussion}\n\n"
                         f"Implementation Planning: {implementation_discussion}"
                     )
-                    
+
                     # Create the consolidated plan
                     consolidated_plan = self._create_consolidated_plan(
                         feature_group,
@@ -248,55 +274,68 @@ class FeatureGroupProcessor:
                         implementation_plan,
                         tests,
                         task_description,
-                        plan_discussion
+                        plan_discussion,
                     )
-                    
+
                     # Add semantic validation results
                     consolidated_plan["semantic_validation"] = semantic_validation
-                    
+
                     # Add test critic results
                     if test_critic_results:
                         consolidated_plan["test_critic_results"] = test_critic_results
-                    
+
                     processed_groups.append(consolidated_plan)
-                    self.coordinator.scratchpad.log("FeatureGroupProcessor", f"Successfully processed feature group: {group_name}")
-                    
+                    self.coordinator.scratchpad.log(
+                        "FeatureGroupProcessor",
+                        f"Successfully processed feature group: {group_name}",
+                    )
+
                 except Exception as e:
                     all_groups_valid = False
-                    self.coordinator.scratchpad.log("FeatureGroupProcessor", f"Error processing feature group {group_name}: {e}", level="ERROR")
-                    
+                    self.coordinator.scratchpad.log(
+                        "FeatureGroupProcessor",
+                        f"Error processing feature group {group_name}: {e}",
+                        level="ERROR",
+                    )
+
                     # Create error entry
                     error_entry = {
                         "group_name": group_name,
                         "error": str(e),
                         "success": False,
-                        "traceback": traceback.format_exc()
+                        "traceback": traceback.format_exc(),
                     }
                     processed_groups.append(error_entry)
-            
+
             # Update result
             result["success"] = all_groups_valid
             result["processed_groups"] = processed_groups
-            
+
         except Exception as e:
-            self.coordinator.scratchpad.log("FeatureGroupProcessor", f"Error processing pre-planning output: {e}", level="ERROR")
+            self.coordinator.scratchpad.log(
+                "FeatureGroupProcessor",
+                f"Error processing pre-planning output: {e}",
+                level="ERROR",
+            )
             result["error"] = str(e)
             result["error_context"] = traceback.format_exc()
-        
+
         return result
-    
-    def _gather_context_for_feature_group(self, feature_group: Dict[str, Any]) -> Dict[str, Any]:
+
+    def _gather_context_for_feature_group(
+        self, feature_group: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Gather necessary context for a feature group.
-        
+
         This method collects relevant context information for a specific feature group
         by utilizing the context registry to fetch tech stack, file metadata, project structure,
         and other relevant information. It also gathers feature-specific context based on
         the feature group's description and affected files.
-        
+
         Args:
             feature_group: The feature group to gather context for
-            
+
         Returns:
             Dictionary with consolidated context information relevant to the feature group
         """
@@ -306,72 +345,93 @@ class FeatureGroupProcessor:
             group_description = feature_group.get("group_description", "")
             feature_descriptions = []
             affected_files = []
-            
+
             # Extract feature descriptions and affected files from the feature group
             for feature in feature_group.get("features", []):
                 if isinstance(feature, dict):
                     if "description" in feature:
                         feature_descriptions.append(feature["description"])
-                    
+
                     # Collect affected files from each feature
-                    if "files_affected" in feature and isinstance(feature["files_affected"], list):
+                    if "files_affected" in feature and isinstance(
+                        feature["files_affected"], list
+                    ):
                         affected_files.extend(feature["files_affected"])
-                    
+
                     # Also check system_design.code_elements for target files
-                    if "system_design" in feature and isinstance(feature["system_design"], dict):
-                        code_elements = feature["system_design"].get("code_elements", [])
+                    if "system_design" in feature and isinstance(
+                        feature["system_design"], dict
+                    ):
+                        code_elements = feature["system_design"].get(
+                            "code_elements", []
+                        )
                         for element in code_elements:
                             if isinstance(element, dict) and "target_file" in element:
                                 target_file = element["target_file"]
                                 if target_file not in affected_files:
                                     affected_files.append(target_file)
-            
+
             # Create a rich description for context queries
             context_query = group_description
             if feature_descriptions:
                 context_query += " " + " ".join(feature_descriptions)
-            
+
             # Use context registry to fetch relevant context
-            if hasattr(self.coordinator, 'context_registry') and self.coordinator.context_registry:
+            if (
+                hasattr(self.coordinator, "context_registry")
+                and self.coordinator.context_registry
+            ):
                 # Get tech stack information
-                tech_stack_context = self.coordinator.get_current_context_snapshot(context_type="tech_stack")
+                tech_stack_context = self.coordinator.get_current_context_snapshot(
+                    context_type="tech_stack"
+                )
                 if tech_stack_context:
                     context.update(tech_stack_context)
-                
+
                 # Get project structure information
-                project_context = self.coordinator.get_current_context_snapshot(context_type="project_structure")
+                project_context = self.coordinator.get_current_context_snapshot(
+                    context_type="project_structure"
+                )
                 if project_context:
                     context.update(project_context)
-                
+
                 # Get file metadata for affected files
                 file_metadata = {}
                 for file_path in affected_files:
-                    file_context = self.coordinator.get_current_context_snapshot(context_type="file_metadata", query=file_path)
+                    file_context = self.coordinator.get_current_context_snapshot(
+                        context_type="file_metadata", query=file_path
+                    )
                     if file_context and "file_metadata" in file_context:
                         file_metadata[file_path] = file_context["file_metadata"]
-                
+
                 if file_metadata:
                     context["file_metadata"] = file_metadata
-                
+
                 # Get dependencies information
-                deps_context = self.coordinator.get_current_context_snapshot(context_type="dependencies")
+                deps_context = self.coordinator.get_current_context_snapshot(
+                    context_type="dependencies"
+                )
                 if deps_context:
                     context.update(deps_context)
-                
+
                 # Get test requirements information
-                test_context = self.coordinator.get_current_context_snapshot(context_type="test_requirements")
+                test_context = self.coordinator.get_current_context_snapshot(
+                    context_type="test_requirements"
+                )
                 if test_context:
                     context.update(test_context)
-                
+
                 # Get task-specific context based on the feature group description
                 if context_query:
-                    query_context = self.coordinator.get_current_context_snapshot(query=context_query)
+                    query_context = self.coordinator.get_current_context_snapshot(
+                        query=context_query
+                    )
                     if query_context:
                         context.update(query_context)
-            
+
             # Collect file contents for the affected files using file_tool
             file_contents = {}
-            if hasattr(self.coordinator, 'file_tool') and affected_files:
+            if hasattr(self.coordinator, "file_tool") and affected_files:
                 for file_path in affected_files:
                     try:
                         content = self.coordinator.file_tool.read(file_path)
@@ -380,34 +440,51 @@ class FeatureGroupProcessor:
                     except Exception:
                         # Silently continue if file doesn't exist - it might be a new file
                         pass
-            
+
             if file_contents:
                 context["file_contents"] = file_contents
-            
+
             # Add source code snippets from code_analysis_tool if available
-            if hasattr(self.coordinator, 'code_analysis_tool') and context_query:
+            if hasattr(self.coordinator, "code_analysis_tool") and context_query:
                 try:
-                    code_snippets = self.coordinator.code_analysis_tool.find_relevant_code_snippets(context_query)
+                    code_snippets = (
+                        self.coordinator.code_analysis_tool.find_relevant_code_snippets(
+                            context_query
+                        )
+                    )
                     if code_snippets:
                         context["code_snippets"] = code_snippets
                 except Exception as e:
                     # Log the error but continue gathering other context
-                    self.coordinator.scratchpad.log("FeatureGroupProcessor", 
-                                           f"Error getting code snippets: {e}", 
-                                           level="WARNING")
+                    self.coordinator.scratchpad.log(
+                        "FeatureGroupProcessor",
+                        f"Error getting code snippets: {e}",
+                        level="WARNING",
+                    )
         except Exception as e:
             # Log error but return whatever context we've managed to gather
-            self.coordinator.scratchpad.log("FeatureGroupProcessor", 
-                                  f"Error gathering context: {e}", 
-                                  level="WARNING")
-        
+            self.coordinator.scratchpad.log(
+                "FeatureGroupProcessor",
+                f"Error gathering context: {e}",
+                level="WARNING",
+            )
+
         return context
-    
-    def _create_consolidated_plan(self, feature_group: Dict[str, Any], architecture_review: Dict[str, Any], implementation_plan: Dict[str, Any], tests: Dict[str, Any], task_description: str, plan_discussion: str) -> Dict[str, Any]:
+
+    def _create_consolidated_plan(
+        self,
+        feature_group: Dict[str, Any],
+        architecture_review: Dict[str, Any],
+        implementation_plan: Dict[str, Any],
+        tests: Dict[str, Any],
+        task_description: str,
+        plan_discussion: str,
+    ) -> Dict[str, Any]:
         """Create the final consolidated plan structure for a feature group."""
         import uuid
+
         plan_id = f"plan_{uuid.uuid4()}"
-        
+
         consolidated_plan = {
             "plan_id": plan_id,
             "group_name": feature_group.get("group_name", "Unnamed Group"),
@@ -420,9 +497,9 @@ class FeatureGroupProcessor:
             "risk_assessment": feature_group.get("risk_assessment", {}),
             # The semantic_validation field will be added later if available
             "success": True,
-            "timestamp": str(uuid.uuid4())  # Timestamp for reference
+            "timestamp": str(uuid.uuid4()),  # Timestamp for reference
         }
-        
+
         return consolidated_plan
 
     # ------------------------------------------------------------------
@@ -548,7 +625,7 @@ class FeatureGroupProcessor:
                 level="ERROR",
             )
             raise
-    
+
     def present_consolidated_plan_to_user(
         self,
         consolidated_plan: Dict[str, Any],
@@ -556,16 +633,16 @@ class FeatureGroupProcessor:
     ) -> Tuple[str, Optional[str]]:
         """
         Present the consolidated plan to the user for approval.
-        
+
         Args:
             consolidated_plan: The consolidated plan to present
-            
+
         Returns:
             Tuple of (decision, modification_text)
         """
         if not consolidated_plan:
             return "no", "No consolidated plan provided"
-        
+
         group_name = consolidated_plan.get("group_name", "Unnamed Group")
         self.coordinator.scratchpad.log(
             "FeatureGroupProcessor",
@@ -584,30 +661,39 @@ class FeatureGroupProcessor:
                 )
             )
             print("\nPLAN MODIFICATIONS DIFF:\n" + diff)
-        
+
         # Use the PromptModerator to present the consolidated plan
         return self.coordinator.prompt_moderator.present_consolidated_plan(
             consolidated_plan
         )
-    
-    def update_plan_with_modifications(self, plan: Dict[str, Any], modifications: str) -> Dict[str, Any]:
+
+    def update_plan_with_modifications(
+        self, plan: Dict[str, Any], modifications: str
+    ) -> Dict[str, Any]:
         """
         Update the consolidated plan with user modifications.
-        
+
         Args:
             plan: The original consolidated plan
             modifications: Text describing user's requested modifications
-            
+
         Returns:
             Updated consolidated plan
         """
-        self.coordinator.scratchpad.log("FeatureGroupProcessor", "Updating plan with user modifications")
-        
+        self.coordinator.scratchpad.log(
+            "FeatureGroupProcessor", "Updating plan with user modifications"
+        )
+
         try:
             # Import planner helper for modification regeneration
-            from .planner_json_enforced import regenerate_consolidated_plan_with_modifications
+            from .planner_json_enforced import (
+                regenerate_consolidated_plan_with_modifications,
+            )
+
             # Validator used during plan generation
-            from agent_s3.tools.implementation_validator import validate_implementation_plan
+            from agent_s3.tools.implementation_validator import (
+                validate_implementation_plan,
+            )
 
             # Regenerate the plan with the user's modifications
             updated_plan = regenerate_consolidated_plan_with_modifications(
@@ -630,9 +716,13 @@ class FeatureGroupProcessor:
                     )
 
                 # Validate element IDs against system design
-                from agent_s3.test_spec_validator import extract_element_ids_from_system_design
+                from agent_s3.test_spec_validator import (
+                    extract_element_ids_from_system_design,
+                )
 
-                system_design = updated_plan.get("system_design") or plan.get("system_design", {})
+                system_design = updated_plan.get("system_design") or plan.get(
+                    "system_design", {}
+                )
                 valid_ids = extract_element_ids_from_system_design(system_design)
 
                 invalid_test_ids = set()
@@ -673,11 +763,13 @@ class FeatureGroupProcessor:
                     )
 
                 # Perform implementation plan validation
-                validated_impl, validation_issues, needs_repair = validate_implementation_plan(
-                    updated_plan.get("implementation_plan", {}),
-                    system_design,
-                    updated_plan.get("architecture_review", {}),
-                    updated_plan.get("tests", {}),
+                validated_impl, validation_issues, needs_repair = (
+                    validate_implementation_plan(
+                        updated_plan.get("implementation_plan", {}),
+                        system_design,
+                        updated_plan.get("architecture_review", {}),
+                        updated_plan.get("tests", {}),
+                    )
                 )
                 updated_plan["implementation_plan"] = validated_impl
 
@@ -695,9 +787,7 @@ class FeatureGroupProcessor:
                     }
 
                 is_valid_overall = (
-                    not needs_repair
-                    and not validation_issues
-                    and not structural_issues
+                    not needs_repair and not validation_issues and not structural_issues
                 )
 
                 updated_plan["revalidation_results"] = revalidation_results
@@ -717,37 +807,43 @@ class FeatureGroupProcessor:
                 plan["revalidation_status"] = {
                     "is_valid": False,
                     "issues_found": ["Failed to generate modified plan"],
-                    "timestamp": str(uuid.uuid4())
+                    "timestamp": str(uuid.uuid4()),
                 }
                 return plan
-                
+
         except Exception as e:
-            self.coordinator.scratchpad.log("FeatureGroupProcessor", f"Error updating plan: {e}", level="ERROR")
-            
+            self.coordinator.scratchpad.log(
+                "FeatureGroupProcessor", f"Error updating plan: {e}", level="ERROR"
+            )
+
             # Return original plan with error information
             plan["is_modified_by_user"] = False
             plan["modification_error"] = str(e)
             plan["revalidation_status"] = {
                 "is_valid": False,
                 "issues_found": [f"Error during plan modification: {str(e)}"],
-                "timestamp": str(uuid.uuid4())
+                "timestamp": str(uuid.uuid4()),
             }
-            
+
             return plan
-    
+
     def _get_user_decision(self) -> str:
         """Get user's decision on the consolidated plan."""
         # Use prompt moderator if available
-        if hasattr(self.coordinator, 'prompt_moderator'):
+        if hasattr(self.coordinator, "prompt_moderator"):
             prompt_moderator = self.coordinator.prompt_moderator
             decision = prompt_moderator.ask_ternary_question(
                 "Do you want to proceed with this plan? (yes/no/modify)"
             )
             return decision
-        
+
         # Fallback to direct input
         while True:
-            decision = input("Do you want to proceed with this plan? (yes/no/modify): ").lower().strip()
+            decision = (
+                input("Do you want to proceed with this plan? (yes/no/modify): ")
+                .lower()
+                .strip()
+            )
             if decision in ["yes", "no", "modify"]:
                 return decision
             print("Invalid input. Please enter 'yes', 'no', or 'modify'.")
@@ -764,4 +860,3 @@ class FeatureGroupProcessor:
             "FeatureGroupProcessor",
             f"Revalidation complete. Overall valid: {status.get('is_valid', False)}",
         )
-            
