@@ -1,4 +1,4 @@
-import { test, expect } from '../../fixtures';
+import { test, expect } from '../fixtures';
 
 test.describe('Story 3: Interacting via the Chat UI', () => {
   test('Open chat window via Command Palette', async ({ 
