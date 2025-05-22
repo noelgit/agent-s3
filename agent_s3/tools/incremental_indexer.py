@@ -9,8 +9,7 @@ import os
 import time
 import logging
 import threading
-import json
-from typing import Dict, List, Set, Optional, Tuple, Any, Union, Callable
+from typing import Dict, List, Optional, Any, Callable
 
 from agent_s3.tools.file_change_tracker import FileChangeTracker
 from agent_s3.tools.index_partition_manager import IndexPartitionManager

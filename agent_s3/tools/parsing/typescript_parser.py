@@ -6,7 +6,6 @@ from tree_sitter import Parser, Language
 import tree_sitter_typescript
 from .base_parser import LanguageParser
 from .treesitter_utils import execute_query
-from ..parsing.framework_extractors.base_extractor import FrameworkExtractor
 
 class TypeScriptTreeSitterParser(LanguageParser):
     def __init__(self, framework_extractors=None):

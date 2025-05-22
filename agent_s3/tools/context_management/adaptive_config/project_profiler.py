@@ -9,9 +9,8 @@ import os
 import glob
 import logging
 from collections import Counter, defaultdict
-from typing import Dict, List, Any, Optional, Set, Tuple
+from typing import Dict, List, Any
 import re
-import math
 
 from agent_s3.tools.context_management.token_budget import EXTENSION_TO_LANGUAGE
 

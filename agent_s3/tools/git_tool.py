@@ -2,7 +2,6 @@
 
 import os
 import subprocess
-import json
 import logging
 import re
 import time
@@ -11,7 +10,6 @@ from datetime import datetime
 from typing import Optional, Tuple, Dict, Any, List, Union
 
 import requests
-from requests.exceptions import RequestException
 
 
 class GitTool:
@@ -361,7 +359,7 @@ class GitTool:
             if checkout_code == 0:
                 return {"success": True, "message": f"Branch {branch_name} already exists and was checked out"}
             else:
-                self.logger.warning(f"Cannot checkout existing branch. Attempting to delete and recreate.")
+                self.logger.warning("Cannot checkout existing branch. Attempting to delete and recreate.")
                 self.run_git_command(f"branch -D {branch_name}")  # Forcefully delete local branch
             
         # First, make sure we're on the right source branch

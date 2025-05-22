@@ -1,11 +1,9 @@
-import os
 import re
 import json
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any
 import subprocess
 from pathlib import Path
-from datetime import datetime
 
 class TechStackManager:
     """Manages the detection, enhancement, and structuring of tech stack information."""

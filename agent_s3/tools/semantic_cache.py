@@ -11,13 +11,12 @@ import json
 import hashlib
 import logging
 import inspect
-from typing import Dict, Any, Optional, Union, List, Callable, TypeVar
+from typing import Dict, Any, Optional, Union, Callable, TypeVar
 from functools import wraps
 import numpy as np
 from pathlib import Path
 import threading
 import faiss
-from gptcache import cache
 import shutil
 import stat
 
@@ -239,7 +238,7 @@ class SemanticCache:
             if temp_file.exists():
                 try:
                     temp_file.unlink()
-                except:
+                except Exception:
                     pass
 
     def clear(self) -> None:

@@ -6,9 +6,7 @@ ensuring consistency and correctness before applying changes.
 
 import logging
 import re
-import json
-from typing import Dict, Any, List, Tuple, Optional, Set
-from difflib import SequenceMatcher
+from typing import Dict, Any, List, Tuple, Optional
 
 from agent_s3.tools.plan_validator import validate_pre_plan
 
@@ -78,7 +76,6 @@ class StaticPlanChecker:
         }
         
         # Track all element IDs and names in both plans
-        original_ids = self._extract_element_ids(original_plan)
         modified_ids = self._extract_element_ids(plan)
         
         # Check for renamed elements that might create orphaned references
@@ -92,7 +89,7 @@ class StaticPlanChecker:
                 results["critical"].append({
                     "message": f"Orphaned reference to '{ref['reference']}' in {ref['location']}",
                     "category": "consistency",
-                    "suggestion": f"Update reference to match a valid element ID or name"
+                    "suggestion": "Update reference to match a valid element ID or name"
                 })
         
         # Check for inconsistent naming patterns

@@ -6,13 +6,10 @@ This module provides advanced memory management capabilities as specified in ins
 import os
 import json
 import threading
-import re
 import time
-import hashlib
 import logging
 import gzip
 import shutil  # For atomic saving
-from copy import deepcopy
 from typing import Dict, List, Any, Optional, Set, Tuple
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,15 +17,9 @@ import numpy as np  # type: ignore
 import tiktoken  # Import tiktoken for accurate token counting
 from agent_s3.tools.embedding_client import EmbeddingClient
 from agent_s3.tools.file_tool import FileTool  # Assuming FileTool exists
-from agent_s3.llm_utils import cached_call_llm  # Use semantic cache LLM wrapper
 # Import configuration values
-from agent_s3 import config
 from agent_s3.llm_prompts.summarization_prompts import SummarizationPromptGenerator
 from agent_s3.tools.summarization.summary_validator import SummaryValidator
-from agent_s3.tools.summarization.validation_config import SummaryValidationConfig
-from agent_s3.tools.summarization.prompt_factory import SummarizationPromptFactory
-from agent_s3.tools.summarization.summary_refiner import SummaryRefiner
-from agent_s3.tools.summarization.summary_cache import SummaryCache
 from agent_s3.tools.summarization.refinement_manager import SummaryRefinementManager
 
 DEFAULT_MAX_TOKENS = 4096

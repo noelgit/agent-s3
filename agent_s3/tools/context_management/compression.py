@@ -6,14 +6,10 @@ while preserving essential information for LLM processing.
 """
 
 import re
-import json
 import logging
-import zlib
-import base64
 import hashlib
 from abc import ABC, abstractmethod
-from typing import Dict, List, Any, Optional, Set, Tuple, Union, Callable
-from pathlib import Path
+from typing import Dict, List, Any, Optional
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -217,8 +213,6 @@ class SemanticSummarizer(CompressionStrategy):
         summary_lines = []
         
         # Track state
-        in_function = False
-        in_class = False
         current_indent = 0
         skipping = False
         
@@ -240,7 +234,6 @@ class SemanticSummarizer(CompressionStrategy):
             
             # Handle class definitions
             if re.match(r'^\s*class\s+', line):
-                in_class = True
                 current_indent = indent
                 if self.preserve_classes:
                     summary_lines.append(line)
@@ -252,7 +245,6 @@ class SemanticSummarizer(CompressionStrategy):
             
             # Handle function definitions
             if re.match(r'^\s*def\s+', line):
-                in_function = True
                 current_indent = indent
                 
                 # Add function signature
@@ -261,7 +253,7 @@ class SemanticSummarizer(CompressionStrategy):
                     fn_name, params = fn_match.groups()
                     
                     # Check if this is a method in a class
-                    is_method = in_class and indent > 0
+                    is_method = indent > 0
                     
                     # Include the function definition but mark it as summarized
                     if is_method:
@@ -301,8 +293,6 @@ class SemanticSummarizer(CompressionStrategy):
         summary_lines = []
         
         # Track state
-        in_function = False
-        in_class = False
         brace_depth = 0
         skipping = False
         
@@ -324,7 +314,6 @@ class SemanticSummarizer(CompressionStrategy):
             
             # Handle class definitions
             if re.search(r'class\s+\w+', line):
-                in_class = True
                 if self.preserve_classes:
                     summary_lines.append(line)
                 else:
@@ -340,7 +329,6 @@ class SemanticSummarizer(CompressionStrategy):
             # Handle function definitions
             if re.search(r'function\s+\w+\s*\(|^\s*\w+\s*\([^)]*\)\s*{|^\s*\w+\s*:\s*function', line) or \
                re.search(r'const\s+\w+\s*=\s*\([^)]*\)\s*=>|^\s*\w+\s*=\s*\([^)]*\)\s*=>', line):
-                in_function = True
                 
                 # Add function signature
                 summary_lines.append(line.rstrip())
@@ -384,8 +372,6 @@ class SemanticSummarizer(CompressionStrategy):
         summary_lines = []
         
         # Track state
-        in_method = False
-        in_class = False
         brace_depth = 0
         skipping = False
         
@@ -409,7 +395,6 @@ class SemanticSummarizer(CompressionStrategy):
             
             # Handle class definitions
             if re.search(r'(public|private|protected)?\s*class\s+\w+', line):
-                in_class = True
                 if self.preserve_classes:
                     summary_lines.append(line)
                 else:
@@ -426,7 +411,6 @@ class SemanticSummarizer(CompressionStrategy):
             
             # Handle method definitions
             if re.search(r'(public|private|protected)?\s+\w+\s+\w+\s*\([^)]*\)', line):
-                in_method = True
                 
                 # Add method signature
                 summary_lines.append(line.rstrip())
@@ -459,8 +443,6 @@ class SemanticSummarizer(CompressionStrategy):
         summary_lines = []
         
         # Track state
-        in_method = False
-        in_class = False
         brace_depth = 0
         skipping = False
         
@@ -484,7 +466,6 @@ class SemanticSummarizer(CompressionStrategy):
             
             # Handle class definitions
             if re.search(r'(public|private|protected|internal)?\s*class\s+\w+', line):
-                in_class = True
                 if self.preserve_classes:
                     summary_lines.append(line)
                 else:
@@ -501,7 +482,6 @@ class SemanticSummarizer(CompressionStrategy):
             
             # Handle method definitions
             if re.search(r'(public|private|protected|internal)?\s+\w+\s+\w+\s*\([^)]*\)', line):
-                in_method = True
                 
                 # Add method signature
                 summary_lines.append(line.rstrip())
