@@ -1640,6 +1640,30 @@ def validate_pre_planning_for_planner(pre_plan_data: Dict[str, Any]) -> Tuple[bo
                             f"Feature {feature_idx} in group {group_idx} has {tests_missing_ids} unit tests missing target_element_id links"
                         )
 
+                integration_tests = test_requirements.get("integration_tests")
+                if isinstance(integration_tests, list):
+                    tests_missing_ids = 0
+                    for test in integration_tests:
+                        if isinstance(test, dict):
+                            if test.get("target_element") and not test.get("target_element_id"):
+                                tests_missing_ids += 1
+                    if tests_missing_ids > 0:
+                        compatibility_issues.append(
+                            f"Feature {feature_idx} in group {group_idx} has {tests_missing_ids} integration tests missing target_element_id links"
+                        )
+
+                acceptance_tests = test_requirements.get("acceptance_tests")
+                if isinstance(acceptance_tests, list):
+                    tests_missing_ids = 0
+                    for test in acceptance_tests:
+                        if isinstance(test, dict):
+                            if test.get("target_element") and not test.get("target_element_id"):
+                                tests_missing_ids += 1
+                    if tests_missing_ids > 0:
+                        compatibility_issues.append(
+                            f"Feature {feature_idx} in group {group_idx} has {tests_missing_ids} acceptance tests missing target_element_id links"
+                        )
+
     if compatibility_issues:
         message = (
             f"Pre-planning data has {len(compatibility_issues)} compatibility issues for planner phase: "
