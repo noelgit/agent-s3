@@ -1066,11 +1066,12 @@ def call_pre_planner_with_enforced_json(
         # Optional: exponential backoff or delay between retries
         time.sleep(0.5 * attempt)
 
-    # If all attempts failed, return fallback or last error
-    if pre_planning_data:
-        return False, pre_planning_data
-    else:
-        return False, {"error": last_error or "Failed to generate pre-planning data after retries"}
+    # If all attempts failed, return fallback JSON
+    logger.warning(
+        "Pre-planning attempts exhausted; returning fallback JSON output"
+    )
+    fallback_data = create_fallback_pre_planning_output(task_description)
+    return False, fallback_data
 
 
 class PrePlanner:

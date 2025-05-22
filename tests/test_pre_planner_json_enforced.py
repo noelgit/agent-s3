@@ -19,6 +19,7 @@ from agent_s3.pre_planner_json_enforced import (
     validate_json_schema,
     repair_json_structure,
     create_fallback_json,
+    call_pre_planner_with_enforced_json,
     integrate_with_coordinator,
     _parse_structured_modifications,
     regenerate_pre_planning_with_modifications,
@@ -747,7 +748,28 @@ DESCRIPTION: Add error handling for connection failures
         # Check that the prompt includes modification text
         assert "Modification Request" in prompt
         assert modification_text in prompt
-        
+
         # Verify the result
         assert result == json_data
+
+
+@patch('agent_s3.pre_planner_json_enforced.process_response')
+@patch('agent_s3.pre_planner_json_enforced.get_openrouter_json_params')
+@patch('agent_s3.pre_planner_json_enforced.create_fallback_pre_planning_output')
+def test_call_pre_planner_with_enforced_json_returns_fallback(mock_fallback, mock_params, mock_process):
+    """Ensure fallback JSON is returned after all retries fail."""
+    mock_params.return_value = {}
+    mock_process.return_value = (False, None)
+    fallback = {"original_request": "Task", "features": []}
+    mock_fallback.return_value = fallback
+
+    router = MagicMock()
+    router.run.return_value = "{}"
+
+    success, data = call_pre_planner_with_enforced_json(router, "Task")
+
+    assert success is False
+    assert data == fallback
+    assert router.run.call_count == 3
+    mock_fallback.assert_called_once_with("Task")
 
