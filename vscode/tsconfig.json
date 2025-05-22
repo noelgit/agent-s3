@@ -6,11 +6,13 @@
     "rootDir": "./",
     "strict": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "types": []
   },
   "include": [
     "*.ts",
-    "types/**/*.d.ts"
+    "types/**/*.d.ts",
+    "stubs.d.ts"
   ],
   "exclude": [
     "webview-ui"
