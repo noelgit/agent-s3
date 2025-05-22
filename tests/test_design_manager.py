@@ -1,5 +1,3 @@
-import pytest
-
 from agent_s3.design_manager import DesignManager
 
 
