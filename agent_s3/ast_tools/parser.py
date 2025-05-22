@@ -17,9 +17,16 @@ JS_LANGUAGE = Language(tree_sitter_javascript.language())
 PY_LANGUAGE = Language(tree_sitter_python.language())
 
 PY_PARSER = Parser()
-PY_PARSER.set_language(PY_LANGUAGE)
+try:  # Support tree-sitter >=0.22 where 'language' is a property
+    PY_PARSER.language = PY_LANGUAGE
+except AttributeError:  # pragma: no cover - legacy API
+    PY_PARSER.set_language(PY_LANGUAGE)
+
 JS_PARSER = Parser()
-JS_PARSER.set_language(JS_LANGUAGE)
+try:
+    JS_PARSER.language = JS_LANGUAGE
+except AttributeError:  # pragma: no cover - legacy API
+    JS_PARSER.set_language(JS_LANGUAGE)
 
 def parse_python(code: str) -> Any:
     """Parse Python code to a concrete syntax tree (CST) using LibCST."""
