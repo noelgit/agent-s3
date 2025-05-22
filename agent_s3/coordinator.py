@@ -17,7 +17,6 @@ from typing import Any, Dict, List, Optional, Tuple
 # Local imports
 from agent_s3.config import Config
 from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager, LogLevel
-from agent_s3.implementation_manager import ImplementationManager
 from agent_s3.error_handler import ErrorHandler
 
 from agent_s3.feature_group_processor import FeatureGroupProcessor
@@ -784,44 +783,6 @@ class Coordinator:
         """
         self.run_task(task=request_text)
 
-    def start_pre_planning_from_design(self, design_file: str = "design.txt") -> None:
-        """Trigger pre-planning for each numbered task found in a design file.
-
-        The design document is expected to contain tasks listed in a numbered
-        format (e.g. ``1. Setup project``). Each parsed task is forwarded to
-        :meth:`run_task` with ``from_design`` enabled so the usual planning
-        workflow proceeds without additional confirmation steps.
-
-        Args:
-            design_file: Path to the design file to parse.
-        """
-        if not os.path.exists(design_file):
-            self.scratchpad.log(
-                "Coordinator",
-                f"Design file not found: {design_file}",
-                level=LogLevel.ERROR,
-            )
-            return
-
-        try:
-            with open(design_file, "r", encoding="utf-8") as f:
-                content = f.read()
-        except Exception as exc:  # pragma: no cover - filesystem safety
-            self.scratchpad.log(
-                "Coordinator",
-                f"Failed reading design file: {exc}",
-                level=LogLevel.ERROR,
-            )
-            return
-
-        tasks: list[str] = []
-        for line in content.splitlines():
-            match = re.match(r"\s*\d+(?:\.\d+)*\.\s+(.*)", line)
-            if match:
-                tasks.append(match.group(1).strip())
-
-        for task in tasks:
-            self.run_task(task=task, from_design=True)
 
     def run_task(
         self,
@@ -1086,59 +1047,6 @@ class Coordinator:
             self.scratchpad.log("Coordinator", f"Test execution failed: {exc}", level=LogLevel.ERROR)
             return {"success": False, "output": str(exc), "coverage": 0.0}
 
-    def execute_implementation(self, design_file: str = "design.txt") -> Dict[str, Any]:
-        """Start implementation of tasks described in the design file.
-
-        Args:
-            design_file: Path to the design file to implement.
-
-        Returns:
-            Dictionary with implementation results.
-        """
-        with self.error_handler.error_context(
-            phase="implementation",
-            operation="execute_implementation",
-            inputs={"design_file": design_file},
-        ):
-            if not os.path.exists(design_file):
-                return {"success": False, "error": f"{design_file} not found"}
-
-            if not hasattr(self, "implementation_manager"):
-                self.implementation_manager = ImplementationManager(coordinator=self)
-
-            try:
-                return self.implementation_manager.start_implementation(design_file)
-            except Exception as exc:
-                self.scratchpad.log("Coordinator", f"Implementation failed: {exc}", level=LogLevel.ERROR)
-                return {"success": False, "error": str(exc)}
-
-    def execute_continue(self, continue_type: str = "implementation") -> Dict[str, Any]:
-        """Continue a previously started workflow.
-
-        Currently supports resuming implementation tasks.
-
-        Args:
-            continue_type: Type of continuation. Only ``"implementation"`` is supported.
-
-        Returns:
-            Dictionary with continuation results.
-        """
-        with self.error_handler.error_context(
-            phase="implementation",
-            operation="execute_continue",
-            inputs={"type": continue_type},
-        ):
-            if continue_type != "implementation":
-                return {"success": False, "error": f"Unknown continuation type '{continue_type}'"}
-
-            if not hasattr(self, "implementation_manager"):
-                return {"success": False, "error": "Implementation manager not available"}
-
-            try:
-                return self.implementation_manager.continue_implementation()
-            except Exception as exc:
-                self.scratchpad.log("Coordinator", f"Continuation failed: {exc}", level=LogLevel.ERROR)
-                return {"success": False, "error": str(exc)}
 
     def _finalize_task(self, changes: Dict[str, str]) -> None:
         """Finalize the task after successful validation."""

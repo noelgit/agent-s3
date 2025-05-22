@@ -375,10 +375,32 @@ def get_openrouter_json_params() -> Dict[str, Any]:
 
 
 try:
-    from agent_s3.planner_json_enforced import validate_json_schema
+    from agent_s3.planner_json_enforced import (
+        validate_json_schema as _planner_validate_json_schema,
+    )
+
+    def validate_json_schema(data: Dict[str, Any]) -> Tuple[bool, str]:
+        """Validate JSON data using planner rules with backward compatibility.
+
+        If the newer planner schema with ``feature_groups`` is present, delegate
+        to :func:`planner_json_enforced.validate_json_schema` and discard the
+        valid indices value. For legacy callers that provide a ``features``
+        array directly, perform a minimal structural check.
+        """
+        if "feature_groups" in data:
+            valid, message, _ = _planner_validate_json_schema(data)
+            return valid, message
+
+        if "features" in data:
+            features = data.get("features")
+            if isinstance(features, list):
+                return True, ""
+            return False, "'features' must be a list"
+
+        return False, "Missing 'feature_groups' or 'features' key"
 except ImportError:
 
-    def validate_json_schema(data: Dict[str, Any]) -> None:
+    def validate_json_schema(data: Dict[str, Any]) -> Tuple[bool, str]:
         """Fallback stub when planner_json_enforced.validate_json_schema is unavailable."""
         raise ImportError(
             "validate_json_schema could not be imported from planner_json_enforced"

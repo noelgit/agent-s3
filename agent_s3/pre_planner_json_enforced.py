@@ -770,6 +770,48 @@ def ensure_element_id_consistency(pre_planning_data: Dict[str, Any]) -> Dict[str
                                         test["target_element_id"] = matched_element["element_id"]
                                         logger.info(f"Linked property test to element_id {matched_element['element_id']} based on target_element {target_element}")
 
+                        # Process integration tests
+                        if "integration_tests" in feature["test_requirements"] and isinstance(feature["test_requirements"]["integration_tests"], list):
+                            for test_idx, test in enumerate(feature["test_requirements"]["integration_tests"]):
+                                if not isinstance(test, dict):
+                                    continue
+
+                                if "target_element" in test and isinstance(test["target_element"], str):
+                                    target_element = test["target_element"]
+
+                                    matched_element = None
+                                    for element in code_elements:
+                                        if isinstance(element, dict) and element.get("name") == target_element:
+                                            matched_element = element
+                                            break
+
+                                    if matched_element and "element_id" in matched_element:
+                                        test["target_element_id"] = matched_element["element_id"]
+                                        logger.info(
+                                            f"Linked integration test to element_id {matched_element['element_id']} based on target_element {target_element}"
+                                        )
+
+                        # Process acceptance tests
+                        if "acceptance_tests" in feature["test_requirements"] and isinstance(feature["test_requirements"]["acceptance_tests"], list):
+                            for test_idx, test in enumerate(feature["test_requirements"]["acceptance_tests"]):
+                                if not isinstance(test, dict):
+                                    continue
+
+                                if "target_element" in test and isinstance(test["target_element"], str):
+                                    target_element = test["target_element"]
+
+                                    matched_element = None
+                                    for element in code_elements:
+                                        if isinstance(element, dict) and element.get("name") == target_element:
+                                            matched_element = element
+                                            break
+
+                                    if matched_element and "element_id" in matched_element:
+                                        test["target_element_id"] = matched_element["element_id"]
+                                        logger.info(
+                                            f"Linked acceptance test to element_id {matched_element['element_id']} based on target_element {target_element}"
+                                        )
+
     return pre_planning_data
 
 def get_json_system_prompt() -> str:
@@ -1026,7 +1068,6 @@ def call_pre_planner_with_enforced_json(
     import traceback
     max_preplanning_attempts = 3
     last_error = None
-    pre_planning_data = None
     system_prompt = get_json_system_prompt()
     user_prompt = get_base_user_prompt(task_description)
     openrouter_params = get_openrouter_params()
@@ -1055,7 +1096,6 @@ def call_pre_planner_with_enforced_json(
                     return True, data
                 else:
                     last_error = f"Validation failed: {validation_msg}"
-                    pre_planning_data = data
             elif status == "question":
                 # LLM is asking for clarification, return as-is
                 return False, data
@@ -1068,7 +1108,8 @@ def call_pre_planner_with_enforced_json(
 
     # If all attempts failed, return fallback JSON
     logger.warning(
-        "Pre-planning attempts exhausted; returning fallback JSON output"
+        "Pre-planning attempts exhausted; returning fallback JSON output. Last error: %s",
+        last_error,
     )
     fallback_data = create_fallback_pre_planning_output(task_description)
     return False, fallback_data
