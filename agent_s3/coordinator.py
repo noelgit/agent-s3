@@ -163,6 +163,7 @@ class Coordinator:
 
         # Initialize file and git tools
         file_tool = FileTool()
+        self.file_tool = file_tool
         git_tool = GitTool(self.config.github_token, terminal_executor=self.bash_tool.executor)
 
         # Initialize context management
@@ -985,8 +986,11 @@ class Coordinator:
     def _apply_changes_and_manage_dependencies(self, changes: Dict[str, str]) -> bool:
         """Apply generated code changes and manage dependencies."""
         try:
+            file_tool = getattr(self, "file_tool", None) or self.coordinator_config.get_tool('file_tool')
             for path, content in changes.items():
-                self.file_tool.write_file(path, content)
+                if not file_tool:
+                    raise RuntimeError("File tool not initialized")
+                file_tool.write_file(path, content)
             return True
         except Exception as exc:  # pragma: no cover - safety net
             self.scratchpad.log("Coordinator", f"Failed applying changes: {exc}", level=LogLevel.ERROR)
@@ -1153,16 +1157,11 @@ class Coordinator:
         Returns:
             Dictionary with success flag and number of tasks started.
         """
-        if not os.path.exists(design_file):
-            self.scratchpad.log("Coordinator", f"Design file not found: {design_file}", level=LogLevel.ERROR)
-            return {"success": False, "error": "Design file not found"}
-
-        try:
-            with open(design_file, "r") as f:
-                design_content = f.read()
-        except Exception as e:  # pragma: no cover - basic safety
-            self.scratchpad.log("Coordinator", f"Failed to read design file: {e}", level=LogLevel.ERROR)
-            return {"success": False, "error": "Failed to read design file"}
+        file_tool = self.coordinator_config.get_tool('file_tool')
+        success, design_content = file_tool.read_file(design_file)
+        if not success:
+            self.scratchpad.log("Coordinator", f"Failed to read design file: {design_content}", level=LogLevel.ERROR)
+            return {"success": False, "error": design_content}
 
         tasks = self._extract_tasks_from_design(design_content)
         if not tasks:
@@ -1190,8 +1189,12 @@ class Coordinator:
         """Delegate to ImplementationManager to start implementation."""
         if not hasattr(self, "implementation_manager"):
             self.implementation_manager = ImplementationManager(self)
-        if not os.path.exists(design_file):
-            return {"success": False, "error": "Design file not found"}
+
+        file_tool = self.coordinator_config.get_tool('file_tool')
+        success, _ = file_tool.read_file(design_file)
+        if not success:
+            return {"success": False, "error": f"{design_file} not found or inaccessible"}
+
         return self.implementation_manager.start_implementation(design_file)
 
     def execute_continue(self, continue_type: str) -> Dict[str, Any]:
