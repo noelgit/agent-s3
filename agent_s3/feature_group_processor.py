@@ -153,10 +153,12 @@ class FeatureGroupProcessor:
                         "FeatureGroupProcessor",
                         f"Running Test Critic for {group_name}...",
                     )
-                    test_critic_results = self.test_critic.critique_tests(
-                        tests,
-                        feature_group.get("risk_assessment", {}),
-                    )
+                    test_critic_results = None
+                    if self.test_critic:
+                        test_critic_results = self.test_critic.critique_tests(
+                            tests,
+                            feature_group.get("risk_assessment", {}),
+                        )
                     
                     # STEP 4: Implementation Planning
                     self.coordinator.scratchpad.log(

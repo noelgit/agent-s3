@@ -30,6 +30,18 @@ class ImplementationManager:
         self.router_agent = coordinator.router_agent if coordinator else None
         self.scratchpad = coordinator.scratchpad if coordinator else None
         self.progress_file = "implementation_progress.json"
+
+    def _log(self, message: str, level: str = "info") -> None:
+        """Log a message using the scratchpad if available."""
+        if self.scratchpad and hasattr(self.scratchpad, "log"):
+            self.scratchpad.log("ImplementationManager", message, level=level)
+        else:
+            if level.lower() == "error":
+                logger.error(message)
+            elif level.lower() == "warning":
+                logger.warning(message)
+            else:
+                logger.info(message)
         
     def start_implementation(self, design_file: str = "design.txt") -> Dict[str, Any]:
         """
@@ -41,13 +53,13 @@ class ImplementationManager:
         Returns:
             Dict with implementation results
         """
-        self.scratchpad.log("ImplementationManager", f"Starting implementation from {design_file}")
+        self._log(f"Starting implementation from {design_file}")
         
         # Load progress tracker or create if it doesn't exist
         progress = self._load_progress_tracker()
         
         if not progress:
-            self.scratchpad.log("ImplementationManager", "No existing progress found, initializing")
+            self._log("No existing progress found, initializing")
             progress = self._initialize_progress_tracker(design_file)
             
         # Find the first pending task
@@ -66,7 +78,7 @@ class ImplementationManager:
         Returns:
             Dict with implementation results
         """
-        self.scratchpad.log("ImplementationManager", "Continuing implementation")
+        self._log("Continuing implementation")
         
         # Load progress tracker
         progress = self._load_progress_tracker()
@@ -96,7 +108,7 @@ class ImplementationManager:
                     return json.load(f)
             return None
         except Exception as e:
-            self.scratchpad.log("ImplementationManager", f"Error loading progress tracker: {e}")
+            self._log(f"Error loading progress tracker: {e}", level="error")
             return None
     
     def _save_progress_tracker(self, progress: Dict[str, Any]) -> bool:
@@ -118,7 +130,7 @@ class ImplementationManager:
                 json.dump(progress, f, indent=2)
             return True
         except Exception as e:
-            self.scratchpad.log("ImplementationManager", f"Error saving progress tracker: {e}")
+            self._log(f"Error saving progress tracker: {e}", level="error")
             return False
     
     def _initialize_progress_tracker(self, design_file: str) -> Dict[str, Any]:
@@ -159,7 +171,7 @@ class ImplementationManager:
             
             return progress
         except Exception as e:
-            self.scratchpad.log("ImplementationManager", f"Error initializing progress tracker: {e}")
+            self._log(f"Error initializing progress tracker: {e}", level="error")
             # Return basic structure even if extraction fails
             return progress
     
@@ -228,7 +240,7 @@ class ImplementationManager:
         task_id = task.get("id")
         description = task.get("description")
         
-        self.scratchpad.log("ImplementationManager", f"Implementing task {task_id}: {description}")
+        self._log(f"Implementing task {task_id}: {description}")
         
         # Update task status to in_progress
         task["status"] = "in_progress"
@@ -243,11 +255,11 @@ class ImplementationManager:
             if result.get("success", False):
                 task["status"] = "completed"
                 task["completed_at"] = datetime.datetime.now().isoformat()
-                self.scratchpad.log("ImplementationManager", f"Task {task_id} completed successfully")
+                self._log(f"Task {task_id} completed successfully")
             else:
                 task["status"] = "failed"
                 task["error"] = result.get("error", "Unknown error")
-                self.scratchpad.log("ImplementationManager", f"Task {task_id} failed: {task['error']}")
+                self._log(f"Task {task_id} failed: {task['error']}", level="error")
             
             # Save updated progress
             self._save_progress_tracker(progress)
@@ -256,7 +268,7 @@ class ImplementationManager:
             if task["status"] == "completed":
                 next_task = self._find_next_task(progress)
                 if next_task:
-                    self.scratchpad.log("ImplementationManager", "Moving to next task")
+                    self._log("Moving to next task")
                     return self._implement_next_task(progress, next_task)
             
             # Return final result
@@ -273,7 +285,7 @@ class ImplementationManager:
             task["error"] = str(e)
             self._save_progress_tracker(progress)
             
-            self.scratchpad.log("ImplementationManager", f"Error implementing task {task_id}: {e}")
+            self._log(f"Error implementing task {task_id}: {e}", level="error")
             
             return {
                 "success": False,
@@ -300,7 +312,7 @@ class ImplementationManager:
         if context:
             request += f"\n\nContext:\n{context}"
         
-        self.scratchpad.log("ImplementationManager", f"Executing request: {request[:100]}...")
+        self._log(f"Executing request: {request[:100]}...")
         
         # Use the router agent to execute the request
         if self.router_agent:
@@ -392,7 +404,7 @@ class ImplementationManager:
         Returns:
             Dict with test results
         """
-        self.scratchpad.log("ImplementationManager", "Running tests after implementation")
+        self._log("Running tests after implementation")
         
         # Check if a test runner is available
         if hasattr(self.coordinator, 'test_runner_tool') and self.coordinator.test_runner_tool:
@@ -400,8 +412,8 @@ class ImplementationManager:
                 test_result = self.coordinator.test_runner_tool.run_tests()
                 return test_result
             except Exception as e:
-                self.scratchpad.log("ImplementationManager", f"Error running tests: {e}")
+                self._log(f"Error running tests: {e}", level="error")
                 return {"success": False, "error": str(e)}
         else:
-            self.scratchpad.log("ImplementationManager", "No test runner available, skipping tests")
+            self._log("No test runner available, skipping tests")
             return {"success": True, "message": "Skipped - no test runner available"}
