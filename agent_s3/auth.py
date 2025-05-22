@@ -70,9 +70,12 @@ TOKEN_ENCRYPTION_KEY_ENV = "AGENT_S3_ENCRYPTION_KEY"
 
 def save_token(token_data: Dict[str, Any]) -> None:
     """Save the GitHub token data to a file.
-    
+
     Args:
         token_data: Dictionary containing the token and related information
+
+    Raises:
+        RuntimeError: If :data:`AGENT_S3_ENCRYPTION_KEY` is not set.
     """
     # Create directory with secure permissions
     token_dir = os.path.dirname(TOKEN_FILE)
@@ -80,19 +83,19 @@ def save_token(token_data: Dict[str, Any]) -> None:
 
     try:
         key = os.environ.get(TOKEN_ENCRYPTION_KEY_ENV)
+        if not key:
+            raise RuntimeError(
+                f"{TOKEN_ENCRYPTION_KEY_ENV} must be set to store GitHub tokens"
+            )
+
         token_json = json.dumps(token_data)
 
-        if key:
-            # Ensure the key is bytes for Fernet
-            fernet = Fernet(key.encode() if isinstance(key, str) else key)
-            encrypted = fernet.encrypt(token_json.encode("utf-8"))
+        # Ensure the key is bytes for Fernet
+        fernet = Fernet(key.encode() if isinstance(key, str) else key)
+        encrypted = fernet.encrypt(token_json.encode("utf-8"))
 
-            with open(TOKEN_FILE, "wb") as f:
-                f.write(encrypted)
-        else:
-            print("Warning: Encryption key not set; saving token in plaintext")
-            with open(TOKEN_FILE, "w", encoding="utf-8") as f:
-                json.dump(token_data, f)
+        with open(TOKEN_FILE, "wb") as f:
+            f.write(encrypted)
 
         # Set file permissions (POSIX only)
         if os.name == 'posix':
