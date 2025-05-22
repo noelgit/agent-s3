@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple
 # Local imports
 from agent_s3.config import Config
 from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager, LogLevel
+from agent_s3.implementation_manager import ImplementationManager
 from agent_s3.error_handler import ErrorHandler
 
 from agent_s3.feature_group_processor import FeatureGroupProcessor
@@ -730,16 +731,17 @@ class Coordinator:
 
             # Continue conversation until completion
             while True:
-                if self.design_manager.detect_design_completion():
-                    break
                 try:
                     user_input = input()
                 except (KeyboardInterrupt, EOFError):
                     return {"success": False, "cancelled": True}
+
                 try:
-                    response, _ = self.design_manager.continue_conversation(user_input)
+                    response, is_complete = self.design_manager.continue_conversation(user_input)
                     if response:
                         print(response)
+                    if is_complete or self.design_manager.detect_design_completion():
+                        break
                 except Exception as e:
                     self.scratchpad.log(
                         "Coordinator",
@@ -1018,3 +1020,65 @@ class Coordinator:
     def _finalize_task(self, changes: Dict[str, str]) -> None:
         """Finalize the task after successful validation."""
         self.scratchpad.log("Coordinator", "Task completed successfully")
+
+    # ------------------------------------------------------------------
+    # Design to Implementation Helpers
+    # ------------------------------------------------------------------
+
+    def start_pre_planning_from_design(self, design_file: str = "design.txt") -> Dict[str, Any]:
+        """Start pre-planning workflow based on a design file.
+
+        Args:
+            design_file: Path to the design file containing feature tasks.
+
+        Returns:
+            Dictionary with success flag and number of tasks started.
+        """
+        if not os.path.exists(design_file):
+            self.scratchpad.log("Coordinator", f"Design file not found: {design_file}", level=LogLevel.ERROR)
+            return {"success": False, "error": "Design file not found"}
+
+        try:
+            with open(design_file, "r") as f:
+                design_content = f.read()
+        except Exception as e:  # pragma: no cover - basic safety
+            self.scratchpad.log("Coordinator", f"Failed to read design file: {e}", level=LogLevel.ERROR)
+            return {"success": False, "error": "Failed to read design file"}
+
+        tasks = self._extract_tasks_from_design(design_content)
+        if not tasks:
+            self.scratchpad.log("Coordinator", "No tasks found in design file", level=LogLevel.ERROR)
+            return {"success": False, "error": "No tasks in design file"}
+
+        for task in tasks:
+            self.run_task(task=task, pre_planning_input=None)
+
+        return {"success": True, "tasks_started": len(tasks)}
+
+    def _extract_tasks_from_design(self, design_content: str) -> List[str]:
+        """Extract task descriptions from the design content."""
+        tasks: List[str] = []
+        for line in design_content.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            match = re.match(r"(\d+(?:\.\d+)*)\.\s+(.*)", line)
+            if match:
+                tasks.append(match.group(2))
+        return tasks
+
+    def execute_implementation(self, design_file: str = "design.txt") -> Dict[str, Any]:
+        """Delegate to ImplementationManager to start implementation."""
+        if not hasattr(self, "implementation_manager"):
+            self.implementation_manager = ImplementationManager(self)
+        if not os.path.exists(design_file):
+            return {"success": False, "error": "Design file not found"}
+        return self.implementation_manager.start_implementation(design_file)
+
+    def execute_continue(self, continue_type: str) -> Dict[str, Any]:
+        """Delegate continuation based on type."""
+        if continue_type != "implementation":
+            return {"success": False, "error": "Unsupported continuation type"}
+        if not hasattr(self, "implementation_manager"):
+            self.implementation_manager = ImplementationManager(self)
+        return self.implementation_manager.continue_implementation()
