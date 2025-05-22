@@ -94,8 +94,7 @@ def merge_file_contents(original_content, duplicate_content):
         return original_content
     
     # Log the differences found
-    print(f"Differences found:\n" + '\n'.join(diff[:20]) + 
-                ("..." if len(diff) > 20 else ""))
+    print("Differences found:\n" + "\n".join(diff[:20]) + ("..." if len(diff) > 20 else ""))
     
     # Since we're assuming the duplicate (with '2' suffix) is newer,
     # we'll use its content
@@ -144,7 +143,7 @@ def consolidate_duplicate_files():
         
         # If only the original exists, nothing to do
         if original_content is not None and duplicate_content is None:
-            print(f"Only original exists, nothing to consolidate.")
+            print("Only original exists, nothing to consolidate.")
             continue
         
         # If both exist, check if they're identical

@@ -11,7 +11,8 @@ This module provides functionality for:
 
 import os
 import logging
-from typing import Dict, Any, Tuple
+import re
+from typing import Dict, Any, Tuple, List
 
 from agent_s3.tools.file_tool import FileTool
 from agent_s3.router_agent import RouterAgent
@@ -158,17 +159,52 @@ class DesignManager:
         
         return False
 
+    def _extract_features_from_conversation(self) -> List[str]:
+        """Parse conversation history to extract numbered feature descriptions."""
+        features: List[str] = []
+        patterns = [
+            re.compile(r"(?:Feature|Task|Component|Module|Step)?\s*(\d+(?:\.\d+)*)[:.)\-\s]+(.+)", re.IGNORECASE),
+            re.compile(r"(\d+(?:\.\d+)*)\.\s+(.+)")
+        ]
+
+        for msg in self.conversation_history:
+            if msg.get("role") != "assistant":
+                continue
+
+            for line in msg.get("content", "").splitlines():
+                line = line.strip()
+                for pattern in patterns:
+                    match = pattern.match(line)
+                    if match:
+                        description = match.group(2).strip()
+                        if description and description not in features:
+                            features.append(description)
+                        break
+
+        return features
+
     def write_design_to_file(self) -> Tuple[bool, str]:
         """Extract design features from conversation and write to design.txt.
         
         Returns:
             Tuple of (success_flag, message)
         """
-        # Write conversation history to design file in a simple format
+        # Write features followed by conversation history so implementation can
+        # extract numbered tasks.
         content = f"# System Design: {self.design_objective}\n\n"
+
+        features = self._extract_features_from_conversation()
+        if features:
+            content += "## Features\n\n"
+            for idx, feature in enumerate(features, 1):
+                content += f"{idx}. {feature}\n"
+            content += "\n"
+
         content += "## Conversation\n\n"
         for msg in self.conversation_history:
-            content += f"{msg['role']}: {msg['content']}\n"
+            role = msg.get("role", "")
+            message = msg.get("content", "").replace("\n", " ")
+            content += f"{role}: {message}\n"
 
         design_path = os.path.join(os.getcwd(), "design.txt")
         success, message = self.file_tool.write_file(design_path, content)
