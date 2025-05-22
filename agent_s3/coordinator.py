@@ -1170,7 +1170,7 @@ class Coordinator:
             return {"success": False, "error": "No tasks in design file"}
 
         for task in tasks:
-            self.run_task(task=task, pre_planning_input=None)
+            self.run_task(task=task, from_design=True)
 
         return {"success": True, "tasks_started": len(tasks)}
 
