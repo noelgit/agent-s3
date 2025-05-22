@@ -8,7 +8,7 @@ prevent duplication of functionality and promotes consistent implementation patt
 
 import json
 import logging
-from typing import Dict, Any, List, Set, Tuple, Optional
+from typing import Dict, Any, List, Set, Tuple
 from collections import defaultdict
 
 logger = logging.getLogger(__name__)
