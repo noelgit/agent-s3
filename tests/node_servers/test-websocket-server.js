@@ -19,7 +19,7 @@ const createConnectionFile = () => {
     host: 'localhost',
     port: PORT,
     auth_token: AUTH_TOKEN,
-    protocol: 'ws'
+    protocol: 'wss'
   };
   
   const filePath = path.join(process.cwd(), '.agent_s3_ws_connection.json');

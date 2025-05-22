@@ -51,8 +51,8 @@
         "agent-s3.websocketProtocol": {
           "type": "string",
           "enum": ["ws", "wss"],
-          "default": "ws",
-          "description": "Protocol to use for WebSocket connections when not specified in the connection file."
+          "default": "wss",
+          "description": "Protocol to use for WebSocket connections when not specified in the connection file. Defaults to secure 'wss'. Set to 'ws' to disable TLS."
         }
       }
     }

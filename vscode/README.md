@@ -38,8 +38,9 @@ AGENT_S3_ENCRYPTION_KEY="$(python -c 'from cryptography.fernet import Fernet; pr
 
 ### Configuration
 
-The extension provides a `agent-s3.websocketProtocol` setting to override the
-protocol specified in the connection file. Set it to `wss` to force TLS.
+The extension uses TLS (`wss`) for WebSocket connections by default. You may
+override this by setting `agent-s3.websocketProtocol` to `ws` if TLS must be
+disabled (not recommended).
 
 ## Usage
 
