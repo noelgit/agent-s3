@@ -1018,4 +1018,3 @@ class Coordinator:
     def _finalize_task(self, changes: Dict[str, str]) -> None:
         """Finalize the task after successful validation."""
         self.scratchpad.log("Coordinator", "Task completed successfully")
-
