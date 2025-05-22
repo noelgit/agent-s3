@@ -55,7 +55,6 @@ from agent_s3.tools.test_runner_tool import TestRunnerTool
 from agent_s3.workflows import PlanningWorkflow, ImplementationWorkflow
 from agent_s3.debugging_manager import DebuggingManager
 from agent_s3.code_generator import CodeGenerator
-from agent_s3.implementation_manager import ImplementationManager
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -1148,59 +1147,3 @@ class Coordinator:
     # Design to Implementation Helpers
     # ------------------------------------------------------------------
 
-    def start_pre_planning_from_design(self, design_file: str = "design.txt") -> Dict[str, Any]:
-        """Start pre-planning workflow based on a design file.
-
-        Args:
-            design_file: Path to the design file containing feature tasks.
-
-        Returns:
-            Dictionary with success flag and number of tasks started.
-        """
-        file_tool = self.coordinator_config.get_tool('file_tool')
-        success, design_content = file_tool.read_file(design_file)
-        if not success:
-            self.scratchpad.log("Coordinator", f"Failed to read design file: {design_content}", level=LogLevel.ERROR)
-            return {"success": False, "error": design_content}
-
-        tasks = self._extract_tasks_from_design(design_content)
-        if not tasks:
-            self.scratchpad.log("Coordinator", "No tasks found in design file", level=LogLevel.ERROR)
-            return {"success": False, "error": "No tasks in design file"}
-
-        for task in tasks:
-            self.run_task(task=task, from_design=True)
-
-        return {"success": True, "tasks_started": len(tasks)}
-
-    def _extract_tasks_from_design(self, design_content: str) -> List[str]:
-        """Extract task descriptions from the design content."""
-        tasks: List[str] = []
-        for line in design_content.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            match = re.match(r"(\d+(?:\.\d+)*)\.\s+(.*)", line)
-            if match:
-                tasks.append(match.group(2))
-        return tasks
-
-    def execute_implementation(self, design_file: str = "design.txt") -> Dict[str, Any]:
-        """Delegate to ImplementationManager to start implementation."""
-        if not hasattr(self, "implementation_manager"):
-            self.implementation_manager = ImplementationManager(self)
-
-        file_tool = self.coordinator_config.get_tool('file_tool')
-        success, _ = file_tool.read_file(design_file)
-        if not success:
-            return {"success": False, "error": f"{design_file} not found or inaccessible"}
-
-        return self.implementation_manager.start_implementation(design_file)
-
-    def execute_continue(self, continue_type: str) -> Dict[str, Any]:
-        """Delegate continuation based on type."""
-        if continue_type != "implementation":
-            return {"success": False, "error": "Unsupported continuation type"}
-        if not hasattr(self, "implementation_manager"):
-            self.implementation_manager = ImplementationManager(self)
-        return self.implementation_manager.continue_implementation()
