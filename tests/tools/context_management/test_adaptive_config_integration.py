@@ -8,15 +8,9 @@ import tempfile
 import shutil
 import json
 from unittest import mock
-import time
-import logging
 
-from agent_s3.tools.context_management.adaptive_config.project_profiler import ProjectProfiler
-from agent_s3.tools.context_management.adaptive_config.adaptive_config_manager import AdaptiveConfigManager
-from agent_s3.tools.context_management.adaptive_config.config_explainer import ConfigExplainer
-from agent_s3.tools.context_management.context_manager import ContextManager
 from agent_s3.tools.context_management.coordinator_integration import (
-    CoordinatorContextIntegration, setup_context_management, 
+    setup_context_management, 
     get_configuration_report, optimize_configuration, reset_configuration
 )
 

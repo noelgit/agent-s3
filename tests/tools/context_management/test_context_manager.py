@@ -1,8 +1,7 @@
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 import time
 from agent_s3.tools.context_management.context_manager import ContextManager
-from agent_s3.tools.context_management.interfaces import DependencyNode, DependencyEdge
 
 # Integration tests for ContextManager graph logic
 
@@ -70,7 +69,7 @@ def test_check_tools_initialized_without_required_tools():
     """Test that _check_tools_initialized returns False when no tools initialized."""
     cm = ContextManager()
     # Should return False but not raise exception when no specific tools required
-    assert cm._check_tools_initialized() == False
+    assert not cm._check_tools_initialized()
 
 def test_check_tools_initialized_with_required_tools():
     """Test that _check_tools_initialized raises exception when required tools missing."""
@@ -88,8 +87,8 @@ def test_check_tools_initialized_with_initialized_tools():
         tech_stack_detector=DummyTechStackDetector(),
         file_tool=DummyFileTool()
     )
-    assert cm._check_tools_initialized() == True
-    assert cm._check_tools_initialized(['tech_stack_detector', 'file_tool']) == True
+    assert cm._check_tools_initialized()
+    assert cm._check_tools_initialized(['tech_stack_detector', 'file_tool'])
 
 def test_optimize_context_immediately_returns_optimized_copy():
     """Test that optimize_context_immediately returns an optimized copy of provided context."""
@@ -134,19 +133,19 @@ def test_background_task_scheduling():
     task = cm._BackgroundTask("test_task", lambda: True, interval=10.0, priority=2)
     
     # Task should not run right after creation (last_run is 0)
-    assert task.should_run(5.0) == True
+    assert task.should_run(5.0)
     
     # After running, task should update last_run timestamp
     task.run()
     current_time = task.last_run
     
     # Task should not run again immediately
-    assert task.should_run(current_time) == False
-    assert task.should_run(current_time + 5.0) == False
+    assert not task.should_run(current_time)
+    assert not task.should_run(current_time + 5.0)
     
     # Task should run after interval has passed
-    assert task.should_run(current_time + 10.0) == True
-    assert task.should_run(current_time + 15.0) == True
+    assert task.should_run(current_time + 10.0)
+    assert task.should_run(current_time + 15.0)
 
 def test_dependency_graph_function_relocation(monkeypatch):
     """Test that _update_dependency_graph correctly handles function relocation between files."""

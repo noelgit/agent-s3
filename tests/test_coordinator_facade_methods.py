@@ -2,11 +2,8 @@
 Tests for the Coordinator's facade methods that interface with CommandProcessor.
 """
 
-import os
 import pytest
 from unittest.mock import MagicMock, patch
-from datetime import datetime
-from typing import Dict, Any, Tuple
 
 from agent_s3.command_processor import CommandProcessor
 from agent_s3.coordinator import Coordinator

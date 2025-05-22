@@ -1,4 +1,3 @@
-import pytest
 from agent_s3.tools.parsing.framework_extractors.laravel_extractor import LaravelExtractor
 
 def test_laravel_extractor_basic():

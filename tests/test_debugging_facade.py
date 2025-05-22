@@ -2,19 +2,15 @@
 Unit tests for the DebuggingManager facade methods.
 """
 
-import os
-import json
-from unittest.mock import MagicMock, patch, call
-from datetime import datetime
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from agent_s3.debugging_manager import (
-    ErrorCategory, DebuggingPhase, RestartStrategy, 
-    ErrorContext, DebugAttempt, DebuggingManager
+    ErrorCategory, DebuggingPhase, ErrorContext, DebugAttempt, DebuggingManager
 )
 from agent_s3.enhanced_scratchpad_manager import (
-    EnhancedScratchpadManager, Section, LogLevel
+    EnhancedScratchpadManager, Section
 )
 
 

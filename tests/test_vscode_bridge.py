@@ -2,12 +2,10 @@
 
 import unittest
 import threading
-import queue
-import json
 import time
 from unittest.mock import MagicMock, patch
 
-from agent_s3.communication.message_protocol import Message, MessageType, MessageBus, OutputCategory
+from agent_s3.communication.message_protocol import Message, MessageType, MessageBus
 from agent_s3.communication.vscode_bridge import VSCodeBridge, VSCodeBridgeConfig
 from agent_s3.communication.enhanced_websocket_server import EnhancedWebSocketServer
 
@@ -179,8 +177,8 @@ class TestVSCodeBridge(unittest.TestCase):
         self.bridge._process_message(test_message)
         
         # Verify message was published
-        # We need to extract the handler for the message type and check if it was called
-        handler = next(iter(self.message_bus.handlers[MessageType.TERMINAL_OUTPUT.value]))
+        # Extract the handler for the message type and check if it was called
+        next(iter(self.message_bus.handlers[MessageType.TERMINAL_OUTPUT.value]))
         
         # Since the handler is a method of the bridge, we need to check the metrics
         self.assertEqual(self.bridge.metrics["messages_sent"], 1)

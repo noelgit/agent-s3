@@ -1,4 +1,3 @@
-import pytest
 from agent_s3.tools.parsing.javascript_parser import JavaScriptTreeSitterParser
 
 def test_analyze_js_es6_class():

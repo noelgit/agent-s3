@@ -1,7 +1,6 @@
-import os
 from cryptography.fernet import Fernet
 
-from agent_s3.auth import save_token, load_token, TOKEN_ENCRYPTION_KEY_ENV, TOKEN_FILE
+from agent_s3.auth import save_token, load_token, TOKEN_ENCRYPTION_KEY_ENV
 
 
 def test_load_token_encrypted(tmp_path, monkeypatch):

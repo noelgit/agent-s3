@@ -1,9 +1,4 @@
 import unittest
-from unittest.mock import MagicMock, patch
-import json
-import os
-import sys
-from pathlib import Path
 
 from agent_s3.tools.static_analyzer import StaticAnalyzer
 from agent_s3.tools.phase_validator import validate_architecture_implementation

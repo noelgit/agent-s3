@@ -7,7 +7,6 @@ Tests that verify the coordinator correctly prioritizes and uses enforced JSON p
 import pytest
 from unittest.mock import MagicMock, patch
 
-from agent_s3.coordinator import Coordinator
 from agent_s3.pre_planner_json_enforced import integrate_with_coordinator
 
 

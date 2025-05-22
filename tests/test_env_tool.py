@@ -1,7 +1,6 @@
 """
 Unit tests for EnvTool.
 """
-import pytest
 from unittest.mock import MagicMock
 from agent_s3.tools.env_tool import EnvTool
 

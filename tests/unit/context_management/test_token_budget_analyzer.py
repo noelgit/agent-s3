@@ -3,7 +3,6 @@ import types
 import importlib.util
 from pathlib import Path
 
-import pytest
 
 
 def load_token_budget(monkeypatch):

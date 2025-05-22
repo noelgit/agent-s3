@@ -6,7 +6,6 @@ import os
 import unittest
 import tempfile
 import shutil
-import json
 from unittest import mock
 
 from agent_s3.tools.context_management.adaptive_config.project_profiler import ProjectProfiler
@@ -272,7 +271,6 @@ class TestMetricsCollector(unittest.TestCase):
         }
         
         # Log context relevance metrics for this config
-        config_hash = hash(json.dumps(config, sort_keys=True))
         self.metrics_collector.log_context_relevance(
             task_type="code_completion",
             relevance_score=0.65,

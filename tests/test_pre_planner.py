@@ -4,13 +4,10 @@ This file tests the PrePlanner class that integrates with pre_planner_json_enfor
 which is the canonical implementation for pre-planning with enhanced JSON schema 
 enforcement, validation, and repair.
 """
-import json
 import pytest
 from unittest.mock import MagicMock, patch
 
 from agent_s3.pre_planner_json_enforced import PrePlanner
-from agent_s3.router_agent import RouterAgent
-from agent_s3.pre_planning_errors import ValidationError, SchemaError
 
 
 @pytest.fixture

@@ -1,8 +1,7 @@
 """Tests for the FileHistoryAnalyzer component."""
 
-import os
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 from agent_s3.file_history_analyzer import FileHistoryAnalyzer

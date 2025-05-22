@@ -3,10 +3,7 @@ Unit tests for the EnhancedScratchpadManager class.
 """
 
 import os
-import re
-import json
 import tempfile
-import unittest
 from unittest.mock import MagicMock, patch
 from datetime import datetime
 from pathlib import Path
@@ -435,7 +432,7 @@ class TestEnhancedScratchpadManager:
             
             # Check that rotation happened
             assert scratchpad_manager.current_part == 2
-            assert scratchpad_manager.current_log_file == Path(scratchpad_manager.log_dir_path) / f"scratchpad_test_session_part2.log"
+            assert scratchpad_manager.current_log_file == Path(scratchpad_manager.log_dir_path) / "scratchpad_test_session_part2.log"
     
     def test_extract_section_content(self, scratchpad_manager):
         """Test extracting content from sections."""

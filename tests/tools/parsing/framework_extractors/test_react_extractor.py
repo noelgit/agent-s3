@@ -1,4 +1,3 @@
-import pytest
 from agent_s3.tools.parsing.framework_extractors.react_extractor import ReactExtractor
 
 def test_react_extractor_basic():

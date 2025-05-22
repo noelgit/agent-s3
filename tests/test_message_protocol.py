@@ -1,15 +1,10 @@
 """Tests for message protocol and message bus architecture."""
 
 import unittest
-import json
-import time
-from datetime import datetime
-import threading
-from queue import Queue
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from agent_s3.communication.message_protocol import (
-    Message, MessageType, MessageBus, MessageQueue, OutputCategory
+    Message, MessageType, MessageBus, MessageQueue
 )
 
 
@@ -117,7 +112,8 @@ class TestMessageBus(unittest.TestCase):
     
     def test_register_handler(self):
         """Test registering message handlers."""
-        handler = lambda msg: self.received_messages.append(msg)
+        def handler(msg):
+            self.received_messages.append(msg)
         
         # Register handler for terminal output
         self.message_bus.register_handler(MessageType.TERMINAL_OUTPUT, handler)
@@ -136,8 +132,11 @@ class TestMessageBus(unittest.TestCase):
     
     def test_unregister_handler(self):
         """Test unregistering message handlers."""
-        handler1 = lambda msg: self.received_messages.append(1)
-        handler2 = lambda msg: self.received_messages.append(2)
+        def handler1(msg):
+            self.received_messages.append(1)
+
+        def handler2(msg):
+            self.received_messages.append(2)
         
         # Register handlers
         self.message_bus.register_handler(MessageType.TERMINAL_OUTPUT, handler1)

@@ -1,9 +1,6 @@
 import pytest
-import time
-from unittest.mock import patch
 from functools import wraps
 
-from agent_s3.tools.semantic_cache import SemanticCache
 from agent_s3.llm_utils import call_llm_with_retry
 
 # Simple in-memory cache for testing

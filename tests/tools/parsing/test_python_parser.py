@@ -1,4 +1,3 @@
-import pytest
 from agent_s3.tools.parsing.python_parser import PythonNativeParser
 
 def test_analyze_python_function():

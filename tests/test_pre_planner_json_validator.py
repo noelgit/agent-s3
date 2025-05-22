@@ -4,17 +4,13 @@ Unit tests for pre_planner_json_validator module.
 Tests the enhanced validation, cross-reference validation, and repair functionality.
 """
 
-import json
 import pytest
-from unittest.mock import MagicMock, patch
-from typing import Dict, Any, List
 import copy
 
 from agent_s3.tools.plan_validator import validate_pre_plan
 
 from agent_s3.pre_planner_json_validator import (
-    PrePlannerJsonValidator,
-    JSONValidationError
+    PrePlannerJsonValidator
 )
 
 

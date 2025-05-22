@@ -3,11 +3,9 @@ Tests for the Context Checkpoint Manager.
 """
 
 import os
-import json
 import tempfile
 import shutil
 import pytest
-from pathlib import Path
 from agent_s3.tools.context_management.checkpoint_manager import ContextCheckpoint, CheckpointManager
 
 

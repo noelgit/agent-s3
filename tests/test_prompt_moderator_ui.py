@@ -2,11 +2,9 @@
 
 import unittest
 from unittest.mock import MagicMock, patch
-from typing import Dict, Any, List
 
 from agent_s3.prompt_moderator import PromptModerator
 from agent_s3.communication.vscode_bridge import VSCodeBridge
-from agent_s3.communication.message_protocol import MessageType
 
 
 class TestPromptModeratorUI(unittest.TestCase):

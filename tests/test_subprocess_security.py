@@ -1,7 +1,6 @@
 import io
 import types
 import subprocess
-import pytest
 
 from agent_s3.terminal_executor import TerminalExecutor
 from agent_s3.tools.git_tool import GitTool

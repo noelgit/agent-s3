@@ -6,13 +6,10 @@ the effort to clean up duplicate implementations and tests.
 
 import os
 import pytest
-import logging
 import tempfile
 import shutil
-from unittest.mock import MagicMock, patch
-from pathlib import Path
+from unittest.mock import MagicMock
 
-from agent_s3.coordinator import Coordinator
 from agent_s3.config import Config
 
 # Import Mock versions of these classes to avoid MRO errors

@@ -2,17 +2,13 @@
 Unit tests for the debugging integration in the Coordinator class.
 """
 
-import os
-import re
-import json
-from unittest.mock import MagicMock, patch, call
-from datetime import datetime
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from agent_s3.coordinator import Coordinator
 from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager, Section, LogLevel
-from agent_s3.debugging_manager import DebuggingManager, ErrorCategory, DebuggingPhase
+from agent_s3.debugging_manager import DebuggingManager
 
 
 @pytest.fixture

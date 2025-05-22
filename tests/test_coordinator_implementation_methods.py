@@ -1,4 +1,3 @@
-import os
 from unittest.mock import MagicMock, patch
 
 from agent_s3.coordinator import Coordinator

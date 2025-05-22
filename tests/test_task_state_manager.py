@@ -1,11 +1,9 @@
 """Unit tests for the TaskStateManager functionality."""
 
 import os
-import json
 import shutil
 import tempfile
 from unittest import TestCase, mock
-from datetime import datetime
 
 from agent_s3.task_state_manager import (
     TaskStateManager, 

@@ -1,4 +1,3 @@
-import pytest
 from agent_s3.llm_prompts.summarization_prompts import SummarizationPromptGenerator
 
 def test_prompt_generator_python_function():

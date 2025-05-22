@@ -1,8 +1,6 @@
 """
 Integration test for Coordinator.run_task simulating a simple feature request.
 """
-import pytest
-from unittest.mock import patch
 from agent_s3.coordinator import Coordinator
 
 def test_run_task_simple(monkeypatch):

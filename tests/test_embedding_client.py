@@ -1,13 +1,11 @@
 import pytest
-import os
 import time
 import numpy as np
 import tempfile
 import shutil
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
-from agent_s3.tools.embedding_client import EmbeddingClient, CACHE_DIR_NAME, FAISS_INDEX_FILE, METADATA_FILE
+from agent_s3.tools.embedding_client import EmbeddingClient, CACHE_DIR_NAME
 
 
 @pytest.fixture

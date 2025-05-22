@@ -15,17 +15,14 @@ import time
 import shutil
 import tempfile
 import unittest
-from unittest.mock import MagicMock, patch
 
 # Adjust path to import from agent_s3
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from agent_s3.tools.file_change_tracker import FileChangeTracker
 from agent_s3.tools.dependency_impact_analyzer import DependencyImpactAnalyzer
-from agent_s3.tools.repository_event_system import RepositoryEventSystem
-from agent_s3.tools.index_partition_manager import IndexPartitionManager
 from agent_s3.tools.incremental_indexer import IncrementalIndexer
-from agent_s3.tools.incremental_indexing_adapter import IncrementalIndexingAdapter, install_incremental_indexing
+from agent_s3.tools.incremental_indexing_adapter import install_incremental_indexing
 
 # Mock dependencies
 class MockEmbeddingClient:
@@ -41,7 +38,7 @@ class MockFileTool:
         try:
             with open(path, 'r', encoding='utf-8', errors='ignore') as f:
                 return f.read()
-        except:
+        except Exception:
             return ""
             
     def list_files(self, extensions=None):

@@ -1,11 +1,9 @@
 """Tests for the interactive components of the VS Code Bridge."""
 
 import unittest
-import threading
-import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-from agent_s3.communication.message_protocol import Message, MessageType, MessageBus
+from agent_s3.communication.message_protocol import MessageType, MessageBus
 from agent_s3.communication.vscode_bridge import VSCodeBridge
 from agent_s3.communication.enhanced_websocket_server import EnhancedWebSocketServer
 

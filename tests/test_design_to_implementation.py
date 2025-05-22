@@ -4,13 +4,11 @@ This module tests the flow from the design phase through to pre-planning and imp
 """
 
 import os
-import json
 import pytest
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 
 from agent_s3.design_manager import DesignManager
 from agent_s3.coordinator import Coordinator
-from agent_s3.config import Config
 
 
 @pytest.fixture

@@ -1,8 +1,4 @@
 import unittest
-import json
-import os
-import sys
-from pathlib import Path
 
 from agent_s3.tools.phase_validator import (
     validate_phase_transition,
@@ -219,40 +215,7 @@ class TestPhaseValidation(unittest.TestCase):
             }
         }
         
-        # Good test coverage
-        good_tests = {
-            "unit_tests": [
-                {
-                    "file": "tests/auth/login.test.js",
-                    "implementation_file": "src/auth/login.js",
-                    "test_name": "test_login_success",
-                    "description": "Test successful login",
-                    "code": "...",
-                    "setup_requirements": "Mock auth service"
-                }
-            ],
-            "integration_tests": [
-                {
-                    "file": "tests/api/client.test.js",
-                    "implementation_file": "src/api/client.js",
-                    "test_name": "test_api_client_fetch",
-                    "description": "Test API client fetch with error handling",
-                    "code": "...",
-                    "setup_requirements": "Mock server"
-                }
-            ],
-            "property_based_tests": [
-                {
-                    "file": "tests/auth/login.property.js",
-                    "implementation_file": "src/auth/login.js",
-                    "test_name": "test_login_property",
-                    "description": "Property tests for login",
-                    "code": "...",
-                    "setup_requirements": "Property test framework"
-                }
-            ],
-            "acceptance_tests": []
-        }
+
         
         # Missing critical file tests
         incomplete_tests = {

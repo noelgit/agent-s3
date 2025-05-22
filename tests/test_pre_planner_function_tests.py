@@ -1,8 +1,6 @@
 """Tests for function-level test requirements in pre_planner_json_enforced."""
-import os
 import pytest
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import agent_s3.pre_planner_json_enforced as pre_planner
 from agent_s3.router_agent import RouterAgent

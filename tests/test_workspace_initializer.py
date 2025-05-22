@@ -1,8 +1,6 @@
 """Tests for the WorkspaceInitializer component."""
 
-import os
 import pytest
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from agent_s3.workspace_initializer import WorkspaceInitializer

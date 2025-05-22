@@ -3,11 +3,9 @@
 import unittest
 import asyncio
 import json
-import websockets
 import tempfile
 import os
 import time
-import threading
 from unittest.mock import MagicMock, patch, AsyncMock, call
 
 from agent_s3.communication.message_protocol import Message, MessageType, MessageBus

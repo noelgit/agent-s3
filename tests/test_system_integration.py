@@ -5,16 +5,10 @@ These tests use realistic mock LLM responses to test various workflows
 including feature development, refactoring, debugging, and multi-step tasks.
 """
 
-import os
-import json
 import pytest
-import uuid
-from unittest.mock import MagicMock, patch, call
-from pathlib import Path
-from typing import Dict, Any, List
+from unittest.mock import MagicMock, patch
 
 from agent_s3.coordinator import Coordinator
-from agent_s3.config import Config
 
 
 # Mock LLM responses for different task scenarios
@@ -270,7 +264,7 @@ def mock_coordinator():
          patch('agent_s3.coordinator.TestPlanner') as mock_test_planner_cls, \
          patch('agent_s3.coordinator.CodeGenerator') as mock_code_generator_cls, \
          patch('agent_s3.coordinator.PromptModerator') as mock_prompt_moderator_cls, \
-         patch('agent_s3.coordinator.os.makedirs') as mock_makedirs, \
+         patch('agent_s3.coordinator.os.makedirs') as _mock_makedirs, \
          patch('builtins.open', new_callable=MagicMock), \
          patch('agent_s3.coordinator.BashTool') as mock_bash_tool_cls:
         

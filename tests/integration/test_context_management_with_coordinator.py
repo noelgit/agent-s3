@@ -11,7 +11,6 @@ import threading
 import pytest
 import tempfile
 import shutil
-import logging
 from unittest.mock import MagicMock, patch
 
 from agent_s3.config import Config
@@ -192,8 +191,8 @@ def setup_with_llm_integration_patch(function):
     from functools import wraps
     import inspect
     
-    # Check if the function is a class method (has 'self' as first arg)
-    has_self = 'self' in inspect.signature(function).parameters
+    # Determine if the function is a class method (unused check)
+    inspect.signature(function).parameters
     
     @wraps(function)
     def wrapper(*args, **kwargs):
@@ -370,7 +369,7 @@ class TestDirectIntegration:
         # Call route with a test prompt
         test_prompt = "Test prompt"
         try:
-            result = coordinator.router_agent.route(test_prompt, model="test-model")
+            coordinator.router_agent.route(test_prompt, model="test-model")
             # If we get here, the integration didn't break the route method
             assert True
         except Exception as e:

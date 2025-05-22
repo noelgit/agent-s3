@@ -11,7 +11,7 @@ try:
     from agent_s3.planner import Planner
     from agent_s3.prompt_moderator import PromptModerator
     from agent_s3.config import Config # Needed for Planner init
-    from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager, LogLevel # Needed for Planner init
+    from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager  # Needed for Planner init
     from agent_s3.progress_tracker import ProgressTracker # Needed for Planner init
 except ImportError:
     # Add basic stubs if imports fail (e.g., in a restricted environment)
