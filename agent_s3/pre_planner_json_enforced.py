@@ -577,7 +577,6 @@ def pre_planning_workflow(
 
         attempts += 1
 
-    create_fallback_json(task_description)
     raise JSONValidationError("Failed to generate valid pre-planning data")
 
 def process_response(response: str, original_request: str) -> Tuple[Union[bool, str], Dict[str, Any]]:

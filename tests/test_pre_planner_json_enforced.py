@@ -374,10 +374,15 @@ class TestPrePlannerJsonEnforced:
     @patch('agent_s3.pre_planner_json_enforced.get_json_user_prompt')
     @patch('agent_s3.pre_planner_json_enforced.get_openrouter_json_params')
     @patch('agent_s3.pre_planner_json_enforced.create_fallback_json')
-    def test_call_pre_planner_with_enforced_json_fallback(self, mock_fallback, mock_params, 
-                                                          mock_user_prompt, mock_system_prompt, 
-                                                          mock_process):
-        """Test fallback mechanism for pre-planner with enforced JSON."""
+    def test_pre_planning_workflow_raises_error_after_retries(
+        self,
+        mock_fallback,
+        mock_params,
+        mock_user_prompt,
+        mock_system_prompt,
+        mock_process,
+    ):
+        """Test that a JSONValidationError is raised when all attempts fail."""
         # Setup mocks
         mock_system_prompt.return_value = "System prompt"
         mock_user_prompt.return_value = "User prompt"
@@ -386,8 +391,8 @@ class TestPrePlannerJsonEnforced:
         # Setup failure responses
         mock_process.return_value = (False, None)
         
-        # Setup fallback to raise JSONValidationError
-        mock_fallback.side_effect = JSONValidationError("JSON validation failed")
+        # Fallback should not be used
+        mock_fallback.return_value = {}
         
         # Setup mock router agent
         mock_agent = MagicMock()
@@ -399,7 +404,7 @@ class TestPrePlannerJsonEnforced:
         
         # Verify results
         assert mock_agent.call_llm_by_role.call_count == 2  # Both attempts fail
-        mock_fallback.assert_called_once_with("Test request")
+        mock_fallback.assert_not_called()
 
     def test_parse_structured_modifications_with_structured_format(self):
         """Test parsing of structured modifications with the STRUCTURED_MODIFICATIONS format."""
