@@ -2,7 +2,7 @@
 """Test for the PrePlanningValidator class."""
 
 import unittest
-from agent_s3.pre_planning_validator import PrePlanningValidator, ValidationError
+from agent_s3.pre_planning_validator import PrePlanningValidator
 
 class TestPrePlanningValidator(unittest.TestCase):
     """Tests for the PrePlanningValidator class."""

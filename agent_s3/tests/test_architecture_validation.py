@@ -2,9 +2,7 @@
 Test cases for the architecture review validation system.
 """
 
-import json
 import unittest
-from unittest.mock import patch, MagicMock
 
 from agent_s3.tools.phase_validator import validate_security_concerns
 from agent_s3.test_spec_validator import (

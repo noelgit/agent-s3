@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Integration test for the ComplexityAnalyzer module."""
 
-import json
 import sys
 from agent_s3.complexity_analyzer import ComplexityAnalyzer
 
