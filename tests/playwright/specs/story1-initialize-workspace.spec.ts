@@ -1,4 +1,4 @@
-import { test, expect } from '../../fixtures';
+import { test, expect } from '../fixtures';
 
 test.describe('Story 1: Initialize Agent-S3 in a New Workspace', () => {
   test('Initialize workspace via Command Palette', async ({ 

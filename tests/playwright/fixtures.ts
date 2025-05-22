@@ -16,7 +16,7 @@ export type VSCodeFixture = {
 };
 
 // Define the test with our custom fixture
-export const test = base.extend<VSCodeFixture>({
+export const test = base.extend({
   openVSCode: async ({ page }, use) => {
     // This is a simulation since actual VS Code extension testing requires 
     // the VS Code Extension Testing API which is beyond the scope of Playwright

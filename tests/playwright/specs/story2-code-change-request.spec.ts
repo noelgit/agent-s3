@@ -1,4 +1,4 @@
-import { test, expect } from '../../fixtures';
+import { test, expect } from '../fixtures';
 
 test.describe('Story 2: Making a Code Change Request', () => {
   test('Make change request via Command Palette', async ({ 

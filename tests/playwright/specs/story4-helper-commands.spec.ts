@@ -1,4 +1,4 @@
-import { test, expect } from '../../fixtures';
+import { test, expect } from '../fixtures';
 
 test.describe('Story 4: Using Helper Commands', () => {
   test('Show help via Command Palette', async ({ 
