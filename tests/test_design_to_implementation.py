@@ -149,7 +149,9 @@ def test_start_pre_planning_from_design(tmp_path, coordinator):
 
     coordinator.run_task = MagicMock()
 
-    coordinator.start_pre_planning_from_design(str(design_file))
+    result = coordinator.start_pre_planning_from_design(str(design_file))
+
+    assert result == {"success": True, "tasks_started": 3}
 
     expected_calls = [
         call(task="Setup environment", from_design=True),

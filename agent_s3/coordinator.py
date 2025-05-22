@@ -783,45 +783,6 @@ class Coordinator:
         """
         self.run_task(task=request_text)
 
-    def start_pre_planning_from_design(self, design_file: str = "design.txt") -> None:
-        """Trigger pre-planning for each numbered task found in a design file.
-
-        The design document is expected to contain tasks listed in a numbered
-        format (e.g. ``1. Setup project``). Each parsed task is forwarded to
-        :meth:`run_task` with ``from_design`` enabled so the usual planning
-        workflow proceeds without additional confirmation steps.
-
-        Args:
-            design_file: Path to the design file to parse.
-        """
-        if not os.path.exists(design_file):
-            self.scratchpad.log(
-                "Coordinator",
-                f"Design file not found: {design_file}",
-                level=LogLevel.ERROR,
-            )
-            return
-
-        try:
-            with open(design_file, "r", encoding="utf-8") as f:
-                content = f.read()
-        except Exception as exc:  # pragma: no cover - filesystem safety
-            self.scratchpad.log(
-                "Coordinator",
-                f"Failed reading design file: {exc}",
-                level=LogLevel.ERROR,
-            )
-            return
-
-        tasks: list[str] = []
-        for line in content.splitlines():
-            match = re.match(r"\s*\d+(?:\.\d+)*\.\s+(.*)", line)
-            if match:
-                tasks.append(match.group(1).strip())
-
-        for task in tasks:
-            self.run_task(task=task, from_design=True)
-
     def run_task(
         self,
         task: str,
@@ -1154,23 +1115,35 @@ class Coordinator:
             Dictionary with success flag and number of tasks started.
         """
         if not os.path.exists(design_file):
-            self.scratchpad.log("Coordinator", f"Design file not found: {design_file}", level=LogLevel.ERROR)
-            return {"success": False, "error": "Design file not found"}
+            self.scratchpad.log(
+                "Coordinator",
+                f"Design file not found: {design_file}",
+                level=LogLevel.ERROR,
+            )
+            return {"success": False, "tasks_started": 0, "error": "Design file not found"}
 
         try:
             with open(design_file, "r") as f:
                 design_content = f.read()
         except Exception as e:  # pragma: no cover - basic safety
-            self.scratchpad.log("Coordinator", f"Failed to read design file: {e}", level=LogLevel.ERROR)
-            return {"success": False, "error": "Failed to read design file"}
+            self.scratchpad.log(
+                "Coordinator",
+                f"Failed to read design file: {e}",
+                level=LogLevel.ERROR,
+            )
+            return {"success": False, "tasks_started": 0, "error": "Failed to read design file"}
 
         tasks = self._extract_tasks_from_design(design_content)
         if not tasks:
-            self.scratchpad.log("Coordinator", "No tasks found in design file", level=LogLevel.ERROR)
-            return {"success": False, "error": "No tasks in design file"}
+            self.scratchpad.log(
+                "Coordinator",
+                "No tasks found in design file",
+                level=LogLevel.ERROR,
+            )
+            return {"success": False, "tasks_started": 0, "error": "No tasks in design file"}
 
         for task in tasks:
-            self.run_task(task=task, pre_planning_input=None)
+            self.run_task(task=task, pre_planning_input=None, from_design=True)
 
         return {"success": True, "tasks_started": len(tasks)}
 
