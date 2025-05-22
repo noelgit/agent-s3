@@ -115,7 +115,6 @@ class TestFeatureBasedWorkflow:
     def test_run_task_with_feature_groups(self, mock_coordinator, sample_pre_planning_result):
         """Test that run_task processes feature groups using the consolidated workflow."""
         # Configure pre-planning mocks
-        from agent_s3.pre_planner_json_enforced import pre_planning_workflow
         with patch('agent_s3.pre_planner_json_enforced.pre_planning_workflow') as mock_pre_planning_workflow:
             mock_pre_planning_workflow.return_value = (True, sample_pre_planning_result)
             
@@ -275,7 +274,7 @@ class TestFeatureBasedWorkflow:
             # Verify complexity warning was logged
             mock_coordinator.scratchpad.log.assert_any_call(
                 "Coordinator", 
-                f"Task assessed as complex (Score: 8.5)",
+                "Task assessed as complex (Score: 8.5)",
                 level=any
             )
             
@@ -322,7 +321,7 @@ class TestFeatureBasedWorkflow:
             # Verify complexity warning was logged
             mock_coordinator.scratchpad.log.assert_any_call(
                 "Coordinator", 
-                f"Task assessed as complex (Score: 9.0)",
+                "Task assessed as complex (Score: 9.0)",
                 level=any
             )
             
@@ -371,7 +370,7 @@ class TestFeatureBasedWorkflow:
             # Verify complexity warning was logged
             mock_coordinator.scratchpad.log.assert_any_call(
                 "Coordinator", 
-                f"Task assessed as complex (Score: 9.5)",
+                "Task assessed as complex (Score: 9.5)",
                 level=any
             )
             
@@ -436,7 +435,7 @@ class TestFeatureBasedWorkflow:
             # Verify complexity warning was logged
             mock_coordinator.scratchpad.log.assert_any_call(
                 "Coordinator", 
-                f"Task assessed as complex (Score: 7.5)",
+                "Task assessed as complex (Score: 7.5)",
                 level=any
             )
             

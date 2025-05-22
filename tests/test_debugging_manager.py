@@ -2,11 +2,7 @@
 Unit tests for the DebuggingManager class.
 """
 
-import os
-import re
-import json
-from unittest.mock import MagicMock, patch, call
-from datetime import datetime
+from unittest.mock import MagicMock, patch
 
 import pytest
 

@@ -3,11 +3,9 @@
 Tests the validation functions for Pre-Planner outputs.
 """
 
-import os
-import json
 import tempfile
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from agent_s3.tools.plan_validator import (
     validate_pre_plan,

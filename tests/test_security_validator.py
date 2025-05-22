@@ -1,16 +1,11 @@
 import unittest
-from unittest.mock import MagicMock, patch
 import json
-import os
-import sys
-from pathlib import Path
 
 from agent_s3.tools.security_validator import (
     validate_cross_phase_security,
     validate_security_testing_coverage,
     _extract_security_concerns,
     _extract_tested_concerns,
-    _validate_security_across_phases,
     _analyze_security_test_coverage,
     _calculate_security_score,
     generate_security_report

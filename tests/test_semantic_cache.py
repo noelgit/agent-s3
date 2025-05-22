@@ -86,7 +86,7 @@ def test_cache_miss_and_hit(monkeypatch):
     assert stats['hits'] == 1
 
 
-def test_ttl_expiry():
+def test_ttl_expiry_default_cache():
     cache = SemanticCache.get_instance()
     prompt = {'prompt': 'bye', 'model': 'test'}
     cache.set(prompt, {'res': 'expire'})
@@ -95,13 +95,12 @@ def test_ttl_expiry():
     assert cache.get(prompt) is None
 
 
-def test_eviction_lru():
+def test_eviction_lru_default():
     cache = SemanticCache.get_instance()
     # Fill beyond max entries to trigger eviction (max 3)
     for i in range(5):
         cache.set({'prompt': f'p{i}', 'model': 'test'}, i)
     # After eviction, only <=3 entries remain
-    stats = cache.get_cache_stats()
     entries = cache.mem_cache
     assert len(entries) <= cache.max_cache_entries
 

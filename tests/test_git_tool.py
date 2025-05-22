@@ -18,7 +18,6 @@ def dummy_repo_info(monkeypatch, tmp_path):
     yield
 
 def test_create_github_issue_success(monkeypatch):
-    called = {}
     def fake_post(url, headers=None, json=None):
         assert 'repos/test_owner/test_repo/issues' in url
         return DummyResponse(201, {'html_url': 'https://github.com/test_owner/test_repo/issues/1'})

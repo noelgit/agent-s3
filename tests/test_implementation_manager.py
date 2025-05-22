@@ -49,7 +49,7 @@ class TestImplementationManager(unittest.TestCase):
             f.write(design_content)
         
         # Call the method
-        result = self.implementation_manager._initialize_progress_tracker(str(design_file))
+        self.implementation_manager._initialize_progress_tracker(str(design_file))
         
         # Check the result
         self.assertTrue(os.path.exists(self.implementation_manager.progress_file))

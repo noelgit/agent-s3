@@ -1,7 +1,3 @@
-import os
-import json
-import tempfile
-import numpy as np  # type: ignore
 import pytest
 import tiktoken
 from unittest.mock import MagicMock, patch

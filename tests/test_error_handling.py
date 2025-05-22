@@ -5,7 +5,7 @@ Tests for the centralized error handling system.
 import logging
 import pytest
 from contextlib import contextmanager
-from typing import Dict, Optional, Type
+from typing import Type
 
 from agent_s3.errors import (
     AgentError,
@@ -17,7 +17,6 @@ from agent_s3.errors import (
     categorize_exception,
     create_error_context,
     extract_syntax_error_info,
-    log_exception,
     categorize_error_message
 )
 from agent_s3.error_handler import ErrorHandler, retry
@@ -33,7 +32,7 @@ def assert_raises_with_context(exc_type: Type[Exception], check_context: bool = 
     except exc_type as e:
         if check_context and isinstance(e, AgentError):
             assert hasattr(e, "context"), f"Expected {exc_type.__name__} to have error context"
-            assert isinstance(e.context, ErrorContext), f"Expected context to be an ErrorContext"
+            assert isinstance(e.context, ErrorContext), "Expected context to be an ErrorContext"
         # Re-raise non-matching exceptions
         elif not isinstance(e, exc_type):
             raise

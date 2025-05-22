@@ -1,11 +1,8 @@
 import unittest
 from unittest.mock import MagicMock, patch
-import json
 import os
 import tempfile
 import shutil
-from pathlib import Path
-import uuid
 
 # Import modules to test
 from agent_s3.tools.context_management.checkpoint_manager import (

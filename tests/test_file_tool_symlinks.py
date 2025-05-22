@@ -1,4 +1,3 @@
-import os
 from agent_s3.tools.file_tool import FileTool
 
 

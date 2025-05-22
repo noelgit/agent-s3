@@ -5,13 +5,10 @@ This includes validation of pre-planning data, complexity warnings,
 and user confirmation flows.
 """
 
-import os
-import json
 import pytest
 from unittest.mock import MagicMock, patch
 
 from agent_s3.coordinator import Coordinator
-from agent_s3.enhanced_scratchpad_manager import LogLevel
 
 
 class TestCoordinatorPlanValidation:

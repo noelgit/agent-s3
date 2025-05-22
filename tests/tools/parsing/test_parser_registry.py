@@ -1,4 +1,3 @@
-import pytest
 from agent_s3.tools.parsing.parser_registry import ParserRegistry
 
 def test_parser_registry_dispatch():

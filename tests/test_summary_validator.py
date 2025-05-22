@@ -1,4 +1,3 @@
-import pytest
 from agent_s3.tools.summarization.summary_validator import SummaryValidator
 from agent_s3.tools.summarization.validation_config import SummaryValidationConfig
 

@@ -1,7 +1,6 @@
 import unittest
-from unittest.mock import MagicMock, patch, ANY
+from unittest.mock import MagicMock, patch
 import json
-import os
 import tempfile
 import shutil
 from pathlib import Path
@@ -308,7 +307,7 @@ class TestSemanticValidationWorkflow(unittest.TestCase):
                     
                     # Verify warning was printed
                     mock_print.assert_any_call(
-                        f"\n⚠️  Maximum modification attempts (3) exceeded."
+                        "\n⚠️  Maximum modification attempts (3) exceeded."
                     )
                     
                     # Verify the modification_attempts counter was updated

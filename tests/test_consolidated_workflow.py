@@ -1,13 +1,10 @@
 import unittest
 from unittest.mock import MagicMock, patch, ANY
 import json
-import os
 import tempfile
 import shutil
 from pathlib import Path
-import uuid
 
-from agent_s3.coordinator import Coordinator
 from agent_s3.feature_group_processor import FeatureGroupProcessor
 
 

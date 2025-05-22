@@ -4,9 +4,21 @@ Tests the test specification validation features.
 import unittest
 from unittest import mock
 import logging
-from typing import Dict, Any
 import numpy as np
 import json
+from agent_s3.test_spec_validator import (
+    extract_element_ids_from_system_design,
+    extract_architecture_issues,
+    extract_referenced_element_ids,
+    extract_addressed_issues,
+    validate_element_ids,
+    validate_architecture_issue_coverage,
+    validate_test_priority_consistency,
+    validate_and_repair_test_specifications,
+    validate_test_completeness,
+    repair_invalid_element_ids,
+    generate_missing_tests_with_llm,
+)
 
 
 class DummyEmbeddingClient:
@@ -37,20 +49,6 @@ class DummyRouterAgent:
                 }
             }
         )
-
-from agent_s3.test_spec_validator import (
-    extract_element_ids_from_system_design,
-    extract_architecture_issues,
-    extract_referenced_element_ids,
-    extract_addressed_issues,
-    validate_element_ids,
-    validate_architecture_issue_coverage,
-    validate_test_priority_consistency,
-    validate_and_repair_test_specifications,
-    validate_test_completeness,
-    repair_invalid_element_ids,
-    generate_missing_tests_with_llm,
-)
 
 class TestSpecValidatorTests(unittest.TestCase):
     

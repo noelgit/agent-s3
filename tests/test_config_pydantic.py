@@ -1,6 +1,4 @@
 import json
-import os
-import tempfile
 import pytest
 
 from agent_s3.config import Config, ConfigModel

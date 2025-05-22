@@ -1,7 +1,6 @@
 """
 Unit tests for ASTTool.
 """
-import pytest
 from agent_s3.tools.ast_tool import ASTTool
 
 def test_extract_imports_from_code_basic():

@@ -9,7 +9,6 @@ import os
 import pytest
 import tempfile
 import shutil
-from typing import Dict, Any, List
 from unittest.mock import MagicMock, patch
 
 from agent_s3.coordinator import Coordinator

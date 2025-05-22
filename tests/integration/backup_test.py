@@ -6,25 +6,19 @@ with various components across the Agent-S3 system.
 """
 
 import os
-import time
-import threading
 import pytest
 import tempfile
 import shutil
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-from agent_s3.coordinator import Coordinator
 from agent_s3.config import Config
-from agent_s3.tools.context_management.context_manager import ContextManager
 from agent_s3.tools.context_management.token_budget import TokenBudgetAnalyzer
 from agent_s3.tools.context_management.compression import CompressionManager
 from agent_s3.tools.context_management.coordinator_integration import (
-    CoordinatorContextIntegration,
-    setup_context_management
+    CoordinatorContextIntegration
 )
 from agent_s3.tools.context_management.llm_integration import (
-    LLMContextIntegration,
-    integrate_with_llm_utils
+    LLMContextIntegration
 )
 
 

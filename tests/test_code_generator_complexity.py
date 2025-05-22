@@ -1,11 +1,10 @@
 """Tests for the agentic code generator complexity estimation and debugging functionality."""
 
-import os
 import pytest
 from unittest.mock import MagicMock, patch
 
 from agent_s3.code_generator import CodeGenerator
-from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager, LogLevel
+from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager
 
 class TestCodeGeneratorComplexity:
     """Test suite for complexity estimation and debugging in the CodeGenerator."""

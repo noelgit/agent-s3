@@ -1,4 +1,3 @@
-import pytest
 from agent_s3.tools.parsing.php_parser import PHPTreeSitterParser
 
 def test_analyze_php_function():
