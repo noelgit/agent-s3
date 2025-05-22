@@ -13,7 +13,9 @@ from agent_s3.tools.context_management.checkpoint_manager import (
     get_checkpoint_diff,
     ensure_checkpoint_consistency,
     get_latest_checkpoint,
-    create_checkpoint_version
+    create_checkpoint_version,
+    ContextCheckpoint,
+    CheckpointManager,
 )
 
 __all__ = [
@@ -24,4 +26,6 @@ __all__ = [
     "ensure_checkpoint_consistency",
     "get_latest_checkpoint",
     "create_checkpoint_version",
+    "ContextCheckpoint",
+    "CheckpointManager",
 ]

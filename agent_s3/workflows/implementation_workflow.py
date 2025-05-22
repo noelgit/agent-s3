@@ -1,8 +1,10 @@
 """Workflow helpers for implementation and debugging phases."""
 
 from __future__ import annotations
-from typing import Any, Dict, Tuple, List
-from agent_s3.coordinator import Coordinator
+from typing import Any, Dict, Tuple, List, TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover - for type checking only
+    from agent_s3.coordinator import Coordinator
 
 
 class ImplementationWorkflow:

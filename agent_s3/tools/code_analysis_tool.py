@@ -4,18 +4,13 @@ This module provides embedding-based code search capabilities as specified in in
 """
 
 import os
-import subprocess
-import tempfile
-import json
 import re
-import time
 import logging
 import traceback
 import hashlib
 import importlib.util
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
-import numpy as np
+from typing import Any, Dict, List, Optional
 try:
     import tomllib as toml
 except Exception:  # pragma: no cover - python <3.11 or missing
@@ -24,7 +19,13 @@ except Exception:  # pragma: no cover - python <3.11 or missing
     except Exception:
         toml = None
 
-from rank_bm25 import BM25Okapi  # Ensure dependency is present, import will fail otherwise
+try:
+    from rank_bm25 import BM25Okapi  # Optional dependency for hybrid search
+    BM25_AVAILABLE = True
+except Exception:  # pragma: no cover - handle missing dependency gracefully
+    BM25_AVAILABLE = False
+    BM25Okapi = None  # type: ignore
+
 from agent_s3.tools.embedding_client import EmbeddingClient
 from agent_s3.tools.parsing.parser_registry import ParserRegistry
 
@@ -59,7 +60,6 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_QUERY_CACHE_MAX_AGE = 3600  # Default to 1 hour in seconds
 DEFAULT_MAX_QUERY_THEMES = 50       # Default max number of query themes to cache
-BM25_AVAILABLE = True   # Assume BM25 is available since we import it above
 
 class CodeAnalysisTool:
     """

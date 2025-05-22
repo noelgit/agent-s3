@@ -7,9 +7,12 @@ across different phases of the workflow, ensuring consistency between phases.
 import os
 import json
 import uuid
+import base64
+import zlib
+import time
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Any, Tuple, Optional, Set
-import difflib
+from typing import Any, Dict, List, Optional, Tuple
 import logging
 
 logger = logging.getLogger(__name__)
@@ -265,7 +268,7 @@ def get_latest_checkpoint(checkpoint_type: str) -> Optional[str]:
     # Return the ID of the newest checkpoint
     return checkpoints[0].get("checkpoint_id")
 
-def create_checkpoint_version(checkpoint_id: str, data: Dict[str, Any], 
+def create_checkpoint_version(checkpoint_id: str, data: Dict[str, Any],
                             version_type: str, version_details: Dict[str, Any]) -> str:
     """Create a new versioned checkpoint based on an existing one.
     
@@ -296,3 +299,202 @@ def create_checkpoint_version(checkpoint_id: str, data: Dict[str, Any],
         data=data,
         metadata=new_metadata
     )
+
+
+@dataclass
+class ContextCheckpoint:
+    """A checkpoint representing a snapshot of the current context."""
+
+    context: Dict[str, Any]
+    checkpoint_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    description: str = "Context checkpoint"
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Return the checkpoint as a serializable dictionary."""
+        return {
+            "checkpoint_id": self.checkpoint_id,
+            "timestamp": self.timestamp,
+            "description": self.description,
+            "metadata": self.metadata,
+            "context": self.context,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ContextCheckpoint":
+        """Create a :class:`ContextCheckpoint` from a dictionary."""
+        return cls(
+            context=data.get("context", {}),
+            checkpoint_id=data.get("checkpoint_id", str(uuid.uuid4())),
+            description=data.get("description", "Context checkpoint"),
+            metadata=data.get("metadata", {}),
+            timestamp=data.get("timestamp", datetime.now().isoformat()),
+        )
+
+    def compress(self) -> Dict[str, Any]:
+        """Compress the checkpoint using zlib and base64."""
+        payload = json.dumps(self.to_dict()).encode("utf-8")
+        compressed = base64.b64encode(zlib.compress(payload)).decode("utf-8")
+        return {
+            "checkpoint_id": self.checkpoint_id,
+            "timestamp": self.timestamp,
+            "description": self.description,
+            "compression": "zlib+base64",
+            "data": compressed,
+        }
+
+    @staticmethod
+    def decompress(data: Dict[str, Any]) -> "ContextCheckpoint":
+        """Decompress a compressed checkpoint."""
+        compressed_bytes = base64.b64decode(data["data"])
+        payload = zlib.decompress(compressed_bytes)
+        return ContextCheckpoint.from_dict(json.loads(payload.decode("utf-8")))
+
+    def diff(self, other: "ContextCheckpoint") -> Dict[str, Any]:
+        """Return a diff between this checkpoint and another."""
+
+        def _dict_diff(d1: Dict[str, Any], d2: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
+            differences: Dict[str, Any] = {}
+            keys = set(d1.keys()) | set(d2.keys())
+            for key in keys:
+                val1 = d1.get(key)
+                val2 = d2.get(key)
+                path = f"{prefix}{key}"
+                if isinstance(val1, dict) and isinstance(val2, dict):
+                    differences.update(_dict_diff(val1, val2, f"{path}."))
+                elif val1 != val2:
+                    if key not in d1:
+                        differences[path] = {"status": "added", "value": val2}
+                    elif key not in d2:
+                        differences[path] = {"status": "removed", "value": val1}
+                    else:
+                        differences[path] = {
+                            "status": "changed",
+                            "old_value": val1,
+                            "new_value": val2,
+                        }
+            return differences
+
+        return {
+            "checkpoint_id_1": self.checkpoint_id,
+            "checkpoint_id_2": other.checkpoint_id,
+            "differences": _dict_diff(self.context, other.context),
+        }
+
+
+class CheckpointManager:
+    """Manage saving, loading and pruning of context checkpoints."""
+
+    def __init__(
+        self,
+        checkpoint_dir: str,
+        max_checkpoints: int = 10,
+        auto_checkpoint_interval: Optional[int] = None,
+        compression: bool = True,
+    ) -> None:
+        self.checkpoint_dir = checkpoint_dir
+        self.max_checkpoints = max_checkpoints
+        self.auto_checkpoint_interval = auto_checkpoint_interval
+        self.compression = compression
+        self.checkpoints: Dict[str, ContextCheckpoint] = {}
+        self.last_checkpoint_time: float = 0.0
+        os.makedirs(self.checkpoint_dir, exist_ok=True)
+
+    def _checkpoint_path(self, checkpoint_id: str) -> str:
+        return os.path.join(self.checkpoint_dir, f"{checkpoint_id}.json")
+
+    def _save_to_file(self, checkpoint: ContextCheckpoint) -> None:
+        with open(self._checkpoint_path(checkpoint.checkpoint_id), "w") as f:
+            json.dump(checkpoint.to_dict(), f, indent=2)
+
+    def create_checkpoint(
+        self,
+        context: Dict[str, Any],
+        description: str | None = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        cp = ContextCheckpoint(
+            context,
+            description=description or "Checkpoint",
+            metadata=metadata or {},
+        )
+        self.checkpoints[cp.checkpoint_id] = cp
+        self._save_to_file(cp)
+        self.prune_checkpoints()
+        self.last_checkpoint_time = time.time()
+        return cp.checkpoint_id
+
+    def get_checkpoint(self, checkpoint_id: str) -> Optional[ContextCheckpoint]:
+        if checkpoint_id in self.checkpoints:
+            return self.checkpoints[checkpoint_id]
+        path = self._checkpoint_path(checkpoint_id)
+        if not os.path.exists(path):
+            return None
+        with open(path, "r") as f:
+            data = json.load(f)
+        cp = ContextCheckpoint.from_dict(data)
+        self.checkpoints[checkpoint_id] = cp
+        return cp
+
+    def restore_checkpoint(self, checkpoint_id: str) -> Optional[Dict[str, Any]]:
+        cp = self.get_checkpoint(checkpoint_id)
+        return cp.context if cp else None
+
+    def list_checkpoints(self) -> List[Dict[str, Any]]:
+        entries: List[Dict[str, Any]] = []
+        for filename in os.listdir(self.checkpoint_dir):
+            if not filename.endswith(".json"):
+                continue
+            with open(os.path.join(self.checkpoint_dir, filename), "r") as f:
+                data = json.load(f)
+            entries.append(
+                {
+                    "checkpoint_id": data.get("checkpoint_id"),
+                    "timestamp": data.get("timestamp"),
+                    "description": data.get("description"),
+                }
+            )
+        entries.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        return entries
+
+    def delete_checkpoint(self, checkpoint_id: str) -> bool:
+        self.checkpoints.pop(checkpoint_id, None)
+        path = self._checkpoint_path(checkpoint_id)
+        if os.path.exists(path):
+            os.remove(path)
+            return True
+        return False
+
+    def prune_checkpoints(self) -> None:
+        entries: List[Tuple[str, str]] = []
+        for filename in os.listdir(self.checkpoint_dir):
+            if not filename.endswith(".json"):
+                continue
+            with open(os.path.join(self.checkpoint_dir, filename), "r") as f:
+                data = json.load(f)
+            entries.append((data.get("timestamp", ""), filename))
+
+        if len(entries) <= self.max_checkpoints:
+            return
+
+        entries.sort()  # oldest first
+        while len(entries) > self.max_checkpoints:
+            _, fname = entries.pop(0)
+            cid = os.path.splitext(fname)[0]
+            self.delete_checkpoint(cid)
+
+    def check_auto_checkpoint(self, context: Dict[str, Any]) -> Optional[str]:
+        if self.auto_checkpoint_interval is None:
+            return None
+        now = time.time()
+        if self.auto_checkpoint_interval == 0 or now - self.last_checkpoint_time >= self.auto_checkpoint_interval:
+            return self.create_checkpoint(context)
+        return None
+
+    def diff_checkpoints(self, id1: str, id2: str) -> Optional[Dict[str, Any]]:
+        cp1 = self.get_checkpoint(id1)
+        cp2 = self.get_checkpoint(id2)
+        if not cp1 or not cp2:
+            return None
+        return cp1.diff(cp2)

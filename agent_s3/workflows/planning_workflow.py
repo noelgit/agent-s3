@@ -1,8 +1,10 @@
 """Workflow helpers for task planning phases."""
 
 from __future__ import annotations
-from typing import Any, Dict, List
-from agent_s3.coordinator import Coordinator
+from typing import Any, Dict, List, TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover - for type checking only
+    from agent_s3.coordinator import Coordinator
 
 
 class PlanningWorkflow:
