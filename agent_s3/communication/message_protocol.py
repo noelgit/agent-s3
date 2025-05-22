@@ -252,7 +252,8 @@ class Message:
                 validate(instance=content, schema=MESSAGE_SCHEMAS[self.type.value])
             except jsonschema.exceptions.ValidationError as e:
                 logger.error(f"Message schema validation failed: {e}")
-                raise ValueError(f"Message schema validation failed: {e}")
+                raise ValueError(
+                    f"Message schema validation failed: {e}") from e
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert the message to a dictionary for JSON serialization.
