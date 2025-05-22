@@ -1,7 +1,9 @@
 """
 AST and CST parser wrappers for Python and JavaScript.
 """
-try:
+from typing import Any
+
+try:  # pragma: no cover - optional dependency
     import libcst
 except Exception:  # pragma: no cover - optional for minimal tests
     libcst = None
@@ -19,8 +21,10 @@ PY_PARSER.set_language(PY_LANGUAGE)
 JS_PARSER = Parser()
 JS_PARSER.set_language(JS_LANGUAGE)
 
-def parse_python(code: str):
+def parse_python(code: str) -> Any:
     """Parse Python code to a concrete syntax tree (CST) using LibCST."""
+    if libcst is None:
+        raise ImportError("libcst is required for parse_python")
     return libcst.parse_module(code)
 
 def parse_js(code: str):

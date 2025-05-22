@@ -2,6 +2,8 @@
 LLM-based summarization for code units and file-level merging.
 """
 
+from typing import Any, Dict, List
+
 from agent_s3.tools.summarization.prompt_factory import SummarizationPromptFactory
 from agent_s3.tools.summarization.summary_validator import SummaryValidator
 from agent_s3.tools.summarization.validation_config import SummaryValidationConfig
@@ -10,7 +12,7 @@ from agent_s3.tools.summarization.refinement_manager import SummaryRefinementMan
 prompt_factory = SummarizationPromptFactory()
 validator = SummaryValidator(SummaryValidationConfig())
 
-def summarise_unit(code_unit, router_agent, config: dict = None) -> str:
+def summarise_unit(code_unit: Dict[str, Any], router_agent: Any, config: Dict[str, Any] | None = None) -> str:
     """
     Summarize a code unit with validation and refinement.
     """
@@ -33,7 +35,6 @@ def summarise_unit(code_unit, router_agent, config: dict = None) -> str:
         system_prompt=system_prompt,
         user_prompt=user_prompt
     )
-    validator = SummaryValidator()
     validation_result = validator.validate(code_text, summary, language)
     if not validation_result["passed"]:
         refinement_manager = SummaryRefinementManager(router_agent)
@@ -46,7 +47,7 @@ def summarise_unit(code_unit, router_agent, config: dict = None) -> str:
         summary = refinement_result["summary"]
     return summary
 
-def merge_summaries(summaries: list, language: str, router_agent) -> str:
+def merge_summaries(summaries: List[str], language: str, router_agent: Any) -> str:
     """
     Merge multiple summaries with validation.
     """
