@@ -1036,11 +1036,11 @@ def call_pre_planner_with_enforced_json(
             # Compose the prompt for the LLM
             prompt = {
                 "system": system_prompt,
-                "user": user_prompt
+                "user": user_prompt,
             }
-            # Merge context if provided
+            # Attach context under dedicated key
             if context and isinstance(context, dict):
-                prompt = {**prompt, **context}
+                prompt["context"] = context
 
             # Call the router agent (assumed to have a .run() method)
             response = router_agent.run(prompt, **openrouter_params)

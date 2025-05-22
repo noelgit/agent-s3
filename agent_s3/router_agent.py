@@ -183,6 +183,36 @@ class RouterAgent:
         logger.info(f"Routing to model '{model_name}' for role '{role}'.")
         return model_name
 
+    def run(self, prompt: Dict[str, Any], **config: Any) -> Optional[str]:
+        """Convenience wrapper to call an LLM using a structured prompt."""
+        role = prompt.get("role", "pre_planner")
+        system_prompt = prompt.get("system", "")
+        user_prompt = prompt.get("user", "")
+
+        context = prompt.get("context")
+        if context:
+            try:
+                context_str = json.dumps(context, indent=2)
+            except (TypeError, ValueError):
+                context_str = str(context)
+            user_prompt += "\n\nContext:\n" + context_str
+
+        scratchpad = config.pop("scratchpad", None)
+        if scratchpad is None:
+            class _NoOpScratchpad:
+                def log(self, *_a, **_k):
+                    return None
+
+            scratchpad = _NoOpScratchpad()
+
+        return self.call_llm_by_role(
+            role=role,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            config=config,
+            scratchpad=scratchpad,
+        )
+
     def call_llm_by_role(
         self,
         role: str,
