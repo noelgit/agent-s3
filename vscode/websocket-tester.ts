@@ -32,7 +32,7 @@ export class WebSocketTester {
    */
   private registerHandlers() {
     // Register for notifications
-    this.wsClient.registerMessageHandler('notification', (message) => {
+    this.wsClient.registerMessageHandler('notification', (message: any) => {
       const { title, message: msg, level } = message.content || {};
       if (title && msg) {
         const notificationFn = level === 'error' ? vscode.window.showErrorMessage :
@@ -44,7 +44,7 @@ export class WebSocketTester {
     });
     
     // Register for echo messages
-    this.wsClient.registerMessageHandler('echo', (message) => {
+    this.wsClient.registerMessageHandler('echo', (message: any) => {
       console.log('Echo received:', message);
       vscode.window.showInformationMessage(`WebSocket message echo received: ${JSON.stringify(message.content).substring(0, 50)}...`);
     });

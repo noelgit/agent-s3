@@ -138,11 +138,11 @@ export class WebSocketClient implements vscode.Disposable {
       // Set up event listeners using the ws library's typed events
       if (this.socket) {
         this.socket.on('open', () => this.handleOpen(authToken));
-        this.socket.on('message', (data) => {
+        this.socket.on('message', (data: WS.RawData) => {
           this.handleMessage(data);
         });
         this.socket.on('close', () => this.handleClose());
-        this.socket.on('error', (error) => {
+        this.socket.on('error', (error: Error) => {
           this.handleError(error);
         });
       }
@@ -263,7 +263,7 @@ export class WebSocketClient implements vscode.Disposable {
         
         if (handlers && handlers.length > 0) {
           // Call all registered handlers for this message type
-          handlers.forEach(handler => {
+          handlers.forEach((handler: (message: any) => void) => {
             try {
               handler(message);
             } catch (error) {
@@ -401,7 +401,7 @@ export class WebSocketClient implements vscode.Disposable {
     try {
       if (this.socket) {
         const jsonString = JSON.stringify(message);
-        this.socket.send(jsonString, (error) => {
+        this.socket.send(jsonString, (error: Error | undefined) => {
           if (error) {
             console.error("Error sending WebSocket message:", error);
             this.pendingMessages.push(message);
@@ -433,7 +433,7 @@ export class WebSocketClient implements vscode.Disposable {
     const messagesToSend = [...this.pendingMessages];
     this.pendingMessages = [];
     
-    messagesToSend.forEach(message => {
+    messagesToSend.forEach((message: any) => {
       this.sendMessage(message);
     });
   }
@@ -566,7 +566,7 @@ export class WebSocketClient implements vscode.Disposable {
     // forward to registered handlers
     const handlers = this.messageHandlers.get('stream_interactive');
     if (handlers) {
-      handlers.forEach(h => h(message));
+      handlers.forEach((h: (message: any) => void) => h(message));
     }
   }
   
