@@ -1068,9 +1068,10 @@ def call_pre_planner_with_enforced_json(
 
     # If all attempts failed, return fallback JSON
     logger.warning(
-        "Pre-planning attempts exhausted; returning fallback JSON output"
+        "Pre-planning attempts exhausted; returning fallback JSON output. Last error: %s",
+        last_error,
     )
-    fallback_data = create_fallback_pre_planning_output(task_description)
+    fallback_data = pre_planning_data or create_fallback_pre_planning_output(task_description)
     return False, fallback_data
 
 
