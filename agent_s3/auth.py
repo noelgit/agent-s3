@@ -75,44 +75,38 @@ def save_token(token_data: Dict[str, Any]) -> None:
         token_data: Dictionary containing the token and related information
 
     Raises:
-        RuntimeError: If :data:`AGENT_S3_ENCRYPTION_KEY` is not set.
+        RuntimeError: If :data:`AGENT_S3_ENCRYPTION_KEY` is not set or the token
+            cannot be encrypted.
     """
     # Create directory with secure permissions
     token_dir = os.path.dirname(TOKEN_FILE)
     os.makedirs(token_dir, exist_ok=True)
 
+    key = os.environ.get(TOKEN_ENCRYPTION_KEY_ENV)
+    if not key:
+        raise RuntimeError(
+            f"{TOKEN_ENCRYPTION_KEY_ENV} must be set to store GitHub tokens"
+        )
+
+    token_json = json.dumps(token_data)
+
     try:
-        key = os.environ.get(TOKEN_ENCRYPTION_KEY_ENV)
-        if not key:
-            raise RuntimeError(
-                f"{TOKEN_ENCRYPTION_KEY_ENV} must be set to store GitHub tokens"
-            )
-
-        token_json = json.dumps(token_data)
-
-        # Ensure the key is bytes for Fernet
         fernet = Fernet(key.encode() if isinstance(key, str) else key)
         encrypted = fernet.encrypt(token_json.encode("utf-8"))
+    except Exception as e:  # pragma: no cover - unexpected failures
+        msg = strip_sensitive_headers(f"Failed to encrypt token: {e}")
+        print(msg)
+        raise RuntimeError("Token encryption failed") from e
 
+    try:
         with open(TOKEN_FILE, "wb") as f:
             f.write(encrypted)
-
-        # Set file permissions (POSIX only)
-        if os.name == 'posix':
+        if os.name == "posix":
             os.chmod(TOKEN_FILE, stat.S_IRUSR | stat.S_IWUSR)  # 0o600
-
-    except (IOError, ValueError, TypeError) as e:
-        # Handle specific exceptions separately
-        error_msg = "Warning: Could not securely save token: %s"
-        print(strip_sensitive_headers(error_msg % str(e)))
-        try:
-            # Fallback to basic storage if encryption fails
-            with open(TOKEN_FILE, "w", encoding="utf-8") as f:
-                json.dump(token_data, f)
-        except IOError as io_err:
-            print(strip_sensitive_headers(
-                "Critical: Failed to save token even with fallback: %s" % str(io_err)
-            ))
+    except IOError as e:
+        msg = strip_sensitive_headers(f"Failed to write token file: {e}")
+        print(msg)
+        raise RuntimeError("Token storage failed") from e
 
 
 def load_token() -> Optional[Dict[str, Any]]:
@@ -310,7 +304,11 @@ def authenticate_user() -> Optional[str]:
     if response.status_code == 200:
         token_data = response.json()
         if "access_token" in token_data:
-            save_token(token_data)
+            try:
+                save_token(token_data)
+            except RuntimeError as e:
+                print(strip_sensitive_headers(f"Error saving token: {e}"))
+                return None
             print("GitHub authentication successful")
             token = token_data.get("access_token")
             if token and _is_member_of_allowed_orgs(token):
