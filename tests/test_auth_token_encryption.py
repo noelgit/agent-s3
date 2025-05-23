@@ -1,3 +1,5 @@
+from typing import Any
+
 from cryptography.fernet import Fernet
 import pytest
 
@@ -37,4 +39,24 @@ def test_load_token_missing_key(tmp_path, monkeypatch):
 
     monkeypatch.delenv(TOKEN_ENCRYPTION_KEY_ENV, raising=False)
     assert load_token() is None
+
+
+def test_save_token_encryption_failure(tmp_path, monkeypatch):
+    token_data = {"access_token": "abc123"}
+    key = Fernet.generate_key()
+    token_path = tmp_path / "token.json"
+    monkeypatch.setenv(TOKEN_ENCRYPTION_KEY_ENV, key.decode())
+    monkeypatch.setattr("agent_s3.auth.TOKEN_FILE", str(token_path))
+
+    class BadFernet:
+        def __init__(self, *a, **k):
+            pass
+
+        def encrypt(self, *_: Any) -> bytes:  # type: ignore[override]
+            raise ValueError("boom")
+
+    monkeypatch.setattr("agent_s3.auth.Fernet", lambda *a, **k: BadFernet())
+    with pytest.raises(RuntimeError):
+        save_token(token_data)
+    assert not token_path.exists()
 
