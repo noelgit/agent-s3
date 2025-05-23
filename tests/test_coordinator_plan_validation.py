@@ -372,3 +372,27 @@ class TestCoordinatorPlanValidation:
                 coordinator.feature_group_processor.process_pre_planning_output.assert_not_called()
 
 
+
+    def test_present_pre_planning_user_cancels_after_confirmation(self, coordinator):
+        """User cancels at the additional complexity confirmation step."""
+        pre_plan = {
+            "success": True,
+            "status": "completed",
+            "is_complex": True,
+            "complexity_score": 9.5,
+            "feature_groups": []
+        }
+
+        coordinator.prompt_moderator.ask_ternary_question.return_value = "yes"
+        coordinator.prompt_moderator.ask_yes_no_question.return_value = False
+
+        decision, modification = coordinator._present_pre_planning_results_to_user(pre_plan)
+
+        assert decision == "no"
+        assert modification is None
+        coordinator.prompt_moderator.ask_yes_no_question.assert_called_once()
+        coordinator.scratchpad.log.assert_any_call(
+            "Coordinator",
+            "User cancelled after reviewing complex plan.",
+        )
+
