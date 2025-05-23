@@ -30,6 +30,7 @@ from agent_s3.pre_planner_json_enforced import (
 from agent_s3.progress_tracker import ProgressTracker
 from agent_s3.prompt_moderator import PromptModerator
 from agent_s3.router_agent import RouterAgent
+from agent_s3.design_manager import DesignManager
 from agent_s3.task_resumer import TaskResumer
 from agent_s3.task_state_manager import TaskStateManager
 from agent_s3.tech_stack_detector import TechStackDetector
@@ -281,6 +282,9 @@ class Coordinator:
 
         # Implementation manager handles step-by-step execution of design tasks
         self.implementation_manager = ImplementationManager(coordinator=self)
+
+        # Design manager for interactive design conversations
+        self.design_manager = DesignManager(coordinator=self)
 
         # Initialize core workflow components
         self._initialize_workflow_components()
