@@ -581,7 +581,24 @@ class Coordinator:
                 "Do you want to proceed with this plan, modify it, or cancel?"
             )
             if decision == "yes":
-                self.scratchpad.log("Coordinator", "User approved pre-planning results.")
+                # Additional confirmation if the task was flagged as complex
+                is_complex = pre_planning_results.get("is_complex", False)
+                score = pre_planning_results.get("complexity_score", 0)
+                threshold = self.config.config.get("complexity_threshold", 0)
+                if is_complex or score >= threshold:
+                    confirm = self.prompt_moderator.ask_yes_no_question(
+                        "This plan is complex. Are you sure you want to continue?"
+                    )
+                    if not confirm:
+                        self.scratchpad.log(
+                            "Coordinator",
+                            "User cancelled after reviewing complex plan.",
+                        )
+                        return "no", None
+
+                self.scratchpad.log(
+                    "Coordinator", "User approved pre-planning results."
+                )
                 return decision, None
             elif decision == "no":
                 self.scratchpad.log("Coordinator", "User rejected pre-planning results.")

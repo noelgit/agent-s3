@@ -67,9 +67,11 @@ Agent-S3 is not just a tool for automation; it is a partner in development that 
   - Automatic plan file generation with unique IDs for traceability
 - Complexity Management:
   - Explicit complexity assessment with numerical scoring
-  - User confirmation required for complex tasks
-  - Clear options to proceed, modify request, or cancel
-  - Removal of automatic workflow switching in favor of user control
+- User confirmation required for complex tasks
+- Clear options to proceed, modify request, or cancel
+- Removal of automatic workflow switching in favor of user control
+  - Final confirmation after reviewing pre-planning results when tasks are
+    flagged as complex
 - Design-to-Implementation Pipeline:
   - Conversational feature decomposition and architecture planning via `/design` command
   - Industry best practice analysis and recommendations during design

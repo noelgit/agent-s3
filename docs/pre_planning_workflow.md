@@ -24,7 +24,7 @@ The pre-planning workflow follows these steps:
 
 8. **Complexity Assessment**: The complexity of the task is assessed to determine if user confirmation is required.
 
-9. **User Confirmation**: The user reviews and approves, modifies, or rejects the pre-planning output.
+9. **User Confirmation**: The user reviews the pre-planning output. If the task was flagged as complex, a final confirmation is requested before proceeding. The user may approve, modify, or reject the output.
 
 ## Key Components
 
