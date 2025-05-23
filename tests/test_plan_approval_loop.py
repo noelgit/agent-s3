@@ -24,7 +24,8 @@ def coordinator():
          patch('agent_s3.coordinator.CodeAnalysisTool'), \
          patch('agent_s3.coordinator.TaskStateManager'), \
          patch('agent_s3.coordinator.TaskResumer'), \
-         patch('agent_s3.coordinator.WorkspaceInitializer'):
+         patch('agent_s3.coordinator.WorkspaceInitializer'), \
+         patch('agent_s3.coordinator.DatabaseManager'):
 
         coord = Coordinator(config=config)
         coord.prompt_moderator = MagicMock()

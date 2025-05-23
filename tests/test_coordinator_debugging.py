@@ -55,6 +55,7 @@ def mock_coordinator(mock_config, mock_file_tool, mock_bash_tool):
          patch('agent_s3.coordinator.ProgressTracker'), \
          patch('agent_s3.coordinator.ErrorContextManager'), \
          patch('agent_s3.coordinator.TaskStateManager'), \
+         patch('agent_s3.coordinator.DatabaseManager'), \
          patch('agent_s3.coordinator.BashTool', return_value=mock_bash_tool), \
          patch('agent_s3.coordinator.FileTool', return_value=mock_file_tool), \
          patch('agent_s3.coordinator.os.path.join', return_value="task_snapshots"):

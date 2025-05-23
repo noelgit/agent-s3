@@ -34,7 +34,8 @@ class TestCoordinatorPlanValidation:
              patch('agent_s3.coordinator.FileTool'), \
              patch('agent_s3.coordinator.GitTool'), \
              patch('agent_s3.coordinator.BashTool'), \
-             patch('agent_s3.coordinator.TaskResumer'):
+             patch('agent_s3.coordinator.TaskResumer'), \
+             patch('agent_s3.coordinator.DatabaseManager'):
         
             coordinator = Coordinator(config=mock_config)
             
