@@ -73,10 +73,26 @@ class TokenEstimator:
         """
         try:
             self.encoding = tiktoken.encoding_for_model(model_name)
-        except KeyError:
-            # Fallback to cl100k_base encoding (used by gpt-4, gpt-3.5-turbo)
-            logger.warning(f"Model {model_name} not found. Using cl100k_base encoding.")
-            self.encoding = tiktoken.get_encoding("cl100k_base")
+        except Exception as e:  # pragma: no cover - network or lookup failure
+            # Fallback to cl100k_base encoding or simple whitespace encoding
+            logger.warning(
+                f"Failed to load encoding for {model_name}: {e}. Using cl100k_base."
+            )
+            try:
+                self.encoding = tiktoken.get_encoding("cl100k_base")
+            except Exception as inner:
+                logger.error(
+                    f"Failed to load cl100k_base encoding: {inner}. Using whitespace tokenizer."
+                )
+
+                class _WhitespaceEncoding:
+                    """Minimal tokenizer when tiktoken is unavailable."""
+
+                    @staticmethod
+                    def encode(text: str) -> list[str]:
+                        return text.split()
+
+                self.encoding = _WhitespaceEncoding()
         
         # Default language-specific modifiers (to account for code density)
         self.language_modifiers = {
@@ -571,12 +587,12 @@ class TokenBudgetAnalyzer:
         return importance_scores
     
     def allocate_tokens(
-        self, 
-        context: Dict[str, Any], 
+        self,
+        context: Dict[str, Any],
         task_type: Optional[str] = None,
-        task_keywords: Optional[List[str]] = None,  # New parameter
-        force_optimization: bool = False
-    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        task_keywords: Optional[List[str]] = None,
+        force_optimization: bool = False,
+    ) -> Dict[str, Any]:
         """
         Allocate tokens to different parts of the context based on importance.
 
@@ -587,9 +603,7 @@ class TokenBudgetAnalyzer:
             force_optimization: Force optimization even if token count is low (for testing)
 
         Returns:
-            Tuple: (Dictionary with token allocation information and optimized context, importance_scores)
-                - The first element is a dictionary with keys 'optimized_context' and 'allocation_report'.
-                - The second element is the full importance_scores map (including task-keyword-boosted scores).
+            Dictionary with keys 'optimized_context' and 'allocation_report'.
         """
         # Estimate token usage
         token_estimates = self.estimator.estimate_tokens_for_context(context)
@@ -732,8 +746,9 @@ class TokenBudgetAnalyzer:
                 
                 return {
                     "optimized_context": optimized_context,
-                    "allocation_report": allocation_report
-                }, importance_scores
+                    "allocation_report": allocation_report,
+                    "importance_scores": importance_scores,
+                }
             
         # If no optimization needed, return original context
         return {
@@ -742,9 +757,10 @@ class TokenBudgetAnalyzer:
                 "original_tokens": total_estimated_tokens,
                 "available_tokens": self.available_tokens,
                 "allocated_tokens": total_estimated_tokens,
-                "optimization_applied": False
-            }
-        }, importance_scores
+                "optimization_applied": False,
+            },
+            "importance_scores": importance_scores,
+        }
     
     def get_total_token_count(self, context: Dict[str, Any]) -> int:
         """
