@@ -22,13 +22,30 @@ def _sanitize_code_input(code: str) -> str:
             raise ValueError("Suspicious code content detected")
     return code
 
+_embedding_cache: Dict[str, np.ndarray] = {}
+
+
+def _get_cached_embedding(text: str) -> Optional[np.ndarray]:
+    """Return cached embedding vector for text or fetch and cache it."""
+    if text in _embedding_cache:
+        return _embedding_cache[text]
+    embedding = get_embedding(text)
+    if embedding is None:
+        return None
+    arr = np.array(embedding)
+    _embedding_cache[text] = arr
+    return arr
+
+
 def compute_faithfulness(source: str, summary: str) -> float:
-    # Embedding similarity (cosine)
-    src_emb = get_embedding(source)
-    sum_emb = get_embedding(summary)
+    """Compute embedding cosine similarity between source and summary."""
+    src_emb = _get_cached_embedding(source)
+    sum_emb = _get_cached_embedding(summary)
     if src_emb is None or sum_emb is None:
         return 0.0
-    sim = np.dot(src_emb, sum_emb) / (np.linalg.norm(src_emb) * np.linalg.norm(sum_emb))
+    sim = np.dot(src_emb, sum_emb) / (
+        np.linalg.norm(src_emb) * np.linalg.norm(sum_emb)
+    )
     return float(sim)
 
 def _extract_terms(text: str, language: Optional[str]=None):
