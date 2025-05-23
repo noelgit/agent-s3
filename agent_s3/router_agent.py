@@ -889,28 +889,28 @@ if __name__ == '__main__':
     plan_meta = {"role": "planner"}
     plan_query = "Create a plan to refactor the user authentication module."
     chosen_plan_model = router.choose_llm(plan_query, plan_meta)
-    print(f"Chosen model for planner: {chosen_plan_model}")
+    logger.info("Chosen model for planner: %s", chosen_plan_model)
 
     gen_meta = {"role": "generator"}
     gen_query = "Implement the following function: def calculate_sum(a, b): ..."
     chosen_gen_model = router.choose_llm(gen_query, gen_meta)
-    print(f"Chosen model for generator: {chosen_gen_model}")
+    logger.info("Chosen model for generator: %s", chosen_gen_model)
 
     scaffold_meta = {"role": "scaffolder"}
     scaffold_query = "Create a basic Flask app structure."
     chosen_scaffold_model = router.choose_llm(scaffold_query, scaffold_meta)
-    print(f"Chosen model for scaffolder: {chosen_scaffold_model}")
+    logger.info("Chosen model for scaffolder: %s", chosen_scaffold_model)
 
     missing_role_meta = {}
     missing_role_query = "What is Python?"
     chosen_missing_model = router.choose_llm(missing_role_query, missing_role_meta)
-    print(f"Chosen model for missing role: {chosen_missing_model}")
+    logger.info("Chosen model for missing role: %s", chosen_missing_model)
 
     invalid_role_meta = {"role": "debugger"}
     invalid_role_query = "Debug this code."
     chosen_invalid_model = router.choose_llm(invalid_role_query, invalid_role_meta)
-    print(f"Chosen model for invalid role: {chosen_invalid_model}")
+    logger.info("Chosen model for invalid role: %s", chosen_invalid_model)
 
     large_query = " ".join(["word"] * 40000)
     chosen_large_plan_model = router.choose_llm(large_query, plan_meta)
-    print(f"Chosen model for large query (planner): {chosen_large_plan_model}")
+    logger.info("Chosen model for large query (planner): %s", chosen_large_plan_model)

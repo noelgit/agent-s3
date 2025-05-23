@@ -11,7 +11,10 @@ import shutil
 import uuid
 import platform
 import shlex
+import logging
 from typing import Tuple, Optional, Dict, Any, List
+
+logger = logging.getLogger(__name__)
 
 
 class BashTool:
@@ -77,7 +80,9 @@ class BashTool:
         # Check if Docker is available
         self.docker_available = self._check_docker_available()
         if self.sandbox and not self.docker_available:
-            print("Warning: Docker not available. Falling back to restricted subprocess mode.")
+            logger.warning(
+                "Docker not available. Falling back to restricted subprocess mode."
+            )
     
     def run_command(self, command: str, timeout: int = 60) -> Tuple[int, str]:
         """Run a shell command and return the exit code and output.

@@ -34,7 +34,7 @@ try:
     STATIC_ANALYZER_AVAILABLE = True
 except ImportError:
     STATIC_ANALYZER_AVAILABLE = False
-    print("Static analyzer not available - using only semantic search")
+    logger.info("Static analyzer not available - using only semantic search")
 
 # Define weights for hybrid search
 DENSE_WEIGHT = 0.7  # Weight for dense embedding-based search
