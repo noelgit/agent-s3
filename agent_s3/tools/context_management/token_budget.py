@@ -73,10 +73,23 @@ class TokenEstimator:
         """
         try:
             self.encoding = tiktoken.encoding_for_model(model_name)
-        except KeyError:
-            # Fallback to cl100k_base encoding (used by gpt-4, gpt-3.5-turbo)
-            logger.warning(f"Model {model_name} not found. Using cl100k_base encoding.")
-            self.encoding = tiktoken.get_encoding("cl100k_base")
+        except Exception:  # noqa: BLE001
+            # tiktoken will attempt to download model data if it's missing,
+            # which fails in offline environments. Fallback to the base
+            # cl100k tokenizer if available, otherwise use a simple
+            # whitespace tokenizer.
+            logger.warning(
+                "Falling back to cl100k_base or whitespace tokenizer for %s",
+                model_name,
+            )
+            try:
+                self.encoding = tiktoken.get_encoding("cl100k_base")
+            except Exception:  # noqa: BLE001
+                class _WhitespaceTokenizer:
+                    def encode(self, text: str) -> list[str]:
+                        return text.split()
+
+                self.encoding = _WhitespaceTokenizer()
         
         # Default language-specific modifiers (to account for code density)
         self.language_modifiers = {
@@ -732,8 +745,9 @@ class TokenBudgetAnalyzer:
                 
                 return {
                     "optimized_context": optimized_context,
-                    "allocation_report": allocation_report
-                }, importance_scores
+                    "allocation_report": allocation_report,
+                    "importance_scores": importance_scores,
+                }
             
         # If no optimization needed, return original context
         return {
@@ -742,9 +756,10 @@ class TokenBudgetAnalyzer:
                 "original_tokens": total_estimated_tokens,
                 "available_tokens": self.available_tokens,
                 "allocated_tokens": total_estimated_tokens,
-                "optimization_applied": False
-            }
-        }, importance_scores
+                "optimization_applied": False,
+            },
+            "importance_scores": importance_scores,
+        }
     
     def get_total_token_count(self, context: Dict[str, Any]) -> int:
         """
