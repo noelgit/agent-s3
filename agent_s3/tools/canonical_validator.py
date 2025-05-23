@@ -9,6 +9,8 @@ prevent duplication of functionality and promotes consistent implementation patt
 import json
 import logging
 from typing import Dict, Any, List, Set, Tuple
+
+from .validation_result import ValidationResult
 from collections import defaultdict
 
 logger = logging.getLogger(__name__)
@@ -17,7 +19,7 @@ logger = logging.getLogger(__name__)
 def validate_canonical_implementations(
     implementation_plan: Dict[str, Any],
     element_ids: Set[str]
-) -> List[Dict[str, Any]]:
+) -> ValidationResult:
     """
     Validate that each element has exactly one canonical implementation.
     
@@ -26,7 +28,7 @@ def validate_canonical_implementations(
         element_ids: Set of element IDs from system design
         
     Returns:
-        List of validation issues related to canonical implementations
+        ValidationResult with any issues found
     """
     issues = []
     
@@ -111,7 +113,9 @@ def validate_canonical_implementations(
                 "recommendation": "Add canonical_implementation_paths section to implementation_strategy"
             })
             
-    return issues
+    needs_repair = any(issue.get("severity") in ["critical", "high"] for issue in issues)
+
+    return ValidationResult(issues=issues, needs_repair=needs_repair)
 
 
 def repair_duplicate_implementations(
@@ -281,7 +285,7 @@ def find_optimal_implementation(implementations: List[Dict[str, Any]]) -> Dict[s
 def validate_and_repair_canonical_implementations(
     implementation_plan: Dict[str, Any],
     element_ids: Set[str]
-) -> Tuple[Dict[str, Any], List[Dict[str, Any]], bool]:
+) -> ValidationResult:
     """
     Validate canonical implementations and repair any issues found.
     
@@ -290,16 +294,17 @@ def validate_and_repair_canonical_implementations(
         element_ids: Set of element IDs from system design
         
     Returns:
-        Tuple of (repaired_plan, validation_issues, needs_repair)
+        ValidationResult containing the repaired plan and issues
     """
     # Validate canonical implementations
-    canonical_issues = validate_canonical_implementations(implementation_plan, element_ids)
-    
-    needs_repair = any(issue["severity"] in ["critical", "high"] for issue in canonical_issues)
-    
-    # If no critical/high issues, return the original plan
-    if not needs_repair:
-        return implementation_plan, canonical_issues, needs_repair
+    canonical_result = validate_canonical_implementations(implementation_plan, element_ids)
+
+    if not canonical_result.needs_repair:
+        return ValidationResult(
+            data=implementation_plan,
+            issues=canonical_result.issues,
+            needs_repair=False,
+        )
     
     # Repair the plan
     repaired_plan = json.loads(json.dumps(implementation_plan))
@@ -316,5 +321,9 @@ def validate_and_repair_canonical_implementations(
         
     if path_issues:
         repaired_plan = repair_missing_canonical_paths(repaired_plan, path_issues)
-    
-    return repaired_plan, canonical_issues, needs_repair
+
+    return ValidationResult(
+        data=repaired_plan,
+        issues=canonical_result.issues,
+        needs_repair=True,
+    )
