@@ -35,7 +35,8 @@ def coordinator(mock_config):
          patch('agent_s3.coordinator.GitTool'), \
          patch('agent_s3.coordinator.CodeAnalysisTool'), \
          patch('agent_s3.coordinator.TaskStateManager'), \
-         patch('agent_s3.coordinator.TaskResumer'):
+         patch('agent_s3.coordinator.TaskResumer'), \
+         patch('agent_s3.coordinator.DatabaseManager'):
         
         coordinator = Coordinator(config=mock_config)
         

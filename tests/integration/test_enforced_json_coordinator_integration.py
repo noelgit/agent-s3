@@ -97,7 +97,8 @@ class TestEnforcedJsonCoordinatorIntegration:
              patch('agent_s3.coordinator.TechStackDetector'), \
              patch('agent_s3.coordinator.FileHistoryAnalyzer'), \
              patch('agent_s3.coordinator.DebuggingManager'), \
-             patch('agent_s3.coordinator.CommandProcessor'):
+             patch('agent_s3.coordinator.CommandProcessor'), \
+             patch('agent_s3.coordinator.DatabaseManager'):
             
             coordinator = Coordinator(config=mock_config)
             

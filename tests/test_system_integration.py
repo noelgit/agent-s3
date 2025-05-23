@@ -264,6 +264,7 @@ def mock_coordinator():
          patch('agent_s3.coordinator.TestPlanner') as mock_test_planner_cls, \
          patch('agent_s3.coordinator.CodeGenerator') as mock_code_generator_cls, \
          patch('agent_s3.coordinator.PromptModerator') as mock_prompt_moderator_cls, \
+         patch('agent_s3.coordinator.DatabaseManager'), \
          patch('agent_s3.coordinator.os.makedirs') as _mock_makedirs, \
          patch('builtins.open', new_callable=MagicMock), \
          patch('agent_s3.coordinator.BashTool') as mock_bash_tool_cls:

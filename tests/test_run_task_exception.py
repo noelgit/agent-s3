@@ -32,7 +32,8 @@ def coordinator(mock_config):
          patch("agent_s3.coordinator.CodeAnalysisTool"), \
          patch("agent_s3.coordinator.TaskStateManager"), \
          patch("agent_s3.coordinator.TaskResumer"), \
-         patch("agent_s3.coordinator.WorkspaceInitializer"):
+         patch("agent_s3.coordinator.WorkspaceInitializer"), \
+         patch("agent_s3.coordinator.DatabaseManager"):
         coord = Coordinator(config=mock_config)
         coord.pre_planner = MagicMock()
         coord.planner = MagicMock()

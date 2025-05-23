@@ -110,6 +110,7 @@ def mock_coordinator(setup_test_files):
          patch('agent_s3.coordinator.PromptModerator') as mock_prompt_moderator_cls, \
          patch('agent_s3.coordinator.TaskStateManager') as mock_task_state_manager_cls, \
          patch('agent_s3.coordinator.ErrorContextManager') as mock_error_context_cls, \
+         patch('agent_s3.coordinator.DatabaseManager'), \
          patch('os.path.dirname') as mock_dirname, \
          patch('builtins.open', new_callable=MagicMock):
         

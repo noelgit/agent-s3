@@ -42,6 +42,7 @@ from agent_s3.tools.code_analysis_tool import CodeAnalysisTool
 from agent_s3.tools.context_management.context_manager import ContextManager
 from agent_s3.tools.context_management.context_registry import ContextRegistry
 from agent_s3.tools.database_tool import DatabaseTool
+from agent_s3.database_manager import DatabaseManager
 from agent_s3.tools.embedding_client import EmbeddingClient
 from agent_s3.tools.env_tool import EnvTool
 from agent_s3.tools.error_context_manager import ErrorContextManager
@@ -239,6 +240,7 @@ class Coordinator:
         """Initialize additional tools that depend on core tools."""
         # Database, environment, and AST tools
         self.database_tool = DatabaseTool(config=self.config, bash_tool=self.bash_tool)
+        self.database_manager = DatabaseManager(coordinator=self, database_tool=self.database_tool)
         self.env_tool = EnvTool(self.bash_tool)
         self.ast_tool = ASTTool()
 
