@@ -88,6 +88,10 @@ class ProgressTracker:
         try:
             entry_dict = entry.model_dump(mode="json")
             phase = entry_dict.get("phase", "unknown")
+            status_enum = entry.status
+            status_name = (
+                status_enum.name.lower() if isinstance(status_enum, Enum) else str(status_enum).lower()
+            )
             status = str(entry_dict.get("status", "unknown"))
             details = entry_dict.get("details", "")
 
@@ -96,7 +100,7 @@ class ProgressTracker:
                 content += f"\n{details}"
 
             def send_streaming_update() -> None:
-                if status.lower() in ("started", "pending"):
+                if status_name in ("started", "pending", "in_progress"):
                     self.websocket_server.message_bus.publish_thinking(
                         source=f"progress-{phase}", session_id=None
                     )
