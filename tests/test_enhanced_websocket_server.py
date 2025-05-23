@@ -292,6 +292,35 @@ class TestEnhancedWebSocketServer(unittest.TestCase):
         send_args, _ = mock_websocket.send.call_args
         error_message = json.loads(send_args[0])
         self.assertEqual(error_message["type"], "error_notification")
+
+    @patch("agent_s3.communication.enhanced_websocket_server.logger.error")
+    async def test_oversized_message_rejected(self, mock_logger_error):
+        """Messages over the size limit should be rejected."""
+        mock_websocket = AsyncMock()
+        mock_websocket.send = AsyncMock()
+
+        # Authentication handshake
+        mock_websocket.recv = AsyncMock(return_value=json.dumps({
+            "type": "authenticate",
+            "content": {"token": "test-token"}
+        }))
+
+        async def message_gen():
+            yield "x" * (self.server.max_message_size + 1)
+
+        mock_websocket.__aiter__.return_value = message_gen()
+
+        handler_task = asyncio.create_task(
+            self.server._handle_client(mock_websocket, "/")
+        )
+
+        await asyncio.sleep(0.1)
+        handler_task.cancel()
+
+        mock_websocket.send.assert_called()
+        send_args, _ = mock_websocket.send.call_args_list[-1]
+        sent_msg = json.loads(send_args[0])
+        self.assertEqual(sent_msg["type"], "error_notification")
     
     @patch("asyncio.create_task")
     async def test_message_handlers(self, mock_create_task):

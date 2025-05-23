@@ -38,6 +38,7 @@ class MessageType(Enum):
     
     # Streaming message types
     THINKING = "thinking"
+    THINKING_INDICATOR = "thinking_indicator"
     STREAM_START = "stream_start"
     STREAM_CONTENT = "stream_content"
     STREAM_END = "stream_end"
