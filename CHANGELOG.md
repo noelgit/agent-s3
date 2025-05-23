@@ -25,3 +25,7 @@ Description: Release notes for Agent-S3.
 ### Removed
 - Deprecated `validate_pre_planning_from_planner` helper in favor of direct
   `validate_pre_planning_output` usage.
+
+## [0.1.1] - 2025-05-23
+### Fixed
+- Aligned `agent_s3.__version__` with `pyproject.toml`.

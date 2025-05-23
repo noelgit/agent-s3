@@ -9,7 +9,7 @@
 from importlib import import_module
 from typing import Any
 
-__version__ = "0.2.0"
+__version__ = "0.1.1"
 
 _MODULE_MAP = {
     "Coordinator": "agent_s3.coordinator",
