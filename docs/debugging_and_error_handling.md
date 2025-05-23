@@ -44,6 +44,7 @@ Key configuration options include:
 - CoT storage settings
 - Log rotation policies
 - Error pattern matching thresholds
+- Provide an `encryption_key` when `scratchpad_enable_encryption` is enabled. Generate it with `Fernet.generate_key()` and rotate it periodically.
 
 ## Error Handling
 

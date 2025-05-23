@@ -179,6 +179,7 @@ class ConfigModel(BaseModel):
     sandbox_environment: bool = True
     openrouter_key: str = os.environ.get("OPENROUTER_KEY", "")
     openai_key: str = os.environ.get("OPENAI_KEY", "")
+    encryption_key: str = os.environ.get("AGENT_S3_ENCRYPTION_KEY", "")
     dev_github_token: str = DEV_GITHUB_TOKEN
     llm_max_retries: int = LLM_MAX_RETRIES
     llm_initial_backoff: float = LLM_INITIAL_BACKOFF
