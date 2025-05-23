@@ -241,7 +241,6 @@ User input: ''' + repr(prompt)
         elif category == "general_qa":
             # General Q&A: call the LLM with entire codebase as context
             print("Routing to general_qa: querying codebase context...")
-            from pathlib import Path
             import glob
             import itertools
             # Gather a limited set of code files to avoid excessive memory usage

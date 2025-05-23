@@ -323,7 +323,14 @@ class ImplementationManager:
 
             # Run tests if implementation was successful
             if result.get("success", False):
-                self._run_tests()
+                test_result = self._run_tests()
+                result["tests"] = test_result
+
+                # Mark the implementation as failed if tests fail
+                if not test_result.get("success", False):
+                    result["success"] = False
+                    if "error" not in result:
+                        result["error"] = test_result.get("error", "Tests failed")
 
             return result
         else:
