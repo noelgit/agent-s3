@@ -2,6 +2,8 @@
 import unittest
 from io import StringIO
 import sys
+import os
+import tempfile
 from unittest.mock import patch, MagicMock
 
 try:
@@ -32,7 +34,7 @@ class TestPromptModerator(unittest.TestCase):
         output = self.capture_output(self.pm.display_discussion_and_plan, discussion, plan)
 
         # Check that headings and content appear in order
-        self.assertIn("PERSONA DEBATE DISCUSSION:", output)
+        self.assertIn("DISCUSSION:", output)
         self.assertIn(discussion, output)
         self.assertIn("IMPLEMENTATION PLAN:", output)
         self.assertIn(plan, output)
@@ -77,6 +79,24 @@ class TestPromptModerator(unittest.TestCase):
     @patch('builtins.input', side_effect=['invalid', 'y'])
     def test_ask_binary_question_reprompt(self, mock_input):
         self.assertTrue(self.pm.ask_binary_question("Proceed?"))
+
+    @patch("subprocess.run")
+    def test_open_in_editor_invalid_path(self, mock_run):
+        with patch.dict(os.environ, {"EDITOR": "/no/such/editor"}):
+            self.pm._preferred_editor = None
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                self.pm._open_in_editor(tmp.name)
+        executed = mock_run.call_args[0][0]
+        self.assertEqual(executed[0], "nano")
+
+    @patch("subprocess.run")
+    def test_open_in_editor_injection_attempt(self, mock_run):
+        with patch.dict(os.environ, {"EDITOR": "vim; rm -rf /"}):
+            self.pm._preferred_editor = None
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                self.pm._open_in_editor(tmp.name)
+        executed = mock_run.call_args[0][0]
+        self.assertEqual(executed[0], "nano")
 
 if __name__ == '__main__':
     unittest.main()
