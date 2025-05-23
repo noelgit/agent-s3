@@ -14,7 +14,7 @@ from urllib.parse import parse_qs, urlparse
 
 from cryptography.fernet import Fernet, InvalidToken
 
-from .logging_utils import strip_sensitive_headers
+from .logging_utils import redact_auth_headers
 
 # Define required dependencies - use proper requirements.txt for actual dependency management
 try:
@@ -104,13 +104,13 @@ def save_token(token_data: Dict[str, Any]) -> None:
     except (IOError, ValueError, TypeError) as e:
         # Handle specific exceptions separately
         error_msg = "Warning: Could not securely save token: %s"
-        print(strip_sensitive_headers(error_msg % str(e)))
+        print(redact_auth_headers(error_msg % str(e)))
         try:
             # Fallback to basic storage if encryption fails
             with open(TOKEN_FILE, "w", encoding="utf-8") as f:
                 json.dump(token_data, f)
         except IOError as io_err:
-            print(strip_sensitive_headers(
+            print(redact_auth_headers(
                 "Critical: Failed to save token even with fallback: %s" % str(io_err)
             ))
 
@@ -134,7 +134,7 @@ def load_token() -> Optional[Dict[str, Any]]:
             with open(TOKEN_FILE, "rb") as f:
                 content = f.read()
         except IOError as io_err:
-            print(strip_sensitive_headers(f"Error reading token file: {io_err}"))
+            print(redact_auth_headers(f"Error reading token file: {io_err}"))
             return None
 
         try:
@@ -142,10 +142,10 @@ def load_token() -> Optional[Dict[str, Any]]:
             decrypted = fernet.decrypt(content)
             return json.loads(decrypted.decode("utf-8"))
         except (InvalidToken, ValueError) as e:
-            print(strip_sensitive_headers(f"Warning: Could not decrypt token: {e}"))
+            print(redact_auth_headers(f"Warning: Could not decrypt token: {e}"))
             return None
     except (IOError, ValueError, TypeError) as e:
-        print(strip_sensitive_headers(f"Warning: Could not load token: {e}"))
+        print(redact_auth_headers(f"Warning: Could not load token: {e}"))
         return None
 
 
@@ -341,7 +341,7 @@ def _is_member_of_allowed_orgs(token: str) -> bool:
             user_orgs = [org.get("login") for org in resp.json()]
             return any(org in user_orgs for org in allowed_orgs)
     except requests.RequestException as e:
-        print(strip_sensitive_headers(f"Error checking organization membership: {e}"))
+        print(redact_auth_headers(f"Error checking organization membership: {e}"))
     return False
 
 
@@ -401,7 +401,7 @@ def _validate_token_and_check_org(
             
         return False, None
     except requests.RequestException as e:
-        print(strip_sensitive_headers(f"Error in token validation: {e}"))
+        print(redact_auth_headers(f"Error in token validation: {e}"))
         return False, None
 
 
