@@ -1038,6 +1038,17 @@ class CompressionManager:
             KeyInfoExtractor(),
             ReferenceCompressor()
         ]
+
+    def set_summarization_threshold(self, threshold: int) -> None:
+        """Update the summarization threshold for all supported strategies."""
+        self.compression_threshold = threshold
+        for strategy in self.strategies:
+            if hasattr(strategy, "summarization_threshold"):
+                strategy.summarization_threshold = threshold
+
+    def set_compression_ratio(self, ratio: float) -> None:
+        """Update the minimum compression ratio."""
+        self.min_compression_ratio = ratio
     
     def need_compression(self, context: Dict[str, Any], token_count: Optional[int] = None) -> bool:
         """

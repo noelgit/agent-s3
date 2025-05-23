@@ -65,18 +65,32 @@ class TokenEstimator:
     """
     
     def __init__(self, model_name: str = "gpt-4"):
-        """
-        Initialize the token estimator with the specified model.
-        
+        """Initialize the token estimator with the specified model.
+
+        If the requested model encoding is unavailable or cannot be downloaded
+        (common in offline test environments), a fallback encoding is used. If
+        that also fails, a simple whitespace tokenizer is employed.
+
         Args:
             model_name: Name of the model to use for token counting
         """
+
         try:
             self.encoding = tiktoken.encoding_for_model(model_name)
-        except KeyError:
-            # Fallback to cl100k_base encoding (used by gpt-4, gpt-3.5-turbo)
-            logger.warning(f"Model {model_name} not found. Using cl100k_base encoding.")
-            self.encoding = tiktoken.get_encoding("cl100k_base")
+        except Exception as e:  # KeyError or network failure
+            logger.warning(
+                "Failed to load encoding for %s: %s. Falling back to cl100k_base.",
+                model_name,
+                e,
+            )
+            try:
+                self.encoding = tiktoken.get_encoding("cl100k_base")
+            except Exception as e2:  # still failing
+                logger.warning(
+                    "Unable to load cl100k_base encoding: %s. Using whitespace tokenizer.",
+                    e2,
+                )
+                self.encoding = None
         
         # Default language-specific modifiers (to account for code density)
         self.language_modifiers = {
@@ -107,9 +121,13 @@ class TokenEstimator:
         if not text:
             return 0
         
-        # Get accurate token count using tiktoken
-        tokens = self.encoding.encode(text)
-        token_count = len(tokens)
+        if self.encoding:
+            tokens = self.encoding.encode(text)
+            token_count = len(tokens)
+        else:
+            # Very coarse fallback when tiktoken encodings aren't available
+            tokens = re.findall(r"\S+", text)
+            token_count = len(tokens)
         
         # Apply language-specific modifier if provided
         if language:
@@ -576,7 +594,7 @@ class TokenBudgetAnalyzer:
         task_type: Optional[str] = None,
         task_keywords: Optional[List[str]] = None,  # New parameter
         force_optimization: bool = False
-    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """
         Allocate tokens to different parts of the context based on importance.
 
@@ -587,9 +605,8 @@ class TokenBudgetAnalyzer:
             force_optimization: Force optimization even if token count is low (for testing)
 
         Returns:
-            Tuple: (Dictionary with token allocation information and optimized context, importance_scores)
-                - The first element is a dictionary with keys 'optimized_context' and 'allocation_report'.
-                - The second element is the full importance_scores map (including task-keyword-boosted scores).
+            Dictionary with keys 'optimized_context', 'allocation_report',
+            and 'importance_scores'.
         """
         # Estimate token usage
         token_estimates = self.estimator.estimate_tokens_for_context(context)
@@ -732,8 +749,9 @@ class TokenBudgetAnalyzer:
                 
                 return {
                     "optimized_context": optimized_context,
-                    "allocation_report": allocation_report
-                }, importance_scores
+                    "allocation_report": allocation_report,
+                    "importance_scores": importance_scores,
+                }
             
         # If no optimization needed, return original context
         return {
@@ -742,9 +760,10 @@ class TokenBudgetAnalyzer:
                 "original_tokens": total_estimated_tokens,
                 "available_tokens": self.available_tokens,
                 "allocated_tokens": total_estimated_tokens,
-                "optimization_applied": False
-            }
-        }, importance_scores
+                "optimization_applied": False,
+            },
+            "importance_scores": importance_scores,
+        }
     
     def get_total_token_count(self, context: Dict[str, Any]) -> int:
         """

@@ -50,6 +50,7 @@ except ImportError:
     GITHUB_APP_ID = os.getenv("GITHUB_APP_ID", "")
     GITHUB_PRIVATE_KEY = os.getenv("GITHUB_PRIVATE_KEY", "")
     TARGET_ORG = os.getenv("TARGET_ORG", "")
+    HTTP_DEFAULT_TIMEOUT = float(os.getenv("HTTP_DEFAULT_TIMEOUT", "30.0"))
 
 # GitHub OAuth configuration
 GITHUB_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID", "")
@@ -111,13 +112,13 @@ def save_token(token_data: Dict[str, Any]) -> None:
 
 def load_token() -> Optional[Dict[str, Any]]:
     """Load the GitHub token data from a file.
-    
+
     Returns:
         The token data as a dictionary, or None if the file doesn't exist
     """
     if not os.path.exists(TOKEN_FILE):
         return None
-    
+
     try:
         key = os.environ.get(TOKEN_ENCRYPTION_KEY_ENV)
         if not key:
@@ -145,16 +146,16 @@ def load_token() -> Optional[Dict[str, Any]]:
 
 def validate_token(token: str) -> bool:
     """Validate that the token is still valid.
-    
+
     Args:
         token: The GitHub OAuth token to validate
-        
+
     Returns:
         True if the token is valid, False otherwise
     """
     headers = {
         "Authorization": f"token {token}",
-        "Accept": "application/vnd.github.v3+json"
+        "Accept": "application/vnd.github.v3+json",
     }
     response = requests.get(
         f"{GITHUB_API_URL}/user",
@@ -166,15 +167,15 @@ def validate_token(token: str) -> bool:
 
 class GitHubOAuthHandler(BaseHTTPRequestHandler):
     """HTTP request handler for GitHub OAuth callback."""
-    
+
     code: Optional[str] = None
     state: Optional[str] = None  # For CSRF protection
     expected_state: Optional[str] = None  # Static class variable
-    
+
     def do_GET(self) -> None:  # BaseHTTPRequestHandler expects do_GET
         """Handle GET requests to the server."""
         parsed_url = urlparse(self.path)
-        
+
         if parsed_url.path == "/callback":
             # Extract the authorization code
             query = parse_qs(parsed_url.query)
@@ -184,13 +185,13 @@ class GitHubOAuthHandler(BaseHTTPRequestHandler):
                 if received_state != GitHubOAuthHandler.expected_state:
                     self._send_error_response(
                         "Authentication Failed",
-                        "Invalid state parameter - possible CSRF attack."
+                        "Invalid state parameter - possible CSRF attack.",
                     )
                     return
-                
+
                 GitHubOAuthHandler.code = query["code"][0]
                 GitHubOAuthHandler.state = received_state
-                
+
                 # Display success page
                 self._send_success_response()
                 return
@@ -198,7 +199,7 @@ class GitHubOAuthHandler(BaseHTTPRequestHandler):
             # Display error page
             self._send_error_response(
                 "Authentication Failed",
-                "Missing required parameters. Both code and state are required."
+                "Missing required parameters. Both code and state are required.",
             )
         else:
             # Handle other paths
@@ -211,8 +212,7 @@ class GitHubOAuthHandler(BaseHTTPRequestHandler):
         self.send_header("Content-type", "text/html")
         self.end_headers()
         error_html = (
-            f"<html><body><h1>{title}</h1>"
-            f"<p>{message}</p></body></html>"
+            f"<html><body><h1>{title}</h1>" f"<p>{message}</p></body></html>"
         ).encode("utf-8")
         self.wfile.write(error_html)
 
@@ -230,7 +230,7 @@ class GitHubOAuthHandler(BaseHTTPRequestHandler):
 
 def authenticate_user() -> Optional[str]:
     """Authenticate the user with GitHub SSO.
-    
+
     Returns:
         The GitHub OAuth token if authentication is successful, None otherwise
     """
@@ -269,13 +269,12 @@ def authenticate_user() -> Optional[str]:
         "client_id": GITHUB_CLIENT_ID,
         "redirect_uri": GITHUB_REDIRECT_URI,
         "scope": "repo",
-        "state": state
+        "state": state,
     }
     auth_url = (
-        f"{GITHUB_AUTH_URL}?"
-        f"{'&'.join(f'{k}={v}' for k, v in auth_params.items())}"
+        f"{GITHUB_AUTH_URL}?" f"{'&'.join(f'{k}={v}' for k, v in auth_params.items())}"
     )
-    
+
     print("Opening browser for GitHub authentication...")
     webbrowser.open(auth_url)
 
@@ -295,10 +294,10 @@ def authenticate_user() -> Optional[str]:
             "client_secret": GITHUB_CLIENT_SECRET,
             "code": GitHubOAuthHandler.code,
             "redirect_uri": GITHUB_REDIRECT_URI,
-            "state": GitHubOAuthHandler.state
+            "state": GitHubOAuthHandler.state,
         },
         headers={"Accept": "application/json"},
-        timeout=HTTP_DEFAULT_TIMEOUT
+        timeout=HTTP_DEFAULT_TIMEOUT,
     )
 
     if response.status_code == 200:
@@ -327,7 +326,7 @@ def _is_member_of_allowed_orgs(token: str) -> bool:
 
     headers = {
         "Authorization": f"token {token}",
-        "Accept": "application/vnd.github.v3+json"
+        "Accept": "application/vnd.github.v3+json",
     }
     try:
         resp = requests.get(
@@ -344,9 +343,7 @@ def _is_member_of_allowed_orgs(token: str) -> bool:
 
 
 def _validate_token_and_check_org(
-    token: str,
-    target_org: str = "",
-    expected_username: Optional[str] = None
+    token: str, target_org: str = "", expected_username: Optional[str] = None
 ) -> Tuple[bool, Optional[str]]:
     """Validate token and check org membership in a single function.
 
@@ -354,18 +351,18 @@ def _validate_token_and_check_org(
         token: GitHub OAuth token to validate
         target_org: Organization to check membership for (empty to skip check)
         expected_username: Username to verify (optional validation)
-        
+
     Returns:
         Tuple of (is_valid_member, username)
     """
     if not token:
         return False, None
-        
+
     headers = {
         "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github.v3+json"
+        "Accept": "application/vnd.github.v3+json",
     }
-    
+
     try:
         # Get user info first
         user_response = requests.get(
@@ -375,20 +372,18 @@ def _validate_token_and_check_org(
         )
         if user_response.status_code != 200:
             return False, None
-            
+
         user_data = user_response.json()
         username = user_data.get("login")
-        
+
         if expected_username and username != expected_username:
             return False, None
-            
+
         if not target_org:
             return True, username
-            
+
         # Check org membership
-        org_check_url = (
-            f"{GITHUB_API_URL}/orgs/{target_org}/members/{username}"
-        )
+        org_check_url = f"{GITHUB_API_URL}/orgs/{target_org}/members/{username}"
         org_response = requests.get(
             org_check_url,
             headers=headers,
@@ -396,10 +391,13 @@ def _validate_token_and_check_org(
         )
         if org_response.status_code == 204:
             return True, username
-            
+
         return False, None
     except requests.RequestException as e:
         print(strip_sensitive_headers(f"Error in token validation: {e}"))
+        return False, None
+    except Exception as e:  # pragma: no cover - unexpected errors
+        print(strip_sensitive_headers(f"Unexpected error during token check: {e}"))
         return False, None
 
 
@@ -409,10 +407,10 @@ class AuthorizationError(Exception):
 
 def get_current_user() -> str:
     """Retrieve the current GitHub user and verify org membership.
-    
+
     Returns:
         The username of the authenticated user.
-        
+
     Raises:
         AuthorizationError: If the user is not authorized.
     """
@@ -427,16 +425,16 @@ def get_current_user() -> str:
         private_key = GITHUB_PRIVATE_KEY
         if not app_id or not private_key:
             raise AuthorizationError("GitHub App credentials not configured.")
-        
+
         # Generate JWT with proper security practices
         now = int(time.time())
         payload = {
             "iat": now - 60,  # Issued 60 seconds ago for clock skew
             "exp": now + (10 * 60),  # Expires in 10 minutes
             "iss": app_id,
-            "jti": secrets.token_hex(16)  # Unique JWT ID to prevent replay
+            "jti": secrets.token_hex(16),  # Unique JWT ID to prevent replay
         }
-        
+
         try:
             encoded_jwt = jwt.encode(payload, private_key, algorithm="RS256")
             # Verify the JWT if possible
@@ -448,8 +446,8 @@ def get_current_user() -> str:
                     options={
                         "verify_signature": True,
                         "verify_exp": True,
-                        "verify_iss": True
-                    }
+                        "verify_iss": True,
+                    },
                 )
             except jwt.InvalidTokenError:
                 # If verification fails, the token might still be valid
@@ -458,32 +456,26 @@ def get_current_user() -> str:
         except Exception as e:
             msg = f"Failed to create or verify JWT: {e}"
             raise AuthorizationError(msg) from e
-        
+
         integration = GithubIntegration(app_id, private_key)
         installations = integration.get_installations()
         if not installations:
             raise AuthorizationError("No GitHub App installations found.")
-            
+
         # Use first installation
         installation_id = installations[0].id
         token = integration.get_access_token(installation_id).token
         gh = Github(token)
-    
+
     user = gh.get_user()
     username = user.login  # We need this username for verification
-    
+
     # Verify org membership
     # Use combined validation to reduce API calls
-    is_member, _ = _validate_token_and_check_org(
-        token,
-        TARGET_ORG,
-        username
-    )
-    
+    is_member, _ = _validate_token_and_check_org(token, TARGET_ORG, username)
+
     if not is_member:
-        msg = (
-            f"User '{username}' is not a member of the organization '{TARGET_ORG}'"
-        )
+        msg = f"User '{username}' is not a member of the organization '{TARGET_ORG}'"
         raise AuthorizationError(msg)
-    
+
     return username

@@ -546,3 +546,40 @@ class MemoryManager:
             system_prompt=system_prompt,
             user_prompt=user_prompt
         )
+
+    def _verify_manifest(self) -> None:
+        """Ensure the cache manifest exists and is valid JSON."""
+        if not self.manifest_path.exists():
+            try:
+                self.manifest_path.parent.mkdir(exist_ok=True)
+                with open(self.manifest_path, "w", encoding="utf-8") as f:
+                    json.dump({}, f)
+            except OSError as e:
+                logger.error(f"Error creating manifest file: {e}")
+            return
+        try:
+            with open(self.manifest_path, "r", encoding="utf-8") as f:
+                json.load(f)
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning(f"Manifest file corrupted: {e}. Resetting.")
+            try:
+                with open(self.manifest_path, "w", encoding="utf-8") as f:
+                    json.dump({}, f)
+            except OSError as e2:
+                logger.error(f"Error resetting manifest file: {e2}")
+
+    def _update_manifest(self) -> None:
+        """Update manifest timestamp."""
+        data = {}
+        if self.manifest_path.exists():
+            try:
+                with open(self.manifest_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                data = {}
+        data["last_updated"] = datetime.now(timezone.utc).isoformat()
+        try:
+            with open(self.manifest_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+        except OSError as e:
+            logger.error(f"Error updating manifest: {e}")

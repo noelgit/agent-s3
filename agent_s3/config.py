@@ -257,6 +257,10 @@ class Config:
         """Dictionary representation for backward compatibility."""
         return self._config_dict
 
+    def get_workspace_path(self) -> str:
+        """Return the configured workspace path."""
+        return self.settings.workspace_path
+
     @config.setter
     def config(self, new_config: Dict[str, Any]) -> None:
         try:

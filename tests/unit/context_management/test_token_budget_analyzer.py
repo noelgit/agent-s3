@@ -36,9 +36,10 @@ def test_allocate_tokens_truncates_important_files(monkeypatch):
 
     context = {"code_context": {"main.py": important_content, "utils.py": other_content}}
 
-    result, scores = analyzer.allocate_tokens(context, force_optimization=True)
+    result = analyzer.allocate_tokens(context, force_optimization=True)
     optimized = result["optimized_context"]
     report = result["allocation_report"]
+    scores = result["importance_scores"]
 
     assert report["optimization_applied"] is True
     assert "main.py" in optimized["code_context"]

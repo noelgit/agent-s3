@@ -621,12 +621,13 @@ class ContextManager:
             self._context_size_monitor.update(context_copy)
             current_tokens = self._context_size_monitor.current_usage
             target_tokens = self.config.get("CONTEXT_BACKGROUND_OPT_TARGET_TOKENS", 16000)
-            allocation_result, importance_scores = self.token_budget_analyzer.allocate_tokens(
+            allocation_result = self.token_budget_analyzer.allocate_tokens(
                 context_copy,
                 task_type=None,  # Could be enhanced to use actual task_type if tracked
                 task_keywords=None,
-                force_optimization=False
+                force_optimization=False,
             )
+            importance_scores = allocation_result.get("importance_scores", {})
             # --- Begin: Comprehensive importance score propagation ---
             if importance_scores:  # Ensure the map is not empty
                 for section_key, section_value in importance_scores.items():
@@ -783,10 +784,10 @@ class ContextManager:
         # ...existing code...
         # Use the configured allocation strategy
         # The allocation strategy (e.g., TaskAdaptiveAllocation) should internally use task_keywords
-        allocation_result, _ = self.allocation_strategy.allocate(
-            self.current_context, 
+        allocation_result = self.allocation_strategy.allocate(
+            self.current_context,
             task_type=task_type,
-            task_keywords=task_keywords # Pass keywords here
+            task_keywords=task_keywords,  # Pass keywords here
         )
         return allocation_result["optimized_context"]
         # ...existing code...
