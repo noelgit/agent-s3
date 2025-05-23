@@ -283,6 +283,7 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   - `GITHUB_ORG` (optional membership filter)
   - `OPENROUTER_KEY` (or other LLM keys such as `OPENAI_KEY`)
   - **Token Encryption:** `AGENT_S3_ENCRYPTION_KEY` (required for GitHub token storage; the CLI fails to save tokens when unset)
+  - **Scratchpad Encryption:** set `encryption_key` when `scratchpad_enable_encryption` is true. Generate the key with `Fernet.generate_key()` and provide it via `AGENT_S3_ENCRYPTION_KEY` or your config file.
   - `DENYLIST_COMMANDS`, `COMMAND_TIMEOUT`, `CLI_COMMAND_WARNINGS` in config
   - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` for Supabase integration
     (the service role key is only used by the Supabase function after
@@ -305,6 +306,16 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   MAX_CLARIFICATION_ROUNDS=3
   MAX_PREPLANNING_ATTEMPTS=2
   ```
+
+### Encryption Key Management
+
+Generate a key using:
+
+```bash
+python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'
+```
+
+Store the value in `AGENT_S3_ENCRYPTION_KEY` or your config file. To rotate the key, generate a new value, update the configuration, and restart Agent-S3. Decrypt existing logs with the previous key before archival or re-encryption.
 
 ## Coding Guidelines
 

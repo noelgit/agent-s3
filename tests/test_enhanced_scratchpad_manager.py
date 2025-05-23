@@ -135,6 +135,18 @@ class TestLogEntry:
 
 class TestEnhancedScratchpadManager:
     """Test the EnhancedScratchpadManager class functionality."""
+
+    def test_encryption_key_required(self, mock_config, temp_log_dir):
+        """Require encryption_key when encryption is enabled."""
+        mock_config.config["scratchpad_log_dir"] = temp_log_dir
+        mock_config.config["scratchpad_enable_encryption"] = True
+        with patch(
+            'agent_s3.enhanced_scratchpad_manager.EnhancedScratchpadManager._initialize_session'
+        ), patch(
+            'agent_s3.enhanced_scratchpad_manager.EnhancedScratchpadManager._setup_logging'
+        ):
+            with pytest.raises(ValueError):
+                EnhancedScratchpadManager(mock_config)
     
     def test_initialization(self, scratchpad_manager, temp_log_dir):
         """Test initializing the EnhancedScratchpadManager."""

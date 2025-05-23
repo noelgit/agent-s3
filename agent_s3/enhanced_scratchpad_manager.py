@@ -16,6 +16,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List, Set, Union
 from pathlib import Path
 import hashlib
+from cryptography.fernet import Fernet, InvalidToken
 
 from agent_s3.config import Config
 
@@ -125,6 +126,22 @@ class EnhancedScratchpadManager:
         self.max_file_size_mb = config.config.get('scratchpad_max_file_size_mb', self.DEFAULT_MAX_FILE_SIZE_MB)
         self.log_dir = config.config.get('scratchpad_log_dir', self.DEFAULT_LOG_DIR)
         self.enable_encryption = config.config.get('scratchpad_enable_encryption', False)
+        self.encryption_key = config.config.get('encryption_key')
+        if self.enable_encryption:
+            if not self.encryption_key:
+                raise ValueError(
+                    "encryption_key must be set when scratchpad_enable_encryption is True"
+                )
+            try:
+                self.fernet = Fernet(
+                    self.encryption_key.encode()
+                    if isinstance(self.encryption_key, str)
+                    else self.encryption_key
+                )
+            except Exception as exc:
+                raise ValueError("Invalid encryption_key") from exc
+        else:
+            self.fernet = None
         
         # Create log directory if it doesn't exist
         self.log_dir_path = Path(os.getcwd()) / self.log_dir
@@ -321,48 +338,19 @@ class EnhancedScratchpadManager:
     
     def _encrypt_content(self, content: str) -> str:
         """Encrypt log content if encryption is enabled."""
-        if not self.enable_encryption:
+        if not self.enable_encryption or not self.fernet:
             return content
-            
-        # Simple XOR encryption with config-based key for demo
-        # In production, use proper encryption libraries
-        key = self.config.config.get("encryption_key", "default_key")
-        key_bytes = key.encode()
-        content_bytes = content.encode()
-        
-        # XOR encryption
-        encrypted_bytes = bytearray()
-        for i, byte in enumerate(content_bytes):
-            key_byte = key_bytes[i % len(key_bytes)]
-            encrypted_bytes.append(byte ^ key_byte)
-            
-        # Return base64 encoded encrypted content
-        import base64
-        return base64.b64encode(encrypted_bytes).decode()
+
+        return self.fernet.encrypt(content.encode()).decode()
     
     def _decrypt_content(self, encrypted: str) -> str:
         """Decrypt log content if encryption is enabled."""
-        if not self.enable_encryption:
+        if not self.enable_encryption or not self.fernet:
             return encrypted
-            
-        # Simple XOR decryption (inverse of encryption)
-        import base64
-        
+
         try:
-            key = self.config.config.get("encryption_key", "default_key")
-            key_bytes = key.encode()
-            
-            # Decode base64
-            encrypted_bytes = base64.b64decode(encrypted)
-            
-            # XOR decryption
-            decrypted_bytes = bytearray()
-            for i, byte in enumerate(encrypted_bytes):
-                key_byte = key_bytes[i % len(key_bytes)]
-                decrypted_bytes.append(byte ^ key_byte)
-                
-            return decrypted_bytes.decode()
-        except Exception:
+            return self.fernet.decrypt(encrypted.encode()).decode()
+        except InvalidToken:
             return "[Error decrypting content]"
     
     def _write_entry(self, entry: LogEntry) -> None:
