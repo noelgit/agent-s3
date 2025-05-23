@@ -152,6 +152,9 @@ class TestCodeGeneratorAgentic:
         code_generator = CodeGenerator(mock_coordinator)
         file_path = "agent_s3/test_module.py"
         invalid_code = "def test_func()\n    return undefined_variable"  # Missing colon and undefined variable
+
+        # Ensure bash_tool returns a tuple like the real implementation
+        mock_coordinator.bash_tool.run_command.return_value = (1, "Syntax error")
         
         # Mock ast.parse to raise SyntaxError
         with patch('ast.parse', side_effect=SyntaxError("invalid syntax")):

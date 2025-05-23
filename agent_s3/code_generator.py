@@ -26,6 +26,10 @@ class CodeGenerator:
         self.coordinator = coordinator
         self.scratchpad = coordinator.scratchpad
         self.debugging_manager = getattr(coordinator, 'debugging_manager', None)
+        self.llm = getattr(coordinator, 'llm', None)
+        self.file_tool = getattr(coordinator, 'file_tool', None)
+        self.memory_manager = getattr(coordinator, 'memory_manager', None)
+        self.code_analysis_tool = getattr(coordinator, 'code_analysis_tool', None)
 
         # Track generation attempts
         self.current_attempt = 0
@@ -37,6 +41,94 @@ class CodeGenerator:
         self._context_cache_max_size = 10  # Limit cache size
         self._context_dependency_map = {}  # Track dependencies between files
         self._generation_attempts = {}  # Track generation attempts per file
+
+    def _allocate_token_budget(self, total_tokens: int, attempt_num: int = 1) -> Dict[str, int]:
+        """Allocate token budget for different context elements."""
+        task_tokens = int(total_tokens * 0.1)
+        plan_tokens = int(total_tokens * 0.3)
+        code_tokens = int(total_tokens * 0.5)
+        tech_tokens = total_tokens - (task_tokens + plan_tokens + code_tokens)
+
+        if attempt_num >= 2:
+            code_tokens += int(total_tokens * 0.1)
+            plan_tokens = max(plan_tokens - int(total_tokens * 0.05), 0)
+        if attempt_num >= 3:
+            code_tokens += int(total_tokens * 0.1)
+            plan_tokens = max(plan_tokens - int(total_tokens * 0.05), 0)
+
+        # adjust to ensure the sum equals total_tokens
+        allocation = {
+            "task": task_tokens,
+            "plan": plan_tokens,
+            "code_context": code_tokens,
+            "tech_stack": tech_tokens,
+        }
+        diff = total_tokens - sum(allocation.values())
+        allocation["code_context"] += diff
+        return allocation
+
+    def _gather_minimal_context(
+        self,
+        task: str,
+        plan: Any,
+        tech_stack: Dict[str, Any],
+        token_budgets: Dict[str, int],
+    ) -> Dict[str, Any]:
+        """Return minimal context for generation, handling JSON plans."""
+        is_json = isinstance(plan, dict)
+        context = {
+            "task": task,
+            "tech_stack": tech_stack,
+            "code_context": {},
+            "is_json_plan": is_json,
+            "previous_attempts": [],
+        }
+        if is_json:
+            context["test_plan"] = plan.get("test_plan")
+            context["plan"] = json.dumps(plan.get("functional_plan", plan), indent=2)
+        else:
+            context["plan"] = str(plan)
+        return context
+
+    def _gather_full_context(
+        self,
+        task: str,
+        plan: Any,
+        tech_stack: Dict[str, Any],
+        token_budgets: Dict[str, int],
+        failed_attempts: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        """Gather full context for generation with optional summarization."""
+        context = self._gather_minimal_context(task, plan, tech_stack, token_budgets)
+        context["previous_attempts"] = failed_attempts or []
+
+        if self.coordinator and hasattr(self.coordinator, "memory_manager"):
+            mm = self.coordinator.memory_manager
+            plan_str = context["plan"]
+            budget = token_budgets.get("plan", len(plan_str))
+            if isinstance(plan_str, str) and mm.estimate_token_count(plan_str) > budget:
+                context["plan"] = mm.summarize(plan_str, budget)
+        return context
+
+    def _create_generation_prompt(self, context: Dict[str, Any]) -> str:
+        """Create a generation prompt from gathered context."""
+        task = context.get("task", "")
+        plan = context.get("plan", "")
+        prompt_sections = [f"# Task\n{task}"]
+        if context.get("is_json_plan"):
+            prompt_sections.append("# Structured Plan (JSON Format)")
+            prompt_sections.append(str(plan))
+            if context.get("test_plan") is not None:
+                prompt_sections.append("# Test Plan")
+                prompt_sections.append(json.dumps(context["test_plan"], indent=2))
+            prompt_sections.append("# Instructions for JSON Plan Implementation")
+            prompt_sections.append(
+                "Follow these steps to implement the feature based on the JSON structured plan"
+            )
+        else:
+            prompt_sections.append("# Plan")
+            prompt_sections.append(str(plan))
+        return "\n".join(prompt_sections)
 
     def generate_code(self, plan: Dict[str, Any], tech_stack: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
         """Generates code for all files in the implementation plan.
@@ -597,14 +689,20 @@ Please fix the code to address all these issues while maintaining security best 
         lint_issues = []
         type_issues = []
         test_issues = []
+        import_issues = []
+        undefined_issues = []
         other_issues = []
         
         for issue in issues:
-            if "Syntax error" in issue:
+            if "Syntax error" in issue or "invalid syntax" in issue:
                 syntax_issues.append(issue)
+            elif "No module named" in issue:
+                import_issues.append(issue)
+            elif "not defined" in issue or "undefined" in issue:
+                undefined_issues.append(issue)
             elif "Linting" in issue:
-                lint_issues.append(issue) 
-            elif "Type checking" in issue:
+                lint_issues.append(issue)
+            elif "Type checking" in issue or "Incompatible" in issue:
                 type_issues.append(issue)
             elif "Test failure" in issue or "Test '" in issue:
                 test_issues.append(issue)
@@ -613,6 +711,10 @@ Please fix the code to address all these issues while maintaining security best 
         
         if syntax_issues:
             debug_info["issue_categories"]["syntax"] = syntax_issues
+        if import_issues:
+            debug_info["issue_categories"]["import"] = import_issues
+        if undefined_issues:
+            debug_info["issue_categories"]["undefined"] = undefined_issues
         if lint_issues:
             debug_info["issue_categories"]["lint"] = lint_issues
         if type_issues:
@@ -628,8 +730,10 @@ Please fix the code to address all these issues while maintaining security best 
             f"{len(type_issues)} type, {len(test_issues)} test issues"
         )
         
-        # Critical issues are syntax errors and test failures
-        debug_info["critical_issues"] = syntax_issues + test_issues
+        # Critical issues include syntax errors, import errors and undefined variables
+        debug_info["critical_issues"] = (
+            syntax_issues + import_issues + undefined_issues + test_issues
+        )
 
         return debug_info
 
@@ -860,7 +964,10 @@ Please update the code so that the tests pass. Return only the fixed code."""
             try:
                 if os.path.exists(file_path):
                     existing = self.coordinator.file_tool.read_file(file_path)
-                    defs = len(re.findall(r"^def\s", existing, re.MULTILINE)) + len(re.findall(r"^class\s", existing, re.MULTILINE))
+                    defs = (
+                        len(re.findall(r"^\s*def\s", existing, re.MULTILINE))
+                        + len(re.findall(r"^\s*class\s", existing, re.MULTILINE))
+                    )
                     complexity += 0.1 * min(defs, 10)
             except Exception:
                 pass
