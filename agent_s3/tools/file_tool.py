@@ -51,10 +51,16 @@ class FileTool:
             # Use realpath to resolve any symlinks before comparison
             norm_path = os.path.normpath(os.path.realpath(file_path))
             
-            # Check if path is within allowed directories
+            # Check if path is within allowed directories using commonpath to
+            # avoid prefix-based bypasses like '/tmpfoo'
             allowed = False
             for dir_path in self.allowed_dirs:
-                if norm_path.startswith(dir_path):
+                real_allowed = os.path.realpath(dir_path)
+                try:
+                    common = os.path.commonpath([norm_path, real_allowed])
+                except ValueError:
+                    common = ""
+                if common == real_allowed:
                     allowed = True
                     break
             
