@@ -34,7 +34,8 @@ class EnhancedWebSocketServer:
         host: str = "localhost",
         port: int = 9000,
         auth_token: Optional[str] = None,
-        heartbeat_interval: int = 15
+        heartbeat_interval: int = 15,
+        max_message_size: int = 65536,
     ):
         """Initialize the WebSocket server.
         
@@ -44,11 +45,13 @@ class EnhancedWebSocketServer:
             port: Port to listen on
             auth_token: Optional authentication token
             heartbeat_interval: Heartbeat interval in seconds
+            max_message_size: Maximum allowed size for a single message in bytes
         """
         self.host = host
         self.port = port
         self.auth_token = auth_token or str(uuid.uuid4())
         self.heartbeat_interval = heartbeat_interval
+        self.max_message_size = max_message_size
         
         # Message bus and queue
         self.message_bus = message_bus or MessageBus()
@@ -382,6 +385,12 @@ class EnhancedWebSocketServer:
             # Handle messages
             async for message_data in websocket:
                 try:
+                    if len(message_data) > self.max_message_size:
+                        await self.send_message(client_id, Message(
+                            type=MessageType.ERROR_NOTIFICATION,
+                            content={"error": "Message exceeds maximum size"}
+                        ))
+                        continue
                     # Check rate limits
                     if not self._check_rate_limit(client_id):
                         await self.send_message(client_id, Message(
@@ -833,7 +842,8 @@ class EnhancedWebSocketServer:
             self.host,
             self.port,
             ping_interval=self.heartbeat_interval,
-            ping_timeout=self.heartbeat_interval * 2
+            ping_timeout=self.heartbeat_interval * 2,
+            max_size=self.max_message_size,
         )
         
         # Get actual port if auto-selected
