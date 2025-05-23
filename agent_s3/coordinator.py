@@ -130,6 +130,17 @@ class Coordinator:
                 level=logging.ERROR,
                 reraise=True
             )
+
+        # Lazy-initialized command processor
+        self._command_processor = None
+
+    @property
+    def command_processor(self):
+        """Lazily create and return the CommandProcessor instance."""
+        if self._command_processor is None:
+            from agent_s3.command_processor import CommandProcessor
+            self._command_processor = CommandProcessor(self)
+        return self._command_processor
     
     def _initialize_core_components(self) -> None:
         """Initialize core components and logging."""
