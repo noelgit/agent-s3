@@ -6,10 +6,23 @@ import numpy as np
 from agent_s3.llm_utils import get_embedding
 from collections import Counter
 
+# Module-level cache for embeddings to avoid redundant API calls
+_embedding_cache: Dict[str, list] = {}
+
+
+def _get_cached_embedding(text: str):
+    """Return the embedding for ``text`` using a simple in-memory cache."""
+    if text in _embedding_cache:
+        return _embedding_cache[text]
+    embedding = get_embedding(text)
+    if embedding is not None:
+        _embedding_cache[text] = embedding
+    return embedding
+
 def compute_faithfulness(source: str, summary: str) -> float:
     # Embedding similarity (cosine)
-    src_emb = get_embedding(source)
-    sum_emb = get_embedding(summary)
+    src_emb = _get_cached_embedding(source)
+    sum_emb = _get_cached_embedding(summary)
     if src_emb is None or sum_emb is None:
         return 0.0
     sim = np.dot(src_emb, sum_emb) / (np.linalg.norm(src_emb) * np.linalg.norm(sum_emb))
