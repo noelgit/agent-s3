@@ -2,9 +2,25 @@
 Validation metrics for summary quality: faithfulness, detail preservation, structural coherence.
 """
 from typing import Optional, Dict
+import re
 import numpy as np
 from agent_s3.llm_utils import get_embedding
 from collections import Counter
+
+
+def _sanitize_code_input(code: str) -> str:
+    """Validate code input before AST parsing."""
+    if not isinstance(code, str):
+        raise ValueError("Code input must be a string")
+    if "\x00" in code:
+        raise ValueError("Null bytes are not allowed in code input")
+    if len(code) > 50000:
+        raise ValueError("Code input too large")
+    suspicious_patterns = [r"\b__import__\b", r"\beval\s*\(", r"\bexec\s*\("]
+    for pattern in suspicious_patterns:
+        if re.search(pattern, code):
+            raise ValueError("Suspicious code content detected")
+    return code
 
 def compute_faithfulness(source: str, summary: str) -> float:
     # Embedding similarity (cosine)
@@ -57,6 +73,8 @@ def _compare_js_structures(source: str, summary: str) -> float:
 
 def compute_structural_coherence(source: str, summary: str, language: Optional[str]=None) -> float:
     """Compute how well code structure is preserved using AST comparison."""
+    source = _sanitize_code_input(source)
+    summary = _sanitize_code_input(summary)
     if not language or language.lower() not in ['python', 'javascript', 'typescript']:
         return 0.8  # Default value for unsupported languages
     try:
