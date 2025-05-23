@@ -763,15 +763,15 @@ class FeatureGroupProcessor:
                     )
 
                 # Perform implementation plan validation
-                validated_impl, validation_issues, needs_repair = (
-                    validate_implementation_plan(
-                        updated_plan.get("implementation_plan", {}),
-                        system_design,
-                        updated_plan.get("architecture_review", {}),
-                        updated_plan.get("tests", {}),
-                    )
+                validation_result = validate_implementation_plan(
+                    updated_plan.get("implementation_plan", {}),
+                    system_design,
+                    updated_plan.get("architecture_review", {}),
+                    updated_plan.get("tests", {}),
                 )
-                updated_plan["implementation_plan"] = validated_impl
+                updated_plan["implementation_plan"] = validation_result.data
+                validation_issues = validation_result.issues
+                needs_repair = validation_result.needs_repair
 
                 revalidation_results = {
                     "implementation_plan_validation": {

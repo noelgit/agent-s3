@@ -1961,9 +1961,12 @@ def validate_planning_semantic_coherence(
     
     # Validate implementation plan against system design, architecture review, and test implementations
     if implementation_plan and system_design and architecture_review and test_implementations:
-        validated_plan, validation_issues, needs_repair = validate_implementation_plan(
+        validation_result = validate_implementation_plan(
             implementation_plan, system_design, architecture_review, test_implementations
         )
+        validated_plan = validation_result.data
+        validation_issues = validation_result.issues
+        needs_repair = validation_result.needs_repair
         
         # Calculate implementation metrics for deeper semantic analysis
         element_ids = set()
@@ -2661,12 +2664,15 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                                 test_requirements[element_id].append(test_with_type)
             
             # Perform validation with detailed logging
-            validated_plan, validation_issues, needs_repair = validate_implementation_plan(
+            validation_result = validate_implementation_plan(
                 implementation_plan,
                 system_design,
                 architecture_review,
-                tests
+                tests,
             )
+            validated_plan = validation_result.data
+            validation_issues = validation_result.issues
+            needs_repair = validation_result.needs_repair
             
             # Log validation issues with structured categorization
             issue_types = defaultdict(lambda: defaultdict(int))

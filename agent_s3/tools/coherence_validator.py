@@ -12,12 +12,14 @@ import logging
 import re
 from typing import Dict, Any, List
 
+from .validation_result import ValidationResult
+
 logger = logging.getLogger(__name__)
 
 
 def validate_implementation_coherence(
     implementation_plan: Dict[str, Any]
-) -> List[Dict[str, Any]]:
+) -> ValidationResult:
     """
     Validate coherence across implementations, checking for consistency in naming,
     error handling, API design patterns, and data flow.
@@ -26,9 +28,9 @@ def validate_implementation_coherence(
         implementation_plan: The implementation plan to validate
         
     Returns:
-        List of validation issues related to coherence
+        ValidationResult with issues and coherence metrics
     """
-    issues = []
+    issues: List[Dict[str, Any]] = []
     
     # Extract implementation_plan dict if it's nested in a larger structure
     if "implementation_plan" in implementation_plan:
@@ -37,22 +39,25 @@ def validate_implementation_coherence(
         impl_plan = implementation_plan
     
     # Validate naming consistency
-    naming_issues = check_naming_consistency(impl_plan)
+    naming_issues, _ = check_naming_consistency(impl_plan)
     issues.extend(naming_issues)
     
     # Validate error handling approaches
-    error_handling_issues = check_error_handling_consistency(impl_plan)
+    error_handling_issues, _ = check_error_handling_consistency(impl_plan)
     issues.extend(error_handling_issues)
     
     # Validate API design patterns
-    api_design_issues = check_api_design_consistency(impl_plan)
+    api_design_issues, _ = check_api_design_consistency(impl_plan)
     issues.extend(api_design_issues)
     
     # Validate data flow patterns
-    data_flow_issues = check_data_flow_consistency(impl_plan)
+    data_flow_issues, _ = check_data_flow_consistency(impl_plan)
     issues.extend(data_flow_issues)
-    
-    return issues
+
+    metrics = calculate_coherence_metrics(impl_plan)
+    needs_repair = any(i.get("severity") in ["critical", "high"] for i in issues)
+
+    return ValidationResult(issues=issues, needs_repair=needs_repair, metrics=metrics)
 
 
 def check_naming_consistency(implementation_plan: Dict[str, Any]) -> List[Dict[str, Any]]:

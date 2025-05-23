@@ -144,30 +144,30 @@ class TestImplementationValidator(unittest.TestCase):
 
     def test_validate_valid_plan(self):
         """Test validation of a valid implementation plan."""
-        validated_plan, validation_issues, needs_repair = validate_implementation_plan(
+        result = validate_implementation_plan(
             self.valid_implementation_plan,
             self.system_design,
             self.architecture_review,
-            self.test_implementations
+            self.test_implementations,
         )
-        
-        self.assertFalse(needs_repair)
-        self.assertEqual(len(validation_issues), 0)
+
+        self.assertFalse(result.needs_repair)
+        self.assertEqual(len(result.issues), 0)
 
     def test_validate_invalid_plan(self):
         """Test validation of an invalid implementation plan."""
-        validated_plan, validation_issues, needs_repair = validate_implementation_plan(
+        result = validate_implementation_plan(
             self.invalid_implementation_plan,
             self.system_design,
             self.architecture_review,
-            self.test_implementations
+            self.test_implementations,
         )
-        
-        self.assertTrue(needs_repair)
-        self.assertGreater(len(validation_issues), 0)
+
+        self.assertTrue(result.needs_repair)
+        self.assertGreater(len(result.issues), 0)
         
         # Check for specific issues
-        issue_types = [issue["issue_type"] for issue in validation_issues]
+        issue_types = [issue["issue_type"] for issue in result.issues]
         self.assertIn("invalid_element_id", issue_types)
         self.assertIn("missing_steps", issue_types)
         self.assertIn("missing_element_implementation", issue_types)
@@ -175,12 +175,15 @@ class TestImplementationValidator(unittest.TestCase):
 
     def test_repair_plan(self):
         """Test repairing an invalid implementation plan."""
-        validated_plan, validation_issues, needs_repair = validate_implementation_plan(
+        result = validate_implementation_plan(
             self.invalid_implementation_plan,
             self.system_design,
             self.architecture_review,
-            self.test_implementations
+            self.test_implementations,
         )
+
+        validated_plan = result.data
+        validation_issues = result.issues
         
         repaired_plan = repair_implementation_plan(
             validated_plan,

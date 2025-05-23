@@ -1,5 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
+
+from agent_s3.tools.validation_result import ValidationResult
 import json
 import tempfile
 import shutil
@@ -410,7 +412,11 @@ class TestSemanticValidationWorkflow(unittest.TestCase):
             'agent_s3.feature_group_processor.FeatureGroupProcessor._present_revalidation_results'
         ) as mock_present:
 
-            mock_validate.return_value = (invalid_plan["implementation_plan"], [validation_issue], True)
+            mock_validate.return_value = ValidationResult(
+                data=invalid_plan["implementation_plan"],
+                issues=[validation_issue],
+                needs_repair=True,
+            )
 
             result = self.processor.process_pre_planning_output(self.pre_planning_data, "Implement authentication")
             self.assertTrue(result["success"])
@@ -470,7 +476,11 @@ class TestSemanticValidationWorkflow(unittest.TestCase):
             'agent_s3.feature_group_processor.FeatureGroupProcessor._present_revalidation_results'
         ) as mock_present:
 
-            mock_validate.return_value = (invalid_plan["implementation_plan"], [], False)
+            mock_validate.return_value = ValidationResult(
+                data=invalid_plan["implementation_plan"],
+                issues=[],
+                needs_repair=False,
+            )
 
             result = self.processor.process_pre_planning_output(self.pre_planning_data, "Implement authentication")
             self.assertTrue(result["success"])

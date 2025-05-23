@@ -11,6 +11,8 @@ import logging
 import re
 import difflib
 from typing import Dict, Any, List, Set, Tuple
+
+from .validation_result import ValidationResult
 from collections import defaultdict
 
 # Import canonical and coherence validators
@@ -38,7 +40,7 @@ def validate_implementation_plan(
     system_design: Dict[str, Any],
     architecture_review: Dict[str, Any],
     test_implementations: Dict[str, Any]
-) -> Tuple[Dict[str, Any], List[Dict[str, Any]], bool]:
+) -> ValidationResult:
     """
     Validate implementation plan against system design, architecture review, and test implementations.
     
@@ -49,7 +51,7 @@ def validate_implementation_plan(
         test_implementations: The test implementations data
         
     Returns:
-        Tuple of (validated_plan, validation_issues, needs_repair)
+        ValidationResult containing the validated plan and issues
     """
     validation_issues = []
     needs_repair = False
@@ -149,18 +151,16 @@ def validate_implementation_plan(
                 needs_repair = True
     
     # Validate canonical implementations
-    canonical_issues = validate_canonical_implementations(validated_plan, element_ids)
-    for issue in canonical_issues:
-        validation_issues.append(issue)
-        if issue["severity"] in ["critical", "high"]:
-            needs_repair = True
+    canonical_result = validate_canonical_implementations(validated_plan, element_ids)
+    validation_issues.extend(canonical_result.issues)
+    if canonical_result.needs_repair:
+        needs_repair = True
     
     # Validate implementation coherence
-    coherence_issues = validate_implementation_coherence(validated_plan)
-    for issue in coherence_issues:
-        validation_issues.append(issue)
-        if issue["severity"] in ["critical", "high"]:
-            needs_repair = True
+    coherence_result = validate_implementation_coherence(validated_plan)
+    validation_issues.extend(coherence_result.issues)
+    if coherence_result.needs_repair:
+        needs_repair = True
     
     # Validate coverage of architecture issues
     coverage_issues = _validate_architecture_issue_coverage(
@@ -210,10 +210,15 @@ def validate_implementation_plan(
             "issue_type": "low_quality_score",
             "severity": "medium",
             "description": f"Implementation plan quality score is low: {metrics['overall_score']:.2f}",
-            "metrics": metrics
+            "metrics": metrics,
         })
-        
-    return validated_plan, validation_issues, needs_repair
+
+    return ValidationResult(
+        data=validated_plan,
+        issues=validation_issues,
+        needs_repair=needs_repair,
+        metrics=metrics,
+    )
 
 
 def repair_implementation_plan(
