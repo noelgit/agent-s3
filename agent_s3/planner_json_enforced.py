@@ -22,6 +22,7 @@ from agent_s3.tools.implementation_validator import (
 )
 
 from agent_s3.json_utils import extract_json_from_text
+from agent_s3.tools.context_management.token_budget import TokenEstimator
 # Define functions previously imported from json_utils
 def validate_json_schema(data: Dict[str, Any]) -> Tuple[bool, str, List[int]]:
     """
@@ -1096,6 +1097,12 @@ Please maintain the intent of the original test requirements while enriching the
     # Call the LLM
     try:
         system_prompt = get_test_specification_refinement_system_prompt()
+        estimator = TokenEstimator()
+        prompt_tokens = (
+            estimator.estimate_tokens_for_text(system_prompt)
+            + estimator.estimate_tokens_for_text(user_prompt)
+        )
+        llm_params = {**llm_params, "max_tokens": max(llm_params.get("max_tokens", 0) - prompt_tokens, 0)}
         response_text = router_agent.call_llm_by_role(
             role="test_planner",
             system_prompt=system_prompt,
@@ -1433,8 +1440,11 @@ Ensure your response strictly adheres to the JSON schema provided in the system 
 
 def _call_llm_with_retry(router_agent, system_prompt: str, user_prompt: str, config: Dict[str, Any], retries: int = 2, initial_backoff: float = 1.0) -> str:
     """Helper function to call LLM with retry logic."""
-    # --- (Implementation as provided previously) ---
-    # Simulate calling LLM
+    estimator = TokenEstimator()
+    prompt_tokens = estimator.estimate_tokens_for_text(system_prompt) + estimator.estimate_tokens_for_text(user_prompt)
+    safe_max = max(config.get("max_tokens", 0) - prompt_tokens, 0)
+    config = {**config, "max_tokens": safe_max}
+
     try:
         response = router_agent.call_llm_by_role(
             role='planner',
@@ -2404,11 +2414,14 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
         while retry_count <= max_retries:
             try:
                 logger.info(f"Making LLM call attempt {retry_count + 1}/{max_retries + 1}")
+                estimator = TokenEstimator()
+                tokens = estimator.estimate_tokens_for_text(system_prompt) + estimator.estimate_tokens_for_text(user_prompt)
+                params = {**llm_params, "max_tokens": max(llm_params.get("max_tokens", 0) - tokens, 0)}
                 response_text = router_agent.call_llm_by_role(
                     role="planner",
                     system_prompt=system_prompt,
                     user_prompt=user_prompt,
-                    config=llm_params
+                    config=params
                 )
                 
                 if not response_text:
