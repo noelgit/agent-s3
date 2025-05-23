@@ -77,24 +77,31 @@ class FileTool:
                 self.logger.error(f"Error in path validation: {e}")
             return False, f"Error validating path: {e}"
     
-    def _check_file_size(self, file_path: str) -> Tuple[bool, str]:
+    def _check_file_size(self, file_path: str, max_size: Optional[int] = None) -> Tuple[bool, str]:
         """Check if a file size is within limits.
-        
+
         Args:
             file_path: Path to the file to check
-        
+            max_size: Optional override for the maximum allowed file size. If ``None``,
+                :attr:`self.max_file_size` is used.
+
         Returns:
-            A tuple of (is_within_limit, error_message)
+            A tuple ``(is_within_limit, error_message)``
         """
         try:
             file_size = os.path.getsize(file_path)
-            if file_size > self.max_file_size:
-                msg = f"File size ({file_size} bytes) exceeds maximum allowed size ({self.max_file_size} bytes)"
+            limit = max_size if max_size is not None else self.max_file_size
+            if file_size > limit:
+                msg = (
+                    f"File size ({file_size} bytes) exceeds maximum allowed size ({limit} bytes)"
+                )
                 if self.logger:
-                    self.logger.warning(f"File size limit exceeded: {file_path}, {file_size} bytes")
+                    self.logger.warning(
+                        f"File size limit exceeded: {file_path}, {file_size} bytes"
+                    )
                 return False, msg
             return True, ""
-        except Exception as e:
+        except Exception as e:  # pragma: no cover - unexpected errors
             return False, f"Error checking file size: {e}"
     
     def _detect_mime_type(self, file_path: str) -> str:
@@ -111,13 +118,15 @@ class FileTool:
     
     def read_file(self, file_path: str, max_size: Optional[int] = None) -> Tuple[bool, str]:
         """Read the content of a file securely.
-        
+
         Args:
-            file_path: Path to the file to read
-            max_size: Optional override for maximum file size
-            
+            file_path: Path to the file to read.
+            max_size: Optional override for the maximum allowed size in bytes. If
+                ``None``, :attr:`self.max_file_size` is used.
+
         Returns:
-            A tuple containing (success, content or error message)
+            A tuple ``(success, content_or_error)`` where ``content_or_error`` is
+            the file content on success or an error message on failure.
         """
         # Validate path
         is_allowed, error = self._is_path_allowed(file_path)
@@ -128,7 +137,7 @@ class FileTool:
             return False, f"File not found: {file_path}"
             
         # Check file size
-        size_ok, error = self._check_file_size(file_path)
+        size_ok, error = self._check_file_size(file_path, max_size=max_size)
         if not size_ok:
             return False, error
         
