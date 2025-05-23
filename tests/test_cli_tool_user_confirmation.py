@@ -13,6 +13,7 @@ def run_main_with_prompt(prompt, user_input):
             with patch('agent_s3.cli.Config', return_value=dummy_config):
                 with patch('agent_s3.cli.Coordinator') as MockCoordinator:
                     coordinator_instance = MockCoordinator.return_value
+                    coordinator_instance.command_processor.execute_terminal_command = MagicMock()
                     with patch('agent_s3.cli.RouterAgent') as MockRouter:
                         router_instance = MockRouter.return_value
                         router_instance.call_llm_by_role.return_value = (
@@ -25,10 +26,10 @@ def run_main_with_prompt(prompt, user_input):
 
 def test_tool_user_executes_on_confirmation():
     coord = run_main_with_prompt('ls', 'y')
-    coord.execute_terminal_command.assert_called_once_with('ls')
+    coord.command_processor.execute_terminal_command.assert_called_once_with('ls')
 
 
 def test_tool_user_aborts_without_confirmation():
     coord = run_main_with_prompt('ls', 'n')
-    coord.execute_terminal_command.assert_not_called()
+    coord.command_processor.execute_terminal_command.assert_not_called()
 
