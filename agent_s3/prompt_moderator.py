@@ -6,6 +6,7 @@ import json
 import tempfile
 import subprocess
 import shlex
+import shutil
 from typing import Dict, Optional, List, Tuple, Any, Set, Literal
 
 from .communication.vscode_bridge import VSCodeBridge
@@ -86,15 +87,23 @@ class PromptModerator:
             file_path: Path to the file to edit
         """
         editor = self._get_preferred_editor()
-        
+
+        # Always split the editor command for safety
+        cmd_parts = shlex.split(editor)
+        if not cmd_parts:
+            cmd_parts = ["nano"]
+        else:
+            exe_path = shutil.which(cmd_parts[0])
+            if not exe_path or not os.path.isabs(exe_path) or not os.path.isfile(exe_path):
+                cmd_parts = ["nano"]
+            else:
+                cmd_parts[0] = exe_path
+
+        cmd_parts.append(file_path)
+
         # Open the file
         try:
-            if ' ' in editor:
-                # Split editor command safely to avoid shell=True
-                command = shlex.split(editor) + [file_path]
-                subprocess.run(command, check=True)
-            else:
-                subprocess.run([editor, file_path], check=True)
+            subprocess.run(cmd_parts, check=True)
         except subprocess.CalledProcessError as e:
             print(f"Error opening editor: {e}")
             # Fallback to basic terminal input if editor fails
