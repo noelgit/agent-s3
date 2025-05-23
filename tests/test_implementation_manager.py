@@ -243,6 +243,23 @@ class TestImplementationManager(unittest.TestCase):
         self.assertTrue(result["success"])
         self.assertEqual(result["message"], "All tasks are completed")
 
+    @patch.object(ImplementationManager, "_run_tests")
+    def test_execute_request_failed_tests(self, mock_run_tests: MagicMock) -> None:
+        """Verify failing tests mark the result as unsuccessful."""
+        task = {"description": "Implement feature"}
+
+        # Router agent reports success
+        self.implementation_manager.router_agent = MagicMock()
+        self.implementation_manager.router_agent.execute_request.return_value = {"success": True}
+
+        # Tests fail
+        mock_run_tests.return_value = {"success": False, "error": "Tests failed"}
+
+        result = self.implementation_manager._execute_implementation_request(task)
+
+        self.assertFalse(result["success"])
+        self.assertIn("tests", result)
+
 
 if __name__ == "__main__":
     unittest.main()
