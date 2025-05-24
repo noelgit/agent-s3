@@ -10,10 +10,8 @@ import re
 import json
 import time
 import logging
-from enum import Enum, auto
-from dataclasses import dataclass, field, asdict
 from datetime import datetime
-from typing import Optional, Dict, List, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from agent_s3.enhanced_scratchpad_manager import (
     EnhancedScratchpadManager,
@@ -22,141 +20,19 @@ from agent_s3.enhanced_scratchpad_manager import (
 )
 from agent_s3.planning_helper import generate_plan_via_workflow
 from agent_s3.user_config import load_user_config
-from agent_s3.tools.error_pattern_learner import ErrorPatternLearner
 from agent_s3.llm_utils import cached_call_llm
+from agent_s3.debugging import (
+    ErrorCategory,
+    DebugAttempt,
+    DebuggingPhase,
+    ErrorContext,
+    ErrorPatternMatcher,
+    RestartStrategy,
+    create_error_context,
+    process_test_failure_data,
+)
 
 
-class ErrorCategory(Enum):
-    """Categories of errors for specialized handling."""
-    SYNTAX = auto()
-    TYPE = auto()
-    IMPORT = auto()
-    ATTRIBUTE = auto()
-    NAME = auto()
-    INDEX = auto()
-    VALUE = auto()
-    RUNTIME = auto()
-    MEMORY = auto()
-    PERMISSION = auto()
-    ASSERTION = auto()
-    NETWORK = auto()
-    DATABASE = auto()
-    UNKNOWN = auto()
-
-
-class DebuggingPhase(Enum):
-    """Phases of debugging process."""
-    ANALYSIS = auto()
-    QUICK_FIX = auto()
-    FULL_DEBUG = auto()
-    STRATEGIC_RESTART = auto()
-
-
-class RestartStrategy(Enum):
-    """Strategies for strategic restart."""
-    REGENERATE_CODE = auto()
-    REDESIGN_PLAN = auto()
-    MODIFY_REQUEST = auto()
-
-
-@dataclass
-class ErrorContext:
-    """Context information about an error for debugging."""
-    message: str
-    traceback: str
-    category: ErrorCategory = ErrorCategory.UNKNOWN
-    file_path: Optional[str] = None
-    line_number: Optional[int] = None
-    function_name: Optional[str] = None
-    code_snippet: Optional[str] = None
-    variables: Dict[str, Any] = field(default_factory=dict)
-    occurred_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    attempt_number: int = 1
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary representation."""
-        result = asdict(self)
-        result["category"] = self.category.name
-        return result
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ErrorContext':
-        """Create from dictionary representation."""
-        category_name = data.get("category", "UNKNOWN")
-        try:
-            category = ErrorCategory[category_name]
-        except (KeyError, TypeError):
-            category = ErrorCategory.UNKNOWN
-
-        return cls(
-            message=data.get("message", ""),
-            traceback=data.get("traceback", ""),
-            category=category,
-            file_path=data.get("file_path"),
-            line_number=data.get("line_number"),
-            function_name=data.get("function_name"),
-            code_snippet=data.get("code_snippet"),
-            variables=data.get("variables", {}),
-            occurred_at=data.get("occurred_at", datetime.now().isoformat()),
-            attempt_number=data.get("attempt_number", 1),
-            metadata=data.get("metadata", {})
-        )
-
-    def get_summary(self) -> str:
-        """Get a concise summary of the error."""
-        location = ""
-        if self.file_path:
-            location = f" in {self.file_path}"
-            if self.line_number:
-                location += f" at line {self.line_number}"
-
-        return f"{self.category.name} error{location}: {self.message}"
-
-
-@dataclass
-class DebugAttempt:
-    """Record of a debugging attempt."""
-    error_context: ErrorContext
-    phase: DebuggingPhase
-    fix_description: str
-    code_changes: Dict[str, str]  # file path -> content
-    success: bool
-    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
-    duration_seconds: float = 0.0
-    reasoning: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary representation."""
-        result = asdict(self)
-        result["error_context"] = self.error_context.to_dict()
-        result["phase"] = self.phase.name
-        return result
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'DebugAttempt':
-        """Create from dictionary representation."""
-        error_data = data.get("error_context", {})
-        error_context = ErrorContext.from_dict(error_data)
-
-        phase_name = data.get("phase", "ANALYSIS")
-        try:
-            phase = DebuggingPhase[phase_name]
-        except (KeyError, TypeError):
-            phase = DebuggingPhase.ANALYSIS
-
-        return cls(
-            error_context=error_context,
-            phase=phase,
-            fix_description=data.get("fix_description", ""),
-            code_changes=data.get("code_changes", {}),
-            success=data.get("success", False),
-            timestamp=data.get("timestamp", datetime.now().isoformat()),
-            duration_seconds=data.get("duration_seconds", 0.0),
-            reasoning=data.get("reasoning", ""),
-            metadata=data.get("metadata", {})
-        )
 
 
 class DebuggingManager:
@@ -204,11 +80,8 @@ class DebuggingManager:
         # Track debugging history
         self.debug_history: List[DebugAttempt] = []
 
-        # Pattern databases for error categorization
-        self._initialize_error_patterns()
-
-        # ML-based error pattern learner for cross-project sharing
-        self.pattern_learner = ErrorPatternLearner()
+        # Error categorization utility
+        self.pattern_matcher = ErrorPatternMatcher()
 
         # Per-user customization of debugging limits
         user_cfg = load_user_config()
@@ -222,99 +95,6 @@ class DebuggingManager:
             user_cfg.get("max_restart_attempts", self.MAX_RESTART_ATTEMPTS)
         )
 
-    def _initialize_error_patterns(self):
-        """Initialize pattern databases for error categorization."""
-        self.error_patterns = {
-            ErrorCategory.SYNTAX: [
-                r"SyntaxError",
-                r"IndentationError",
-                r"unexpected token",
-                r"invalid syntax",
-                r"unexpected indent",
-                r"expected an indented block"
-            ],
-            ErrorCategory.TYPE: [
-                r"TypeError",
-                r"unsupported operand type",
-                r"not subscriptable",
-                r"has no attribute",
-                r"not a function",
-                r"expected .* to be a",
-                r"can't convert .* to"
-            ],
-            ErrorCategory.IMPORT: [
-                r"ImportError",
-                r"ModuleNotFoundError",
-                r"No module named",
-                r"cannot import name",
-                r"cannot find module"
-            ],
-            ErrorCategory.ATTRIBUTE: [
-                r"AttributeError",
-                r"has no attribute",
-                r"object has no attribute"
-            ],
-            ErrorCategory.NAME: [
-                r"NameError",
-                r"name .* is not defined",
-                r"undefined variable",
-                r"ReferenceError"
-            ],
-            ErrorCategory.INDEX: [
-                r"IndexError",
-                r"out of range",
-                r"list index out of range",
-                r"array index out of bounds"
-            ],
-            ErrorCategory.VALUE: [
-                r"ValueError",
-                r"invalid literal",
-                r"could not convert",
-                r"invalid value",
-                r"value .* is not a valid"
-            ],
-            ErrorCategory.RUNTIME: [
-                r"RuntimeError",
-                r"RecursionError",
-                r"maximum recursion depth exceeded",
-                r"stack overflow"
-            ],
-            ErrorCategory.MEMORY: [
-                r"MemoryError",
-                r"out of memory",
-                r"memory allocation failed",
-                r"cannot allocate"
-            ],
-            ErrorCategory.PERMISSION: [
-                r"PermissionError",
-                r"Permission denied",
-                r"Access is denied",
-                r"not permitted"
-            ],
-            ErrorCategory.ASSERTION: [
-                r"AssertionError",
-                r"Assertion failed",
-                r"Expected .* but got"
-            ],
-            ErrorCategory.NETWORK: [
-                r"ConnectionError",
-                r"ConnectionRefusedError",
-                r"ConnectionResetError",
-                r"TimeoutError",
-                r"Connection refused",
-                r"Network is unreachable",
-                r"Connection timed out"
-            ],
-            ErrorCategory.DATABASE: [
-                r"DatabaseError",
-                r"OperationalError",
-                r"IntegrityError",
-                r"database is locked",
-                r"constraint failed",
-                r"syntax error in SQL",
-                r"no such table"
-            ]
-        }
 
     def handle_error(self,
                     error_message: str,
@@ -342,10 +122,11 @@ class DebuggingManager:
             Results of debugging attempt
         """
         # Process test-specific structured information if this is a test failure
-        test_failure_info = self._process_test_failure_data(metadata)
+        test_failure_info = process_test_failure_data(metadata)
 
         # Create error context with test-specific information if available
-        error_context = self._create_error_context(
+        error_context = create_error_context(
+            self.pattern_matcher,
             error_message,
             traceback_text,
             file_path or test_failure_info.get("test_file"),
@@ -353,7 +134,8 @@ class DebuggingManager:
             function_name,
             code_snippet,
             variables or test_failure_info.get("variables", {}),
-            {**metadata, **test_failure_info} if test_failure_info else metadata
+            {**metadata, **test_failure_info} if test_failure_info else metadata,
+            error_context_manager=self.error_context_manager,
         )
 
         # Check if this might be a test issue rather than an implementation issue
@@ -432,7 +214,7 @@ class DebuggingManager:
                 )
 
         # Determine if this is a continuation of an existing error
-        if self.current_error and self._is_similar_error(error_context, self.current_error):
+        if self.current_error and self.pattern_matcher.is_similar_error(error_context, self.current_error):
             # Update attempt count for this error
             error_context.attempt_number = self.current_error.attempt_number + 1
             self.scratchpad.log(
@@ -543,139 +325,6 @@ class DebuggingManager:
 
         return result
 
-    def _process_test_failure_data(self, metadata: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-        """Extract and process test failure information from metadata.
-
-        Args:
-            metadata: Optional metadata that may contain test failure information
-
-        Returns:
-            Dictionary with processed test failure data, or empty dict if not a test failure
-        """
-        if not metadata:
-            return {}
-
-        # Check if this is a test failure
-        if "failed_step" in metadata and metadata["failed_step"] == "tests":
-            # The metadata might already contain structured failure info
-            if "failure_info" in metadata:
-                # Return the first (primary) failure if it's a list
-                if isinstance(metadata["failure_info"], list) and metadata["failure_info"]:
-                    return metadata["failure_info"][0]
-                # Return as is if it's already a dictionary
-                elif isinstance(metadata["failure_info"], dict):
-                    return metadata["failure_info"]
-
-        # Additional test-failure specific fields to extract
-        test_failure_fields = {
-            "test_name", "test_file", "test_class", "line_number",
-            "expected", "actual", "assertion", "traceback",
-            "failure_category", "possible_bad_test", "variables"
-        }
-
-        # Extract any test failure fields directly from metadata
-        extracted_data = {}
-        for field_name in test_failure_fields:
-            if field_name in metadata:
-                extracted_data[field_name] = metadata[field_name]
-
-        return extracted_data
-
-    def _create_error_context(self,
-                             error_message: str,
-                             traceback_text: str,
-                             file_path: Optional[str] = None,
-                             line_number: Optional[int] = None,
-                             function_name: Optional[str] = None,
-                             code_snippet: Optional[str] = None,
-                             variables: Optional[Dict[str, Any]] = None,
-                             metadata: Optional[Dict[str, Any]] = None) -> ErrorContext:
-        """Create error context with category detection."""
-        # Categorize the error
-        category = self._categorize_error(error_message, traceback_text)
-
-        # Enhance with context from error_context_manager if available
-        if not code_snippet and self.error_context_manager and file_path and line_number:
-            try:
-                context = self.error_context_manager.get_context_for_error(
-                    file_path, line_number, error_message
-                )
-                if context:
-                    code_snippet = context.get("code_snippet")
-                    if not variables:
-                        variables = context.get("variables", {})
-            except Exception as e:
-                self.logger.warning(
-                    "Error getting additional context: %s", e
-                )
-
-        # Create the error context
-        context = ErrorContext(
-            message=error_message,
-            traceback=traceback_text,
-            category=category,
-            file_path=file_path,
-            line_number=line_number,
-            function_name=function_name,
-            code_snippet=code_snippet,
-            variables=variables or {},
-            metadata=metadata or {}
-        )
-
-        # Update ML learner with the categorized error
-        try:
-            self.pattern_learner.update(error_message, context.category.name)
-        except Exception:
-            pass
-
-        return context
-
-    def _categorize_error(self, error_message: str, traceback_text: str) -> ErrorCategory:
-        """Categorize the error based on patterns."""
-        combined_text = f"{error_message}\n{traceback_text}".lower()
-
-        # Check each category's patterns
-        for category, patterns in self.error_patterns.items():
-            for pattern in patterns:
-                if re.search(pattern.lower(), combined_text):
-                    return category
-
-        # Fallback to ML-based prediction
-        prediction = self.pattern_learner.predict(error_message)
-        if prediction and prediction in ErrorCategory.__members__:
-            return ErrorCategory[prediction]
-
-        # No match found
-        return ErrorCategory.UNKNOWN
-
-    def _is_similar_error(self, error1: ErrorContext, error2: ErrorContext) -> bool:
-        """Determine if two errors are similar enough to be considered the same issue."""
-        # If categories differ, not similar
-        if error1.category != error2.category:
-            return False
-
-        # If file paths differ, not similar
-        if error1.file_path != error2.file_path:
-            return False
-
-        # For line numbers, allow some proximity
-        if error1.line_number is not None and error2.line_number is not None:
-            line_diff = abs(error1.line_number - error2.line_number)
-            if line_diff > 5:  # Allow 5 lines of difference
-                return False
-
-        # Compare error messages for similarity
-        similarity = self._text_similarity(error1.message, error2.message)
-        return similarity > 0.7  # 70% similarity threshold
-
-    def _text_similarity(self, text1: str, text2: str) -> float:
-        """Calculate similarity between two text strings."""
-        if not text1 or not text2:
-            return 0.0
-
-        # Use SequenceMatcher for string similarity
-        from difflib import SequenceMatcher
-        return SequenceMatcher(None, text1, text2).ratio()
 
     def _execute_generator_quick_fix(self, error_context: ErrorContext) -> Dict[str, Any]:
         """
@@ -2125,14 +1774,16 @@ class DebuggingManager:
             Analysis results including category, severity, and potential fix approaches
         """
         # Create error context
-        error_context = self._create_error_context(
+        error_context = create_error_context(
+            self.pattern_matcher,
             error_message,
             traceback_text,
             file_path,
             line_number,
             function_name,
             code_snippet,
-            variables
+            variables,
+            error_context_manager=self.error_context_manager,
         )
 
         # Log analysis in enhanced scratchpad
@@ -2176,7 +1827,7 @@ class DebuggingManager:
         # Check for similar errors in history
         similar_errors = []
         for attempt in self.debug_history:
-            if self._is_similar_error(error_context, attempt.error_context):
+            if self.pattern_matcher.is_similar_error(error_context, attempt.error_context):
                 similar_errors.append({
                     "phase": attempt.phase.name,
                     "fix_description": attempt.fix_description,
@@ -2296,9 +1947,11 @@ class DebuggingManager:
             True if the error is likely debuggable, False otherwise
         """
         # Create a minimal error context for analysis
-        error_context = self._create_error_context(
+        error_context = create_error_context(
+            self.pattern_matcher,
             error_message,
-            error_message  # Use message as traceback for minimal context
+            error_message,  # Use message as traceback for minimal context
+            error_context_manager=self.error_context_manager,
         )
 
         # Check if file exists (if provided)
@@ -2316,7 +1969,7 @@ class DebuggingManager:
         # Check if we've successfully debugged similar errors before
         previous_success = any(
             a.success for a in self.debug_history
-            if self._is_similar_error(error_context, a.error_context)
+            if self.pattern_matcher.is_similar_error(error_context, a.error_context)
         )
 
         # Error is debuggable if file exists and either:

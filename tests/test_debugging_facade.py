@@ -6,8 +6,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from agent_s3.debugging_manager import (
-    ErrorCategory, DebuggingPhase, ErrorContext, DebugAttempt, DebuggingManager
+from agent_s3.debugging_manager import DebuggingManager
+from agent_s3.debugging import (
+    ErrorCategory,
+    DebuggingPhase,
+    ErrorContext,
+    DebugAttempt,
 )
 from agent_s3.enhanced_scratchpad_manager import (
     EnhancedScratchpadManager, Section
