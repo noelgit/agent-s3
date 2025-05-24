@@ -329,7 +329,10 @@ def get_personas_content() -> str:
             Confirm the solution adheres to best practices and organizational guidelines.
             """
     except Exception as e:
-        logger.error("%s", Error loading personas content: {str(e)})
+        logger.error(
+            "Error loading personas content: %s",
+            str(e),
+        )
         return "Error loading personas content. Using default expert personas."
 
 def get_coding_guidelines() -> str:
@@ -350,7 +353,10 @@ def get_coding_guidelines() -> str:
             - Follow project-specific conventions and patterns
             """
     except Exception as e:
-        logger.error("%s", Error loading coding guidelines: {str(e)})
+        logger.error(
+            "Error loading coding guidelines: %s",
+            str(e),
+        )
         return "Error loading coding guidelines. Using default standards."
 
 
@@ -1029,7 +1035,10 @@ def generate_refined_test_specifications(
     Returns:
         Dictionary containing refined test specifications
     """
-    logger.info("%s", Generating refined test specifications for feature group: {feature_group.get('group_name', 'Unknown)}")
+    logger.info(
+        "%s",
+        f"Generating refined test specifications for feature group: {feature_group.get('group_name', 'Unknown')}",
+    )
 
     # Extract test requirements and system design from the feature group
     test_requirements = {}
@@ -1159,9 +1168,17 @@ Please maintain the intent of the original test requirements while enriching the
 
                 summary_str = ", ".join(validation_summary)
                 if was_repaired:
-                    logger.info("%s", Test specifications had {len(validation_issues)} issues ({summary_str}) that were automatically repaired)
+                    logger.info(
+                        "Test specifications had %d issues (%s) that were automatically repaired",
+                        len(validation_issues),
+                        summary_str,
+                    )
                 else:
-                    logger.warning("%s", Test specifications have {len(validation_issues)} issues ({summary_str}) that could not be automatically repaired)
+                    logger.warning(
+                        "Test specifications have %d issues (%s) that could not be automatically repaired",
+                        len(validation_issues),
+                        summary_str,
+                    )
 
                 # Add validation summary to response
                 if "discussion" in response_data:
@@ -1175,12 +1192,16 @@ Please maintain the intent of the original test requirements while enriching the
             if was_repaired:
                 response_data["refined_test_requirements"] = repaired_specs
                 if "discussion" in response_data:
-                    response_data["discussion"] +
-                        = "\n\nNote: Some issues were automatically repaired in the test specifications."
+                    response_data["discussion"] += (
+                        "\n\nNote: Some issues were automatically repaired in the test specifications."
+                    )
             return response_data
 
         except json.JSONDecodeError as e:
-            logger.error("%s", Failed to parse JSON response: {e})
+            logger.error(
+                "Failed to parse JSON response: %s",
+                e,
+            )
 
             # Try to repair JSON structure using json_utils
             logger.info("Attempting to repair JSON structure")
@@ -1207,17 +1228,25 @@ Please maintain the intent of the original test requirements while enriching the
                         logger.info("JSON structure repaired successfully")
                         return repaired_data
                 except Exception as repair_error:
-                    logger.error("%s", Failed to repair JSON structure: {repair_error})
+                    logger.error(
+                        "Failed to repair JSON structure: %s",
+                        repair_error,
+                    )
 
             raise JSONPlannerError(f"Invalid JSON response: {e}")
 
         except ValueError as e:
-            logger.error("%s", Invalid response structure: {e})
+            logger.error("Invalid response structure: %s", e)
             raise JSONPlannerError(f"Invalid response structure: {e}")
 
     except Exception as e:
-        logger.error("%s", Error generating refined test specifications: {e})
-        raise JSONPlannerError(f"Error generating refined test specifications: {e}")
+        logger.error(
+            "Error generating refined test specifications: %s",
+            e,
+        )
+        raise JSONPlannerError(
+            f"Error generating refined test specifications: {e}"
+        )
 
 def get_semantic_validation_system_prompt() -> str:
     """
@@ -1403,20 +1432,17 @@ Before finalizing your output, verify that:
 Your semantic validation will be used to improve the quality and coherence of the final implementation plan before coding begins.
 """
 
-def get_consolidated_plan_user_prompt(feature_group: Dict[str, Any], task_description: str,
-     context: Optional[Dict[str, Any]] = None) -> str:    """
-    Get the user prompt for the consolidated planning LLM call.
+def get_consolidated_plan_user_prompt(
+    feature_group: Dict[str, Any],
+    task_description: str,
+    context: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Get the user prompt for the consolidated planning LLM call."""
 
-    Args:
-        feature_group: The feature group data.
-        task_description: The original task description.
-        context: Optional context information.
-
-    Returns:
-        Properly formatted user prompt string.
-    """
     feature_json = json.dumps(feature_group, indent=2)
-    context_str = json.dumps(context, indent=2) if context else "No additional context provided."
+    context_str = (
+        json.dumps(context, indent=2) if context else "No additional context provided."
+    )
 
     return f"""Please generate a consolidated plan (architecture review, tests, implementation details) for the following feature group, based on the original task description and provided context.
 
@@ -1430,16 +1456,23 @@ def get_consolidated_plan_user_prompt(feature_group: Dict[str, Any], task_descri
 {context_str}
 
 Your task is to:
-1.  Critically review the provided system_design (focusing on code_elements, their signatures, interfaces, and interactions) to identify logical gaps, optimizations, and considerations.
-2.  Implement comprehensive, runnable tests based on test_requirements that explicitly link to the code_elements through element_ids. Ensure tests are logically sound and syntactically correct.
-3.  Create a detailed, step-by-step implementation plan that directly elaborates on the system_design.code_elements. The implementation must maintain consistent references to element_ids and ensure the code will pass the generated tests.
-4.  Provide a brief discussion explaining the rationale behind your refinements to the system design.
+1. Critically review the provided system_design (focusing on code_elements, their signatures, interfaces, and interactions) to identify logical gaps, optimizations, and considerations.
+2. Implement comprehensive, runnable tests based on test_requirements that explicitly link to the code_elements through element_ids. Ensure tests are logically sound and syntactically correct.
+3. Create a detailed, step-by-step implementation plan that directly elaborates on the system_design.code_elements. The implementation must maintain consistent references to element_ids and ensure the code will pass the generated tests.
+4. Provide a brief discussion explaining the rationale behind your refinements to the system design.
 
-Ensure your response strictly adheres to the JSON schema provided in the system prompt. Focus on creating a practical, actionable plan based *only* on the provided information.
-"""
+Ensure your response strictly adheres to the JSON schema provided in the system prompt. Focus on creating a practical, actionable plan based *only* on the provided information."""
 
-def _call_llm_with_retry(router_agent, system_prompt: str, user_prompt: str, config: Dict[str, Any],
-     retries: int = 2, initial_backoff: float = 1.0) -> str:    """Helper function to call LLM with retry logic."""
+def _call_llm_with_retry(
+    router_agent,
+    system_prompt: str,
+    user_prompt: str,
+    config: Dict[str, Any],
+    retries: int = 2,
+    initial_backoff: float = 1.0,
+) -> str:
+    """Helper function to call LLM with retry logic."""
+
     estimator = TokenEstimator()
     prompt_tokens = estimator.estimate_tokens_for_text(system_prompt) + estimator.estimate_tokens_for_text(user_prompt)
     safe_max = max(config.get("max_tokens", 0) - prompt_tokens, 0)
@@ -1456,11 +1489,13 @@ def _call_llm_with_retry(router_agent, system_prompt: str, user_prompt: str, con
             raise ValueError("LLM returned an empty response.")
         return response
     except Exception as e:
-        logger.error("%s", LLM call failed: {e})
+        logger.error("LLM call failed: %s", e)
         raise JSONPlannerError(f"LLM call failed after retries: {e}")
 
-def _parse_and_validate_json(response_text: str, schema: Optional[Dict[str, Any]] = None)
-     -> Dict[str, Any]:    """Extracts, parses, and optionally validates JSON from LLM response."""
+def _parse_and_validate_json(
+    response_text: str, schema: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Extracts, parses, and optionally validates JSON from LLM response."""
     # --- (Implementation as provided previously, uses extract_json_from_text) ---
     json_text = extract_json_from_text(response_text)
     if not json_text:

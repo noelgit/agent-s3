@@ -142,19 +142,20 @@ def test_execute_design_facade(coordinator):
 
 
 def test_start_pre_planning_from_design(tmp_path, coordinator):
-    """Verify tasks parsed from design trigger planning with from_design flag."""
+    """Verify design implementation delegates to ImplementationManager."""
     design_file = tmp_path / "design.txt"
     design_file.write_text(
         "1. Setup environment\n2. Build feature\n3. Write tests"
     )
 
-    coordinator.run_task = MagicMock()
+    coordinator.implementation_manager = MagicMock()
+    coordinator.implementation_manager.start_implementation.return_value = {
+        "success": True
+    }
 
-    coordinator.start_pre_planning_from_design(str(design_file))
+    result = coordinator.start_pre_planning_from_design(str(design_file))
 
-    expected_calls = [
-        call(task="Setup environment", from_design=True),
-        call(task="Build feature", from_design=True),
-        call(task="Write tests", from_design=True),
-    ]
-    coordinator.run_task.assert_has_calls(expected_calls)
+    coordinator.implementation_manager.start_implementation.assert_called_once_with(
+        str(design_file)
+    )
+    assert result["success"] is True

@@ -48,5 +48,17 @@ class TestCliProcessCommand(unittest.TestCase):
         mock_print.assert_called_once_with("Unknown command: /unknown")
         self.mock_coordinator.execute_terminal_command.assert_not_called()
 
+    @patch('builtins.print')
+    def test_continue_command(self, mock_print):
+        self.mock_coordinator.execute_continue.return_value = {
+            "success": True,
+            "message": "All implementation tasks completed."
+        }
+
+        process_command(self.mock_coordinator, "/continue")
+
+        self.mock_coordinator.execute_continue.assert_called_once_with("implementation")
+        mock_print.assert_any_call("All implementation tasks completed.")
+
 if __name__ == '__main__':
     unittest.main()

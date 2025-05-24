@@ -251,8 +251,11 @@ class EnhancedScratchpadManager:
                 sessions = {}
                 for file in session_files:
                     # Extract session ID from filename pattern scratchpad_YYYYMMDD_HHMMSS_part*.log
-                    match = re.search(r'scratchpad_(\d{8}_\d{6})_part\d+
-                        \.log', os.path.basename(file))                    if match:
+                    match = re.search(
+                        r"scratchpad_(\d{8}_\d{6})_part\d+\.log",
+                        os.path.basename(file),
+                    )
+                    if match:
                         session_id = match.group(1)
                         if session_id not in sessions:
                             sessions[session_id] = []
@@ -538,8 +541,9 @@ class EnhancedScratchpadManager:
 
         truncated_response = response[:response_max_len]
         if len(response) > response_max_len:
-            truncated_response +
-                = f"... [truncated, {len(response) - response_max_len} chars omitted]"
+            truncated_response += (
+                f"... [truncated, {len(response) - response_max_len} chars omitted]"
+            )
         # Determine status
         status = "success"
         if error:

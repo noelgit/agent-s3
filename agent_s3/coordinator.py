@@ -561,8 +561,10 @@ class Coordinator:
 
     # _execute_pre_planning_phase method removed as it's redundant with inline implementation in run_task
 
-    def _present_pre_planning_results_to_user(self, pre_planning_results: Dict[str, Any])
-         -> Tuple[str, Optional[str]]:        """Present the pre-planning results to the user and get their decision.
+    def _present_pre_planning_results_to_user(
+        self, pre_planning_results: Dict[str, Any]
+    ) -> Tuple[str, Optional[str]]:
+        """Present the pre-planning results to the user and get their decision.
 
         The second return value contains the modification text when the user
         chooses to refine the plan, otherwise ``None``.
@@ -610,8 +612,12 @@ class Coordinator:
                 )
                 return "modify", modification
 
-    def plan_approval_loop(self, plan: Dict[str, Any], original_plan: Optional[Dict[str,
-         Any]] = None) -> Tuple[str, Dict[str, Any]]:        """Run the plan approval loop to get user approval for a plan.
+    def plan_approval_loop(
+        self,
+        plan: Dict[str, Any],
+        original_plan: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[str, Dict[str, Any]]:
+        """Run the plan approval loop to get user approval for a plan.
 
         This method presents the plan to the user, handles modifications, validates
         the modified plan, and continues the loop until the user approves or rejects
@@ -1144,38 +1150,42 @@ class Coordinator:
     # ------------------------------------------------------------------
 
     def start_pre_planning_from_design(self, design_file: str = "design.txt") -> Dict[str, Any]:
-        """Start pre-planning workflow based on a design file.
+        """Start implementation of design tasks with progress tracking.
 
         Args:
             design_file: Path to the design file containing feature tasks.
 
         Returns:
-            Dictionary with success flag and number of tasks started.
+            Dictionary with implementation results.
         """
-        file_tool = self.coordinator_config.get_tool('file_tool')
-        success, design_content = file_tool.read_file(design_file)
-        if not success:
-            self.scratchpad.log("Coordinator", f"Failed to read design file: {design_content}", level=LogLevel.ERROR)
-            return {"success": False, "error": design_content}
+        if not os.path.exists(design_file):
+            self.scratchpad.log(
+                "Coordinator",
+                f"Design file not found: {design_file}",
+                level=LogLevel.ERROR,
+            )
+            return {"success": False, "error": f"{design_file} not found"}
 
-        tasks = self._extract_tasks_from_design(design_content)
-        if not tasks:
-            self.scratchpad.log("Coordinator", "No tasks found in design file", level=LogLevel.ERROR)
-            return {"success": False, "error": "No tasks in design file"}
+        if not hasattr(self, "implementation_manager"):
+            self.implementation_manager = ImplementationManager(coordinator=self)
 
-        for task in tasks:
-            self.run_task(task=task, from_design=True)
+        try:
+            return self.implementation_manager.start_implementation(design_file)
+        except Exception as exc:
+            self.scratchpad.log("Coordinator", f"Implementation failed: {exc}", level=LogLevel.ERROR)
+            return {"success": False, "error": str(exc)}
 
-        return {"success": True, "tasks_started": len(tasks)}
-
-    def _extract_tasks_from_design(self, design_content: str) -> List[str]:
-        """Extract task descriptions from the design content."""
-        tasks: List[str] = []
+    def _extract_tasks_from_design(self, design_content: str) -> List[Dict[str, Any]]:
+        """Extract structured tasks from the design content."""
+        tasks: List[Dict[str, Any]] = []
         for line in design_content.splitlines():
             line = line.strip()
             if not line:
                 continue
             match = re.match(r"(\d+(?:\.\d+)*)\.\s+(.*)", line)
             if match:
-                tasks.append(match.group(2))
+                tasks.append({
+                    "id": match.group(1),
+                    "description": match.group(2),
+                })
         return tasks
