@@ -22,6 +22,7 @@ _MODULE_MAP = {
     "DatabaseManager": "agent_s3.database_manager",
     "redact_sensitive_headers": "agent_s3.security_utils",
     "redact_auth_headers": "agent_s3.logging_utils",
+    "strip_sensitive_headers": "agent_s3.logging_utils",
     "AgentS3BaseError": "agent_s3.pre_planning_errors",
     "PrePlanningError": "agent_s3.pre_planning_errors",
     "ValidationError": "agent_s3.pre_planning_errors",
