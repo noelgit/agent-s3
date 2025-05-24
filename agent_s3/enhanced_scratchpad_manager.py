@@ -255,11 +255,22 @@ class EnhancedScratchpadManager:
                         r"scratchpad_(\d{8}_\d{6})_part\d+\.log",
                         os.path.basename(file),
                     )
-                    if match:
-                        session_id = match.group(1)
-                        if session_id not in sessions:
-                            sessions[session_id] = []
-                        sessions[session_id].append(file)
+                    if match is None:
+                        continue
+
+                    resolved_path = Path(file).resolve()
+                    if not resolved_path.is_relative_to(self.log_dir_path):
+                        logger = getattr(self, "logger", None)
+                        if logger:
+                            logger.warning("Skipping deletion of invalid file path: %s", file)
+                        else:
+                            print(f"Warning: Skipping deletion of invalid file path: {file}")
+                        continue
+
+                    session_id = match.group(1)
+                    if session_id not in sessions:
+                        sessions[session_id] = []
+                    sessions[session_id].append(str(resolved_path))
 
                 # Sort sessions by their oldest file's creation time
                 sorted_sessions = sorted(sessions.keys(),
