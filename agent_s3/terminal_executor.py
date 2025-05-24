@@ -54,16 +54,19 @@ class TerminalExecutor:
         Returns:
             Tuple of (is_valid, error_message)
         """
-        # Check against denylist
-        for forbidden in self.denylist:
-            if forbidden in command:
+        # Normalize whitespace to detect tokens regardless of extra spaces
+        normalized_command = " ".join(command.split())
+
+        # Check against denylist using regex for word boundaries
+        for token in self.denylist:
+            pattern = rf"\b{re.escape(token)}\b"
+            if re.search(pattern, normalized_command, re.IGNORECASE):
                 if self.logger:
                     self.logger.warning(
-                        "%s",
                         "Command contains forbidden token: %s",
-                        forbidden,
+                        token,
                     )
-                return False, f"Error: Command contains forbidden token '{forbidden}'"
+                return False, f"Error: Command contains forbidden token '{token}'"
 
         # Detect command substitution using backticks or $( ) syntax
         if re.search(r"`[^`]*`", command) or re.search(r"\$\((.*?)\)", command):
@@ -79,7 +82,10 @@ class TerminalExecutor:
             path = path.strip()
             if not self._is_path_allowed(path):
                 if self.logger:
-                    self.logger.warning("%s", Command attempts to access restricted path: {path})
+                    self.logger.warning(
+                        "Command attempts to access restricted path: %s",
+                        path,
+                    )
                 return False, f"Error: Command attempts to access restricted path '{path}'"
 
         return True, ""
@@ -169,7 +175,7 @@ class TerminalExecutor:
         except Exception as e:
             # Log error and return
             if self.logger:
-                self.logger.error("%s", Error executing command: {e})
+                self.logger.error("%s", f"Error executing command: {e}")
 
             self.failure_count += 1
             self.last_failure_time = current_time
@@ -232,7 +238,7 @@ class TerminalExecutor:
 
         except Exception as e:
             if self.logger:
-                self.logger.error("%s", Error starting background command: {e})
+                self.logger.error("%s", f"Error starting background command: {e}")
             return f"ERROR: Failed to start background process: {e}"
 
     def run_command_stream(self, command: str, env: Optional[Dict[str, str]] = None,
