@@ -761,7 +761,7 @@ class ContextManager:
             # Use _update_nested_dict for consistency
             self._update_nested_dict(self.current_context, "files", context_files)
 
-    async def gather_context(
+    def gather_context(
         self,
         current_files: Optional[List[str]] = None,
         task_description: Optional[str] = None,
