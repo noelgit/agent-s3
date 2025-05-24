@@ -274,7 +274,9 @@ class EnhancedScratchpadManager:
 
         except Exception as e:
             # Don't fail if cleanup has issues
-            print(f"Warning: Error cleaning up old scratchpad sessions: {e}")
+            self.logger.warning(
+                "Error cleaning up old scratchpad sessions: %s", e
+            )
 
     def _check_and_rotate_log(self) -> None:
         """Check if log file size limit is reached and rotate if needed."""
