@@ -20,6 +20,9 @@ _MODULE_MAP = {
     "PrePlanningValidator": "agent_s3.pre_planning_validator",
     "ComplexityAnalyzer": "agent_s3.complexity_analyzer",
     "DatabaseManager": "agent_s3.database_manager",
+    "redact_sensitive_headers": "agent_s3.security_utils",
+    "redact_auth_headers": "agent_s3.logging_utils",
+    # Backward compatibility exports
     "strip_sensitive_headers": "agent_s3.security_utils",
     "AgentS3BaseError": "agent_s3.pre_planning_errors",
     "PrePlanningError": "agent_s3.pre_planning_errors",
