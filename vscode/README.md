@@ -81,6 +81,15 @@ Detailed logs are available in your workspace:
 - `progress_log.jsonl` - Structured progress updates
 - `development_status.json` - Overall development status tracking
 
+## Chat History Persistence
+
+The extension stores chat history in your workspace to retain conversations
+across sessions. The `CHAT_HISTORY_KEY` constant (`"agent-s3.chatHistory"`) is
+used as the lookup key when loading or saving messages in `context.workspaceState`.
+When you open the chat window, previous messages are loaded from this key and
+new entries are persisted back to it when the window closes. Clearing this key
+will remove all saved chat history for the workspace.
+
 ## Feedback and Contributions
 
 Please submit issues and feature requests through GitHub.
