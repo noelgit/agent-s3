@@ -6,6 +6,7 @@
 import * as vscode from "vscode";
 import { WebSocketClient } from "./websocket-client";
 import { InteractiveWebviewManager } from "./webview-ui-loader";
+import { ChatHistoryEntry } from "./types/message";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -20,6 +21,9 @@ export class BackendConnection implements vscode.Disposable {
   private offlineQueue: any[] = [];
   private workspaceState: vscode.Memento | undefined;
   private progressInterval: NodeJS.Timeout | undefined;
+  private chatHistoryEmitter = new vscode.EventEmitter<ChatHistoryEntry>();
+
+  public readonly onDidPersistChatMessage = this.chatHistoryEmitter.event;
 
   /**
    * Create a new backend connection
@@ -264,6 +268,16 @@ export class BackendConnection implements vscode.Disposable {
       });
     }
 
+    const historyEntry: ChatHistoryEntry = {
+      id: streamId,
+      type: stream.source === "user" ? "user" : "agent",
+      content: stream.content,
+      timestamp: new Date(),
+      isComplete: true,
+    };
+
+    this.persistChatMessage(historyEntry);
+
     // Log completion
     this.outputChannel.appendLine(""); // Ensure we end with a newline
 
@@ -391,6 +405,33 @@ export class BackendConnection implements vscode.Disposable {
     if (this.workspaceState) {
       this.workspaceState.update("agent-s3.offlineQueue", this.offlineQueue);
     }
+  }
+
+  /**
+   * Persist a chat message to workspace state and emit an event
+   */
+  private persistChatMessage(message: ChatHistoryEntry): void {
+    if (!this.workspaceState) {
+      return;
+    }
+
+    const history = this.workspaceState.get<ChatHistoryEntry[]>(
+      "agent-s3.chatHistory",
+      [],
+    );
+
+    const serialized = {
+      ...message,
+      timestamp:
+        message.timestamp instanceof Date
+          ? message.timestamp.toISOString()
+          : message.timestamp,
+    };
+
+    history.push(serialized);
+    this.workspaceState.update("agent-s3.chatHistory", history);
+
+    this.chatHistoryEmitter.fire(message);
   }
 
   /**

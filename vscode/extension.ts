@@ -5,6 +5,7 @@ import { BackendConnection } from "./backend-connection";
 import { initializeWebSocketTester } from "./websocket-tester";
 import { registerPerformanceTestCommand } from "./websocket-performance-test";
 import { quote } from "./shellQuote";
+import { ChatHistoryEntry } from "./types/message";
 
 /**
  * Extension activation point
@@ -203,7 +204,7 @@ export function activate(context: vscode.ExtensionContext) {
       [],
     );
 
-    const messageHistory: any[] = rawHistory.map((msg) => ({
+    const messageHistory: ChatHistoryEntry[] = rawHistory.map((msg) => ({
       ...msg,
       timestamp:
         msg.timestamp && typeof msg.timestamp === "string"
@@ -212,6 +213,10 @@ export function activate(context: vscode.ExtensionContext) {
           ? msg.timestamp
           : new Date(),
     }));
+
+    const historyListener = backendConnection.onDidPersistChatMessage((entry: ChatHistoryEntry) => {
+      messageHistory.push(entry);
+    });
 
     // Save history when the panel is disposed
     panel.onDidDispose(() => {
@@ -226,6 +231,7 @@ export function activate(context: vscode.ExtensionContext) {
         "agent-s3.chatHistory",
         serializedHistory,
       );
+      historyListener.dispose();
     });
 
     // Set up message handler for chat and interactive messages
