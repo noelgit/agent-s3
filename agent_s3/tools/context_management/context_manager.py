@@ -1078,6 +1078,23 @@ class ContextManager:
             for key, value in updates.items():
                 self._update_nested_dict(self.current_context, key, value)
 
+    def optimize_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Update and optimize the provided context.
+
+        Args:
+            context: New context dictionary to optimize.
+
+        Returns:
+            Optimized context dictionary.
+        """
+        with self._context_lock:
+            self.current_context = copy.deepcopy(context)
+
+        self._optimize_context()
+
+        with self._context_lock:
+            return copy.deepcopy(self.current_context)
+
     def clear_context(self) -> None:
         """Clear the entire context."""
         with self._context_lock:

@@ -8,6 +8,7 @@ Agent-S3 includes a modular context management subsystem that optimizes what inf
 - Orchestrates background optimization of context and exposes APIs for updating and retrieving optimized context.
 - Registers utility tools such as the token budget analyzer and compression manager.
 - Supports optional adaptive configuration for dynamic tuning of internal parameters.
+- Provides an `optimize_context(context)` method to update and optimize context on demand.
 
 ### CompressionManager
 - Applies summarization and reference based compression when context grows too large.

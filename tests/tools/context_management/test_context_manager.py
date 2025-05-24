@@ -90,8 +90,8 @@ def test_check_tools_initialized_with_initialized_tools():
     assert cm._check_tools_initialized()
     assert cm._check_tools_initialized(['tech_stack_detector', 'file_tool'])
 
-def test_optimize_context_immediately_returns_optimized_copy():
-    """Test that optimize_context_immediately returns an optimized copy of provided context."""
+def test_optimize_context_returns_optimized_copy():
+    """Test that optimize_context returns an optimized copy of provided context."""
     cm = ContextManager()
     # Setup required mocks
     cm._token_budget_analyzer = Mock()
@@ -103,7 +103,7 @@ def test_optimize_context_immediately_returns_optimized_copy():
 
     # Test context optimization
     test_context = {"code_context": {"test.py": "# Test code\ndef test(): pass"}}
-    result = cm.optimize_context_immediately(test_context)
+    result = cm.optimize_context(test_context)
 
     # Verify result is a copy, not the original
     assert result is not test_context

@@ -534,8 +534,7 @@ def test_comprehensive_integration(coordinator_instance, test_workspace):
 
     # 2. Optimize context
     optimized = coordinator.context_manager.optimize_context(
-        coordinator.context_manager.current_context,
-        model_name="test-model"
+        coordinator.context_manager.current_context
     )
 
     # Verify basic optimization
