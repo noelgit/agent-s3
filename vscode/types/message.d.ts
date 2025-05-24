@@ -216,7 +216,7 @@ export interface ChatMessage {
   id: string;
   type: "user" | "agent" | "system";
   content: string;
-  timestamp: Date;
+  timestamp: Date | string;
   isComplete: boolean;
 }
 

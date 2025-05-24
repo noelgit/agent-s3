@@ -20,7 +20,7 @@ interface ChatMessage {
   id: string;
   type: 'user' | 'agent' | 'system';
   content: string;
-  timestamp: Date;
+  timestamp: Date | string;
   isComplete: boolean;
 }
 
@@ -368,7 +368,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
               {renderMessageContent(message.content)}
             </div>
             <div className="message-timestamp">
-              {message.timestamp.toLocaleTimeString()}
+              {new Date(message.timestamp).toLocaleTimeString()}
             </div>
           </div>
         ))}

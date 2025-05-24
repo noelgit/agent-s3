@@ -198,14 +198,34 @@ export function activate(context: vscode.ExtensionContext) {
     const panel = interactiveWebviewManager.createOrShowPanel();
 
     // Load persisted chat history from workspace state
-    const messageHistory: any[] = context.workspaceState.get(
+    const rawHistory: any[] = context.workspaceState.get(
       "agent-s3.chatHistory",
       [],
     );
 
+    const messageHistory: any[] = rawHistory.map((msg) => ({
+      ...msg,
+      timestamp:
+        msg.timestamp && typeof msg.timestamp === "string"
+          ? new Date(msg.timestamp)
+          : msg.timestamp instanceof Date
+          ? msg.timestamp
+          : new Date(),
+    }));
+
     // Save history when the panel is disposed
     panel.onDidDispose(() => {
-      context.workspaceState.update("agent-s3.chatHistory", messageHistory);
+      const serializedHistory = messageHistory.map((msg) => ({
+        ...msg,
+        timestamp:
+          msg.timestamp instanceof Date
+            ? msg.timestamp.toISOString()
+            : msg.timestamp,
+      }));
+      context.workspaceState.update(
+        "agent-s3.chatHistory",
+        serializedHistory,
+      );
     });
 
     // Set up message handler for chat and interactive messages
@@ -249,12 +269,22 @@ export function activate(context: vscode.ExtensionContext) {
             id: `user-${Date.now()}`,
             type: "user",
             content: message.text,
-            timestamp: new Date(),
+            timestamp: new Date().toISOString(),
             isComplete: true,
           });
 
           // Persist updated history
-          context.workspaceState.update("agent-s3.chatHistory", messageHistory);
+          const serializedHistory = messageHistory.map((msg) => ({
+            ...msg,
+            timestamp:
+              msg.timestamp instanceof Date
+                ? msg.timestamp.toISOString()
+                : msg.timestamp,
+          }));
+          context.workspaceState.update(
+            "agent-s3.chatHistory",
+            serializedHistory,
+          );
 
           // Forward the message to the backend for processing
           backendConnection.sendMessage({
