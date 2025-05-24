@@ -62,7 +62,7 @@ export class InteractiveWebviewManager {
 
     // Handle messages from the webview
     this.panel.webview.onDidReceiveMessage(
-      (message) => {
+      (message: any) => {
         if (this.messageHandler) {
           this.messageHandler(message);
         }

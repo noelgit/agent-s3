@@ -22,7 +22,7 @@ declare module "ws" {
     constructor(url: string);
     readyState: number;
     on(event: string, listener: (...args: any[]) => void): void;
-    send(data: any): void;
+    send(data: any, cb?: (err?: Error) => void): void;
     close(code?: number, reason?: string): void;
   }
   type RawData = any;
@@ -30,7 +30,7 @@ declare module "ws" {
 interface Buffer {}
 declare const Buffer: {
   new(...args: any[]): Buffer;
-  from(input: any): Buffer;
+  from(input: any, encoding?: string): Buffer;
   isBuffer(input: any): boolean;
 };
 namespace NodeJS {

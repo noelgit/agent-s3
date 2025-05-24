@@ -132,7 +132,7 @@ export class WebSocketClient implements vscode.Disposable {
       // Determine protocol: options override configuration file, then VS Code setting
       const configProtocol = vscode.workspace
         .getConfiguration("agent-s3")
-        .get<string>("websocketProtocol");
+        .get("websocketProtocol") as string | undefined;
       const protocol =
         this.options.protocol ||
         (configProtocol as "ws" | "wss" | undefined) ||
