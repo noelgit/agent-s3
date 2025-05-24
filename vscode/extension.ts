@@ -343,7 +343,7 @@ export function activate(context: vscode.ExtensionContext) {
   function getAgentTerminal(): vscode.Terminal {
     // Try to find existing terminal
     const existingTerminal = vscode.window.terminals.find(
-      (t) => t.name === "Agent-S3",
+      (t: vscode.Terminal) => t.name === "Agent-S3",
     );
 
     if (existingTerminal) {

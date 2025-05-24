@@ -13,7 +13,7 @@ declare module "path" {
 interface Buffer {}
 declare const Buffer: {
   new(...args: any[]): Buffer;
-  from(input: string | any[] | ArrayBuffer | SharedArrayBuffer): Buffer;
+  from(input: string | any[] | ArrayBuffer | SharedArrayBuffer, encoding?: string): Buffer;
 };
 
 declare namespace NodeJS {

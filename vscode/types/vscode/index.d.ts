@@ -16,7 +16,8 @@ declare namespace vscode {
   }
 
   interface Memento {
-    get(key: string, defaultValue?: any): any;
+    get<T>(key: string): T | undefined;
+    get<T>(key: string, defaultValue: T): T;
     update(key: string, value: any): Thenable<void>;
     [key: string]: any;
   }
@@ -34,7 +35,12 @@ declare namespace vscode {
   const workspace: any;
   const commands: any;
   const env: any;
-  const Uri: any;
+  class Uri {
+    fsPath: string;
+    constructor(path?: string);
+    static file(path: string): Uri;
+    static joinPath(base: Uri, ...paths: string[]): Uri;
+  }
   const ViewColumn: any;
 
   // Type placeholders used within the extension
