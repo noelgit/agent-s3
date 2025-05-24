@@ -34,19 +34,19 @@ class ContextRegistry:
         for provider in self._providers.values():
             if isinstance(provider, FileContextProvider) and hasattr(provider, "get_relevant_files"):
                 return provider.get_relevant_files(query, top_n)
-        logger.warning("%s", No provider found for relevant files: {query})
+        logger.warning("No provider found for relevant files: %s", query)
         return []
     def get_file_history(self, file_path: str = None) -> Dict[str, Any]:
         for provider in self._providers.values():
             if isinstance(provider, FileContextProvider) and hasattr(provider, "get_file_history"):
                 return provider.get_file_history(file_path)
-        logger.warning("%s", No provider found for file history: {file_path})
+        logger.warning("No provider found for file history: %s", file_path)
         return {}
     def get_file_metadata(self, file_path: str = None) -> Dict[str, Any]:
         for provider in self._providers.values():
             if isinstance(provider, FileContextProvider) and hasattr(provider, "get_file_metadata"):
                 return provider.get_file_metadata(file_path)
-        logger.warning("%s", No provider found for file metadata: {file_path})
+        logger.warning("No provider found for file metadata: %s", file_path)
         return {}
     def get_project_structure(self) -> Dict[str, Any]:
         for provider in self._providers.values():
@@ -67,35 +67,35 @@ class ContextRegistry:
         for provider in self._providers.values():
             if isinstance(provider, FileContextProvider) and hasattr(provider, "read_file"):
                 return provider.read_file(file_path)
-        logger.warning("%s", No provider found for read_file: {file_path})
+        logger.warning("No provider found for read_file: %s", file_path)
         return ""
 
     def get_code_elements(self, file_path: str) -> List[Dict[str, Any]]:
         for provider in self._providers.values():
             if isinstance(provider, FileContextProvider) and hasattr(provider, "get_code_elements"):
                 return provider.get_code_elements(file_path)
-        logger.warning("%s", No provider found for get_code_elements: {file_path})
+        logger.warning("No provider found for get_code_elements: %s", file_path)
         return []
 
     def get_file_imports(self, file_path: str) -> List[str]:
         for provider in self._providers.values():
             if isinstance(provider, FileContextProvider) and hasattr(provider, "get_file_imports"):
                 return provider.get_file_imports(file_path)
-        logger.warning("%s", No provider found for get_file_imports: {file_path})
+        logger.warning("No provider found for get_file_imports: %s", file_path)
         return []
 
     def get_files_importing(self, file_path: str) -> List[str]:
         for provider in self._providers.values():
             if isinstance(provider, FileContextProvider) and hasattr(provider, "get_files_importing"):
                 return provider.get_files_importing(file_path)
-        logger.warning("%s", No provider found for get_files_importing: {file_path})
+        logger.warning("No provider found for get_files_importing: %s", file_path)
         return []
 
     def get_convention_related_files(self, file_path: str) -> List[str]:
         for provider in self._providers.values():
             if isinstance(provider, FileContextProvider) and hasattr(provider, "get_convention_related_files"):
                 return provider.get_convention_related_files(file_path)
-        logger.warning("%s", No provider found for get_convention_related_files: {file_path})
+        logger.warning("No provider found for get_convention_related_files: %s", file_path)
         return []
 
     def get_hotspot_files(self) -> List[str]:
@@ -130,7 +130,7 @@ class ContextRegistry:
         for provider in self._providers.values():
             if isinstance(provider, TestContextProvider) and hasattr(provider, "find_test_files"):
                 return provider.find_test_files(impl_file_path)
-        logger.warning("%s", No provider found for find_test_files: {impl_file_path})
+        logger.warning("No provider found for find_test_files: %s", impl_file_path)
         return []
 
     def suggest_unit_tests(self, code_element: Dict[str, Any]) -> List[str]:
@@ -158,7 +158,7 @@ class ContextRegistry:
         for provider in self._providers.values():
             if isinstance(provider, MemoryContextProvider) and hasattr(provider, "get_similar_tasks"):
                 return provider.get_similar_tasks(query, top_n)
-        logger.warning("%s", No provider found for get_similar_tasks: {query})
+        logger.warning("No provider found for get_similar_tasks: %s", query)
         return []
 
     def get_dependency_graph(self, scope: Optional[str] = None) -> Dict[str, Any]:
