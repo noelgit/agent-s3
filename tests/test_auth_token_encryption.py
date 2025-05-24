@@ -30,7 +30,7 @@ def test_save_token_requires_key(tmp_path, monkeypatch):
     assert not token_path.exists()
 
 
-def test_load_token_missing_key(tmp_path, monkeypatch):
+def test_load_token_missing_key(tmp_path, monkeypatch, capsys):
     token_data = {"access_token": "abc123"}
     key = Fernet.generate_key()
     token_path = tmp_path / "token.json"
@@ -40,9 +40,11 @@ def test_load_token_missing_key(tmp_path, monkeypatch):
 
     monkeypatch.delenv(TOKEN_ENCRYPTION_KEY_ENV, raising=False)
     assert load_token() is None
+    captured = capsys.readouterr()
+    assert "Encryption key not set" in captured.out
 
 
-def test_save_token_encryption_failure(tmp_path, monkeypatch):
+def test_save_token_encryption_failure(tmp_path, monkeypatch, capsys):
     token_data = {"access_token": "abc123"}
     key = Fernet.generate_key()
     token_path = tmp_path / "token.json"
@@ -54,10 +56,13 @@ def test_save_token_encryption_failure(tmp_path, monkeypatch):
             pass
 
         def encrypt(self, *_: Any) -> bytes:  # type: ignore[override]
-            raise ValueError("boom")
+            raise ValueError("boom Authorization: token abc123")
 
     monkeypatch.setattr("agent_s3.auth.Fernet", lambda *a, **k: BadFernet())
     with pytest.raises(RuntimeError):
         save_token(token_data)
+    captured = capsys.readouterr()
+    assert "abc123" not in captured.out
+    assert "[REDACTED]" in captured.out
     assert not token_path.exists()
 
