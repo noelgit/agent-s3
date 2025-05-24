@@ -347,9 +347,10 @@ class VSCodeIntegration:
             logger.error("Failed to queue message: %s", e)
             return False
 
-    def get_user_response(self, request: Dict[str, Any], timeout: int = 300) -> Optional[Dict[str,
-         Any]]:        """
-        Get a response from the user via VS Code Chat UI.
+    def get_user_response(
+        self, request: Dict[str, Any], timeout: int = 300
+    ) -> Optional[Dict[str, Any]]:
+        """Get a response from the user via VS Code Chat UI.
 
         Args:
             request: The request to send to VS Code
@@ -383,10 +384,12 @@ class VSCodeIntegration:
 
                 time.sleep(0.1)
 
-            logger.warning("%s", Timeout waiting for user response after {timeout} seconds)
+            logger.warning(
+                "Timeout waiting for user response after %s seconds", timeout
+            )
             return None
         except Exception as e:
-            logger.error("%s", Error getting user response: {e})
+            logger.error("Error getting user response: %s", e)
             return None
 
     def display_plan(self, plan: str, summary: str) -> None:
@@ -461,17 +464,20 @@ class VSCodeIntegration:
             "details": details
         })
 
-    def request_approval(self, message: str, options: List[str] = ["approve", "reject"])
-         -> Optional[str]:        """
-        Request approval from the user via VS Code Chat UI.
+    def request_approval(
+        self, message: str, options: List[str] | None = None
+    ) -> Optional[str]:
+        """Request approval from the user via VS Code Chat UI.
 
         Args:
             message: The message to display to the user
-            options: The options to present to the user
+            options: Optional list of options to present
 
         Returns:
-            The user's selection or None if timeout or error occurred
+            The user's selection or None if timeout or error occurred.
         """
+        if options is None:
+            options = ["approve", "reject"]
         response = self.get_user_response({
             "type": "approval",
             "message": message,
