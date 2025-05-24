@@ -7,4 +7,6 @@ This package contains adapters for various testing frameworks:
 - PhpPestAdapter: for PHP Pest/PHPUnit
 """
 
-__all__ = ['PythonPytestAdapter', 'JsJestAdapter', 'PhpPestAdapter']
+from .base import Adapter
+
+__all__ = ['Adapter', 'PythonPytestAdapter', 'JsJestAdapter', 'PhpPestAdapter']
