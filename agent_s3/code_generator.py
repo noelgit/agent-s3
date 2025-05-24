@@ -130,8 +130,12 @@ class CodeGenerator:
             prompt_sections.append(str(plan))
         return "\n".join(prompt_sections)
 
-    def generate_code(self, plan: Dict[str, Any], tech_stack: Optional[Dict[str, Any]] = None)
-         -> Dict[str, str]:        """Generates code for all files in the implementation plan.
+    def generate_code(
+        self,
+        plan: Dict[str, Any],
+        tech_stack: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, str]:
+        """Generates code for all files in the implementation plan.
 
         Args:
             plan: The consolidated plan dictionary for a feature group.
@@ -176,8 +180,11 @@ class CodeGenerator:
         self.scratchpad.log("CodeGenerator", f"Completed generation of {len(results)} files")
         return results
 
-    def _extract_files_from_plan(self, implementation_plan: Dict[str, Any]) -> List[Tuple[str,
-         List[Dict[str, Any]]]]:        """Extracts file paths and their implementation details from the implementation plan.
+    def _extract_files_from_plan(
+        self,
+        implementation_plan: Dict[str, Any],
+    ) -> List[Tuple[str, List[Dict[str, Any]]]]:
+        """Extracts file paths and their implementation details from the implementation plan.
 
         Args:
             implementation_plan: The implementation plan containing file details
@@ -199,8 +206,12 @@ class CodeGenerator:
 
         return files
 
-    def _prepare_file_context(self, file_path: str, implementation_details: List[Dict[str, Any]])
-         -> Dict[str, Any]:        """Prepares context for a file by reading relevant existing files and extracting related information.
+    def _prepare_file_context(
+        self,
+        file_path: str,
+        implementation_details: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Prepares context for a file by reading relevant existing files and extracting related information.
 
         Args:
             file_path: The path of the file being generated
@@ -315,8 +326,14 @@ class CodeGenerator:
 
         return prioritized_context
 
-    def generate_file(self, file_path: str, implementation_details: List[Dict[str, Any]],
-         tests: Dict[str, Any], context: Dict[str, Any]) -> str:        """Generates code for a single file with validation and test execution.
+    def generate_file(
+        self,
+        file_path: str,
+        implementation_details: List[Dict[str, Any]],
+        tests: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> str:
+        """Generates code for a single file with validation and test execution.
 
         Args:
             file_path: Path to the file being generated
@@ -368,18 +385,26 @@ class CodeGenerator:
                 for test in unit_tests:
                     test_cases_str += f"- Test: {test.get('test_name', 'unnamed')}\n"
                     if 'tested_functions' in test:
-                        test_cases_str +
-                            = f"  Tests functions: {', '.join(test['tested_functions'])}\n"                    if 'code' in test:
-                        test_cases_str += f"  Code:\n```python\n{test['code']}\n```\n"
+                        test_cases_str += (
+                            f"  Tests functions: {', '.join(test['tested_functions'])}\n"
+                        )
+                    if 'code' in test:
+                        test_cases_str += (
+                            f"  Code:\n```python\n{test['code']}\n```\n"
+                        )
 
             if integration_tests:
                 test_cases_str += "\n\nIntegration Tests:\n"
                 for test in integration_tests:
                     test_cases_str += f"- Test: {test.get('test_name', 'unnamed')}\n"
                     if 'components_involved' in test:
-                        test_cases_str +
-                            = f"  Components: {', '.join(test['components_involved'])}\n"                    if 'code' in test:
-                        test_cases_str += f"  Code:\n```python\n{test['code']}\n```\n"
+                        test_cases_str += (
+                            f"  Components: {', '.join(test['components_involved'])}\n"
+                        )
+                    if 'code' in test:
+                        test_cases_str += (
+                            f"  Code:\n```python\n{test['code']}\n```\n"
+                        )
 
         # Include existing code if available
         existing_code_str = ""
@@ -452,8 +477,10 @@ class CodeGenerator:
 
         # Validate and refine cycle
         for attempt in range(max_validation_attempts):
-            self.scratchpad.log("CodeGenerator", f"Validating generated code (attempt {attempt+
-                1}/{max_validation_attempts})")
+            self.scratchpad.log(
+                "CodeGenerator",
+                f"Validating generated code (attempt {attempt + 1}/{max_validation_attempts})",
+            )
             # Check for syntax and lint issues
             is_valid, issues = self._validate_generated_code(file_path, generated_code)
 
@@ -570,6 +597,20 @@ class CodeGenerator:
                 if is_test_relevant(test)
             ]
 
+        # Filter property-based tests
+        if "property_based_tests" in tests:
+            relevant_tests["property_based_tests"] = [
+                test for test in tests.get("property_based_tests", [])
+                if is_test_relevant(test)
+            ]
+
+        # Filter acceptance tests
+        if "acceptance_tests" in tests:
+            relevant_tests["acceptance_tests"] = [
+                test for test in tests.get("acceptance_tests", [])
+                if is_test_relevant(test)
+            ]
+
         return relevant_tests
 
     def _extract_code_from_response(self, response: str, file_path: str) -> str:
@@ -664,8 +705,13 @@ Please fix the code to address all these issues while maintaining security best 
 
         return refined_code
 
-    def _collect_debug_info(self, file_path: str, generated_code: str, issues: List[str])
-         -> Dict[str, Any]:        """Collects debug information for problematic code generation.
+    def _collect_debug_info(
+        self,
+        file_path: str,
+        generated_code: str,
+        issues: List[str],
+    ) -> Dict[str, Any]:
+        """Collects debug information for problematic code generation.
 
         Args:
             file_path: Path to the file with issues
@@ -760,8 +806,13 @@ Please fix the code to address all these issues while maintaining security best 
                 return False
         return True
 
-    def _cache_context(self, file_path: str, context: Dict[str, Any], dependencies: List[str])
-         -> None:        """Cache prepared context for a file."""
+    def _cache_context(
+        self,
+        file_path: str,
+        context: Dict[str, Any],
+        dependencies: List[str],
+    ) -> None:
+        """Cache prepared context for a file."""
         cache_key = self._get_context_cache_key(file_path, context.get("functions_to_implement", []))
 
         if len(self._context_cache) >= self._context_cache_max_size:
@@ -824,8 +875,12 @@ Please fix the code to address all these issues while maintaining security best 
 
         return prioritized
 
-    def _validate_generated_code(self, file_path: str, generated_code: str) -> Tuple[bool,
-         List[str]]:        """Validate generated code with syntax, linting and type checks."""
+    def _validate_generated_code(
+        self,
+        file_path: str,
+        generated_code: str,
+    ) -> Tuple[bool, List[str]]:
+        """Validate generated code with syntax, linting and type checks."""
         issues: List[str] = []
 
         # Syntax check
@@ -915,8 +970,13 @@ Please fix the code to address all these issues while maintaining security best 
 
         return debug_info
 
-    def _refine_based_on_test_results(self, file_path: str, code: str, test_results: Dict[str, Any])
-         -> str:        """Refine generated code based on failing test results."""
+    def _refine_based_on_test_results(
+        self,
+        file_path: str,
+        code: str,
+        test_results: Dict[str, Any],
+    ) -> str:
+        """Refine generated code based on failing test results."""
         failures = test_results.get("failure_info") or test_results.get("issues", [])
         details = json.dumps(failures, indent=2)
         system_prompt = "You are a developer fixing code to satisfy failing tests."
@@ -939,8 +999,12 @@ Please update the code so that the tests pass. Return only the fixed code."""
         refined = self._extract_code_from_response(response, file_path)
         return refined if refined else code
 
-    def _estimate_file_complexity(self, implementation_details: List[Dict[str, Any]],
-         file_path: str | None = None) -> float:        """Estimate file complexity based on implementation details and existing code."""
+    def _estimate_file_complexity(
+        self,
+        implementation_details: List[Dict[str, Any]],
+        file_path: str | None = None,
+    ) -> float:
+        """Estimate file complexity based on implementation details and existing code."""
         complexity = 1.0
         if not implementation_details:
             return complexity
