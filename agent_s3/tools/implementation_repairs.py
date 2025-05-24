@@ -305,6 +305,9 @@ def repair_architecture_issue_coverage(
                         if arch_issue_id not in function["architecture_issues_addressed"]:
                             function["architecture_issues_addressed"].append(arch_issue_id)
                             assigned = True
+                            break
+                    if assigned:
+                        break
             if not assigned and repaired_plan:
                 first_file = next(iter(repaired_plan.keys()))
                 functions = repaired_plan[first_file]
