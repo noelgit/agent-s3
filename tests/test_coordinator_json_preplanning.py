@@ -175,7 +175,8 @@ class TestCoordinatorJsonPrePlanning:
         coordinator.config = MagicMock()
         coordinator.config.config = {"pre_planning_mode": "enforced_json"}
         coordinator.pre_planner.assess_complexity.return_value = {
-            "score": 60,
+            "complexity_score": 60,
+            "complexity_factors": {},
             "is_complex": True,
         }
 

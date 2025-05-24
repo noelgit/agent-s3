@@ -165,4 +165,8 @@ class ComplexityAnalyzer:
         else:
             result["advice"] = "This task has manageable complexity and can proceed without special handling."
 
+        # Provide standardized key names for consumers
+        result["complexity_score"] = result["score"]
+        result["complexity_factors"] = result["factors"]
+
         return result
