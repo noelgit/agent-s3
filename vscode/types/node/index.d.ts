@@ -11,6 +11,10 @@ declare module "path" {
 }
 
 interface Buffer {}
+declare const Buffer: {
+  new(...args: any[]): Buffer;
+  from(input: string | any[] | ArrayBuffer | SharedArrayBuffer): Buffer;
+};
 
 declare namespace NodeJS {
   interface Timeout {}
