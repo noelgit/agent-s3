@@ -40,7 +40,10 @@ class CodeGenerator:
         self._context_cache = {}
         self._context_cache_max_size = 10  # Limit cache size
         self._context_dependency_map = {}  # Track dependencies between files
-        self._generation_attempts = {}  # Track generation attempts per file
+        # Track how many times each file has been generated to avoid
+        # infinite regeneration loops. Attempts are capped by
+        # ``max_validation_attempts`` in ``generate_file``.
+        self._generation_attempts: Dict[str, int] = {}
 
     def _allocate_token_budget(self, total_tokens: int, attempt_num: int = 1) -> Dict[str, int]:
         """Allocate token budget for different context elements."""
@@ -318,6 +321,9 @@ class CodeGenerator:
     def generate_file(self, file_path: str, implementation_details: List[Dict[str, Any]],
          tests: Dict[str, Any], context: Dict[str, Any]) -> str:        """Generates code for a single file with validation and test execution.
 
+        Generation attempts for each file are tracked and capped by
+        ``max_validation_attempts`` to prevent endless retries.
+
         Args:
             file_path: Path to the file being generated
             implementation_details: List of details about functions/classes to implement
@@ -328,6 +334,17 @@ class CodeGenerator:
             Generated code as a string
         """
         self.scratchpad.log("CodeGenerator", f"Generating code for {file_path}")
+
+        # Track how many times we have attempted to generate this file
+        attempt = self._generation_attempts.get(file_path, 0) + 1
+        self._generation_attempts[file_path] = attempt
+        if attempt > self.max_validation_attempts:
+            self.scratchpad.log(
+                "CodeGenerator",
+                f"Max generation attempts exceeded for {file_path}",
+                level=LogLevel.ERROR,
+            )
+            return ""
 
         # Extract relevant tests
         relevant_tests = self._extract_relevant_tests(tests, file_path)
