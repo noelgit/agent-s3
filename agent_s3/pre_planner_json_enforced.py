@@ -720,7 +720,11 @@ def ensure_element_id_consistency(pre_planning_data: Dict[str, Any]) -> Dict[str
 
                             element["element_id"] = element_id
                             assigned_ids.add(element_id)
-                            logger.info("%s", Generated element_id {element_id} for element {element_name})
+                            logger.info(
+                                "Generated element_id %s for element %s",
+                                element_id,
+                                element_name,
+                            )
                         else:
                             # Normalize existing element_id
                             element_id = element["element_id"]
@@ -732,7 +736,11 @@ def ensure_element_id_consistency(pre_planning_data: Dict[str, Any]) -> Dict[str
                                     element_id = f"{base_id}_{counter}"
                                     counter += 1
                                 element["element_id"] = element_id
-                                logger.info("%s", Renamed duplicate element_id from {base_id} to {element_id})
+                                logger.info(
+                                    "Renamed duplicate element_id from %s to %s",
+                                    base_id,
+                                    element_id,
+                                )
                             assigned_ids.add(element_id)
 
                     # Second pass: ensure test_requirements reference valid element_ids

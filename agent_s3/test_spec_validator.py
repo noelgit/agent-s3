@@ -595,7 +595,11 @@ def repair_invalid_element_ids(
                                 highest_score = sim
                                 best_match = valid_id
                 except Exception as e:  # pragma: no cover - best effort
-                    logger.error("%s", Semantic matching failed for '{invalid_id}': {e})
+                    logger.error(
+                        "Semantic matching failed for '%s': %s",
+                        invalid_id,
+                        e,
+                    )
 
             # Fallback to substring/SequenceMatcher
             if not best_match:

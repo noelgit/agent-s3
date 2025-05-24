@@ -108,9 +108,10 @@ class PrePlannerJsonValidator:
     def __init__(self):
         self.validation_metrics = ValidationMetrics()
 
-    def enhance_schema_validation(self, data: Dict[str, Any]) -> Tuple[bool, List[str], Dict[str,
-         Any]]:        """
-        Strengthen JSON schema validation for pre-planning with nested validation.
+    def enhance_schema_validation(
+        self, data: Dict[str, Any]
+    ) -> Tuple[bool, List[str], Dict[str, Any]]:
+        """Strengthen JSON schema validation for pre-planning with nested validation.
 
         Args:
             data: The pre-planning data to validate
@@ -176,8 +177,10 @@ class PrePlannerJsonValidator:
 
         return errors
 
-    def _validate_feature(self, feature: Dict[str, Any], group_index: int, feature_index: int)
-         -> List[str]:        """Validate a single feature."""
+    def _validate_feature(
+        self, feature: Dict[str, Any], group_index: int, feature_index: int
+    ) -> List[str]:
+        """Validate a single feature."""
         errors = []
 
         if not isinstance(feature, dict):
