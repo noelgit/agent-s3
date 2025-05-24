@@ -327,9 +327,10 @@ class SemanticSummarizer(CompressionStrategy):
                 continue
 
             # Handle function definitions
-            if re.search(r'function\s+\w+\s*\(|^\s*\w+\s*\([^)]*\)\s*{|^\s*\w+
-                \s*:\s*function', line) or \               re.search(r'const\s+\w+
-                    \s*=\s*\([^)]*\)\s*=>|^\s*\w+\s*=\s*\([^)]*\)\s*=>', line):
+            if (
+                re.search(r'function\s+\w+\s*\(|^\s*\w+\s*\([^)]*\)\s*{|^\s*\w+\s*:\s*function', line)
+                or re.search(r'const\s+\w+\s*=\s*\([^)]*\)\s*=>|^\s*\w+\s*=\s*\([^)]*\)\s*=>', line)
+            ):
                 # Add function signature
                 summary_lines.append(line.rstrip())
 

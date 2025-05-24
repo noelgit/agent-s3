@@ -1415,9 +1415,12 @@ Before finalizing your output, verify that:
 Your semantic validation will be used to improve the quality and coherence of the final implementation plan before coding begins.
 """
 
-def get_consolidated_plan_user_prompt(feature_group: Dict[str, Any], task_description: str,
-     context: Optional[Dict[str, Any]] = None) -> str:    """
-    Get the user prompt for the consolidated planning LLM call.
+def get_consolidated_plan_user_prompt(
+    feature_group: Dict[str, Any],
+    task_description: str,
+    context: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Get the user prompt for the consolidated planning LLM call."""
 
     Args:
         feature_group: The feature group data.

@@ -112,31 +112,29 @@ class CodeAnalyzer:
         self.parser_registry = parser_registry or ParserRegistry()
         self.file_tool = file_tool
 
-    def analyze_code(self, code_str: str, lang: str = None, file_path: str = None,
-         tech_stack: dict = None) -> Dict[str, Any]:        """
-        Analyze code and extract elements and relationships using the pluggable parsing framework.
-        Args:
-            code_str: Code string to analyze
-            lang: Language of code, defaults to auto-detect
-            file_path: Optional file path for extension-based detection
-            tech_stack: Optional tech stack info for framework extractors
-        Returns:
-            Dictionary with extracted code elements and relationships
-        """
+    def analyze_code(
+        self,
+        code_str: str,
+        lang: str | None = None,
+        file_path: str | None = None,
+        tech_stack: dict | None = None,
+    ) -> Dict[str, Any]:
+        """Analyze code and extract semantic elements using the pluggable parsers."""
+
         # Auto-detect language if not provided
         if not lang and file_path:
             parser = self.parser_registry.get_parser(file_path=file_path)
             if parser:
-                lang = parser.__class__.__name__.replace('Parser', '').lower()
+                lang = parser.__class__.__name__.replace("Parser", "").lower()
+
         if not lang:
             lang = self._detect_language(code_str)
+
         parser = self.parser_registry.get_parser(file_path=file_path, language_name=lang)
         if parser:
-            return parser.analyze(code_str, file_path or '', tech_stack)
-        logger.error(
-            "No parser found for language '%s'. Skipping analysis.",
-            lang,
-        )
+            return parser.analyze(code_str, file_path or "", tech_stack)
+
+        logger.error("No parser found for language '%s'. Skipping analysis.", lang)
         return {
             "language": lang,
             "elements": [],
@@ -199,8 +197,12 @@ class CodeAnalyzer:
             return None
 
 # Main validation functions
-def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_registry=None)
-     -> Tuple[bool, Dict[str, Any]]:    """
+def validate_pre_plan(
+    data: Dict[str, Any],
+    repo_root: str | None = None,
+    context_registry=None,
+) -> Tuple[bool, Dict[str, Any]]:
+    """
     Validate Pre-Planner JSON output with fast, deterministic checks.
 
     This function performs comprehensive validation of the pre-planning JSON output,
