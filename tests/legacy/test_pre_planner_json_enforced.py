@@ -196,9 +196,11 @@ class TestPrePlannerJsonEnforced:
         fallback = create_fallback_json(request)
 
         assert fallback["original_request"] == request
-        assert isinstance(fallback["features"], list)
-        assert len(fallback["features"]) > 0
-        assert "files_affected" in fallback["features"][0]
+        assert "feature_groups" in fallback
+        assert isinstance(fallback["feature_groups"], list)
+        assert len(fallback["feature_groups"]) > 0
+        assert "features" in fallback["feature_groups"][0]
+        assert len(fallback["feature_groups"][0]["features"]) > 0
 
         # Validate the fallback structure
         is_valid, _ = validate_json_schema(fallback)
@@ -765,7 +767,12 @@ def test_call_pre_planner_with_enforced_json_returns_fallback(mock_fallback, moc
      mock_process):    """Ensure fallback JSON is returned after all retries fail."""
     mock_params.return_value = {}
     mock_process.return_value = (False, None)
-    fallback = {"original_request": "Task", "features": []}
+    fallback = {
+        "original_request": "Task",
+        "feature_groups": [
+            {"group_name": "Default Group", "group_description": "", "features": []}
+        ],
+    }
     mock_fallback.return_value = fallback
 
     router = MagicMock()

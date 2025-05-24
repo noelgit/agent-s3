@@ -161,7 +161,8 @@ def test_initialize_workspace_exception(coordinator):
 def test_pre_planning_phase_normal_flow(coordinator):
     """Test normal flow of pre-planning phase using the new workflow."""
     coordinator.pre_planner.assess_complexity.return_value = {
-        "score": 150.0,
+        "complexity_score": 150.0,
+        "complexity_factors": {},
         "is_complex": False,
     }
     with patch(
@@ -184,7 +185,8 @@ def test_pre_planning_phase_normal_flow(coordinator):
 def test_pre_planning_phase_high_complexity(coordinator):
     """Test pre-planning phase identifies complex tasks."""
     coordinator.pre_planner.assess_complexity.return_value = {
-        "score": 400.0,
+        "complexity_score": 400.0,
+        "complexity_factors": {},
         "is_complex": True,
     }
     with patch(
@@ -263,7 +265,11 @@ def test_pre_planning_complete_failure(coordinator):
 
 def test_pre_planning_phase_updated_requirements(coordinator):
     """Test pre-planning returns updated test requirements."""
-    coordinator.pre_planner.assess_complexity.return_value = {"score": 200.0, "is_complex": False}
+    coordinator.pre_planner.assess_complexity.return_value = {
+        "complexity_score": 200.0,
+        "complexity_factors": {},
+        "is_complex": False,
+    }
     with patch(
         "agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json"
     ) as mock_call:
@@ -287,7 +293,11 @@ def test_pre_planning_phase_updated_requirements(coordinator):
 
 def test_pre_planning_phase_updated_complexity(coordinator):
     """Test updated complexity scoring is returned."""
-    coordinator.pre_planner.assess_complexity.return_value = {"score": 55, "is_complex": True}
+    coordinator.pre_planner.assess_complexity.return_value = {
+        "complexity_score": 55,
+        "complexity_factors": {},
+        "is_complex": True,
+    }
     with patch(
         "agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json"
     ) as mock_call:
@@ -307,7 +317,11 @@ def test_pre_planning_phase_updated_complexity(coordinator):
 
 def test_pre_planning_phase_with_caching(coordinator):
     """Test pre-planning phase with caching applied."""
-    coordinator.pre_planner.assess_complexity.return_value = {"score": 55, "is_complex": True}
+    coordinator.pre_planner.assess_complexity.return_value = {
+        "complexity_score": 55,
+        "complexity_factors": {},
+        "is_complex": True,
+    }
     with patch(
         "agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json"
     ) as mock_call:

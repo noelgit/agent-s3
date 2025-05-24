@@ -68,11 +68,11 @@ def main():
 
     # Print the results
     print("===== Complexity Assessment Results =====")
-    print(f"Overall Complexity Score: {result['score']:.1f}/100")
+    print(f"Overall Complexity Score: {result['complexity_score']:.1f}/100")
     print(f"Complexity Level: {result['level']}/5")
     print(f"Is Complex Task: {result['is_complex']}")
     print("\nContributing Factors:")
-    for factor, score in result['factors'].items():
+    for factor, score in result['complexity_factors'].items():
         print(f"  - {factor}: {score:.1f}")
 
     print("\nJustification:")

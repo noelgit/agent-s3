@@ -125,26 +125,32 @@ def create_fallback_pre_planning_output(task_description: str) -> Dict[str, Any]
     Returns:
         Dictionary with basic pre-planning structure
     """
+    feature = {
+        "name": "Main Task Implementation",
+        "description": task_description,
+        "files_affected": [],
+        "test_requirements": {
+            "unit_tests": [],
+            "integration_tests": [],
+            "property_based_tests": [],
+            "acceptance_tests": [],
+            "test_strategy": {
+                "coverage_goal": "80%",
+                "ui_test_approach": "manual",
+            },
+        },
+        "dependencies": [],
+        "risks": [],
+        "acceptance_criteria": [],
+    }
+
     return {
         "original_request": task_description,
-        "features": [
+        "feature_groups": [
             {
-                "name": "Main Task Implementation",
-                "description": task_description,
-                "files_affected": [],
-                "test_requirements": {
-                    "unit_tests": [],
-                    "integration_tests": [],
-                    "property_based_tests": [],
-                    "acceptance_tests": [],
-                    "test_strategy": {
-                        "coverage_goal": "80%",
-                        "ui_test_approach": "manual"
-                    }
-                },
-                "dependencies": [],
-                "risks": [],
-                "acceptance_criteria": []
+                "group_name": "Default Group",
+                "group_description": "Automatically generated fallback group",
+                "features": [feature],
             }
         ],
         "dependencies": [],
@@ -152,8 +158,8 @@ def create_fallback_pre_planning_output(task_description: str) -> Dict[str, Any]
         "acceptance_tests": [],
         "test_strategy": {
             "coverage_goal": "80%",
-            "ui_test_approach": "manual"
-        }
+            "ui_test_approach": "manual",
+        },
     }
 
 # Alias used by tests

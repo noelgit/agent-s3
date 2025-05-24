@@ -68,8 +68,10 @@ class TestComplexityAnalyzer(unittest.TestCase):
 
     def test_low_complexity_assessment(self):
         """Test that low complexity tasks are assessed correctly."""
-        result = self.analyzer.assess_complexity(self.low_complexity_data, "Update the button styling")
-        self.assertLess(result["score"], 40)
+        result = self.analyzer.assess_complexity(
+            self.low_complexity_data, "Update the button styling"
+        )
+        self.assertLess(result["complexity_score"], 40)
         self.assertLessEqual(result["level"], 2)
         self.assertFalse(result["is_complex"])
 
@@ -79,7 +81,7 @@ class TestComplexityAnalyzer(unittest.TestCase):
             self.high_complexity_data,
             "Implement secure authentication system with OAuth2 integration and database transaction support"
         )
-        self.assertGreater(result["score"], 40)
+        self.assertGreater(result["complexity_score"], 40)
         self.assertGreaterEqual(result["level"], 3)
         self.assertTrue(result["is_complex"])
 
@@ -90,8 +92,8 @@ class TestComplexityAnalyzer(unittest.TestCase):
         result = self.analyzer.assess_complexity(self.low_complexity_data, security_description)
 
         # Ensure security factor is present and non-zero
-        self.assertIn("security_sensitivity", result["factors"])
-        self.assertGreater(result["factors"]["security_sensitivity"], 0)
+        self.assertIn("security_sensitivity", result["complexity_factors"])
+        self.assertGreater(result["complexity_factors"]["security_sensitivity"], 0)
 
 if __name__ == "__main__":
     unittest.main()
