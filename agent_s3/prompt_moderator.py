@@ -1122,8 +1122,10 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
             self.scratchpad.log("Moderator", f"[VALIDATION] {error_prefix}: {message}")
 
     # Fix missing placeholder f-string issue
-    def prompt_file_selection(self, file_list: List[str], prompt_text: str = "Select a file")
-         -> Optional[str]:        """Prompt the user to select a file from a list.
+    def prompt_file_selection(
+        self, file_list: List[str], prompt_text: str = "Select a file"
+    ) -> Optional[str]:
+        """Prompt the user to select a file from a list.
 
         Args:
             file_list: List of files to choose from

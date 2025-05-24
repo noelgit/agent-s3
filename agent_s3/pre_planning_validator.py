@@ -116,8 +116,10 @@ class PrePlanningValidator:
 
         return errors
 
-    def _validate_test_requirements(self, test_reqs: Dict[str, Any], group_index: int,
-         feature_index: int) -> List[str]:        """Validate test requirements structure."""
+    def _validate_test_requirements(
+        self, test_reqs: Dict[str, Any], group_index: int, feature_index: int
+    ) -> List[str]:
+        """Validate test requirements structure."""
         errors = []
         prefix = f"Feature group {group_index}, feature {feature_index}, test_requirements"
 
@@ -132,8 +134,10 @@ class PrePlanningValidator:
 
         return errors
 
-    def _validate_risk_assessment(self, risk_assessment: Dict[str, Any], group_index: int,
-         feature_index: int) -> List[str]:        """Validate risk assessment structure."""
+    def _validate_risk_assessment(
+        self, risk_assessment: Dict[str, Any], group_index: int, feature_index: int
+    ) -> List[str]:
+        """Validate risk assessment structure."""
         errors = []
         prefix = f"Feature group {group_index}, feature {feature_index}, risk_assessment"
 

@@ -54,7 +54,10 @@ class JsJestAdapter(Adapter):
                         logger.info("Detected Jest in package.json scripts")
                         return True
             except Exception as e:
-                logger.warning("%s", Error parsing package.json: {str(e)})
+                logger.warning(
+                    "Error parsing package.json: %s",
+                    str(e),
+                )
 
         # Check for jest.config.js
         if any([(workspace / filename).exists() for filename in [

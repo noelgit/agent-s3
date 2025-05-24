@@ -177,7 +177,10 @@ class RepositoryEventHandler(FileSystemEventHandler):
             try:
                 self.callback(event_data['event_type'], file_path)
             except Exception as e:
-                logger.error("%s", Error in repository event callback: {e})
+                logger.error(
+                    "Error in repository event callback: %s",
+                    e,
+                )
 
 
 class RepositoryEventSystem:

@@ -394,7 +394,12 @@ Each test must include complete runnable code - not stubs or pseudocode.
                 high_issues = sum(1 for issue in validation_issues if issue.get('severity') == 'high')
                 other_issues = issue_count - critical_issues - high_issues
 
-                logger.warning("%s", Issues breakdown: {critical_issues} critical, {high_issues} high, {other_issues} medium/low)
+                logger.warning(
+                    "Issues breakdown: %s critical, %s high, %s medium/low",
+                    critical_issues,
+                    high_issues,
+                    other_issues,
+                )
             else:
                 logger.info("No issues found in test implementations")
 

@@ -281,7 +281,11 @@ class PythonPytestAdapter(Adapter):
             # Apply thresholds from config and mock registry
             min_score = self.config.get("mutation_threshold", 80.0)
             if best_score < min_score:
-                logger.warning("%s", Mutation score {best_score:.1f}% below threshold of {min_score}%)
+                logger.warning(
+                    "Mutation score %.1f%% below threshold of %.1f%%",
+                    best_score,
+                    min_score,
+                )
 
             # Apply mock registry if available
             if hasattr(self, "mock_registry"):

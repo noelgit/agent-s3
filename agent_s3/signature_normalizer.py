@@ -293,7 +293,11 @@ class SignatureNormalizer:
             ast.parse(test_code)
         except SyntaxError as e:
             # Log the error but keep the signature
-            logger.warning("%s", Syntax error in Python signature: {signature} - {str(e)})
+            logger.warning(
+                "Syntax error in Python signature: %s - %s",
+                signature,
+                str(e),
+            )
 
         return signature
 

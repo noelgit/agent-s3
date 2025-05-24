@@ -147,7 +147,7 @@ def select_adapter(workspace: Path, lang_hint: Optional[str] = None) -> 'Adapter
     # Try each adapter's detect method
     for adapter in adapters:
         if adapter.detect(workspace):
-            logger.info("%s", Selected test adapter: {adapter.name})
+            logger.info("Selected test adapter: %s", adapter.name)
             return adapter
 
     # If no adapter detected, try to use a default based on common file patterns

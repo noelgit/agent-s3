@@ -62,7 +62,10 @@ class PhpPestAdapter(Adapter):
                         self.is_phpunit = True
                         return True
             except Exception as e:
-                logger.warning("%s", Error parsing composer.json: {str(e)})
+                logger.warning(
+                    "Error parsing composer.json: %s",
+                    str(e),
+                )
 
         # Check for Pest or PHPUnit configuration files
         if any([(workspace / filename).exists() for filename in [
