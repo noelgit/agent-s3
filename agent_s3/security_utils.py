@@ -5,7 +5,7 @@ from typing import MutableMapping
 SENSITIVE_HEADERS = {"authorization", "cookie", "set-cookie"}
 
 
-def strip_sensitive_headers(headers: MutableMapping[str, str]) -> Dict[str, str]:
+def redact_sensitive_headers(headers: MutableMapping[str, str]) -> Dict[str, str]:
     """Return a copy of ``headers`` with sensitive values redacted.
 
     This is useful when logging or debugging HTTP requests and responses.
@@ -25,3 +25,7 @@ def strip_sensitive_headers(headers: MutableMapping[str, str]) -> Dict[str, str]
         else:
             sanitized[name] = value
     return sanitized
+
+
+# Backwards compatibility alias
+strip_sensitive_headers = redact_sensitive_headers
