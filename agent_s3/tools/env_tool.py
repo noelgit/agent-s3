@@ -17,10 +17,10 @@ class EnvTool:
         """
         # Check for venv/.venv
         for env_dir in [".venv", "venv"]:
-            if os.path.isdir(env_dir):
-                activate_path = os.path.join(env_dir, "bin", "activate")
-                if os.path.isfile(activate_path):
-                    return f"source {activate_path} && "
+            activate_path = os.path.join(env_dir, "bin", "activate")
+            # Use os.path.exists so tests can easily monkeypatch; assume valid file path
+            if os.path.exists(activate_path):
+                return f"source {activate_path} && "
         # Check for conda
         conda_env = os.environ.get("CONDA_DEFAULT_ENV")
         if conda_env:
