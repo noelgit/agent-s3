@@ -39,7 +39,22 @@ def test_load_token_missing_key(tmp_path, monkeypatch):
     save_token(token_data)
 
     monkeypatch.delenv(TOKEN_ENCRYPTION_KEY_ENV, raising=False)
-    assert load_token() is None
+    with pytest.raises(RuntimeError):
+        load_token()
+
+
+def test_load_token_decryption_failure(tmp_path, monkeypatch):
+    token_data = {"access_token": "abc123"}
+    good_key = Fernet.generate_key()
+    bad_key = Fernet.generate_key()
+    token_path = tmp_path / "token.json"
+    monkeypatch.setenv(TOKEN_ENCRYPTION_KEY_ENV, good_key.decode())
+    monkeypatch.setattr("agent_s3.auth.TOKEN_FILE", str(token_path))
+    save_token(token_data)
+
+    monkeypatch.setenv(TOKEN_ENCRYPTION_KEY_ENV, bad_key.decode())
+    with pytest.raises(RuntimeError):
+        load_token()
 
 
 def test_save_token_encryption_failure(tmp_path, monkeypatch):
