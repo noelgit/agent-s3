@@ -183,7 +183,8 @@ Refer to these resources for a complete understanding of the project.
 2.  **VS Code Extension Action (`vscode/extension.ts`):**
     *   The `openChatWindow` function creates a `WebviewPanel`.
     *   It generates a `nonce` for Content Security Policy (CSP).
-    *   It loads previous message history from `extensionContext.workspaceState.get('agent-s3.chatHistory', [])`.
+    *   It loads previous message history from `extensionContext.workspaceState.get(CHAT_HISTORY_KEY, [])`.
+        `CHAT_HISTORY_KEY` is exported from `vscode/backend-connection.ts`.
     *   It sets the webview's HTML content using `getWebviewContent(nonce)`. This function generates the HTML structure, CSS for styling (respecting VS Code themes), and the client-side JavaScript. CSP is configured via `<meta>` tag. ARIA roles (`role="log"`, `aria-live="polite"`) are included for accessibility.
     *   It sets up a message listener (`panel.webview.onDidReceiveMessage`) to handle messages sent *from* the webview JavaScript to the extension.
     *   It registers a disposal handler (`panel.onDidDispose`) to save the final chat history when the panel is closed.
@@ -211,7 +212,8 @@ Refer to these resources for a complete understanding of the project.
     *   The `panel.webview.onDidReceiveMessage` listener receives the message with `command: 'send'`.
     *   It creates a message object `{ type: 'user', content: msg.text, timestamp: ... }`.
     *   It appends this message to the `messageHistory` array (potentially trimming old messages).
-    *   It saves the updated `messageHistory` to workspace state: `extensionContext.workspaceState.update('agent-s3.chatHistory', messageHistory)`.
+    *   It saves the updated `messageHistory` to workspace state: `extensionContext.workspaceState.update(CHAT_HISTORY_KEY, messageHistory)`.
+        `CHAT_HISTORY_KEY` is exported from `vscode/backend-connection.ts`.
     *   It gets the "Agent-S3" terminal (`getAgentTerminal`).
     *   It shows the terminal (`term.show(true)`).
     *   It sends the user's text to the CLI, escaping quotes: `term.sendText(\`python -m agent_s3.cli "${safe_text}"\`)`.
