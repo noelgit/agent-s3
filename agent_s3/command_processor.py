@@ -23,60 +23,13 @@ class CommandProcessor:
         """
         self.coordinator = coordinator
 
-        # Initialize command map
-        self.command_map = {
-            "init": self.execute_init_command,
-            "plan": self.execute_plan_command,
-            "test": self.execute_test_command,
-            "debug": self.execute_debug_command,
-            "terminal": self.execute_terminal_command,
-            "personas": self.execute_personas_command,
-            "guidelines": self.execute_guidelines_command,
-            "design": self.execute_design_command,
-            "implement": self.execute_implement_command,
-            "continue": self.execute_continue_command,
-            "deploy": self.execute_deploy_command,
-            "help": self.execute_help_command,
-            "config": self.execute_config_command,
-            "reload-llm-config": self.execute_reload_llm_config_command,
-            "explain": self.execute_explain_command,
-            "request": self.execute_request_command,
-            "tasks": self.execute_tasks_command,
-            "clear": self.execute_clear_command,
-            "db": self.execute_db_command,
-        }
 
-    def process_command(self, command: str, args: str = "") -> str:
-        """Process a command with optional arguments.
+    def process_command(self, command: str) -> str:
+        """Delegate parsing and execution to the CLI dispatcher."""
+        from agent_s3.cli.dispatcher import dispatch
 
-        Args:
-            command: Command name
-            args: Optional command arguments
-
-        Returns:
-            Command result message
-        """
-        # Strip leading slash if present (for compatibility with /command syntax)
-        if command.startswith('/'):
-            command = command[1:]
-
-        # Normalize to lowercase
-        command = command.lower()
-
-        # Log command execution
-        self._log(f"Processing command: {command} with args: {args}")
-
-        # Check if command exists in the map
-        if command in self.command_map:
-            try:
-                # Execute command handler
-                return self.command_map[command](args)
-            except Exception as e:
-                error_msg = f"Error executing command '{command}': {e}"
-                self._log(error_msg, level="error")
-                return error_msg
-        else:
-            return f"Unknown command: {command}. Type /help for available commands."
+        self._log(f"Processing command: {command}")
+        return dispatch(self, command)
 
     def execute_init_command(self, args: str) -> str:
         """Execute the init command to initialize workspace.
