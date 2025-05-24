@@ -9,7 +9,6 @@ aligned with the system design, and address issues raised in architecture review
 import json
 import logging
 import re
-import difflib
 from typing import Dict, Any, List, Set, Tuple
 
 from .validation_result import ValidationResult
@@ -25,6 +24,21 @@ from agent_s3.tools.coherence_validator import (
     validate_implementation_coherence,
     calculate_coherence_metrics,
     repair_inconsistent_patterns
+)
+
+from .implementation_repairs import (
+    repair_architecture_issue_coverage,
+    repair_element_id_references,
+    repair_file_paths,
+    repair_functions_format,
+    repair_incomplete_implementations,
+    repair_missing_elements,
+    repair_structure,
+)
+from .utils import (
+    extract_assertions,
+    extract_edge_cases,
+    extract_expected_behaviors,
 )
 
 logger = logging.getLogger(__name__)
@@ -255,19 +269,19 @@ def repair_implementation_plan(
 
     # Fix structural issues first
     if "structure" in issues_by_type or "empty_plan" in issues_by_type:
-        repaired_plan = _repair_structure(repaired_plan, system_design)
+        repaired_plan = repair_structure(repaired_plan, system_design)
 
     # Fix invalid file paths
     if "invalid_file_path" in issues_by_type:
-        repaired_plan = _repair_file_paths(repaired_plan, issues_by_type["invalid_file_path"])
+        repaired_plan = repair_file_paths(repaired_plan, issues_by_type["invalid_file_path"])
 
     # Fix invalid function formats
     if "invalid_functions_format" in issues_by_type:
-        repaired_plan = _repair_functions_format(repaired_plan, issues_by_type["invalid_functions_format"])
+        repaired_plan = repair_functions_format(repaired_plan, issues_by_type["invalid_functions_format"])
 
     # Fix missing element implementations
     if "missing_element_implementation" in issues_by_type:
-        repaired_plan = _repair_missing_elements(
+        repaired_plan = repair_missing_elements(
             repaired_plan,
             issues_by_type["missing_element_implementation"],
             system_design
@@ -275,7 +289,7 @@ def repair_implementation_plan(
 
     # Fix invalid element IDs
     if "invalid_element_id" in issues_by_type:
-        repaired_plan = _repair_element_id_references(
+        repaired_plan = repair_element_id_references(
             repaired_plan,
             issues_by_type["invalid_element_id"],
             system_design
@@ -283,7 +297,7 @@ def repair_implementation_plan(
 
     # Fix incomplete function implementations
     if "incomplete_implementation" in issues_by_type or "missing_steps" in issues_by_type:
-        repaired_plan = _repair_incomplete_implementations(
+        repaired_plan = repair_incomplete_implementations(
             repaired_plan,
             issues_by_type.get("incomplete_implementation", []) +
                  issues_by_type.get("missing_steps", []),            system_design,
@@ -292,7 +306,7 @@ def repair_implementation_plan(
 
     # Fix unaddressed architecture issues
     if "unaddressed_critical_issue" in issues_by_type:
-        repaired_plan = _repair_architecture_issue_coverage(
+        repaired_plan = repair_architecture_issue_coverage(
             repaired_plan,
             issues_by_type["unaddressed_critical_issue"],
             architecture_review
@@ -396,26 +410,18 @@ def _extract_test_requirements(test_implementations: Dict[str, Any]) -> Dict[str
             if isinstance(test, dict) and "target_element_ids" in test:
                 for element_id in test.get("target_element_ids", []):
                     # Extract assertions and behaviors from test code
-                    requirements[element_id].append({
-                        "test_name": test.get("name", ""),
-                        "test_category": category,
-                        "assertions": _extract_assertions_from_test(test.get("code", "")),
-                        "code": test.get("code", "")
-                    })
+                    requirements[element_id].append(
+                        {
+                            "test_name": test.get("name", ""),
+                            "test_category": category,
+                            "assertions": extract_assertions(test.get("code", "")),
+                            "code": test.get("code", ""),
+                        }
+                    )
 
     return requirements
 
 
-def _extract_assertions_from_test(test_code: str) -> List[str]:
-    """Extract assertions from test code."""
-    assertions = []
-    assertion_pattern = r'assert\w*\s*\(.*?\)'
-
-    matches = re.findall(assertion_pattern, test_code)
-    for match in matches:
-        assertions.append(match.strip())
-
-    return assertions
 
 
 def _validate_single_function(
@@ -539,7 +545,7 @@ def _validate_single_function(
     if element_id in test_requirements:
         test_reqs = test_requirements[element_id]
         # Check if edge cases from tests are covered
-        test_edge_cases = _extract_edge_cases_from_tests(test_reqs)
+        test_edge_cases = extract_edge_cases(test_reqs)
         for edge_case in test_edge_cases:
             if not any(re.search(re.escape(edge_case), ec, re.IGNORECASE) for ec in edge_cases):
                 issues.append({
@@ -1536,11 +1542,11 @@ def _validate_implementation_test_alignment(
                 metrics["test_categories"][category]["total"] += count
 
         # Extract edge cases from tests
-        test_edge_cases = set(_extract_edge_cases_from_tests(tests))
+        test_edge_cases = set(extract_edge_cases(tests))
         metrics["total_edge_cases"] += len(test_edge_cases)
 
         # Extract expected behaviors and assertions from tests
-        expected_behaviors = _extract_expected_behaviors(tests)
+        expected_behaviors = extract_expected_behaviors(tests)
         test_assertions = []
         for test in tests:
             test_assertions.extend(test.get("assertions", []))
@@ -1784,54 +1790,6 @@ def _validate_implementation_test_alignment(
     return issues
 
 
-def _extract_expected_behaviors(tests: List[Dict[str, Any]]) -> List[str]:
-    """
-    Extract expected behaviors from tests to help with semantic matching.
-
-    Args:
-        tests: List of test requirements for an element
-
-    Returns:
-        List of expected behaviors extracted from tests
-    """
-    behaviors = []
-
-    for test in tests:
-        # Extract from test name
-        test_name = test.get("test_name", "")
-        if test_name:
-            behaviors.append(test_name)
-
-        # Extract from test description
-        description = test.get("description", "")
-        if description:
-            behaviors.append(description)
-
-        # Extract from BDD-style given/when/then
-        for field in ["given", "when", "then"]:
-            if field in test and test[field]:
-                behaviors.append(test[field])
-
-        # Extract from assertion messages
-        for assertion in test.get("assertions", []):
-            message_match = re.search(r',[^,]*[\'"]([^\'"]*)[\'"]', assertion)
-            if message_match:
-                behaviors.append(message_match.group(1).strip())
-
-        # Extract from test code comments
-        code = test.get("code", "")
-        code_lines = code.split("\n")
-        for line in code_lines:
-            # Look for comment lines and docstrings
-            if re.match(r'\s*#\s*(.+)$', line):
-                comment = re.match(r'\s*#\s*(.+)$', line).group(1)
-                behaviors.append(comment)
-            elif re.search(r'[\'"](?:[\'"][\'"]\s*)?([^\'"]*)(?:[\'"][\'"])?\s*[\'"]', line):
-                # This is a rough pattern for docstrings or string literals that might describe behavior
-                string_match = re.search(r'[\'"](?:[\'"][\'"]\s*)?([^\'"]*)(?:[\'"][\'"])?\s*[\'"]', line)
-                behaviors.append(string_match.group(1).strip())
-
-    return behaviors
 
 
 def _element_needs_implementation(element_id: str, system_design: Dict[str, Any]) -> bool:
@@ -1874,592 +1832,8 @@ def _element_needs_implementation(element_id: str, system_design: Dict[str, Any]
     return True
 
 
-def _extract_edge_cases_from_tests(test_requirements: List[Dict[str, Any]]) -> List[str]:
-    """
-    Extract edge cases from test requirements.
 
-    Args:
-        test_requirements: List of test requirements for an element
 
-    Returns:
-        List of extracted edge cases
-    """
-    edge_cases = []
-
-    for test_req in test_requirements:
-        # Extract from test name
-        test_name = test_req.get("test_name", "").lower()
-        if any(term in test_name for term in ["edge", "boundary", "invalid", "null", "empty", "error"]):
-            edge_cases.append(test_name)
-
-        # Extract from assertions
-        for assertion in test_req.get("assertions", []):
-            assertion_lower = assertion.lower()
-            if any(term in assertion_lower for term in ["edge", "boundary", "invalid", "null", "empty", "error"]):
-                edge_cases.append(assertion)
-
-        # Extract from test code
-        code = test_req.get("code", "")
-        code_lines = code.split("\n")
-        for i, line in enumerate(code_lines):
-            line_lower = line.lower()
-            if any(term in line_lower for term in ["edge case", "boundary", "invalid input", "null value", "empty"]):
-                # Get a few lines of context
-                start = max(0, i - 1)
-                end = min(len(code_lines), i + 2)
-                edge_case_context = " ".join(code_lines[start:end])
-                edge_cases.append(edge_case_context)
-
-    # Remove duplicates and return
-    return list(set(edge_cases))
-
-
-def _repair_structure(plan: Dict[str, Any], system_design: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Repair basic structure issues in the implementation plan.
-
-    Args:
-        plan: The implementation plan to repair
-        system_design: The system design data for reference
-
-    Returns:
-        Repaired plan with correct structure
-    """
-    # If plan is not a dictionary, create a new one
-    if not isinstance(plan, dict):
-        plan = {}
-
-    # If plan is empty, fill with placeholder implementations based on system design
-    if not plan:
-        code_elements = system_design.get("code_elements", [])
-        files_by_type = {}
-
-        # Group elements by type for better file organization
-        for element in code_elements:
-            if isinstance(element, dict) and "element_id" in element:
-                element_type = element.get("element_type", "unknown")
-                if element_type not in files_by_type:
-                    files_by_type[element_type] = []
-                files_by_type[element_type].append(element)
-
-        # Create file structure based on element types
-        for element_type, elements in files_by_type.items():
-            # Create file path based on element type
-            if element_type == "class":
-                file_path = "models.py"
-            elif element_type == "function":
-                file_path = "functions.py"
-            elif "service" in element_type or "controller" in element_type:
-                file_path = "services.py"
-            else:
-                file_path = f"{element_type.replace(' ', '_')}.py"
-
-            # Add placeholder implementations for each element
-            plan[file_path] = []
-
-            for element in elements:
-                element_id = element.get("element_id", "")
-                name = element.get("name", "Unknown")
-                signature = element.get("signature", f"def {name.lower()}():")
-
-                # Create placeholder implementation
-                plan[file_path].append({
-                    "function": signature,
-                    "description": f"Implementation of {name}",
-                    "element_id": element_id,
-                    "steps": [
-                        {
-                            "step_description": "Implement core functionality",
-                            "pseudo_code": "# TODO: Implement core functionality",
-                            "relevant_data_structures": [],
-                            "api_calls_made": [],
-                            "error_handling_notes": "Handle potential errors"
-                        }
-                    ],
-                    "edge_cases": ["Error handling needed"],
-                    "architecture_issues_addressed": []
-                })
-
-    return plan
-
-
-def _repair_file_paths(plan: Dict[str, Any], issues: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """
-    Repair invalid file paths in the implementation plan.
-
-    Args:
-        plan: The implementation plan to repair
-        issues: List of file path issues to address
-
-    Returns:
-        Repaired plan with valid file paths
-    """
-    repaired_plan = {}
-
-    for file_path, functions in plan.items():
-        # Check if this file path is valid
-        is_valid = True
-        for issue in issues:
-            if issue.get("file_path") == file_path:
-                is_valid = False
-                break
-
-        if is_valid:
-            # Keep valid file paths as is
-            repaired_plan[file_path] = functions
-        else:
-            # For invalid file paths, create a normalized version
-            if isinstance(file_path, (int, float, bool)):
-                # Convert non-string paths to strings
-                new_file_path = f"file_{file_path}.py"
-                repaired_plan[new_file_path] = functions
-            elif not isinstance(file_path, str):
-                # For other types, use a generic file name
-                new_file_path = "unnamed_file.py"
-                repaired_plan[new_file_path] = functions
-            else:
-                # Already a string but perhaps invalid format
-                if not file_path.endswith(('.py', '.js', '.ts', '.java', '.rb', '.go', '.c', '.cpp', '.h', '.hpp')):
-                    new_file_path = f"{file_path}.py"
-                    repaired_plan[new_file_path] = functions
-                else:
-                    # This shouldn't happen given the validation issues, but just in case
-                    repaired_plan[file_path] = functions
-
-    return repaired_plan
-
-
-def _repair_functions_format(plan: Dict[str, Any], issues: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """
-    Repair invalid functions format in the implementation plan.
-
-    Args:
-        plan: The implementation plan to repair
-        issues: List of function format issues to address
-
-    Returns:
-        Repaired plan with valid functions format
-    """
-    repaired_plan = {}
-
-    for file_path, functions in plan.items():
-        # Check if this file's functions need repair
-        needs_repair = False
-        for issue in issues:
-            if issue.get("file_path") == file_path:
-                needs_repair = True
-                break
-
-        if not needs_repair or isinstance(functions, list):
-            # Keep valid functions as is
-            repaired_plan[file_path] = functions
-        else:
-            # Convert non-list functions to a list
-            if isinstance(functions, dict):
-                # Single function as a dictionary, wrap in list
-                repaired_plan[file_path] = [functions]
-            elif isinstance(functions, str):
-                # String describing a function, convert to proper format
-                repaired_plan[file_path] = [{
-                    "function": functions,
-                    "description": "Auto-generated function description",
-                    "element_id": f"auto_generated_{file_path.replace('.', '_').replace('/', '_')}",
-                    "steps": [
-                        {
-                            "step_description": "Implement function logic",
-                            "pseudo_code": functions,
-                            "relevant_data_structures": [],
-                            "api_calls_made": [],
-                            "error_handling_notes": ""
-                        }
-                    ],
-                    "edge_cases": [],
-                    "architecture_issues_addressed": []
-                }]
-            else:
-                # For other types, create an empty list
-                repaired_plan[file_path] = []
-
-    return repaired_plan
-
-
-def _repair_missing_elements(
-    plan: Dict[str, Any],
-    issues: List[Dict[str, Any]],
-    system_design: Dict[str, Any]
-) -> Dict[str, Any]:
-    """
-    Repair missing element implementations in the implementation plan.
-
-    Args:
-        plan: The implementation plan to repair
-        issues: List of missing element issues to address
-        system_design: The system design data
-
-    Returns:
-        Repaired plan with added element implementations
-    """
-    repaired_plan = json.loads(json.dumps(plan))
-
-    # Group elements by type for better file placement
-    elements_by_type = {}
-
-    for issue in issues:
-        element_id = issue.get("element_id")
-        if not element_id:
-            continue
-
-        # Find the element in system design
-        element = None
-        for e in system_design.get("code_elements", []):
-            if isinstance(e, dict) and e.get("element_id") == element_id:
-                element = e
-                break
-
-        if not element:
-            continue
-
-        # Group by element type
-        element_type = element.get("element_type", "unknown")
-        if element_type not in elements_by_type:
-            elements_by_type[element_type] = []
-        elements_by_type[element_type].append(element)
-
-    # Add missing elements to appropriate files
-    for element_type, elements in elements_by_type.items():
-        # Find or create an appropriate file for this element type
-        file_path = None
-
-        # First try to find an existing file with similar elements
-        for fp, functions in repaired_plan.items():
-            if not isinstance(functions, list):
-                continue
-
-            for function in functions:
-                if not isinstance(function, dict):
-                    continue
-
-                # Check function's element_id to find matching element types
-                function_element_id = function.get("element_id")
-                if not function_element_id:
-                    continue
-
-                # Find this function's element
-                function_element = None
-                for e in system_design.get("code_elements", []):
-                    if isinstance(e, dict) and e.get("element_id") == function_element_id:
-                        function_element = e
-                        break
-
-                if not function_element:
-                    continue
-
-                # If this function's element has the same type, use this file
-                if function_element.get("element_type") == element_type:
-                    file_path = fp
-                    break
-
-            if file_path:
-                break
-
-        # If no existing file found, create a new one
-        if not file_path:
-            if element_type == "class":
-                file_path = "models.py"
-            elif element_type == "function":
-                file_path = "functions.py"
-            elif "service" in element_type or "controller" in element_type:
-                file_path = "services.py"
-            else:
-                file_path = f"{element_type.replace(' ', '_')}.py"
-
-            # Ensure the file path doesn't conflict with existing ones
-            base_path = file_path
-            counter = 1
-            while file_path in repaired_plan:
-                file_path = f"{base_path[:-3]}_{counter}.py"
-                counter += 1
-
-            # Create the new file
-            repaired_plan[file_path] = []
-
-        # Add element implementations to the file
-        for element in elements:
-            element_id = element.get("element_id")
-            name = element.get("name", "Unknown")
-            signature = element.get("signature", f"def {name.lower()}():")
-
-            repaired_plan[file_path].append({
-                "function": signature,
-                "description": f"Implementation of {name}",
-                "element_id": element_id,
-                "steps": [
-                    {
-                        "step_description": "Implement core functionality",
-                        "pseudo_code": "# TODO: Implement core functionality",
-                        "relevant_data_structures": [],
-                        "api_calls_made": [],
-                        "error_handling_notes": "Handle potential errors"
-                    }
-                ],
-                "edge_cases": ["Error handling needed"],
-                "architecture_issues_addressed": []
-            })
-
-    return repaired_plan
-
-
-def _repair_element_id_references(
-    plan: Dict[str, Any],
-    issues: List[Dict[str, Any]],
-    system_design: Dict[str, Any]
-) -> Dict[str, Any]:
-    """
-    Repair invalid element ID references in the implementation plan.
-
-    Args:
-        plan: The implementation plan to repair
-        issues: List of invalid element ID issues to address
-        system_design: The system design data
-
-    Returns:
-        Repaired plan with fixed element ID references
-    """
-    repaired_plan = json.loads(json.dumps(plan))
-
-    # Extract all valid element IDs
-    valid_element_ids = set()
-    for element in system_design.get("code_elements", []):
-        if isinstance(element, dict) and "element_id" in element:
-            valid_element_ids.add(element["element_id"])
-
-    # Process each issue
-    for issue in issues:
-        file_path = issue.get("file_path")
-        function_index = issue.get("function_index")
-        invalid_id = issue.get("invalid_id")
-
-        if not file_path or function_index is None or not invalid_id:
-            continue
-
-        if file_path in repaired_plan and isinstance(repaired_plan[file_path], list):
-            functions = repaired_plan[file_path]
-            if 0 <= function_index < len(functions):
-                function = functions[function_index]
-
-                # Try to find a similar valid element ID
-                best_match = None
-                highest_similarity = 0
-
-                for valid_id in valid_element_ids:
-                    similarity = difflib.SequenceMatcher(None, invalid_id, valid_id).ratio()
-                    if similarity > highest_similarity and similarity > 0.7:  # Threshold for similarity
-                        highest_similarity = similarity
-                        best_match = valid_id
-
-                if best_match:
-                    # Replace the invalid ID with the best match
-                    function["element_id"] = best_match
-                else:
-                    # No good match found, use the first valid ID as a fallback
-                    if valid_element_ids:
-                        function["element_id"] = next(iter(valid_element_ids))
-
-    return repaired_plan
-
-
-def _repair_incomplete_implementations(
-    plan: Dict[str, Any],
-    issues: List[Dict[str, Any]],
-    system_design: Dict[str, Any],
-    test_implementations: Dict[str, Any]
-) -> Dict[str, Any]:
-    """
-    Repair incomplete function implementations in the implementation plan.
-
-    Args:
-        plan: The implementation plan to repair
-        issues: List of incomplete implementation issues to address
-        system_design: The system design data
-        test_implementations: The test implementations data
-
-    Returns:
-        Repaired plan with completed implementations
-    """
-    repaired_plan = json.loads(json.dumps(plan))
-
-    # Process each issue
-    for issue in issues:
-        file_path = issue.get("file_path")
-        function_index = issue.get("function_index")
-        issue_type = issue.get("issue_type")
-
-        if not file_path or function_index is None:
-            continue
-
-        if file_path in repaired_plan and isinstance(repaired_plan[file_path], list):
-            functions = repaired_plan[file_path]
-            if 0 <= function_index < len(functions):
-                function = functions[function_index]
-
-                # Repair missing steps
-                if issue_type == "missing_steps" and ("steps" not in function or not function["steps"]):
-                    element_id = function.get("element_id")
-
-                    # Find element in system design
-                    element = None
-                    for e in system_design.get("code_elements", []):
-                        if isinstance(e, dict) and e.get("element_id") == element_id:
-                            element = e
-                            break
-
-                    if element:
-                        # Create steps based on element type and description
-                        element_type = element.get("element_type", "")
-
-                        # Generate basic steps based on element type
-                        if "class" in element_type.lower():
-                            function["steps"] = [
-                                {
-                                    "step_description": "Initialize class attributes",
-                                    "pseudo_code": "def __init__(self, ...)
-                                        :\n    # Initialize attributes",                                    "relevant_data_structures": [],
-                                    "api_calls_made": [],
-                                    "error_handling_notes": ""
-                                },
-                                {
-                                    "step_description": "Implement core methods",
-                                    "pseudo_code": "# Core methods implementation",
-                                    "relevant_data_structures": [],
-                                    "api_calls_made": [],
-                                    "error_handling_notes": ""
-                                }
-                            ]
-                        else:
-                            function["steps"] = [
-                                {
-                                    "step_description": "Validate input parameters",
-                                    "pseudo_code": "# Input validation",
-                                    "relevant_data_structures": [],
-                                    "api_calls_made": [],
-                                    "error_handling_notes": "Raise appropriate exception for invalid inputs"
-                                },
-                                {
-                                    "step_description": "Implement core functionality",
-                                    "pseudo_code": "# Core implementation",
-                                    "relevant_data_structures": [],
-                                    "api_calls_made": [],
-                                    "error_handling_notes": "Handle potential errors"
-                                },
-                                {
-                                    "step_description": "Return results",
-                                    "pseudo_code": "return result",
-                                    "relevant_data_structures": [],
-                                    "api_calls_made": [],
-                                    "error_handling_notes": ""
-                                }
-                            ]
-
-                # Ensure edge cases field exists
-                if "edge_cases" not in function or not isinstance(function["edge_cases"], list):
-                    function["edge_cases"] = []
-
-                # Ensure architecture_issues_addressed field exists
-                if "architecture_issues_addressed" not in function or not isinstance(function["architecture_issues_addressed"], list):
-                    function["architecture_issues_addressed"] = []
-
-    return repaired_plan
-
-
-def _repair_architecture_issue_coverage(
-    plan: Dict[str, Any],
-    issues: List[Dict[str, Any]],
-    architecture_review: Dict[str, Any]
-) -> Dict[str, Any]:
-    """
-    Repair architecture issue coverage in the implementation plan.
-
-    Args:
-        plan: The implementation plan to repair
-        issues: List of architecture issue coverage issues to address
-        architecture_review: The architecture review data
-
-    Returns:
-        Repaired plan with addressed architecture issues
-    """
-    repaired_plan = json.loads(json.dumps(plan))
-
-    # Map element IDs to file paths and function indices
-    element_map = {}
-    for file_path, functions in repaired_plan.items():
-        if not isinstance(functions, list):
-            continue
-
-        for idx, function in enumerate(functions):
-            if isinstance(function, dict) and "element_id" in function:
-                element_id = function["element_id"]
-                if element_id not in element_map:
-                    element_map[element_id] = []
-                element_map[element_id].append((file_path, idx))
-
-    # Process each issue
-    for issue in issues:
-        issue_type = issue.get("issue_type")
-        arch_issue_id = issue.get("arch_issue_id")
-
-        if issue_type == "unaddressed_critical_issue" and arch_issue_id:
-            # Find the architecture issue
-            arch_issue = None
-            for section in ["logical_gaps", "security_concerns", "optimization_opportunities"]:
-                for ai in architecture_review.get(section, []):
-                    if isinstance(ai, dict) and ai.get("id") == arch_issue_id:
-                        arch_issue = ai
-                        break
-                if arch_issue:
-                    break
-
-            if not arch_issue:
-                continue
-
-            # Find the target elements for this issue
-            target_elements = arch_issue.get("target_element_ids", [])
-
-            # If no target elements specified, try to infer from description
-            if not target_elements:
-                description = arch_issue.get("description", "")
-                # Try to match with element IDs
-                for element_id in element_map.keys():
-                    if element_id.lower() in description.lower():
-                        target_elements.append(element_id)
-
-            # Assign the issue to appropriate functions
-            assigned = False
-            for element_id in target_elements:
-                if element_id in element_map:
-                    for file_path, function_idx in element_map[element_id]:
-                        function = repaired_plan[file_path][function_idx]
-
-                        # Add the issue to architecture_issues_addressed if not already there
-                        if "architecture_issues_addressed" not in function:
-                            function["architecture_issues_addressed"] = []
-
-                        if arch_issue_id not in function["architecture_issues_addressed"]:
-                            function["architecture_issues_addressed"].append(arch_issue_id)
-                            assigned = True
-
-            # If we couldn't assign to a specific function, add it to the first function
-            if not assigned and repaired_plan:
-                first_file = next(iter(repaired_plan.keys()))
-                functions = repaired_plan[first_file]
-                if isinstance(functions, list) and functions:
-                    first_function = functions[0]
-                    if isinstance(first_function, dict):
-                        if "architecture_issues_addressed" not in first_function:
-                            first_function["architecture_issues_addressed"] = []
-                        if arch_issue_id not in first_function["architecture_issues_addressed"]:
-                            first_function["architecture_issues_addressed"].append(arch_issue_id)
-
-    return repaired_plan
 
 
 
