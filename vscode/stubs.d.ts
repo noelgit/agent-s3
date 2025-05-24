@@ -23,10 +23,16 @@ declare module "ws" {
     readyState: number;
     on(event: string, listener: (...args: any[]) => void): void;
     send(data: any): void;
+    close(code?: number, reason?: string): void;
   }
   type RawData = any;
 }
 interface Buffer {}
+declare const Buffer: {
+  new(...args: any[]): Buffer;
+  from(input: any): Buffer;
+  isBuffer(input: any): boolean;
+};
 namespace NodeJS {
   type Timeout = any;
 }
