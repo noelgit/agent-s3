@@ -96,23 +96,23 @@ def test_run_task_with_mocked_llm(monkeypatch):
         lambda data, repo_root=None, context_registry=None: (True, {})
     )
     monkeypatch.setattr(
-        'agent_s3.planner_json_enforced.generate_architecture_review',
+        'agent_s3.planner.planning.generate_architecture_review',
         lambda router, fg, task_description, context=None: ARCH_REVIEW
     )
     monkeypatch.setattr(
-        'agent_s3.planner_json_enforced.generate_refined_test_specifications',
+        'agent_s3.planner.planning.generate_refined_test_specifications',
         lambda router, fg, arch, task_description, context=None: REFINED_TESTS
     )
     monkeypatch.setattr(
-        'agent_s3.planner_json_enforced.generate_test_implementations',
+        'agent_s3.test_generator.generate_test_implementations',
         lambda router, specs, sys_design, task_description, context=None: TEST_IMPL
     )
     monkeypatch.setattr(
-        'agent_s3.planner_json_enforced.generate_implementation_plan',
+        'agent_s3.planner.planning.generate_implementation_plan',
         lambda router, sys_design, arch, tests, task_description, context=None: IMPL_PLAN
     )
     monkeypatch.setattr(
-        'agent_s3.planner_json_enforced.validate_planning_semantic_coherence',
+        'agent_s3.planner.planning.validate_planning_semantic_coherence',
         lambda router, arch, specs, impls, impl_plan, task_description, context=None: SEM_VALID
     )
 

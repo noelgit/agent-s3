@@ -272,7 +272,7 @@ def validate_preplan_all(data) -> Tuple[bool, str]:
 
     # 4. Planner compatibility
     try:
-        from agent_s3.planner_json_enforced import validate_pre_planning_for_planner
+        from agent_s3.planner.planning import validate_pre_planning_for_planner
         planner_compatible, planner_msg = validate_pre_planning_for_planner(data)
         if not planner_compatible:
             errors.append(f"Planner compatibility error: {planner_msg}")

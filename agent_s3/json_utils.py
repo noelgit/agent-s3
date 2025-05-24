@@ -375,7 +375,7 @@ def get_openrouter_json_params() -> Dict[str, Any]:
 
 
 try:
-    from agent_s3.planner_json_enforced import validate_json_schema
+    from agent_s3.planner.json_schema import validate_json_schema
 except ImportError:
 
     def validate_json_schema(data: Dict[str, Any]) -> None:

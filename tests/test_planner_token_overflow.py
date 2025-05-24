@@ -1,9 +1,9 @@
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
-from agent_s3.planner_json_enforced import _call_llm_with_retry
+from agent_s3.planner.planning import _call_llm_with_retry
 
-@patch('agent_s3.planner_json_enforced.TokenEstimator')
+@patch('agent_s3.planner.planning.TokenEstimator')
 def test_call_llm_with_retry_adjusts_max_tokens(MockEstimator):
     estimator = MockEstimator.return_value
     estimator.estimate_tokens_for_text.side_effect = [100, 150]
@@ -19,7 +19,7 @@ def test_call_llm_with_retry_adjusts_max_tokens(MockEstimator):
     assert used_config['max_tokens'] == 250
 
 
-@patch('agent_s3.planner_json_enforced.TokenEstimator')
+@patch('agent_s3.planner.planning.TokenEstimator')
 def test_call_llm_with_retry_handles_overflow(MockEstimator):
     estimator = MockEstimator.return_value
     estimator.estimate_tokens_for_text.side_effect = [300, 300]

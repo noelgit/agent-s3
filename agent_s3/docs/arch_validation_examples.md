@@ -142,7 +142,7 @@ if was_repaired:
 ## Semantic Coherence Validation
 
 ```python
-from agent_s3.planner_json_enforced import validate_planning_semantic_coherence
+from agent_s3.planner.planning import validate_planning_semantic_coherence
 
 # Validate semantic coherence between planning phase outputs
 validation_results = validate_planning_semantic_coherence(
@@ -182,7 +182,7 @@ if priority_alignment.get("findings"):
 The validation system is automatically integrated into the test specification refinement process. When generating refined test specifications, the system will validate and repair issues:
 
 ```python
-from agent_s3.planner_json_enforced import generate_refined_test_specifications
+from agent_s3.planner.planning import generate_refined_test_specifications
 
 # Generate refined test specifications
 refined_specs = generate_refined_test_specifications(

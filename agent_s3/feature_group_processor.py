@@ -216,7 +216,7 @@ class FeatureGroupProcessor:
                     )
 
                     try:
-                        from .planner_json_enforced import (
+                        from .planner.planning import (
                             validate_planning_semantic_coherence,
                         )
 
@@ -514,7 +514,7 @@ class FeatureGroupProcessor:
     ) -> Tuple[Dict[str, Any], str]:
         """Generate architecture review for a feature group."""
         try:
-            from .planner_json_enforced import generate_architecture_review
+            from .planner.planning import generate_architecture_review
 
             review_data = generate_architecture_review(
                 self.coordinator.router_agent,
@@ -550,7 +550,7 @@ class FeatureGroupProcessor:
         str,
     ]:
         """Generate refined tests and implementations."""
-        from .planner_json_enforced import (
+        from .planner.planning import (
             generate_refined_test_specifications,
             generate_test_implementations,
         )
@@ -602,7 +602,7 @@ class FeatureGroupProcessor:
         context: Dict[str, Any],
     ) -> Tuple[Dict[str, Any], Dict[str, Any], str]:
         """Generate implementation plan based on prior steps."""
-        from .planner_json_enforced import generate_implementation_plan
+        from .planner.planning import generate_implementation_plan
 
         try:
             impl_data = generate_implementation_plan(
@@ -686,7 +686,7 @@ class FeatureGroupProcessor:
 
         try:
             # Import planner helper for modification regeneration
-            from .planner_json_enforced import (
+            from .planner.planning import (
                 regenerate_consolidated_plan_with_modifications,
             )
 
