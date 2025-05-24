@@ -6,6 +6,7 @@
 import * as vscode from "vscode";
 import { WebSocketClient } from "./websocket-client";
 import { InteractiveWebviewManager } from "./webview-ui-loader";
+import { ChatMessage } from "./types/message";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -16,10 +17,17 @@ export class BackendConnection implements vscode.Disposable {
   private webSocketClient: WebSocketClient;
   private interactiveWebviewManager: InteractiveWebviewManager | undefined;
   private activeStreams: Map<string, StreamingContent> = new Map();
+  private readonly CHAT_HISTORY_KEY = "agent-s3.chatHistory";
+  private readonly chatHistoryEmitter = new vscode.EventEmitter<ChatMessage>();
   private outputChannel: vscode.OutputChannel;
   private offlineQueue: any[] = [];
   private workspaceState: vscode.Memento | undefined;
   private progressInterval: NodeJS.Timeout | undefined;
+
+  /**
+   * Event fired whenever a chat message is persisted
+   */
+  public readonly onChatHistory = this.chatHistoryEmitter.event;
 
   /**
    * Create a new backend connection
@@ -264,6 +272,15 @@ export class BackendConnection implements vscode.Disposable {
       });
     }
 
+    // Persist the completed agent message
+    this.persistChatMessage({
+      id: streamId,
+      type: "agent",
+      content: stream.content,
+      timestamp: new Date(),
+      isComplete: true,
+    });
+
     // Log completion
     this.outputChannel.appendLine(""); // Ensure we end with a newline
 
@@ -391,6 +408,25 @@ export class BackendConnection implements vscode.Disposable {
     if (this.workspaceState) {
       this.workspaceState.update("agent-s3.offlineQueue", this.offlineQueue);
     }
+  }
+
+  /**
+   * Persist a chat message to workspace state
+   */
+  private persistChatMessage(message: ChatMessage): void {
+    if (!this.workspaceState) {
+      return;
+    }
+
+    const history = this.workspaceState.get<ChatMessage[]>(
+      this.CHAT_HISTORY_KEY,
+      [],
+    );
+    history.push(message);
+    this.workspaceState.update(this.CHAT_HISTORY_KEY, history);
+
+    // Notify listeners that a new message was persisted
+    this.chatHistoryEmitter.fire(message);
   }
 
   /**
