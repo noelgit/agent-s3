@@ -1,0 +1,3 @@
+from typing import Dict, Tuple, Any
+
+def validate_pre_planning_for_planner(data: Dict[str, Any]) -> Tuple[bool, str]: ...

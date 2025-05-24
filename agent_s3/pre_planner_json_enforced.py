@@ -16,7 +16,8 @@ import json
 import logging
 import os
 import time  # Added for potential delays in retry
-from typing import Dict, Any, Optional, Tuple, List, Union
+from importlib import import_module
+from typing import Dict, Any, Optional, Tuple, List, Union, TYPE_CHECKING, Callable
 
 from agent_s3.progress_tracker import progress_tracker
 
@@ -30,6 +31,10 @@ from agent_s3.json_utils import (
     sanitize_text,
 )
 from agent_s3.pre_planning_validator import PrePlanningValidator
+from agent_s3.pre_planner_repair import ensure_element_id_consistency
+
+if TYPE_CHECKING:
+    _ValidatePlannerFn = Callable[[Dict[str, Any]], Tuple[bool, str]]
 
 logger = logging.getLogger(__name__)
 
@@ -206,26 +211,6 @@ def validate_pre_planning_output(data: Dict[str, Any]) -> Tuple[bool, str]:
     return True, "Pre-planning output is valid"
 
 # JSON schema for validation
-REQUIRED_SCHEMA = {
-    "original_request": str,
-    "feature_groups": list,  # Will validate each feature group separately
-}
-
-FEATURE_GROUP_SCHEMA = {
-    "group_name": str,
-    "group_description": str,
-    "features": list  # Will validate each feature separately
-}
-
-FEATURE_SCHEMA = {
-    "name": str,
-    "description": str,
-    "files_affected": list,
-    "test_requirements": dict,
-    "dependencies": dict,
-    "risk_assessment": dict,
-    "system_design": dict
-}
 
 # Use the base PrePlanningError as JSONValidationError for backward compatibility
 JSONValidationError = PrePlanningError
@@ -272,8 +257,14 @@ def validate_preplan_all(data) -> Tuple[bool, str]:
 
     # 4. Planner compatibility
     try:
-        from agent_s3.planner_json_enforced import validate_pre_planning_for_planner
-        planner_compatible, planner_msg = validate_pre_planning_for_planner(data)
+        module = import_module("agent_s3.planner_json_enforced")
+        validate_func: Optional[_ValidatePlannerFn] = getattr(
+            module, "validate_pre_planning_for_planner", None
+        )
+        if callable(validate_func):
+            planner_compatible, planner_msg = validate_func(data)
+        else:
+            planner_compatible, planner_msg = True, ""
         if not planner_compatible:
             errors.append(f"Planner compatibility error: {planner_msg}")
     except Exception as e:
@@ -668,128 +659,6 @@ def process_response(
         except Exception:
             return False, data
 
-def ensure_element_id_consistency(pre_planning_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Ensure that all element_ids in the pre-planning data are consistent and valid.
-
-    This function validates and repairs element_ids in system_design.code_elements and
-    ensures test_requirements properly reference these element_ids for traceability.
-
-    Args:
-        pre_planning_data: The pre-planning data to validate
-
-    Returns:
-        Updated pre_planning data with consistent element_ids
-    """
-    if not isinstance(pre_planning_data, dict) or "feature_groups" not in pre_planning_data:
-        logger.warning("Invalid pre-planning data structure for element_id validation")
-        return pre_planning_data
-
-    # Track assigned element_ids to ensure uniqueness
-    assigned_ids = set()
-
-    for group_idx, group in enumerate(pre_planning_data["feature_groups"]):
-        if not isinstance(group, dict) or "features" not in group:
-            continue
-
-        for feature_idx, feature in enumerate(group["features"]):
-            if not isinstance(feature, dict):
-                continue
-
-            # Check system_design.code_elements for element_ids
-            if "system_design" in feature and isinstance(feature["system_design"], dict) and "code_elements" in feature["system_design"]:
-                code_elements = feature["system_design"]["code_elements"]
-                if isinstance(code_elements, list):
-                    # First pass: ensure all code_elements have valid element_ids
-                    for elem_idx, element in enumerate(code_elements):
-                        if not isinstance(element, dict):
-                            continue
-
-                        # Ensure element has a valid element_id
-                        if "element_id" not in element or not element["element_id"] or not isinstance(element["element_id"], str):
-                            # Generate a standard element_id based on name or position
-                            element_name = element.get("name", f"element_{elem_idx}")
-                            base_id = f"{element_name.lower().replace(' ', '_')}_{group_idx}_{feature_idx}_{elem_idx}"
-
-                            # Ensure uniqueness
-                            element_id = base_id
-                            counter = 1
-                            while element_id in assigned_ids:
-                                element_id = f"{base_id}_{counter}"
-                                counter += 1
-
-                            element["element_id"] = element_id
-                            assigned_ids.add(element_id)
-                            logger.info(
-                                "Generated element_id %s for element %s",
-                                element_id,
-                                element_name,
-                            )
-                        else:
-                            # Normalize existing element_id
-                            element_id = element["element_id"]
-                            if element_id in assigned_ids:
-                                # Duplicate element_id, need to create a unique one
-                                base_id = element_id
-                                counter = 1
-                                while element_id in assigned_ids:
-                                    element_id = f"{base_id}_{counter}"
-                                    counter += 1
-                                element["element_id"] = element_id
-                                logger.info(
-                                    "Renamed duplicate element_id from %s to %s",
-                                    base_id,
-                                    element_id,
-                                )
-                            assigned_ids.add(element_id)
-
-                    # Second pass: ensure test_requirements reference valid element_ids
-                    if "test_requirements" in feature and isinstance(feature["test_requirements"], dict):
-                        # Process unit tests
-                        if "unit_tests" in feature["test_requirements"] and isinstance(feature["test_requirements"]["unit_tests"], list):
-                            for test_idx, test in enumerate(feature["test_requirements"]["unit_tests"]):
-                                if not isinstance(test, dict):
-                                    continue
-
-                                # If target_element exists but target_element_id doesn't or is invalid
-                                if "target_element" in test and isinstance(test["target_element"], str):
-                                    target_element = test["target_element"]
-
-                                    # Find matching code element by name
-                                    matched_element = None
-                                    for element in code_elements:
-                                        if isinstance(element, dict) and element.get("name") == target_element:
-                                            matched_element = element
-                                            break
-
-                                    if matched_element and "element_id" in matched_element:
-                                        # Set or fix target_element_id
-                                        test["target_element_id"] = matched_element["element_id"]
-                                        logger.info("%s", Linked test to element_id {matched_element['element_id']} based on target_element {target_element})
-
-                        # Process property-based tests
-                        if "property_based_tests" in feature["test_requirements"] and isinstance(feature["test_requirements"]["property_based_tests"], list):
-                            for test_idx, test in enumerate(feature["test_requirements"]["property_based_tests"]):
-                                if not isinstance(test, dict):
-                                    continue
-
-                                # If target_element exists but target_element_id doesn't or is invalid
-                                if "target_element" in test and isinstance(test["target_element"], str):
-                                    target_element = test["target_element"]
-
-                                    # Find matching code element by name
-                                    matched_element = None
-                                    for element in code_elements:
-                                        if isinstance(element, dict) and element.get("name") == target_element:
-                                            matched_element = element
-                                            break
-
-                                    if matched_element and "element_id" in matched_element:
-                                        # Set or fix target_element_id
-                                        test["target_element_id"] = matched_element["element_id"]
-                                        logger.info("%s", Linked property test to element_id {matched_element['element_id']} based on target_element {target_element})
-
-    return pre_planning_data
 
 def get_json_system_prompt() -> str:
     """
@@ -1185,13 +1054,12 @@ class PrePlanner:
             "complexity_assessment": {},
         }
 
-    def _attempt_repair(self, data: Dict[str, Any], errors: List[str]) -> Tuple[Dict[str, Any],
-         bool]:        """Attempt to repair invalid pre-planning data."""
+    def _attempt_repair(self, data: Dict[str, Any], errors: List[str]) -> Tuple[Dict[str, Any], bool]:
+        """Attempt to repair invalid pre-planning data."""
         if self.config.get("use_json_enforcement", True):
-            from agent_s3.pre_planner_json_validator import PrePlannerJsonValidator
+            from agent_s3.pre_planner_repair import repair_preplanning_data
 
-            validator = PrePlannerJsonValidator()
-            return validator.repair_plan(data, errors)
+            return repair_preplanning_data(data, errors)
         return data, False
 
     def _call_llm_with_retry(
