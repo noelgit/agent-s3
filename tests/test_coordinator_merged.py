@@ -23,7 +23,7 @@ class MockContextManager:
     def stop_background_optimization(self):
         self.optimization_running = False
 
-    def optimize_context(self, context, model_name):
+    def optimize_context(self, context):
         return context
 
     def get_optimized_context(self):
@@ -324,7 +324,7 @@ class TestCoordinatorDirectIntegration:
         }
 
         # Optimize context
-        optimized = coordinator.context_manager.optimize_context(test_context, "test-model")
+        optimized = coordinator.context_manager.optimize_context(test_context)
 
         # Verify optimization
         assert isinstance(optimized, dict)

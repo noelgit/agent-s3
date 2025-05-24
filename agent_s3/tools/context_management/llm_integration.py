@@ -32,14 +32,13 @@ class LLMContextIntegration:
         self.context_manager = context_manager
 
     def optimize_prompt(
-        self, prompt_data: Dict[str, Any], context: Dict[str, Any], model_name: str = "default"
+        self, prompt_data: Dict[str, Any], context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Optimize prompt data using the provided context.
 
         Args:
             prompt_data: The prompt data to optimize.
             context: Structured context to include in the prompt.
-            model_name: Target LLM model name.
 
         Returns:
             The prompt data updated with optimized context.
@@ -49,7 +48,7 @@ class LLMContextIntegration:
             return prompt_data
 
         # Optimize the context
-        optimized_context = self.context_manager.optimize_context(context, model_name)
+        optimized_context = self.context_manager.optimize_context(context)
 
         # Update the prompt data with optimized context
         updated_prompt = self._update_prompt_with_context(prompt_data, optimized_context)
@@ -157,9 +156,6 @@ def integrate_with_llm_utils():
         def patched_cached_call_llm(prompt, llm, return_kv=False, **kwargs):
             """Patched version with context management"""
             try:
-                # Get model name if available
-                model_name = getattr(llm, "model_name", "default")
-
                 # Convert prompt to structured form for optimization
                 if isinstance(prompt, str):
                     prompt_data = {"prompt": prompt}
@@ -176,7 +172,7 @@ def integrate_with_llm_utils():
                 # Optimize the prompt using provided context if available
                 context = prompt_data.get("context", {})
                 optimized_prompt_data = integration.optimize_prompt(
-                    prompt_data, context, model_name
+                    prompt_data, context
                 )
 
                 # Extract the prompt back

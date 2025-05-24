@@ -414,13 +414,6 @@ class TestContextManagerIntegration:
         original_route = MagicMock(return_value="Test response")
         mock_coordinator.router_agent.route = original_route
 
-        # Patch optimize_context to avoid model_name parameter issue
-        context_manager.optimize_context = MagicMock(return_value={
-            "code_context": {
-                "test.py": "def test_patched():\n    pass"
-            }
-        })
-
         integration._integrate_router_agent()
 
         # Call the patched function with context
@@ -557,9 +550,6 @@ def test_full_context_management_integration(mock_coordinator, context_manager):
 
     # 3. Simulate router agent using context (with mocked optimized_context)
     mock_coordinator.router_agent.route = MagicMock(return_value="Router response")
-
-    # We need to patch optimize_context to avoid the model_name parameter issue
-    context_manager.optimize_context = MagicMock(return_value=context_manager.current_context)
 
     integration._integrate_router_agent()
 
