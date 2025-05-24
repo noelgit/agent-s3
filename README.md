@@ -301,6 +301,8 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   - `pre_planning_mode` selects `off`, `json`, or `enforced_json` workflow. See `docs/pre_planning_workflow.md` for details.
   - `WEBSOCKET_MAX_MESSAGE_SIZE` (optional, defaults to `65536` bytes)
     limits incoming WebSocket payloads
+  - `TEST_WS_TOKEN` (optional, defaults to `"replace-me"`)
+    authentication token for `simple-test-server.js`
 
   Example `.env`:
 
@@ -432,6 +434,7 @@ pip install -r requirements-dev.txt
 - **Tests:** `pytest`
 - **Type Checking:** `mypy agent_s3`
 - **Linting:** `ruff check agent_s3`
+- **Test WebSocket server:** `TEST_WS_TOKEN=mytoken node simple-test-server.js`
 
 ## Contributing
 

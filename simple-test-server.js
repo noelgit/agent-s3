@@ -5,7 +5,8 @@ const path = require("path");
 
 // Configuration
 const PORT = 8080;
-const AUTH_TOKEN = "test-token-1234";
+// Authentication token used by clients. Set TEST_WS_TOKEN=mytoken when starting the server.
+const AUTH_TOKEN = process.env.TEST_WS_TOKEN || "replace-me";
 
 console.log("Starting WebSocket test server...");
 
