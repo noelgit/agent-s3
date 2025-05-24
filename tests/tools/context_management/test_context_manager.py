@@ -285,3 +285,30 @@ def test_refine_context_with_missing_tools():
     assert "code_context" in refined2
     assert len(refined2["code_context"]) == 2
     assert all("truncated" in content for content in refined2["code_context"].values())
+
+
+def test_log_metrics_invalid_context(caplog):
+    cm = ContextManager()
+    cm.adaptive_config_manager = Mock()
+
+    caplog.set_level("ERROR")
+    cm._log_metrics_to_adaptive_config(None)
+
+    assert "Context data is missing or malformed" in caplog.text
+    cm.adaptive_config_manager.log_token_usage.assert_not_called()
+
+
+def test_log_metrics_uses_estimator():
+    cm = ContextManager()
+    cm.adaptive_config_manager = Mock()
+
+    estimator_mock = Mock()
+    estimator_mock.estimate_tokens_for_context.return_value = {"total": 10}
+    cm.token_budget_analyzer.estimator = estimator_mock
+    cm.token_budget_analyzer.max_tokens = 100
+
+    context = {"code_context": {"a.py": "print('hi')"}}
+    cm._log_metrics_to_adaptive_config(context, task_type="test", relevance_score=0.5)
+
+    estimator_mock.estimate_tokens_for_context.assert_called_once_with(context)
+    cm.adaptive_config_manager.log_token_usage.assert_called_once()
