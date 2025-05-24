@@ -24,6 +24,7 @@ except ImportError:
 
 from agent_s3.cache.helpers import read_cache, write_cache
 from agent_s3.progress_tracker import progress_tracker
+from .logging_utils import strip_sensitive_headers
 
 # Type hint for ScratchpadManager to avoid circular imports
 ScratchpadManagerType = Any
@@ -145,7 +146,14 @@ def cached_call_llm(prompt, llm, return_kv=False, **kwargs):
             if not github_token:
                 token_data = load_token()
                 if token_data:
-                    github_token = token_data.get('token') or token_data.get('access_token')
+                    github_token = (
+                        token_data.get('token') or token_data.get('access_token')
+                    )
+        except RuntimeError as e:
+            logging.error(
+                "%s",
+                strip_sensitive_headers(f"Failed to load GitHub token: {e}"),
+            )
         except Exception:
             github_token = github_token
 

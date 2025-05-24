@@ -114,34 +114,38 @@ def load_token() -> Optional[Dict[str, Any]]:
     """Load the GitHub token data from a file.
 
     Returns:
-        The token data as a dictionary, or None if the file doesn't exist
+        The token data as a dictionary, or None if the file doesn't exist.
+
+    Raises:
+        RuntimeError: If :data:`AGENT_S3_ENCRYPTION_KEY` is not set or the token
+            cannot be decrypted.
     """
     if not os.path.exists(TOKEN_FILE):
         return None
 
+    key = os.environ.get(TOKEN_ENCRYPTION_KEY_ENV)
+    if not key:
+        raise RuntimeError(
+            f"{TOKEN_ENCRYPTION_KEY_ENV} must be set to load GitHub tokens"
+        )
+
     try:
-        key = os.environ.get(TOKEN_ENCRYPTION_KEY_ENV)
-        if not key:
-            print("Warning: Encryption key not set; cannot decrypt token")
-            return None
+        with open(TOKEN_FILE, "rb") as f:
+            content = f.read()
+    except IOError as e:
+        msg = strip_sensitive_headers(f"Error reading token file: {e}")
+        raise RuntimeError("Token load failed") from e
 
-        try:
-            with open(TOKEN_FILE, "rb") as f:
-                content = f.read()
-        except IOError as io_err:
-            print(strip_sensitive_headers(f"Error reading token file: {io_err}"))
-            return None
-
-        try:
-            fernet = Fernet(key.encode() if isinstance(key, str) else key)
-            decrypted = fernet.decrypt(content)
-            return json.loads(decrypted.decode("utf-8"))
-        except (InvalidToken, ValueError) as e:
-            print(strip_sensitive_headers(f"Warning: Could not decrypt token: {e}"))
-            return None
-    except (IOError, ValueError, TypeError) as e:
-        print(strip_sensitive_headers(f"Warning: Could not load token: {e}"))
-        return None
+    try:
+        fernet = Fernet(key.encode() if isinstance(key, str) else key)
+        decrypted = fernet.decrypt(content)
+        return json.loads(decrypted.decode("utf-8"))
+    except (InvalidToken, ValueError) as e:
+        msg = strip_sensitive_headers(f"Failed to decrypt token: {e}")
+        raise RuntimeError("Token decryption failed") from e
+    except Exception as e:  # pragma: no cover - unexpected failures
+        msg = strip_sensitive_headers(f"Unexpected error decrypting token: {e}")
+        raise RuntimeError("Token decryption failed") from e
 
 
 def validate_token(token: str) -> bool:
@@ -244,7 +248,12 @@ def authenticate_user() -> Optional[str]:
         return None
 
     # Check for existing valid token
-    token_data = load_token()
+    try:
+        token_data = load_token()
+    except RuntimeError as e:
+        print(strip_sensitive_headers(f"Error loading token: {e}"))
+        token_data = None
+
     if token_data and "access_token" in token_data:
         token = token_data["access_token"]
         if validate_token(token) and _is_member_of_allowed_orgs(token):
