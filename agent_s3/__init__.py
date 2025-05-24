@@ -21,6 +21,7 @@ _MODULE_MAP = {
     "ComplexityAnalyzer": "agent_s3.complexity_analyzer",
     "DatabaseManager": "agent_s3.database_manager",
     "redact_sensitive_headers": "agent_s3.security_utils",
+    "strip_sensitive_headers": "agent_s3.security_utils",
     "redact_auth_headers": "agent_s3.logging_utils",
     "AgentS3BaseError": "agent_s3.pre_planning_errors",
     "PrePlanningError": "agent_s3.pre_planning_errors",
@@ -32,6 +33,8 @@ _MODULE_MAP = {
 }
 
 __all__ = list(_MODULE_MAP.keys())
+if "strip_sensitive_headers" not in __all__:
+    __all__.append("strip_sensitive_headers")
 
 
 def __getattr__(name: str) -> Any:
