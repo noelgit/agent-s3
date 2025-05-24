@@ -11,6 +11,11 @@ import * as fs from "fs";
 import * as path from "path";
 
 /**
+ * Workspace state key used to persist chat history.
+ */
+export const CHAT_HISTORY_KEY = "agent-s3.chatHistory";
+
+/**
  * Manages the connection to the Agent-S3 backend, integrating terminal and WebSocket communication
  */
 export class BackendConnection implements vscode.Disposable {
@@ -416,7 +421,7 @@ export class BackendConnection implements vscode.Disposable {
     }
 
     const history = this.workspaceState.get<ChatHistoryEntry[]>(
-      "agent-s3.chatHistory",
+      CHAT_HISTORY_KEY,
       [],
     );
 
@@ -429,7 +434,7 @@ export class BackendConnection implements vscode.Disposable {
     };
 
     history.push(serialized);
-    this.workspaceState.update("agent-s3.chatHistory", history);
+    this.workspaceState.update(CHAT_HISTORY_KEY, history);
 
     this.chatHistoryEmitter.fire(message);
   }
