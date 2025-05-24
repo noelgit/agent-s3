@@ -25,7 +25,9 @@ class TestImplementationManager(unittest.TestCase):
         self.temp_path = Path(self.temp_dir.name)
 
         # Override progress file path for testing
-        self.implementation_manager.progress_file = str(self.temp_path / "implementation_progress.json")
+        self.implementation_manager.progress_file = str(
+            self.temp_path / "implementation_progress.json"
+        )
 
     def tearDown(self) -> None:
         """Clean up after tests."""
@@ -56,8 +58,8 @@ class TestImplementationManager(unittest.TestCase):
         with open(self.implementation_manager.progress_file, "r") as f:
             progress = json.load(f)
 
-        # Verify structure
-        self.assertEqual(progress["design_objective"], "# System Design: Test Project")
+        # Verify structure - markdown header should be stripped
+        self.assertEqual(progress["design_objective"], "System Design: Test Project")
         self.assertGreaterEqual(len(progress["tasks"]), 4)  # At least 4 tasks total
 
         # Verify task IDs and descriptions
@@ -71,6 +73,24 @@ class TestImplementationManager(unittest.TestCase):
         for task in progress["tasks"]:
             self.assertEqual(task["status"], "pending")
 
+    def test_initialize_progress_tracker_strips_multiple_headers(self) -> None:
+        """Ensure markdown headers are removed from the design objective."""
+        design_content = """## Another Project
+
+1. Feature One
+        """
+
+        design_file = self.temp_path / "design.txt"
+        with open(design_file, "w") as f:
+            f.write(design_content)
+
+        self.implementation_manager._initialize_progress_tracker(str(design_file))
+
+        with open(self.implementation_manager.progress_file, "r") as f:
+            progress = json.load(f)
+
+        self.assertEqual(progress["design_objective"], "Another Project")
+
     def test_find_next_task(self) -> None:
         """Test finding the next pending task."""
         # Create sample progress data
@@ -78,7 +98,7 @@ class TestImplementationManager(unittest.TestCase):
             "tasks": [
                 {"id": "1", "description": "Task 1", "status": "completed"},
                 {"id": "2", "description": "Task 2", "status": "pending"},
-                {"id": "3", "description": "Task 3", "status": "pending"}
+                {"id": "3", "description": "Task 3", "status": "pending"},
             ]
         }
 
@@ -95,15 +115,20 @@ class TestImplementationManager(unittest.TestCase):
     @patch.object(ImplementationManager, "_save_progress_tracker")
     @patch.object(ImplementationManager, "_execute_implementation_request")
     @patch.object(ImplementationManager, "_find_next_task")
-    def test_implement_next_task(self, mock_find: MagicMock, mock_execute: MagicMock,
-                               mock_save: MagicMock, mock_load: MagicMock) -> None:
+    def test_implement_next_task(
+        self,
+        mock_find: MagicMock,
+        mock_execute: MagicMock,
+        mock_save: MagicMock,
+        mock_load: MagicMock,
+    ) -> None:
         """Test implementing the next task."""
         # Create sample progress data
         progress = {
             "tasks": [
                 {"id": "1", "description": "Task 1", "status": "completed"},
                 {"id": "2", "description": "Task 2", "status": "pending"},
-                {"id": "3", "description": "Task 3", "status": "pending"}
+                {"id": "3", "description": "Task 3", "status": "pending"},
             ]
         }
 
@@ -135,15 +160,20 @@ class TestImplementationManager(unittest.TestCase):
     @patch.object(ImplementationManager, "_save_progress_tracker")
     @patch.object(ImplementationManager, "_execute_implementation_request")
     @patch.object(ImplementationManager, "_find_next_task")
-    def test_implement_next_task_failure(self, mock_find: MagicMock, mock_execute: MagicMock,
-                                       mock_save: MagicMock, mock_load: MagicMock) -> None:
+    def test_implement_next_task_failure(
+        self,
+        mock_find: MagicMock,
+        mock_execute: MagicMock,
+        mock_save: MagicMock,
+        mock_load: MagicMock,
+    ) -> None:
         """Test implementing a task that fails."""
         # Create sample progress data
         progress = {
             "tasks": [
                 {"id": "1", "description": "Task 1", "status": "completed"},
                 {"id": "2", "description": "Task 2", "status": "pending"},
-                {"id": "3", "description": "Task 3", "status": "pending"}
+                {"id": "3", "description": "Task 3", "status": "pending"},
             ]
         }
 
@@ -172,8 +202,13 @@ class TestImplementationManager(unittest.TestCase):
     @patch.object(ImplementationManager, "_initialize_progress_tracker")
     @patch.object(ImplementationManager, "_find_next_task")
     @patch.object(ImplementationManager, "_implement_next_task")
-    def test_start_implementation(self, mock_implement: MagicMock, mock_find: MagicMock,
-                                mock_init: MagicMock, mock_load: MagicMock) -> None:
+    def test_start_implementation(
+        self,
+        mock_implement: MagicMock,
+        mock_find: MagicMock,
+        mock_init: MagicMock,
+        mock_load: MagicMock,
+    ) -> None:
         """Test starting implementation."""
         # Set up mocks
         mock_load.return_value = None  # No existing progress
@@ -196,11 +231,17 @@ class TestImplementationManager(unittest.TestCase):
     @patch.object(ImplementationManager, "_load_progress_tracker")
     @patch.object(ImplementationManager, "_find_next_task")
     @patch.object(ImplementationManager, "_implement_next_task")
-    def test_continue_implementation(self, mock_implement: MagicMock, mock_find: MagicMock,
-                                   mock_load: MagicMock) -> None:
+    def test_continue_implementation(
+        self, mock_implement: MagicMock, mock_find: MagicMock, mock_load: MagicMock
+    ) -> None:
         """Test continuing implementation."""
         # Set up mocks
-        mock_load.return_value = {"tasks": [{"id": "1", "status": "completed"}, {"id": "2", "status": "pending"}]}
+        mock_load.return_value = {
+            "tasks": [
+                {"id": "1", "status": "completed"},
+                {"id": "2", "status": "pending"},
+            ]
+        }
         mock_find.return_value = {"id": "2", "status": "pending"}
         mock_implement.return_value = {"success": True}
 
@@ -230,10 +271,17 @@ class TestImplementationManager(unittest.TestCase):
 
     @patch.object(ImplementationManager, "_load_progress_tracker")
     @patch.object(ImplementationManager, "_find_next_task")
-    def test_continue_implementation_all_completed(self, mock_find: MagicMock, mock_load: MagicMock)
-         -> None:        """Test continuing implementation when all tasks are completed."""
+    def test_continue_implementation_all_completed(
+        self, mock_find: MagicMock, mock_load: MagicMock
+    ) -> None:
+        """Test continuing implementation when all tasks are completed."""
         # Set up mocks
-        mock_load.return_value = {"tasks": [{"id": "1", "status": "completed"}, {"id": "2", "status": "completed"}]}
+        mock_load.return_value = {
+            "tasks": [
+                {"id": "1", "status": "completed"},
+                {"id": "2", "status": "completed"},
+            ]
+        }
         mock_find.return_value = None  # No pending tasks
 
         # Call the method
@@ -250,7 +298,9 @@ class TestImplementationManager(unittest.TestCase):
 
         # Router agent reports success
         self.implementation_manager.router_agent = MagicMock()
-        self.implementation_manager.router_agent.execute_request.return_value = {"success": True}
+        self.implementation_manager.router_agent.execute_request.return_value = {
+            "success": True
+        }
 
         # Tests fail
         mock_run_tests.return_value = {"success": False, "error": "Tests failed"}
