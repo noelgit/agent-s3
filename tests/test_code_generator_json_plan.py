@@ -76,7 +76,7 @@ def test_minimal_context_with_json_plan(mock_coordinator, sample_json_plan):
     }
 
     # Test with JSON plan
-    context = generator._gather_minimal_context(
+    context = generator.context_manager.gather_minimal_context(
         task="Implement XYZ feature",
         plan=sample_json_plan,
         tech_stack={"languages": ["Python"]},
@@ -110,7 +110,7 @@ def test_create_generation_prompt_with_json_plan(mock_coordinator, sample_json_p
     }
 
     # Generate prompt
-    prompt = generator._create_generation_prompt(context)
+    prompt = generator.context_manager.create_generation_prompt(context)
 
     # Verify prompt contains JSON plan sections
     assert "# Structured Plan (JSON Format)" in prompt
@@ -141,7 +141,7 @@ def test_full_context_with_json_plan(mock_coordinator, sample_json_plan):
     mock_coordinator.memory_manager.estimate_token_count.side_effect = lambda x: len(x) if isinstance(x, str) else 5000
 
     # Test with JSON plan that needs truncation
-    context = generator._gather_full_context(
+    context = generator.context_manager.gather_full_context(
         task="Implement XYZ feature",
         plan=sample_json_plan,
         tech_stack={"languages": ["Python"]},

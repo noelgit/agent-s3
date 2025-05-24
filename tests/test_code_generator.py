@@ -7,6 +7,8 @@ import tempfile
 
 try:
     from agent_s3.code_generator import CodeGenerator
+    from agent_s3.context_manager import ContextManager
+    from agent_s3.debug_utils import DebugUtils
     from agent_s3.enhanced_scratchpad_manager import (
         EnhancedScratchpadManager,
     )
@@ -87,15 +89,15 @@ class TestCodeGenerator(unittest.TestCase):
         self.assertEqual(self.code_generator.coordinator, self.mock_coordinator)
         self.assertEqual(self.code_generator.llm, self.mock_coordinator.llm)
         self.assertEqual(self.code_generator.scratchpad, self.mock_coordinator.scratchpad)
-        self.assertEqual(self.code_generator.file_tool, self.mock_coordinator.file_tool)
-        self.assertEqual(self.code_generator.memory_manager, self.mock_coordinator.memory_manager)
-        self.assertEqual(self.code_generator.code_analysis_tool, self.mock_coordinator.code_analysis_tool)
+        self.assertEqual(self.code_generator.context_manager.coordinator.file_tool, self.mock_coordinator.file_tool)
+        self.assertEqual(self.code_generator.context_manager.coordinator.memory_manager, self.mock_coordinator.memory_manager)
+        self.assertEqual(self.code_generator.context_manager.coordinator.code_analysis_tool, self.mock_coordinator.code_analysis_tool)
 
     def test_allocate_token_budget(self):
         """Test token budget allocation for context."""
         # Test with a specific total budget for first attempt
         total_tokens = 4000
-        budgets = self.code_generator._allocate_token_budget(total_tokens, attempt_num=1)
+        budgets = self.code_generator.context_manager.allocate_token_budget(total_tokens, attempt_num=1)
 
         # Verify that budgets are reasonable
         self.assertIsInstance(budgets, dict)
@@ -108,11 +110,11 @@ class TestCodeGenerator(unittest.TestCase):
         self.assertEqual(sum(budgets.values()), total_tokens)
 
         # Test that second attempt gives different allocations
-        second_attempt = self.code_generator._allocate_token_budget(total_tokens, attempt_num=2)
+        second_attempt = self.code_generator.context_manager.allocate_token_budget(total_tokens, attempt_num=2)
         self.assertNotEqual(budgets['code_context'], second_attempt['code_context'])
 
         # Test that third attempt gives even more context allocation
-        third_attempt = self.code_generator._allocate_token_budget(total_tokens, attempt_num=3)
+        third_attempt = self.code_generator.context_manager.allocate_token_budget(total_tokens, attempt_num=3)
         self.assertGreater(third_attempt['code_context'], second_attempt['code_context'])
 
     def test_create_generation_prompt(self):
@@ -121,8 +123,8 @@ class TestCodeGenerator(unittest.TestCase):
         plan = "The plan is to create a test function"
         budgets = {"task": 100, "plan": 200, "code_context": 300, "tech_stack": 50}
 
-        context = self.code_generator._gather_minimal_context(task, plan, {}, budgets)
-        prompt = self.code_generator._create_generation_prompt(context)
+        context = self.code_generator.context_manager.gather_minimal_context(task, plan, {}, budgets)
+        prompt = self.code_generator.context_manager.create_generation_prompt(context)
 
         self.assertIn(task, prompt)
         self.assertIn(plan, prompt)
@@ -144,7 +146,7 @@ class TestCodeGenerator(unittest.TestCase):
         plan = "Plan to create a function in test_file.py"
         budgets = {"task": 100, "plan": 200, "code_context": 300, "tech_stack": 50}
 
-        context = self.code_generator._gather_minimal_context(task, plan, {}, budgets)
+        context = self.code_generator.context_manager.gather_minimal_context(task, plan, {}, budgets)
         self.assertIn("task", context)
         self.assertEqual(context["task"], task)
         self.assertIn("plan", context)
@@ -157,7 +159,7 @@ class TestCodeGenerator(unittest.TestCase):
         plan = "Plan to create a function in test_file.py that uses helpers from utils.py"
         budgets = {"task": 100, "plan": 200, "code_context": 300, "tech_stack": 50}
 
-        context = self.code_generator._gather_full_context(
+        context = self.code_generator.context_manager.gather_full_context(
             task=task,
             plan=plan,
             tech_stack={},
@@ -177,7 +179,7 @@ class TestCodeGenerator(unittest.TestCase):
         self.mock_coordinator.router_agent.call_llm_by_role.return_value = "```python\nbad_code\n```"
 
         # Validation fails first then succeeds after fix
-        self.code_generator._validate_generated_code = MagicMock(side_effect=[(False, ["err"]), (True, [])])
+        self.code_generator.validator.validate_generated_code = MagicMock(side_effect=[(False, ["err"]), (True, [])])
 
         # Debugging manager provides a fix
         fix = {"analysis": "analysis", "suggested_fixes": [], "fixed_code": "good_code"}
@@ -186,6 +188,7 @@ class TestCodeGenerator(unittest.TestCase):
         debug_manager.log_diagnostic_result = MagicMock()
         debug_manager.analyze_issue = MagicMock(return_value=fix)
         self.code_generator.debugging_manager = debug_manager
+        self.code_generator.debug_utils = DebugUtils(debug_manager, self.code_generator.scratchpad)
 
         result = self.code_generator._generate_with_validation(
             file_path, "sys", "user", max_validation_attempts=1
