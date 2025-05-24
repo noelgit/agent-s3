@@ -117,25 +117,26 @@ class ProgressTracker:
 
             self.loop.call_soon_threadsafe(send_streaming_update)
         except Exception as e:  # pragma: no cover - best effort
-            self.logger.error("%s", Failed to stream progress update via WebSocket: {e})
+            self.logger.error("Failed to stream progress update via WebSocket: %s", e)
 
-    def set_websocket_server(self, websocket_server,
-         loop: Optional[asyncio.AbstractEventLoop] = None):        """Set the WebSocket server and optionally the event loop.
+    def set_websocket_server(
+        self,
+        websocket_server,
+        loop: Optional[asyncio.AbstractEventLoop] = None,
+    ) -> None:
+        """Set the WebSocket server and optionally the event loop."""
 
-        Args:
-            websocket_server: The WebSocketServer instance.
-            loop: The asyncio event loop to use for scheduling tasks.
-        """
         self.websocket_server = websocket_server
         if loop:
             self.loop = loop
-        # Try to get loop if not provided and websocket_server exists
         elif self.websocket_server:
-             try:
-                 self.loop = asyncio.get_running_loop()
-             except RuntimeError:
-                 self.logger.warning("Could not get running event loop for WebSocket.")
-                 self.loop = None
+            try:
+                self.loop = asyncio.get_running_loop()
+            except RuntimeError:
+                self.logger.warning(
+                    "Could not get running event loop for WebSocket."
+                )
+                self.loop = None
 
 
     def update_progress(self, entry_data: Dict[str, Any]) -> None:
@@ -148,7 +149,9 @@ class ProgressTracker:
             # Validate and automatically add timestamp
             entry = ProgressEntry(**entry_data)
         except ValidationError as e:
-            self.logger.error("%s", Invalid progress entry data: {e} - Data: {entry_data})
+            self.logger.error(
+                "Invalid progress entry data: %s - Data: %s", e, entry_data
+            )
             return # Don't log invalid entries
 
         # Log the validated entry as a JSON line
@@ -157,7 +160,7 @@ class ProgressTracker:
             self.logger.info(log_line)
         except Exception as e:
             # Log errors during the logging process itself
-            self.logger.error("%s", Failed to write progress log: {e})
+            self.logger.error("Failed to write progress log: %s", e)
             # Avoid crashing the application if logging fails
 
         # Stream via WebSocket if configured
@@ -190,13 +193,15 @@ class ProgressTracker:
 
             return json.loads(last_line) # Parse the last line as JSON
         except FileNotFoundError:
-             self.logger.info("%s", Progress log file not found: {self.log_file_path})
-             return {}
+            self.logger.info("Progress log file not found: %s", self.log_file_path)
+            return {}
         except json.JSONDecodeError:
-            self.logger.error("%s", Failed to decode JSON from last line of {self.log_file_path})
+            self.logger.error(
+                "Failed to decode JSON from last line of %s", self.log_file_path
+            )
             return {}
         except Exception as e:
-            self.logger.error("%s", Error reading latest progress: {e})
+            self.logger.error("Error reading latest progress: %s", e)
             return {}
 
     def get_all_progress(self) -> List[Dict[str, Any]]:
@@ -211,22 +216,26 @@ class ProgressTracker:
                         if line.strip(): # Avoid empty lines
                             entries.append(json.loads(line))
                     except json.JSONDecodeError:
-                        self.logger.warning("%s", Skipping invalid JSON line in {self.log_file_path}: {line.strip()})
+                        self.logger.warning(
+                            "Skipping invalid JSON line in %s: %s",
+                            self.log_file_path,
+                            line.strip(),
+                        )
             return entries
         except FileNotFoundError:
-            self.logger.info("%s", Progress log file not found: {self.log_file_path})
+            self.logger.info("Progress log file not found: %s", self.log_file_path)
             return []
         except Exception as e:
-            self.logger.error("%s", Error reading all progress entries: {e})
+            self.logger.error("Error reading all progress entries: %s", e)
             return [] # Return empty list on error
 
     def increment(self, metric: str, amount: int = 1) -> None:
         """Increment a named metric (e.g., cache hits) and log it."""
         try:
             # Log increment event
-            self.logger.info("%s", Metric increment: {metric} by {amount})
+            self.logger.info("Metric increment: %s by %s", metric, amount)
         except Exception as e:
-            self.logger.error("%s", Failed to increment metric {metric}: {e})
+            self.logger.error("Failed to increment metric %s: %s", metric, e)
 
     def register_semantic_validation_phase(self) -> None:
         """
