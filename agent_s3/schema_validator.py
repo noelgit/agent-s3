@@ -127,7 +127,8 @@ IMPORTANT: When generating your response, you must follow these coding instructi
 - For risk assessment, include security, performance, and maintainability concerns.
 
 Only use information from the user request, provided instructions, and system messages. Do not add, assume, or hallucinate features, requirements, or behaviors not explicitly specified.
-""""""Schema validation module for LLM responses.
+"""
+"""Schema validation module for LLM responses.
 
 This module defines Pydantic models for validating LLM responses and provides
 utility functions for robust parsing and validation of LLM responses.
@@ -233,8 +234,10 @@ class FinalAgreement(BaseModel):
     consistency_checks: List[str] = Field(..., description="List of consistency checks")
 
 
-def validate_llm_response(response: str, model_class: Type[T], sanitize: bool = True) -> tuple[bool,
-     Union[T, str]]:    """
+def validate_llm_response(
+    response: str, model_class: Type[T], sanitize: bool = True
+) -> tuple[bool, Union[T, str]]:
+    """
     Validate an LLM response against a Pydantic model schema.
 
     Args:
@@ -350,14 +353,19 @@ def parse_with_fallback(response: str, parser_func: Callable, fallback_value: An
         Parsed value or fallback value
     """
     if not response:
-        logger.warning("%s", {log_prefix} Empty response received)
+        logger.warning("%s Empty response received", log_prefix)
         return fallback_value
 
     try:
         return parser_func(response)
     except Exception as e:
-        logger.error("%s", {log_prefix} Error parsing response: {type(e).__name__}: {str(e)})
-        logger.error("%s", {log_prefix} Response snippet: {response[:100]}...)
+        logger.error(
+            "%s Error parsing response: %s: %s",
+            log_prefix,
+            type(e).__name__,
+            str(e),
+        )
+        logger.error("%s Response snippet: %s...", log_prefix, response[:100])
         return fallback_value
 
 
@@ -471,8 +479,10 @@ class JsonValidator:
         # All validations passed
         return True, None
 
-    def enforce_json_format(self, llm_client, response: str, retry_count: int = 3) -> Dict[str,
-         Any]:        """
+    def enforce_json_format(
+        self, llm_client, response: str, retry_count: int = 3
+    ) -> Dict[str, Any]:
+        """
         Ensure response is valid JSON, retry with LLM if not.
 
         Args:
@@ -503,8 +513,10 @@ class JsonValidator:
         for attempt in range(retry_count):
             try:
                 if self.scratchpad:
-                    self.scratchpad.log("JsonValidator", f"Retry attempt {attempt+
-                        1}/{retry_count} to fix JSON format")
+                    self.scratchpad.log(
+                        "JsonValidator",
+                        f"Retry attempt {attempt + 1}/{retry_count} to fix JSON format",
+                    )
                 # Create correction prompt
                 correction_prompt = self._create_correction_prompt(response)
 
@@ -542,8 +554,8 @@ class JsonValidator:
                     is_valid, error_msg = self.validate_plan_json(json_data)
                     if is_valid:
                         if self.scratchpad:
-                            self.scratchpad.log("JsonValidator", f"Successfully corrected JSON format on attempt {attempt+
-                                                                                                1}")                        return json_data
+                            self.scratchpad.log("JsonValidator", f"Successfully corrected JSON format on attempt {attempt + 1}")
+                        return json_data
                     else:
                         if self.scratchpad:
                             self.scratchpad.log("JsonValidator", f"Corrected JSON still has structure error: {error_msg}")
