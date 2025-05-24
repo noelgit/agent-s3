@@ -4,6 +4,7 @@ import { InteractiveWebviewManager } from "./webview-ui-loader";
 import { BackendConnection } from "./backend-connection";
 import { initializeWebSocketTester } from "./websocket-tester";
 import { registerPerformanceTestCommand } from "./websocket-performance-test";
+import { quote } from "./shellQuote";
 
 /**
  * Extension activation point
@@ -178,11 +179,11 @@ export function activate(context: vscode.ExtensionContext) {
       // Show the terminal
       terminal.show();
 
-      // Escape quotes in the request
-      const safeRequest = request.replace(/"/g, '\\"');
+      // Quote the request to prevent shell injection
+      const safeRequest = quote([request]);
 
       // Send the request to the CLI
-      terminal.sendText(`python -m agent_s3.cli "${safeRequest}"`);
+      terminal.sendText(`python -m agent_s3.cli ${safeRequest}`);
 
       // Show notification
       vscode.window.showInformationMessage(`Processing request: ${request}`);
