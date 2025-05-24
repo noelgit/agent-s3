@@ -558,6 +558,10 @@ class CodeGenerator:
     def _extract_relevant_tests(self, tests: Dict[str, Any], file_path: str) -> Dict[str, Any]:
         """Extract tests relevant to a specific file.
 
+        Supported keys in ``tests`` include ``"unit_tests"``, ``"integration_tests"``,
+        ``"property_based_tests"``, and ``"acceptance_tests"``. These categories
+        are optional and skipped when missing.
+
         Args:
             tests: Dictionary of all tests
             file_path: Path to the file being implemented
