@@ -31,6 +31,10 @@ _MODULE_MAP = {
     "RepairError": "agent_s3.pre_planning_errors",
     "ComplexityError": "agent_s3.pre_planning_errors",
     "handle_pre_planning_errors": "agent_s3.pre_planning_errors",
+    "CodeGenerator": "agent_s3.code_generator",
+    "ContextManager": "agent_s3.context_manager",
+    "CodeValidator": "agent_s3.code_validator",
+    "DebugUtils": "agent_s3.debug_utils",
 }
 
 __all__ = list(_MODULE_MAP.keys())
