@@ -42,6 +42,7 @@ Agent-S3 is not just a tool for automation; it is a partner in development that 
     (configurable via `WEBSOCKET_MAX_MESSAGE_SIZE`)
 - Advanced context management with:
   - Context registry with multiple providers that can be registered and queried
+  - Tool/manager registry for coordinator components (`agent_s3.coordinator.registry`)
   - Framework-specific context adaptation for popular frameworks (React, Django, Flask, FastAPI, Express)
   - Smart token allocation based on role, content type, and task requirements
   - Dynamic token budget allocation with priority-based and task-adaptive strategies

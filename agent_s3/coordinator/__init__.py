@@ -23,10 +23,7 @@ from agent_s3.error_handler import ErrorHandler
 from agent_s3.feature_group_processor import FeatureGroupProcessor
 from agent_s3.file_history_analyzer import FileHistoryAnalyzer
 from agent_s3.planner import Planner
-from agent_s3.pre_planner_json_enforced import (
-    call_pre_planner_with_enforced_json,
-    pre_planning_workflow,
-)
+
 from agent_s3.progress_tracker import ProgressTracker
 from agent_s3.prompt_moderator import PromptModerator
 from agent_s3.router_agent import RouterAgent
@@ -57,37 +54,11 @@ from agent_s3.tools.test_runner_tool import TestRunnerTool
 from agent_s3.workflows import PlanningWorkflow, ImplementationWorkflow
 from agent_s3.debugging_manager import DebuggingManager
 from agent_s3.code_generator import CodeGenerator
+from .registry import CoordinatorRegistry
 
 # Configure logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
-
-
-class CoordinatorConfig:
-    """Configuration class to handle Coordinator's many attributes."""
-    def __init__(self, config_obj):
-        self.config = config_obj
-        self.github_token = None
-        self.tools = {}
-        self.managers = {}
-        self.context = {}
-        self.state = {}
-
-    def register_tool(self, name: str, tool_instance: Any) -> None:
-        """Register a tool instance."""
-        self.tools[name] = tool_instance
-
-    def register_manager(self, name: str, manager_instance: Any) -> None:
-        """Register a manager instance."""
-        self.managers[name] = manager_instance
-
-    def get_tool(self, name: str) -> Any:
-        """Get a registered tool instance."""
-        return self.tools.get(name)
-
-    def get_manager(self, name: str) -> Any:
-        """Get a registered manager instance."""
-        return self.managers.get(name)
         
 class Coordinator:
     """Coordinates the workflow phases for Agent-S3."""
@@ -107,7 +78,7 @@ class Coordinator:
             self.config = Config(config_path)
             self.config.load()
             
-        self.coordinator_config = CoordinatorConfig(self.config)
+        self.coordinator_config = CoordinatorRegistry(self.config)
         if github_token is not None:
             self.coordinator_config.github_token = github_token
 
@@ -321,6 +292,10 @@ class Coordinator:
             coordinator=self,
             task_state_manager=self.task_state_manager
         )
+
+        # Initialize workflow orchestrator
+        from .orchestrator import WorkflowOrchestrator
+        self.orchestrator = WorkflowOrchestrator(self, self.coordinator_config)
 
     def _finalize_initialization(self) -> None:
         """Finalize the initialization process."""
@@ -827,357 +802,17 @@ class Coordinator:
         *,
         from_design: bool = False,
     ) -> None:
-        """Execute the full planning and implementation workflow for a task.
-
-        Args:
-            task: Task description to implement.
-            pre_planning_input: Optional pre-planning data to reuse.
-            from_design: True when invoked as part of a design handoff.
-        """
-        with self.error_handler.error_context(
-            phase="run_task",
-            operation="run_task",
-            inputs={"request_text": task},
-        ):
-            try:
-                plans = self.planning_workflow.execute(
-                    task,
-                    pre_planning_input,
-                    from_design=from_design,
-                )
-                if not plans:
-                    return
-                all_changes, overall_success = self.implementation_workflow.execute(plans)
-                if overall_success:
-                    self._finalize_task(all_changes)
-            except Exception as exc:  # pragma: no cover - safety net
-                self.error_handler.handle_exception(
-                    exc=exc,
-                    phase="run_task",
-                    operation="run_task",
-                    inputs={"request_text": task},
-                    level=logging.ERROR,
-                    reraise=False,
-                )
-
-    # ------------------------------------------------------------------
-    # Internal workflow helpers
-    # ------------------------------------------------------------------
-
-    def _planning_workflow(
-        self,
-        task: str,
-        pre_planning_input: Dict[str, Any] | None = None,
-        from_design: bool = False,
-    ) -> List[Dict[str, Any]]:
-        """Run the planning workflow and return approved plans.
-
-        When ``from_design`` is ``True`` the pre-planning results are assumed to
-        be approved and no interactive confirmation is performed.
-        """
-        self.progress_tracker.update_progress({"phase": "pre_planning", "status": "started"})
-        mode = self.config.config.get("pre_planning_mode", "enforced_json")
-
-        if mode == "off":
-            self.scratchpad.log("Coordinator", "Pre-planning disabled")
-            return []
-
-        if pre_planning_input is None:
-            if mode == "enforced_json":
-                success, pre_plan = call_pre_planner_with_enforced_json(self.router_agent, task)
-            else:  # "json"
-                success, pre_plan = pre_planning_workflow(
-                    self.router_agent,
-                    task,
-                    max_attempts=2,
-                )
-            if not success:
-                self.scratchpad.log("Coordinator", "Pre-planning failed", level=LogLevel.ERROR)
-                return []
-        else:
-            pre_plan = pre_planning_input
-
-        decision = "yes"
-        if not from_design:
-            decision, _ = self._present_pre_planning_results_to_user(pre_plan)
-            if decision != "yes":
-                if decision == "modify":
-                    self.scratchpad.log("Coordinator", "User chose to refine the request.")
-                elif decision == "no":
-                    self.scratchpad.log("Coordinator", "User cancelled the complex task.")
-                return []
-
-        fg_result = self.feature_group_processor.process_pre_planning_output(pre_plan, task)
-        if not fg_result.get("success"):
-            self.scratchpad.log(
-                "Coordinator",
-                f"Feature group processing failed: {fg_result.get('error')}",
-                level=LogLevel.ERROR,
-            )
-            return []
-
-        plans: List[Dict[str, Any]] = []
-        for data in fg_result.get("feature_group_results", {}).values():
-            consolidated_plan = data.get("consolidated_plan")
-            if not consolidated_plan:
-                continue
-            decision, modification = self.feature_group_processor.present_consolidated_plan_to_user(consolidated_plan)
-            if decision == "modify":
-                original_plan = json.loads(json.dumps(consolidated_plan))
-                consolidated_plan = self.feature_group_processor.update_plan_with_modifications(
-                    consolidated_plan, modification
-                )
-                decision, _ = self.feature_group_processor.present_consolidated_plan_to_user(
-                    consolidated_plan, original_plan
-                )
-            if decision == "yes":
-                plans.append(consolidated_plan)
-
-        self.progress_tracker.update_progress({"phase": "feature_group_processing", "status": "completed"})
-        return plans
-
-    def _implementation_workflow(self, plans: List[Dict[str, Any]]) -> Tuple[Dict[str, str], bool]:
-        """Run the implementation workflow for approved plans."""
-        all_changes: Dict[str, str] = {}
-        git_tool = self.coordinator_config.get_tool('git_tool')
-        overall_success = False
-        for plan in plans:
-            stash_created = False
-            if git_tool:
-                rc, _ = git_tool.run_git_command(
-                    "stash push --keep-index --include-untracked -m 'agent-s3-temp'"
-                )
-                stash_created = rc == 0
-
-            changes = self.code_generator.generate_code(plan, tech_stack=self.tech_stack)
-
-            if not self._apply_changes_and_manage_dependencies(changes):
-                if stash_created and git_tool:
-                    git_tool.run_git_command("stash pop --index")
-                continue
-
-            validation = self._run_validation_phase()
-
-            if validation.get("success"):
-                all_changes.update(changes)
-                overall_success = True
-                if stash_created and git_tool:
-                    git_tool.run_git_command("stash drop")
-                continue
-
-            self.debugging_manager.handle_error(
-                error_message=f"Validation step '{validation.get('step')}' failed",
-                traceback_text=validation.get("output", ""),
-                metadata={"plan": plan, "validation_step": validation.get("step")},
-            )
-
-            if stash_created and git_tool:
-                git_tool.run_git_command("stash pop --index")
-
-        return all_changes, overall_success
-
-    # ------------------------------------------------------------------
-    # Supporting helpers (simplified implementations)
-    # ------------------------------------------------------------------
-
-    def _apply_changes_and_manage_dependencies(self, changes: Dict[str, str]) -> bool:
-        """Apply generated code changes and manage dependencies."""
-        try:
-            file_tool = getattr(self, "file_tool", None) or self.coordinator_config.get_tool('file_tool')
-            for path, content in changes.items():
-                if not file_tool:
-                    raise RuntimeError("File tool not initialized")
-                file_tool.write_file(path, content)
-            return True
-        except Exception as exc:  # pragma: no cover - safety net
-            self.scratchpad.log("Coordinator", f"Failed applying changes: {exc}", level=LogLevel.ERROR)
-            return False
-
-    def _run_validation_phase(self) -> Dict[str, Any]:
-        """Run linting, type checking and tests.
-
-        Returns a dictionary with the following keys:
-            - ``success``: overall validation success
-            - ``step``: failing step (``"lint"``, ``"type_check"``, ``"tests"``, ``"unknown_error"``) if any
-            - ``lint_output``: output from the linting command
-            - ``type_output``: output from the type checking command
-            - ``test_output``: output from running the tests
-            - ``coverage``: calculated test coverage when available
-        """
-
-        results = {
-            "success": True,
-            "step": None,
-            "lint_output": None,
-            "type_output": None,
-            "test_output": None,
-            "coverage": None,
-            "mutation_score": None,
-        }
-        try:
-            db_result = self.database_manager.setup_database()
-            if not db_result.get("success", True):
-                return {
-                    "success": False,
-                    "step": "database",
-                    "lint_output": None,
-                    "type_output": None,
-                    "test_output": db_result.get("error"),
-                    "coverage": None,
-                }
-
-            lint_exit, lint_output = self.bash_tool.run_command("flake8 .", timeout=120)
-            results["lint_output"] = lint_output
-            if lint_exit != 0:
-                results.update({"success": False, "step": "lint"})
-                return results
-
-            type_exit, type_output = self.bash_tool.run_command("mypy .", timeout=120)
-            results["type_output"] = type_output
-            if type_exit != 0:
-                results.update({"success": False, "step": "type_check"})
-                return results
-
-            test_result = self.run_tests()
-            results["test_output"] = test_result.get("output")
-            results["coverage"] = test_result.get("coverage")
-            if not test_result.get("success"):
-                results.update({"success": False, "step": "tests"})
-                return results
-
-            # Run mutation testing using TestCritic
-            critic_data = self.test_critic.run_analysis()
-            mutation_score = critic_data.get("details", {}).get("mutation_score")
-            results["mutation_score"] = mutation_score
-            threshold_config = self.config.config.get("mutation_score_threshold", 70.0)
-            try:
-                threshold = float(threshold_config)
-            except (TypeError, ValueError):
-                self.scratchpad.log(
-                    "Coordinator",
-                    f"Invalid mutation_score_threshold '{threshold_config}', defaulting to 70.0",
-                    level=LogLevel.ERROR,
-                )
-                threshold = 70.0
-            if mutation_score is not None and mutation_score < threshold:
-                results.update({"success": False, "step": "mutation"})
-                return results
-        except Exception as exc:  # pragma: no cover - safety net
-            self.scratchpad.log("Coordinator", f"Validation error: {exc}", level=LogLevel.ERROR)
-            results.update({"success": False, "step": "unknown_error"})
-            return results
-
-        return results
-
-    def run_tests(self) -> Dict[str, Any]:
-        """Run project tests using the configured test runner."""
-        try:
-            self.env_tool.activate_virtual_env()
-            self.test_runner_tool.detect_runner()
-            success, output = self.test_runner_tool.run_tests()
-            coverage = 0.0
-            if success and hasattr(self.test_runner_tool, "parse_coverage_report"):
-                coverage = self.test_runner_tool.parse_coverage_report()
-            return {"success": success, "output": output, "coverage": coverage}
-        except Exception as exc:  # pragma: no cover - safety net
-            self.scratchpad.log("Coordinator", f"Test execution failed: {exc}", level=LogLevel.ERROR)
-            return {"success": False, "output": str(exc), "coverage": 0.0}
+        """Delegate task execution to the workflow orchestrator."""
+        self.orchestrator.run_task(task, pre_planning_input, from_design=from_design)
 
     def execute_implementation(self, design_file: str = "design.txt") -> Dict[str, Any]:
-        """Start implementation of tasks described in the design file.
-
-        Args:
-            design_file: Path to the design file to implement.
-
-        Returns:
-            Dictionary with implementation results.
-        """
-        with self.error_handler.error_context(
-            phase="implementation",
-            operation="execute_implementation",
-            inputs={"design_file": design_file},
-        ):
-            if not os.path.exists(design_file):
-                return {"success": False, "error": f"{design_file} not found"}
-
-            if not hasattr(self, "implementation_manager"):
-                self.implementation_manager = ImplementationManager(coordinator=self)
-
-            try:
-                return self.implementation_manager.start_implementation(design_file)
-            except Exception as exc:
-                self.scratchpad.log("Coordinator", f"Implementation failed: {exc}", level=LogLevel.ERROR)
-                return {"success": False, "error": str(exc)}
+        """Delegate execution to the workflow orchestrator."""
+        return self.orchestrator.execute_implementation(design_file)
 
     def execute_continue(self, continue_type: str = "implementation") -> Dict[str, Any]:
-        """Continue a previously started workflow.
-
-        Currently supports resuming implementation tasks.
-
-        Args:
-            continue_type: Type of continuation. Only ``"implementation"`` is supported.
-
-        Returns:
-            Dictionary with continuation results.
-        """
-        with self.error_handler.error_context(
-            phase="implementation",
-            operation="execute_continue",
-            inputs={"type": continue_type},
-        ):
-            if continue_type != "implementation":
-                return {"success": False, "error": f"Unknown continuation type '{continue_type}'"}
-
-            if not hasattr(self, "implementation_manager"):
-                return {"success": False, "error": "Implementation manager not available"}
-
-            try:
-                return self.implementation_manager.continue_implementation()
-            except Exception as exc:
-                self.scratchpad.log("Coordinator", f"Continuation failed: {exc}", level=LogLevel.ERROR)
-                return {"success": False, "error": str(exc)}
-
-    def _finalize_task(self, changes: Dict[str, str]) -> None:
-        """Finalize the task after successful validation."""
-        self.scratchpad.log("Coordinator", "Task completed successfully")
-
-    # ------------------------------------------------------------------
-    # Design to Implementation Helpers
-    # ------------------------------------------------------------------
+        """Delegate continuation to the workflow orchestrator."""
+        return self.orchestrator.execute_continue(continue_type)
 
     def start_pre_planning_from_design(self, design_file: str = "design.txt") -> Dict[str, Any]:
-        """Start pre-planning workflow based on a design file.
-
-        Args:
-            design_file: Path to the design file containing feature tasks.
-
-        Returns:
-            Dictionary with success flag and number of tasks started.
-        """
-        file_tool = self.coordinator_config.get_tool('file_tool')
-        success, design_content = file_tool.read_file(design_file)
-        if not success:
-            self.scratchpad.log("Coordinator", f"Failed to read design file: {design_content}", level=LogLevel.ERROR)
-            return {"success": False, "error": design_content}
-
-        tasks = self._extract_tasks_from_design(design_content)
-        if not tasks:
-            self.scratchpad.log("Coordinator", "No tasks found in design file", level=LogLevel.ERROR)
-            return {"success": False, "error": "No tasks in design file"}
-
-        for task in tasks:
-            self.run_task(task=task, from_design=True)
-
-        return {"success": True, "tasks_started": len(tasks)}
-
-    def _extract_tasks_from_design(self, design_content: str) -> List[str]:
-        """Extract task descriptions from the design content."""
-        tasks: List[str] = []
-        for line in design_content.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            match = re.match(r"(\d+(?:\.\d+)*)\.\s+(.*)", line)
-            if match:
-                tasks.append(match.group(2))
-        return tasks
+        """Delegate pre-planning start to the workflow orchestrator."""
+        return self.orchestrator.start_pre_planning_from_design(design_file)
