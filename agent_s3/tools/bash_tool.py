@@ -4,6 +4,7 @@ This module provides containerized command execution as specified in instruction
 """
 
 import os
+import re
 import subprocess
 import tempfile
 import time
@@ -537,7 +538,10 @@ class BashTool:
             True if the command is blocked, False otherwise
         """
         command_lower = command.lower()
-        return any(blocked in command_lower for blocked in self.blocked_commands)
+        for block in self.blocked_commands:
+            if re.search(rf"\b{re.escape(block)}\b", command_lower):
+                return True
+        return False
 
     def _check_docker_available(self) -> bool:
         """Check if Docker is available.
