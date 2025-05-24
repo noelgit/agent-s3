@@ -213,8 +213,10 @@ class PrePlannerJsonValidator:
 
         return errors
 
-    def implement_cross_reference_validation(self, data: Dict[str, Any]) -> Tuple[bool, List[str],
-         Dict[str, Any]]:        """
+    def implement_cross_reference_validation(
+        self, data: Dict[str, Any]
+    ) -> Tuple[bool, List[str], Dict[str, Any]]:
+        """
         Validate relationships between plan elements.
 
         Args:
@@ -323,8 +325,10 @@ class PrePlannerJsonValidator:
         is_valid = len(errors) == 0
         return is_valid, errors, data
 
-    def implement_content_validation(self, data: Dict[str, Any]) -> Tuple[bool, List[str], Dict[str,
-         Any]]:        """
+    def implement_content_validation(
+        self, data: Dict[str, Any]
+    ) -> Tuple[bool, List[str], Dict[str, Any]]:
+        """
         Perform semantic validation of plan content.
 
         Args:
