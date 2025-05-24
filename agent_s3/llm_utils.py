@@ -15,6 +15,7 @@ except Exception:  # pragma: no cover - library optional
     create_client = None
 import json
 import logging
+from agent_s3.logging_utils import strip_sensitive_headers
 
 # Import GPTCache
 try:
@@ -151,8 +152,11 @@ def cached_call_llm(prompt, llm, return_kv=False, **kwargs):
                 token_data = load_token()
                 if token_data:
                     github_token = token_data.get('token') or token_data.get('access_token')
-        except Exception:
-            github_token = github_token
+        except RuntimeError as e:
+            logging.warning(
+                "Failed to load GitHub token: %s",
+                strip_sensitive_headers(str(e)),
+            )
 
         if not github_token:
             raise ValueError('GitHub token required for remote LLM')
