@@ -651,11 +651,11 @@ class CodeAnalysisTool:
             # Combine file path and mod time for the hash
             hash_input = f"{file_path}:{mod_time}"
 
-            # Generate MD5 hash
-            return hashlib.md5(hash_input.encode()).hexdigest()
+            # Generate SHA-256 hash
+            return hashlib.sha256(hash_input.encode()).hexdigest()
         except Exception as e:
             logging.error(f"Error generating file hash for {file_path}: {e}")
-            return hashlib.md5(file_path.encode()).hexdigest()
+            return hashlib.sha256(file_path.encode()).hexdigest()
 
     def _get_current_timestamp(self) -> int:
         """
@@ -764,7 +764,7 @@ class CodeAnalysisTool:
         normalized = re.sub(r'\s+', ' ', normalized).strip()
 
         # Create a short hash for the theme ID
-        theme_hash = hashlib.md5(normalized.encode()).hexdigest()[:10]
+        theme_hash = hashlib.sha256(normalized.encode()).hexdigest()[:10]
 
         # Add a prefix for readability
         return f"theme_{theme_hash}"

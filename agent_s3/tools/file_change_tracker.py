@@ -104,7 +104,7 @@ class FileChangeTracker:
                 content = content.encode('utf-8')
 
             # Use a fast hash function (murmurhash would be ideal, but hashlib is standard)
-            return hashlib.md5(content).hexdigest()
+            return hashlib.sha256(content).hexdigest()
         except Exception as e:
             logger.error("%s", Error computing hash for {file_path}: {e})
             # Return a timestamp-based hash as fallback

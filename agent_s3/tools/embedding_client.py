@@ -88,7 +88,7 @@ class EmbeddingClient:
                 checksum = metadata_state.get("checksum")
                 if checksum:
                     id_map_json = json.dumps(metadata_state.get('id_map', {}), sort_keys=True).encode('utf-8')
-                    if hashlib.md5(id_map_json).hexdigest() != checksum:
+                    if hashlib.sha256(id_map_json).hexdigest() != checksum:
                         raise ValueError("Metadata checksum mismatch, resetting metadata.")
                 self.id_map = metadata_state.get('id_map', {})
                 self.next_id = metadata_state.get('next_id', 0)
@@ -137,7 +137,7 @@ class EmbeddingClient:
             metadata_state = {
                 'next_id': self.next_id,
                 'id_map': {str(k): v for k, v in self.id_map.items()},
-                'checksum': hashlib.md5(json.dumps({str(k): v for k, v in self.id_map.items()}, sort_keys=True).encode('utf-8')).hexdigest()
+                'checksum': hashlib.sha256(json.dumps({str(k): v for k, v in self.id_map.items()}, sort_keys=True).encode('utf-8')).hexdigest()
             }
             temp_metadata_path = self.metadata_path.with_suffix(self.metadata_path.suffix + ".tmp")
             with gzip.open(temp_metadata_path, 'wt', encoding='utf-8') as f:
