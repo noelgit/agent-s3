@@ -9,7 +9,7 @@ import copy
 import threading
 import time
 import logging
-from typing import Dict, Any, List, Optional, Union, Set
+from typing import Dict, Any, List, Optional, Union, Set, Callable
 import os
 from dataclasses import dataclass, field
 from collections import defaultdict
@@ -23,7 +23,14 @@ from agent_s3.tools.context_management.content_pruning_manager import (
 from enum import Enum, auto
 
 from agent_s3.tools.context_management.compression import CompressionManager
-from agent_s3.tools.context_management.token_budget import TokenBudgetAnalyzer, DynamicAllocationStrategy, TaskAdaptiveAllocation
+from agent_s3.tools.context_management.token_budget import (
+    TokenBudgetAnalyzer,
+    DynamicAllocationStrategy,
+    TaskAdaptiveAllocation,
+)
+from agent_s3.tools.context_management.background_optimizer import BackgroundOptimizer
+from agent_s3.tools.context_management.pruning_rules import ContextPruner
+from agent_s3.tools.context_management.token_budget_manager import TokenBudgetManager
 from agent_s3.tools.context_management.context_adapter import ContextAdapter
 from agent_s3.tools.context_management.adaptive_config import (
     AdaptiveConfigManager
@@ -231,13 +238,32 @@ class ToolRegistry:
         for tool_name, registration in self._tools.items():
             tool = registration.tool
             # Check if tool has a shutdown/close/cleanup method and call it
-            for method_name in ["shutdown", "close", "cleanup"]:
-                if hasattr(tool, method_name) and callable(getattr(tool, method_name)):
-                    try:
-                        getattr(tool, method_name)()
-                        logger.debug("%s", Successfully shutdown tool: {tool_name})
-                    except Exception as e:
-                        logger.error("%s", Error shutting down tool {tool_name}: {e})
+        for method_name in ["shutdown", "close", "cleanup"]:
+            if hasattr(tool, method_name) and callable(getattr(tool, method_name)):
+                try:
+                    getattr(tool, method_name)()
+                    logger.debug("%s", Successfully shutdown tool: {tool_name})
+                except Exception as e:
+                    logger.error("%s", Error shutting down tool {tool_name}: {e})
+
+
+class _BackgroundTask:
+    """Simple background task used by tests."""
+
+    def __init__(self, name: str, action: Callable[[], bool], interval: float = 60.0, priority: int = 1) -> None:
+        self.name = name
+        self.action = action
+        self.interval = interval
+        self.priority = priority
+        self.last_run = 0.0
+
+    def should_run(self, current_time: float) -> bool:
+        return current_time - self.last_run >= self.interval
+
+    def run(self) -> bool:
+        result = self.action()
+        self.last_run = time.time()
+        return result
 
 
 class ContextManager:
@@ -300,6 +326,7 @@ class ContextManager:
             max_tokens=max_tokens,
             reserved_tokens=reserved_tokens
         )
+        self.token_budget_manager = TokenBudgetManager(self.token_budget_analyzer)
         self.context_adapter = ContextAdapter()
 
         # Set up allocation strategy with importance weights from adaptive config
@@ -315,6 +342,12 @@ class ContextManager:
         )
         self._pruning_manager = ContentPruningManager(
             token_analyzer=self.token_budget_analyzer
+        )
+        self.context_pruner = ContextPruner(
+            token_budget=self.token_budget_analyzer,
+            size_monitor=self._context_size_monitor,
+            pruning_manager=self._pruning_manager,
+            compressor=self.compression_manager,
         )
 
         # Get configuration values for summarization from adaptive settings
@@ -334,6 +367,9 @@ class ContextManager:
         self.last_optimization_time = 0
         self.optimization_interval = cm_config.get("optimization_interval", 60)  # seconds
         self.background_enabled = cm_config.get("background_enabled", True)
+        self.background_optimizer = BackgroundOptimizer(
+            self._optimize_context, self.optimization_interval
+        )
 
         # Register core tools
         self._tool_registry.register_tool(
@@ -568,132 +604,30 @@ class ContextManager:
 
     def _start_background_optimization(self) -> None:
         """Start the background optimization thread."""
-        if self.optimization_thread is not None and self.optimization_thread.is_alive():
-            logger.warning("Background optimization thread already running")
-            return
-
+        self.background_optimizer.start()
         self.optimization_running = True
-        self.optimization_thread = threading.Thread(
-            target=self._background_optimization_loop,
-            daemon=True
-        )
-        self.optimization_thread.start()
-        logger.debug("Started background optimization thread")
 
     def _stop_background_optimization(self) -> None:
         """Stop the background optimization thread."""
+        self.background_optimizer.stop()
         self.optimization_running = False
-        if self.optimization_thread and self.optimization_thread.is_alive():
-            # Allow the thread to exit naturally
-            self.optimization_thread.join(timeout=5.0)
-            logger.debug("Stopped background optimization thread")
 
     def _background_optimization_loop(self) -> None:
-        """Background thread that periodically optimizes the context."""
-        while self.optimization_running:
-            try:
-                # Check if it's time to run optimization
-                time_since_last = time.time() - self.last_optimization_time
-                if time_since_last >= self.optimization_interval:
-                    self._optimize_context()
-                    self.last_optimization_time = time.time()
-
-                # Sleep for a short time to avoid consuming too much CPU
-                time.sleep(1.0)
-            except Exception as e:
-                logger.error("%s", Error in background optimization: {e})
-                # Sleep longer after an error to avoid rapid error loops
-                time.sleep(5.0)
+        """Delegate to :class:`BackgroundOptimizer` for backward compatibility."""
+        self.background_optimizer._loop()
 
     def _optimize_context(self) -> None:
-        """
-        Optimize the context to stay within token budget and maintain priority content.
-        This method is called periodically by the background optimization thread
-        or can be called directly to force optimization.
-        Propagates task-keyword-boosted importance scores to ContentPruningManager before pruning.
-        """
-        # Skip if there's no context
+        """Optimize the current context using :class:`ContextPruner`."""
         if not self.current_context:
             return
         with self._context_lock:
             context_copy = copy.deepcopy(self.current_context)
         try:
-            self._context_size_monitor.update(context_copy)
-            current_tokens = self._context_size_monitor.current_usage
-            target_tokens = self.config.get("CONTEXT_BACKGROUND_OPT_TARGET_TOKENS", 16000)
-            allocation_data = self.token_budget_analyzer.allocate_tokens(
-                context_copy,
-                task_type=None,  # Could be enhanced to use actual task_type if tracked
-                task_keywords=None,
-                force_optimization=False,
-            )
-            context_copy = allocation_data.get("optimized_context", context_copy)
-            importance_scores = allocation_data.get("importance_scores", {})
-            # Recalculate token usage after allocation in case the optimizer changed the context
-            self._context_size_monitor.update(context_copy)
-            current_tokens = self._context_size_monitor.current_usage
-            # --- Begin: Comprehensive importance score propagation ---
-            if importance_scores:  # Ensure the map is not empty
-                for section_key, section_value in importance_scores.items():
-                    if isinstance(section_value, dict):  # Handles nested structures like 'code_context'
-                        for item_key, item_score in section_value.items():
-                            full_key_path = f"{section_key}.{item_key}"
-                            if self._pruning_manager:  # Defensive check
-                                self._pruning_manager.set_importance(full_key_path, item_score)
-                    elif isinstance(section_value, (float, int)):  # Handles direct scores for top-level sections
-                        if self._pruning_manager:  # Defensive check
-                            self._pruning_manager.set_importance(section_key, section_value)
-                    else:
-                        logger.warning("%s", Unexpected structure in importance_scores for section '{section_key}'. Type: {type(section_value)}. Skipping propagation for this section.)
-            # --- End: Comprehensive importance score propagation ---
-            if current_tokens > target_tokens:
-                pruning_candidates = self._pruning_manager.identify_pruning_candidates(
-                    context_copy, current_tokens, target_tokens
-                )
-                tokens_to_prune = current_tokens - target_tokens
-                pruned_tokens = 0
-                for key_path, value_score, token_count in pruning_candidates:
-                    if pruned_tokens >= tokens_to_prune:
-                        break
-                    if value_score > 0.7:
-                        continue
-                    keys = key_path.split('.')
-                    if len(keys) == 1:
-                        if keys[0] in context_copy:
-                            del context_copy[keys[0]]
-                    else:
-                        target_value = self.get_nested_value(context_copy, keys)
-                        if isinstance(target_value, str) and len(target_value) > 100:
-                            self._update_nested_dict(
-                                context_copy,
-                                keys,
-                                target_value[:100] + "... [truncated during optimization]"
-                            )
-                        else:
-                            parent_dict = self.get_nested_value(context_copy, keys[:-1])
-                            if parent_dict and isinstance(parent_dict, dict):
-                                if keys[-1] in parent_dict:
-                                    del parent_dict[keys[-1]]
-                    pruned_tokens += token_count
-                    logger.debug(
-                        "%s",
-                        "Pruned %d tokens from %s (value score: %.2f)",
-                        token_count,
-                        key_path,
-                        value_score,
-                    )
-            compressed_context = {}
-            for key, value in context_copy.items():
-                if isinstance(value, str) and len(value) > 1000:
-                    compressed_context[key] = self.compression_manager.compress_text(value)
-                elif isinstance(value, dict):
-                    compressed_context[key] = value
-                else:
-                    compressed_context[key] = value
+            optimized = self.context_pruner.optimize(context_copy, self.config)
             with self._context_lock:
-                self.current_context = compressed_context
+                self.current_context = optimized
         except Exception as e:
-            logger.error("%s", Error during context optimization: {e})
+            logger.error("%s", "Error during context optimization: %s", e)
 
     def optimize_context_immediately(self) -> None:
         """
@@ -704,6 +638,11 @@ class ContextManager:
         """
         self._optimize_context()
         self.last_optimization_time = time.time()
+
+    def ensure_background_optimization_running(self) -> None:
+        """Start the background optimizer if it is not already running."""
+        if not self.optimization_running and self.background_enabled:
+            self._start_background_optimization()
 
     def _refine_current_context(self, files: List[str], max_tokens: int = None,
          task_keywords: Optional[List[str]] = None) -> None:        """
