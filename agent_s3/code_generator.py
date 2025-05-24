@@ -130,8 +130,10 @@ class CodeGenerator:
             prompt_sections.append(str(plan))
         return "\n".join(prompt_sections)
 
-    def generate_code(self, plan: Dict[str, Any], tech_stack: Optional[Dict[str, Any]] = None)
-         -> Dict[str, str]:        """Generates code for all files in the implementation plan.
+    def generate_code(
+        self, plan: Dict[str, Any], tech_stack: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, str]:
+        """Generates code for all files in the implementation plan.
 
         Args:
             plan: The consolidated plan dictionary for a feature group.
@@ -176,8 +178,10 @@ class CodeGenerator:
         self.scratchpad.log("CodeGenerator", f"Completed generation of {len(results)} files")
         return results
 
-    def _extract_files_from_plan(self, implementation_plan: Dict[str, Any]) -> List[Tuple[str,
-         List[Dict[str, Any]]]]:        """Extracts file paths and their implementation details from the implementation plan.
+    def _extract_files_from_plan(
+        self, implementation_plan: Dict[str, Any]
+    ) -> List[Tuple[str, List[Dict[str, Any]]]]:
+        """Extract file paths and their implementation details from the plan.
 
         Args:
             implementation_plan: The implementation plan containing file details
@@ -199,8 +203,10 @@ class CodeGenerator:
 
         return files
 
-    def _prepare_file_context(self, file_path: str, implementation_details: List[Dict[str, Any]])
-         -> Dict[str, Any]:        """Prepares context for a file by reading relevant existing files and extracting related information.
+    def _prepare_file_context(
+        self, file_path: str, implementation_details: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Prepare context for a file by reading related existing files."""
 
         Args:
             file_path: The path of the file being generated
@@ -907,11 +913,34 @@ Please fix the code to address all these issues while maintaining security best 
 
         debug_info["suggested_fixes"] = suggested
 
+        fixed_code = None
         if self.debugging_manager:
             if hasattr(self.debugging_manager, "register_generation_issues"):
                 self.debugging_manager.register_generation_issues(file_path, debug_info)
+
+            if hasattr(self.debugging_manager, "analyze_issue"):
+                try:
+                    analysis_result = self.debugging_manager.analyze_issue(file_path, debug_info)
+                    if isinstance(analysis_result, dict):
+                        if analysis_result.get("analysis"):
+                            debug_info["analysis"] = analysis_result["analysis"]
+                        if analysis_result.get("suggested_fixes"):
+                            debug_info.setdefault("suggested_fixes", []).extend(
+                                analysis_result.get("suggested_fixes")
+                            )
+                        fixed_code = analysis_result.get("fixed_code")
+                except Exception as e:  # pragma: no cover - best effort
+                    self.scratchpad.log(
+                        "CodeGenerator",
+                        f"Debugging manager analyze_issue failed: {e}",
+                        level=LogLevel.WARNING,
+                    )
+
             if hasattr(self.debugging_manager, "log_diagnostic_result"):
                 self.debugging_manager.log_diagnostic_result()
+
+        if fixed_code:
+            return {"success": True, "fixed_code": fixed_code}
 
         return debug_info
 
@@ -939,8 +968,10 @@ Please update the code so that the tests pass. Return only the fixed code."""
         refined = self._extract_code_from_response(response, file_path)
         return refined if refined else code
 
-    def _estimate_file_complexity(self, implementation_details: List[Dict[str, Any]],
-         file_path: str | None = None) -> float:        """Estimate file complexity based on implementation details and existing code."""
+    def _estimate_file_complexity(
+        self, implementation_details: List[Dict[str, Any]], file_path: str | None = None
+    ) -> float:
+        # Estimate file complexity based on implementation details and existing code.
         complexity = 1.0
         if not implementation_details:
             return complexity
@@ -975,6 +1006,6 @@ Please update the code so that the tests pass. Return only the fixed code."""
         return complexity
 
     def _get_model_token_capacity(self) -> int:
-        """Return the approximate token capacity of the generator model."""
+        # Return the approximate token capacity of the generator model.
         return CONTEXT_WINDOW_GENERATOR
 

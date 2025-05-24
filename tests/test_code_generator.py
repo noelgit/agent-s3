@@ -169,5 +169,30 @@ class TestCodeGenerator(unittest.TestCase):
         self.assertIn(task, context["task"])
         self.assertIn(plan, context["plan"])
 
+    def test_generate_with_validation_applies_debug_fix(self):
+        """Ensure debug manager fixes are applied during generation."""
+        file_path = "module.py"
+
+        # Mock LLM initial generation response
+        self.mock_coordinator.router_agent.call_llm_by_role.return_value = "```python\nbad_code\n```"
+
+        # Validation fails first then succeeds after fix
+        self.code_generator._validate_generated_code = MagicMock(side_effect=[(False, ["err"]), (True, [])])
+
+        # Debugging manager provides a fix
+        fix = {"analysis": "analysis", "suggested_fixes": [], "fixed_code": "good_code"}
+        debug_manager = MagicMock()
+        debug_manager.register_generation_issues = MagicMock()
+        debug_manager.log_diagnostic_result = MagicMock()
+        debug_manager.analyze_issue = MagicMock(return_value=fix)
+        self.code_generator.debugging_manager = debug_manager
+
+        result = self.code_generator._generate_with_validation(
+            file_path, "sys", "user", max_validation_attempts=1
+        )
+
+        self.assertEqual(result, "good_code")
+        debug_manager.analyze_issue.assert_called_once()
+
 if __name__ == '__main__':
     unittest.main()
