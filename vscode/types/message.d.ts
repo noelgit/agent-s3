@@ -221,6 +221,17 @@ export interface ChatMessage {
 }
 
 /**
+ * Entry representing a chat message persisted in history
+ */
+export interface ChatHistoryEntry {
+  id: string;
+  type: "user" | "agent" | "system";
+  content: string;
+  timestamp: Date | string;
+  isComplete: boolean;
+}
+
+/**
  * Stream state interface
  */
 export interface StreamState {
