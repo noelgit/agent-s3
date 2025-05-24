@@ -82,8 +82,10 @@ class DatabaseConfig:
             return f"postgresql://{self.username}:{password}@{self.host}:{self.port}/{self.database}?sslmode={self.ssl_mode}"
         elif self.db_type == "mysql":
             password = quote_plus(self.password) if self.password else ""
-            return f"mysql+
-                pymysql://{self.username}:{password}@{self.host}:{self.port}/{self.database}"        else:
+            return (
+                f"mysql+pymysql://{self.username}:{password}@{self.host}:{self.port}/{self.database}"
+            )
+        else:
             raise ValueError(f"Unsupported database type: {self.db_type}")
 
     def get_environment_vars(self) -> Dict[str, str]:
@@ -329,8 +331,11 @@ class DeploymentManager:
 
         return response, is_deployment_ready
 
-    def execute_deployment(self, deployment_config: Optional[DeploymentConfig] = None) -> Dict[str,
-         Any]:        """Execute deployment based on configuration.
+    def execute_deployment(
+        self,
+        deployment_config: Optional[DeploymentConfig] = None,
+    ) -> Dict[str, Any]:
+        """Execute deployment based on configuration."""
 
         Args:
             deployment_config: Optional deployment configuration

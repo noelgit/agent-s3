@@ -252,7 +252,7 @@ class Message:
             try:
                 validate(instance=content, schema=MESSAGE_SCHEMAS[self.type.value])
             except jsonschema.exceptions.ValidationError as e:
-                logger.error("%s", Message schema validation failed: {e})
+                logger.error("Message schema validation failed: %s", e)
                 raise ValueError(
                     f"Message schema validation failed: {e}") from e
 
@@ -311,8 +311,12 @@ class MessageBus:
             "handler_errors": 0
         }
 
-    def register_handler(self, message_type: Union[MessageType, str], handler_fn: Callable[[Message]
-        , None]):        """Register a handler for a specific message type.
+    def register_handler(
+        self,
+        message_type: Union[MessageType, str],
+        handler_fn: Callable[[Message], None],
+    ) -> None:
+        """Register a handler for a specific message type.
 
         Args:
             message_type: The message type to handle
@@ -325,10 +329,17 @@ class MessageBus:
             self.handlers[message_type.value] = []
 
         self.handlers[message_type.value].append(handler_fn)
-        logger.debug("%s", Registered handler for message type: {message_type.value})
+        logger.debug(
+            "Registered handler for message type: %s",
+            message_type.value,
+        )
 
-    def unregister_handler(self, message_type: Union[MessageType, str],
-         handler_fn: Callable[[Message], None]) -> bool:        """Unregister a handler for a specific message type.
+    def unregister_handler(
+        self,
+        message_type: Union[MessageType, str],
+        handler_fn: Callable[[Message], None],
+    ) -> bool:
+        """Unregister a handler for a specific message type.
 
         Args:
             message_type: The message type
@@ -369,7 +380,7 @@ class MessageBus:
                     self.metrics["messages_handled"] += 1
                 except Exception as e:
                     self.metrics["handler_errors"] += 1
-                    logger.error("%s", Error in message handler: {e})
+                    logger.error("Error in message handler: %s", e)
 
         # Also notify topic subscribers
         if message_type in self.topic_subscribers:
@@ -379,12 +390,21 @@ class MessageBus:
                         self.client_handlers[client_id](message)
                         handled = True
                     except Exception as e:
-                        logger.error("%s", Error in client handler for {client_id}: {e})
+                        logger.error(
+                            "Error in client handler for %s: %s",
+                            client_id,
+                            e,
+                        )
 
         return handled
 
-    def subscribe_client(self, client_id: str, message_type: Union[MessageType, str],
-         handler_fn: Callable[[Message], None]):        """Subscribe a client to a specific message type.
+    def subscribe_client(
+        self,
+        client_id: str,
+        message_type: Union[MessageType, str],
+        handler_fn: Callable[[Message], None],
+    ) -> None:
+        """Subscribe a client to a specific message type.
 
         Args:
             client_id: The client identifier
@@ -399,10 +419,18 @@ class MessageBus:
 
         self.topic_subscribers[message_type.value].add(client_id)
         self.client_handlers[client_id] = handler_fn
-        logger.debug("%s", Client {client_id} subscribed to {message_type.value})
+        logger.debug(
+            "Client %s subscribed to %s",
+            client_id,
+            message_type.value,
+        )
 
-    def unsubscribe_client(self, client_id: str, message_type: Optional[Union[MessageType,
-         str]] = None):        """Unsubscribe a client from message types.
+    def unsubscribe_client(
+        self,
+        client_id: str,
+        message_type: Optional[Union[MessageType, str]] = None,
+    ) -> None:
+        """Unsubscribe a client from message types.
 
         Args:
             client_id: The client identifier
@@ -429,7 +457,7 @@ class MessageBus:
 
         if not has_subscriptions and client_id in self.client_handlers:
             del self.client_handlers[client_id]
-            logger.debug("%s", Removed client handler for {client_id})
+            logger.debug("Removed client handler for %s", client_id)
 
     def get_metrics(self) -> Dict[str, int]:
         """Get message bus metrics.
@@ -488,8 +516,13 @@ class MessageBus:
         self.publish(message)
         return stream_id
 
-    def publish_stream_content(self, stream_id: str, content: str, session_id: Optional[str] = None)
-         -> None:        """Publish content to an existing stream.
+    def publish_stream_content(
+        self,
+        stream_id: str,
+        content: str,
+        session_id: Optional[str] = None,
+    ) -> None:
+        """Publish content to an existing stream.
 
         Args:
             stream_id: The stream ID returned from publish_stream_start
@@ -522,8 +555,13 @@ class MessageBus:
         )
         self.publish(message)
 
-    def publish_stream_interactive(self, stream_id: str, component: Dict[str, Any],
-         session_id: Optional[str] = None) -> None:        """Publish an interactive component for a stream.
+    def publish_stream_interactive(
+        self,
+        stream_id: str,
+        component: Dict[str, Any],
+        session_id: Optional[str] = None,
+    ) -> None:
+        """Publish an interactive component for a stream.
 
         Args:
             stream_id: The stream ID to attach the component to
