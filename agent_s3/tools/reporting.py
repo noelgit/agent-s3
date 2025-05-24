@@ -10,8 +10,11 @@ from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 
-def generate_junit_report(test_name: str, validation_results: Dict[str, Any],
-     original_request: str = "") -> str:    """Generate a JUnit XML report for validation results.
+def generate_junit_report(
+    test_name: str, validation_results: Dict[str, Any],
+    original_request: str = ""
+) -> str:
+    """Generate a JUnit XML report for validation results.
 
     This function creates a JUnit XML report from validation results,
     which can be used for CI integration and validation tracking.
@@ -28,8 +31,17 @@ def generate_junit_report(test_name: str, validation_results: Dict[str, Any],
     testsuite = ET.Element("testsuite")
     testsuite.set("name", f"Validation: {test_name}")
     testsuite.set("timestamp", datetime.now().isoformat())
-    testsuite.set("tests", str(len(validation_results.get("critical", [])) +
-         len(validation_results.get("warnings", []))))    testsuite.set("failures", str(len(validation_results.get("critical", []))))
+    testsuite.set(
+        "tests",
+        str(
+            len(validation_results.get("critical", []))
+            + len(validation_results.get("warnings", []))
+        ),
+    )
+    testsuite.set(
+        "failures",
+        str(len(validation_results.get("critical", []))),
+    )
     testsuite.set("errors", "0")
 
     # Add properties element with request context
