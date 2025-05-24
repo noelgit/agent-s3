@@ -707,8 +707,10 @@ class PromptModerator:
             else:
                 print("Invalid input. Please enter 'y' or 'n'.")
 
-    def explain_plan_section(self, section_data: Dict[str, Any], section_path: str)
-         -> Optional[str]:        """Request an explanation for a section of the generated plan.
+    def explain_plan_section(
+        self, section_data: Dict[str, Any], section_path: str
+    ) -> Optional[str]:
+        """Request an explanation for a section of the generated plan.
 
         Args:
             section_data: The data for the section to explain

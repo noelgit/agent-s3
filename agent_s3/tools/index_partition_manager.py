@@ -78,7 +78,7 @@ class IndexPartition:
                 with open(metadata_path, 'r') as f:
                     self.metadata = json.load(f)
             except Exception as e:
-                logger.error("%s", Error loading partition metadata: {e})
+                logger.error("%s", "Error loading partition metadata: %s", e)
 
         # Load file metadata
         file_metadata_path = os.path.join(self.storage_path, "file_metadata.json")

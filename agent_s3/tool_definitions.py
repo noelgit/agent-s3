@@ -204,7 +204,12 @@ class ToolRegistry:
                 missing_params.append(param)
 
         if missing_params:
-            logger.warning("%s", Missing required configuration for {tool_name}: {', '.join(missing_params)})
+            logger.warning(
+                "%s",
+                "Missing required configuration for %s: %s",
+                tool_name,
+                ", ".join(missing_params),
+            )
             return False
 
         return True

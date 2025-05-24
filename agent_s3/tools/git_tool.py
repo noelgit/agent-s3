@@ -56,8 +56,13 @@ class GitTool:
         self.max_retries = 3
         self.retry_delay = 2  # Initial delay in seconds
 
-    def run_git_command(self, command: str, max_retries: int = None, retry_delay: int = None)
-         -> Tuple[int, str]:        """Run a Git command securely with improved error handling and retry logic.
+    def run_git_command(
+        self,
+        command: str,
+        max_retries: Optional[int] = None,
+        retry_delay: Optional[int] = None,
+    ) -> Tuple[int, str]:
+        """Run a Git command securely with improved error handling and retry logic.
 
         Args:
             command: The Git command to run (without 'git' prefix)

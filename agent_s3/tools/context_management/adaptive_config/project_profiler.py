@@ -101,7 +101,7 @@ class ProjectProfiler:
         Returns:
             Dictionary containing repository metrics and characteristics
         """
-        logger.info("%s", Analyzing repository at {self.repo_path})
+        logger.info("%s", "Analyzing repository at %s", self.repo_path)
 
         # Gather basic repository metrics
         self._gather_file_statistics()

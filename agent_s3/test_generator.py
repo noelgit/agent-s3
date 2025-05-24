@@ -385,7 +385,11 @@ Each test must include complete runnable code - not stubs or pseudocode.
             # Log validation results
             issue_count = len(validation_issues)
             if issue_count > 0:
-                logger.warning("%s", Found {issue_count} issues in test implementations)
+                logger.warning(
+                    "%s",
+                    "Found %d issues in test implementations",
+                    issue_count,
+                )
                 critical_issues = sum(1 for issue in validation_issues if issue.get('severity') == 'critical')
                 high_issues = sum(1 for issue in validation_issues if issue.get('severity') == 'high')
                 other_issues = issue_count - critical_issues - high_issues

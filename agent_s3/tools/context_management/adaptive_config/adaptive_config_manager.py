@@ -121,10 +121,14 @@ class AdaptiveConfigManager:
             # Save configuration
             self._save_configuration()
 
-            logger.info("%s", Created initial configuration for {repo_metrics.get('project_type)} project")
+            logger.info(
+                "%s",
+                "Created initial configuration for %s project",
+                repo_metrics.get("project_type"),
+            )
 
         except Exception as e:
-            logger.error("%s", Error creating initial configuration: {e})
+            logger.error("%s", "Error creating initial configuration: %s", e)
             logger.info("Falling back to default configuration")
 
             # Fall back to default configuration

@@ -132,9 +132,13 @@ class CoordinatorContextIntegration:
             # Initialize config explainer
             self.config_explainer = ConfigExplainer(self.adaptive_config_manager)
 
-            logger.info("%s", Initialized adaptive configuration system in {config_dir})
+            logger.info(
+                "%s",
+                "Initialized adaptive configuration system in %s",
+                config_dir,
+            )
         except Exception as e:
-            logger.error("%s", Failed to set up adaptive configuration: {e})
+            logger.error("%s", "Failed to set up adaptive configuration: %s", e)
             logger.debug(traceback.format_exc())
 
     def integrate(self) -> bool:

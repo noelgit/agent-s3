@@ -21,7 +21,7 @@ class ContextRegistry:
         self._providers = {}
     def register_provider(self, name: str, provider: ContextProvider) -> None:
         self._providers[name] = provider
-        logger.info("%s", Registered context provider: {name})
+        logger.info("%s", "Registered context provider: %s", name)
     def get_provider(self, name: str) -> Optional[ContextProvider]:
         return self._providers.get(name)
     def get_tech_stack(self) -> Dict[str, Any]:
