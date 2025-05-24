@@ -81,10 +81,18 @@ def _load_llm_config():
             if isinstance(roles, list):
                 for role in roles:
                     if role in models_by_role:
-                        logger.warning("%s", Duplicate role definition found for '{role}'. Using the last definition found in llm.json.)
+                        logger.warning(
+                            "%s",
+                            "Duplicate role definition found for %s. Using the last definition found in llm.json.",
+                            role,
+                        )
                     models_by_role[role] = model_info
             else:
-                logger.warning("%s", Skipping model entry due to invalid or missing 'role': {model_info.get('model)}")
+                logger.warning(
+                    "%s",
+                    "Skipping model entry due to invalid or missing 'role': %s",
+                    model_info.get("model"),
+                )
 
         logger.info("%s", Loaded LLM configuration for roles: {list(models_by_role.keys())})
         return models_by_role

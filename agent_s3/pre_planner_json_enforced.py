@@ -653,7 +653,11 @@ def process_response(
         return True, data # Fully valid
     else:
         # Try to repair structure only if validation failed completely
-        logger.warning("%s", JSON schema validation failed: {validation_msg}. Attempting repair.)
+        logger.warning(
+            "%s",
+            "JSON schema validation failed: %s. Attempting repair.",
+            validation_msg,
+        )
         try:
             repaired = repair_json_structure(data)
             is_valid2, validation_msg2 = validate_json_schema(repaired)

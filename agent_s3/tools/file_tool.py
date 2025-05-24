@@ -66,7 +66,11 @@ class FileTool:
 
             if not allowed:
                 if self.logger:
-                    self.logger.warning("%s", Attempted access to restricted path: {norm_path})
+                    self.logger.warning(
+                        "%s",
+                        "Attempted access to restricted path: %s",
+                        norm_path,
+                    )
                 return False, f"Access to path outside allowed directories: {file_path}"
 
             # Check file extension if restricted

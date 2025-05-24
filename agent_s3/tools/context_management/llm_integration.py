@@ -93,9 +93,10 @@ class LLMContextIntegration:
         return context
 
 
-    def _update_prompt_with_context(self, prompt_data: Dict[str, Any], context: Dict[str, Any])
-         -> Dict[str, Any]:        """
-        Update prompt data with optimized context.
+    def _update_prompt_with_context(
+        self, prompt_data: Dict[str, Any], context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Update prompt data with optimized context.
 
         Args:
             prompt_data: Original prompt data

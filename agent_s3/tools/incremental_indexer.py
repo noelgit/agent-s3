@@ -222,7 +222,13 @@ class IncrementalIndexer:
                 "timestamp": end_time
             }
 
-            logger.info("%s", Indexed {files_indexed} files ({files_skipped} skipped) in {duration:.2f} seconds)
+            logger.info(
+                "%s",
+                "Indexed %d files (%d skipped) in %.2f seconds",
+                files_indexed,
+                files_skipped,
+                duration,
+            )
 
             return stats
         except Exception as e:

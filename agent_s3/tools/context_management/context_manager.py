@@ -675,7 +675,13 @@ class ContextManager:
                                 if keys[-1] in parent_dict:
                                     del parent_dict[keys[-1]]
                     pruned_tokens += token_count
-                    logger.debug("%s", Pruned {token_count} tokens from {key_path} (value score: {value_score:.2f}))
+                    logger.debug(
+                        "%s",
+                        "Pruned %d tokens from %s (value score: %.2f)",
+                        token_count,
+                        key_path,
+                        value_score,
+                    )
             compressed_context = {}
             for key, value in context_copy.items():
                 if isinstance(value, str) and len(value) > 1000:

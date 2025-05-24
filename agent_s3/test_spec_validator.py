@@ -444,7 +444,7 @@ def generate_missing_tests_with_llm(
             data = json.loads(json_str)
             return data.get("refined_test_requirements", data)
     except Exception as e:  # pragma: no cover - best effort
-        logger.error("%s", LLM repair failed: {e})
+        logger.error("%s", "LLM repair failed: %s", e)
 
     return {}
 

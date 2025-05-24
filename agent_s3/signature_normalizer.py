@@ -240,9 +240,14 @@ class SignatureNormalizer:
 
         return target_file
 
-    def _normalize_signature(self, signature: str, name: str, element_type: str, target_file: str)
-         -> str:        """
-        Normalize code signature for syntactic correctness.
+    def _normalize_signature(
+        self,
+        signature: str,
+        name: str,
+        element_type: str,
+        target_file: str,
+    ) -> str:
+        """Normalize code signature for syntactic correctness.
 
         Args:
             signature: Original code signature

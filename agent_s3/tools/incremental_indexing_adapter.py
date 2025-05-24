@@ -74,7 +74,7 @@ class IncrementalIndexingAdapter:
                 if cache_dir:
                     return os.path.join(cache_dir, "incremental_index")
         except Exception as e:
-            logger.error("%s", Error accessing cache directory: {e})
+            logger.error("%s", "Error accessing cache directory: %s", e)
 
         # Default to a hidden directory in the user's home
         home = os.path.expanduser("~")

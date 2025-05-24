@@ -671,6 +671,10 @@ def repair_inconsistent_patterns(
         repaired_plan["discussion"] += "\n\nIMPORTANT PATTERN GUIDELINES:\n"
         for pattern_type, guide in guidelines.items():
             repaired_plan["discussion"] += f"\n{pattern_type.upper()}: {guide['description']}\n"
-            repaired_plan["discussion"] +
-                = f"Dominant pattern: {guide.get('dominant_style') or guide.get('dominant_approach') or guide.get('dominant_pattern') or guide.get('dominant_flow')}\n"
+            repaired_plan[
+                "discussion"
+            ] += (
+                "Dominant pattern: "
+                f"{guide.get('dominant_style') or guide.get('dominant_approach') or guide.get('dominant_pattern') or guide.get('dominant_flow')}\n"
+            )
     return repaired_plan

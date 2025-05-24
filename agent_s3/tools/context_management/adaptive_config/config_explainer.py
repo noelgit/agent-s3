@@ -242,7 +242,7 @@ class ConfigExplainer:
             return report
 
         except Exception as e:
-            logger.error("%s", Error generating configuration report: {e})
+            logger.error("%s", "Error generating configuration report: %s", e)
             return {"error": str(e)}
 
     def get_human_readable_report(self) -> str:

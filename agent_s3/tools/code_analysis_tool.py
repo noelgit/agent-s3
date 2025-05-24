@@ -67,8 +67,21 @@ class CodeAnalysisTool:
     of code relationships, dependencies, and evolutionary coupling.
     """
 
-    def __init__(self, coordinator=None, config: Optional[Dict[str, Any]] = None, file_tool=None,
-         *args, **kwargs):        """Initialize the code analysis tool with a coordinator for access to other tools."""
+    def __init__(
+        self,
+        coordinator: Optional[Any] = None,
+        config: Optional[Dict[str, Any]] = None,
+        file_tool: Optional[Any] = None,
+        *args,
+        **kwargs,
+    ) -> None:
+        """Initialize the code analysis tool.
+
+        Args:
+            coordinator: Optional coordinator providing other tools
+            config: Optional configuration dictionary
+            file_tool: Optional file tool instance
+        """
         self.coordinator = coordinator
         self.embedding_client = coordinator.embedding_client if coordinator else EmbeddingClient(config)
         self.file_tool = file_tool if file_tool else (coordinator.file_tool if coordinator else None)

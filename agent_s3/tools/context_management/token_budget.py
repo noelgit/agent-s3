@@ -165,7 +165,12 @@ class TokenEstimator:
                     content = f.read()
                 return self.estimate_tokens_for_text(content, language)
             except Exception as e:
-                logger.warning("%s", Failed to read file {file_path}: {e})
+                logger.warning(
+                    "%s",
+                    "Failed to read file %s: %s",
+                    file_path,
+                    e,
+                )
 
         # Fallback: estimate based on typical file sizes for that language
         avg_tokens_per_file = {

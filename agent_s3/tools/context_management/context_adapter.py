@@ -149,8 +149,8 @@ class ContextAdapter:
             # Django URLs
             r'path\s*\(\s*[\'"`]([^\'"`]+)[\'"`],\s*([a-zA-Z0-9_\.]+)',
             # Controllers with routing decorators
-            r'@(?:RequestMapping|GetMapping|PostMapping|PutMapping)\s*\(\s*[\'"`]?([^\'"`\)]+
-                )[\'"`]?'        ]
+            r'@(?:RequestMapping|GetMapping|PostMapping|PutMapping)\s*\(\s*[\'"`]?([^\'"`\)]+)[\'"`]?'
+        ]
 
         # Process each file
         for file_path, content in file_contents.items():

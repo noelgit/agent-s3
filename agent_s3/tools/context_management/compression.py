@@ -471,8 +471,11 @@ class SemanticSummarizer(CompressionStrategy):
                     summary_lines.append(line)
                 else:
                     # Just add the class signature with a comment
-                    class_match = re.search(r'(?:public|private|protected|internal)?\s*class\s+(\w+
-                        )', line)                    if class_match:
+                    class_match = re.search(
+                        r"(?:public|private|protected|internal)?\s*class\s+(\w+)",
+                        line,
+                    )
+                    if class_match:
                         class_name = class_match.group(1)
                         summary_lines.append(f"public class {class_name} {{ // Summarized")
 

@@ -54,7 +54,11 @@ class MetricsCollector:
         try:
             os.makedirs(self.storage_path, exist_ok=True)
         except OSError as e:
-            logger.error("%s", Failed to create metrics storage directory: {e})
+            logger.error(
+                "%s",
+                "Failed to create metrics storage directory: %s",
+                e,
+            )
 
     def log_token_usage(
         self,

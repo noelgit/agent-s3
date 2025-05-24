@@ -417,7 +417,11 @@ class ConfigTemplateManager:
         # Validate merged config
         is_valid, errors = self.validate_config(config)
         if not is_valid:
-            logger.warning("%s", Generated configuration has validation errors: {errors})
+            logger.warning(
+                "%s",
+                "Generated configuration has validation errors: %s",
+                errors,
+            )
             # Fall back to default if invalid
             return self.get_default_config()
 

@@ -58,7 +58,11 @@ class TerminalExecutor:
         for forbidden in self.denylist:
             if forbidden in command:
                 if self.logger:
-                    self.logger.warning("%s", Command contains forbidden token: {forbidden})
+                    self.logger.warning(
+                        "%s",
+                        "Command contains forbidden token: %s",
+                        forbidden,
+                    )
                 return False, f"Error: Command contains forbidden token '{forbidden}'"
 
         # Detect command substitution using backticks or $( ) syntax
