@@ -25,3 +25,19 @@ def redact_sensitive_headers(headers: MutableMapping[str, str]) -> Dict[str, str
         else:
             sanitized[name] = value
     return sanitized
+
+
+def strip_sensitive_headers(headers: MutableMapping[str, str]) -> Dict[str, str]:
+    """Return a copy of ``headers`` with sensitive entries removed.
+
+    Args:
+        headers: Mapping of header names to values.
+
+    Returns:
+        A new dictionary containing only non-sensitive headers.
+    """
+    sanitized: Dict[str, str] = {}
+    for name, value in headers.items():
+        if name.lower() not in SENSITIVE_HEADERS:
+            sanitized[name] = value
+    return sanitized
