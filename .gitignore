@@ -98,3 +98,5 @@ vscode/webview-ui/package-lock*.json
 remove_ignored_files.sh
 test-websocket-server 2.js
 test-websocket-server 3.js
+
+vscode/out/
