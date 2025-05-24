@@ -119,29 +119,37 @@ def load_token() -> Optional[Dict[str, Any]]:
     if not os.path.exists(TOKEN_FILE):
         return None
 
-    try:
-        key = os.environ.get(TOKEN_ENCRYPTION_KEY_ENV)
-        if not key:
-            print("Warning: Encryption key not set; cannot decrypt token")
-            return None
-
-        try:
-            with open(TOKEN_FILE, "rb") as f:
-                content = f.read()
-        except IOError as io_err:
-            print(redact_auth_headers(f"Error reading token file: {io_err}"))
-            return None
-
-        try:
-            fernet = Fernet(key.encode() if isinstance(key, str) else key)
-            decrypted = fernet.decrypt(content)
-            return json.loads(decrypted.decode("utf-8"))
-        except (InvalidToken, ValueError) as e:
-            print(redact_auth_headers(f"Warning: Could not decrypt token: {e}"))
-            return None
-    except (IOError, ValueError, TypeError) as e:
-        print(redact_auth_headers(f"Warning: Could not load token: {e}"))
+    key = os.environ.get(TOKEN_ENCRYPTION_KEY_ENV)
+    if not key:
+        print("Warning: Encryption key not set; cannot decrypt token")
         return None
+
+    try:
+        with open(TOKEN_FILE, "rb") as f:
+            content = f.read()
+    except IOError as io_err:
+        msg = redact_auth_headers(f"Error reading token file: {io_err}")
+        print(msg)
+        raise RuntimeError("Failed to read token file") from io_err
+
+    try:
+        fernet = Fernet(key.encode() if isinstance(key, str) else key)
+        decrypted = fernet.decrypt(content)
+    except (InvalidToken, ValueError) as err:
+        msg = redact_auth_headers(f"Could not decrypt token: {err}")
+        print(msg)
+        raise RuntimeError("Token decryption failed") from err
+    except Exception as err:  # pragma: no cover - unexpected failures
+        msg = redact_auth_headers(f"Error decrypting token: {err}")
+        print(msg)
+        raise RuntimeError("Token decryption failed") from err
+
+    try:
+        return json.loads(decrypted.decode("utf-8"))
+    except Exception as err:  # pragma: no cover - unexpected failures
+        msg = redact_auth_headers(f"Could not load token: {err}")
+        print(msg)
+        raise RuntimeError("Token load failed") from err
 
 
 def validate_token(token: str) -> bool:
