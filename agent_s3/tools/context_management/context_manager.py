@@ -1373,16 +1373,22 @@ class ContextManager:
         if not self.adaptive_config_manager:
             return
 
+        if not isinstance(context_used, dict):
+            logger.error("%s", "Context data is missing or malformed when logging metrics")
+            return
+
         try:
-            # Log token usage
-            token_counts = self.token_budget_analyzer.analyze_context(context_used)
-            total_tokens = sum(token_counts.values())
+            # Log token usage using token estimation
+            token_estimates = (
+                self.token_budget_analyzer.estimator.estimate_tokens_for_context(context_used)
+            )
+            total_tokens = token_estimates.get("total", 0)
             available_tokens = self.token_budget_analyzer.max_tokens
 
             self.adaptive_config_manager.log_token_usage(
                 total_tokens=total_tokens,
                 available_tokens=available_tokens,
-                allocated_tokens=token_counts
+                allocated_tokens=token_estimates
             )
 
             # Log context performance if relevance score is provided
