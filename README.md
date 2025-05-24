@@ -276,6 +276,7 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
    - Open the `vscode` folder in VS Code
    - Press `F5` to launch the extension in Extension Development Host, or
    - Build and install the `.vsix` via `vsce package`/`Extensions: Install from VSIX...`
+   - Run `npm install` in the `vscode` directory before executing `npm run lint` or `npx tsc`
 
 ## Configuration
 
