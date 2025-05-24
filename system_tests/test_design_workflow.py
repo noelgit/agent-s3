@@ -3,12 +3,14 @@
 This module contains tests that verify the full end-to-end flow from design creation
 through pre-planning to code generation.
 """
+
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
 
 from agent_s3.design_manager import DesignManager
+
 
 class TestDesignWorkflow:
     """Tests for the design to implementation workflow."""
@@ -20,7 +22,7 @@ class TestDesignWorkflow:
         design_responses = [
             "I'll help you design this system. Let me ask a few clarifying questions...",
             "Based on your requirements, here are the key features:\n\nFeature 1: User Authentication\n- User registration\n- Login\n- Password reset\n\nFeature 2: Task Management\n- Create tasks\n- List tasks\n- Update tasks\n- Delete tasks\n\nDoes this design meet your requirements?",
-            "Great! I'll finalize the design now."
+            "Great! I'll finalize the design now.",
         ]
 
         # Pre-planning responses
@@ -36,41 +38,49 @@ class TestDesignWorkflow:
                             "description": "Allow users to create accounts",
                             "files_affected": ["models/User.js", "routes/auth.js"],
                             "test_requirements": {"unit_tests": []},
-                            "dependencies": {"external_libraries": ["bcrypt", "jsonwebtoken"]},
+                            "dependencies": {
+                                "external_libraries": ["bcrypt", "jsonwebtoken"]
+                            },
                             "risk_assessment": {"complexity": "medium"},
-                            "system_design": {"code_elements": []}
+                            "system_design": {"code_elements": []},
                         }
-                    ]
+                    ],
                 }
-            ]
+            ],
         }
 
-        return {
-            "design": design_responses,
-            "pre_planning_input": pre_planning_input
-        }
+        return {"design": design_responses, "pre_planning_input": pre_planning_input}
 
-    @patch('agent_s3.router_agent.RouterAgent')
-    @patch('agent_s3.coordinator.EnhancedScratchpadManager')
-    @patch('agent_s3.coordinator.ProgressTracker')
-    @patch('builtins.print')
-    @patch('builtins.input')
-    def test_e2e_design_to_implementation_flow(self, mock_input, mock_print,
-                                              mock_progress_tracker, mock_scratchpad,
-                                              mock_router_agent, mock_llm_responses, tmp_path):
+    @patch("agent_s3.router_agent.RouterAgent")
+    @patch("agent_s3.coordinator.EnhancedScratchpadManager")
+    @patch("agent_s3.coordinator.ProgressTracker")
+    @patch("builtins.print")
+    @patch("builtins.input")
+    def test_e2e_design_to_implementation_flow(
+        self,
+        mock_input,
+        mock_print,
+        mock_progress_tracker,
+        mock_scratchpad,
+        mock_router_agent,
+        mock_llm_responses,
+        tmp_path,
+    ):
         """Test the end-to-end flow from design to implementation."""
         # Set up mock input responses
         mock_input.side_effect = [
             "Yes, that looks good",  # Design conversation
-            "yes"                    # Implementation prompt
+            "yes",  # Implementation prompt
         ]
 
         # Set up mock LLM responses for different phases
         mock_llm = MagicMock()
         mock_llm.call_llm_agent.side_effect = mock_llm_responses["design"]
         # Mock pre-planning workflow
-        with patch('agent_s3.pre_planner_json_enforced.pre_planning_workflow',
-                  return_value=(True, mock_llm_responses["pre_planning"])):
+        with patch(
+            "agent_s3.pre_planner_json_enforced.pre_planning_workflow",
+            return_value=(True, mock_llm_responses["pre_planning"]),
+        ):
 
             # Set up coordinator with minimal components
             coordinator = MagicMock()
@@ -90,14 +100,20 @@ class TestDesignWorkflow:
             # Simulate full design workflow
 
             # 1. Start design conversation
-            response = design_manager.start_design_conversation("Design a TODO application")
+            response = design_manager.start_design_conversation(
+                "Design a TODO application"
+            )
             assert "help you design" in response
 
             # 2. Continue conversation until complete
-            response, is_complete = design_manager.continue_conversation("That sounds good, please continue.")
+            response, is_complete = design_manager.continue_conversation(
+                "That sounds good, please continue."
+            )
             assert not is_complete  # Not complete yet
 
-            response, is_complete = design_manager.continue_conversation("Yes, that looks good")
+            response, is_complete = design_manager.continue_conversation(
+                "Yes, that looks good"
+            )
             assert is_complete  # Design should be complete now
 
             # 3. Write design to file
@@ -111,6 +127,12 @@ class TestDesignWorkflow:
             choices = design_manager.prompt_for_implementation()
             assert choices["implementation"] is True
 
-            # The following would be in an actual integration test
-            # but here we're just verifying the proper methods were called
-            assert coordinator.run_task.called or coordinator.start_pre_planning_from_design.called
+            # Implementation should not start automatically
+            coordinator.start_pre_planning_from_design.assert_not_called()
+
+            if choices["implementation"]:
+                coordinator.start_pre_planning_from_design("design.txt")
+
+            coordinator.start_pre_planning_from_design.assert_called_once_with(
+                "design.txt"
+            )

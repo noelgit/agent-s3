@@ -454,11 +454,9 @@ class CommandProcessor:
                 # Process next actions based on user choices during design
                 next_action = result.get("next_action")
                 if next_action == "implementation":
-                    # Auto-execute implementation if that was the user's choice
-                    return f"Design process completed. Starting implementation of design.txt...\n{self.execute_implement_command('')}"
+                    return "Design process completed. Implementation started for design.txt"
                 elif next_action == "deployment":
-                    # Auto-execute deployment if that was the user's choice
-                    return f"Design process completed. Starting deployment of design.txt...\n{self.execute_deploy_command('')}"
+                    return "Design process completed. Deployment started for design.txt"
                 else:
                     return "Design process completed successfully. Design saved to design.txt"
             else:
@@ -987,8 +985,8 @@ Type /help <command> for more information on a specific command."""
                         result += f"\nTable: {table}\n"
                         for col in columns:
                             nullable = "NULL" if col.get("is_nullable") else "NOT NULL"
-                            result +
-                                = f"  {col.get('column_name')}: {col.get('data_type')} {nullable}\n"                else:
+                            result += f"  {col.get('column_name')}: {col.get('data_type')} {nullable}\n"
+                else:
                     result += f"Error: {schema_result.get('error', 'Unknown error')}\n"
         else:
             # Show schema for specific database
@@ -1023,10 +1021,10 @@ Type /help <command> for more information on a specific command."""
             # Test specific database connection
             test_result = self.coordinator.database_manager.setup_database(db_name)
             if test_result.get("success", False):
-                result +
-                    = f"Connection to {db_name} successful: {test_result.get('message', 'Connection successful')}\n"            else:
-                result +
-                    = f"Connection to {db_name} failed: {test_result.get('error', 'Unknown error')}\n"        return result
+                result += f"Connection to {db_name} successful: {test_result.get('message', 'Connection successful')}\n"
+            else:
+                result += f"Connection to {db_name} failed: {test_result.get('error', 'Unknown error')}\n"
+        return result
 
     def _db_query_command(self, args: str) -> str:
         # Execute a query
@@ -1053,8 +1051,8 @@ Type /help <command> for more information on a specific command."""
                 for row in results:
                     result += " | ".join(str(row.get(h, "")) for h in headers) + "\n"
 
-                result +
-                    = f"\n{len(results)} rows returned in {query_result.get('duration_ms', 0):.2f} ms\n"            else:
+                result += f"\n{len(results)} rows returned in {query_result.get('duration_ms', 0):.2f} ms\n"
+            else:
                 result += "No results returned\n"
         else:
             result += f"Query failed: {query_result.get('error', 'Unknown error')}\n"
@@ -1075,8 +1073,8 @@ Type /help <command> for more information on a specific command."""
         result = f"Executing script on {db_name}...\n"
         script_result = self.coordinator.database_manager.run_migration(script_path, db_name=db_name)
         if script_result.get("success", False):
-            result +
-                = f"Script executed successfully: {script_result.get('queries_executed', 0)} queries executed\n"        else:
+            result += f"Script executed successfully: {script_result.get('queries_executed', 0)} queries executed\n"
+        else:
             result += f"Script execution failed: {script_result.get('error', 'Unknown error')}\n"
         return result
 
