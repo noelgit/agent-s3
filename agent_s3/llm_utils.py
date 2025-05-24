@@ -45,8 +45,13 @@ if cache:
     cache.init()
 
 
-def call_llm_via_supabase(prompt: str, github_token: str, config: Dict[str, Any],
-     timeout: Optional[float] = None) -> str:    """Call a remote LLM via Supabase edge function.
+def call_llm_via_supabase(
+    prompt: str,
+    github_token: str,
+    config: Dict[str, Any],
+    timeout: Optional[float] = None,
+) -> str:
+    """Call a remote LLM via Supabase edge function.
 
     Args:
         prompt: Prompt text to send to the remote LLM service.
@@ -309,8 +314,10 @@ def call_llm_with_retry(
     last_error_details = None
 
     for attempt in range(max_retries):
-        scratchpad_manager.log("LLM Utils", f"Attempt {attempt +
-             1}/{max_retries} - Calling LLM API via {method_name}")
+        scratchpad_manager.log(
+            "LLM Utils",
+            f"Attempt {attempt + 1}/{max_retries} - Calling LLM API via {method_name}"
+        )
         try:
             # Clone prompt_data and call LLM via GPTCache-wrapped method
             current_prompt_data = prompt_data.copy()
@@ -388,12 +395,14 @@ def call_llm_with_retry(
                     # Find the user message (typically the last one) and prepend our fallback text
                     for i, msg in enumerate(fallback_prompt_data['messages']):
                         if msg.get('role', '') == 'user':
-                            fallback_prompt_data['messages'][i]['content'] = fallback_prompt +
-                                 "\n\n" + msg['content']                            break
+                            fallback_prompt_data['messages'][i]['content'] = (
+                                fallback_prompt + "\n\n" + msg['content']
+                            )
+                            break
             elif 'prompt' in fallback_prompt_data:
                 # Simple prompt-based API
-                fallback_prompt_data['prompt'] = fallback_prompt + "\n\n" +
-                     fallback_prompt_data['prompt']            else:
+                fallback_prompt_data['prompt'] = fallback_prompt + "\n\n" + fallback_prompt_data['prompt']
+            else:
                 # If we can't find a standard key, just add our own
                 fallback_prompt_data['fallback_prefix'] = fallback_prompt
 
