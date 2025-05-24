@@ -16,9 +16,6 @@ from agent_s3.enhanced_scratchpad_manager import LogEntry
 from agent_s3.enhanced_scratchpad_manager import LogLevel
 from agent_s3.enhanced_scratchpad_manager import Section
 
-    LogLevel, Section, LogEntry, EnhancedScratchpadManager
-)
-
 
 @pytest.fixture
 def mock_config():
