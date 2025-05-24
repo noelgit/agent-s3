@@ -1,18 +1,8 @@
-import importlib.util
-from pathlib import Path
-
-def load_compression_module():
-    module_path = Path(__file__).resolve().parents[3] / "agent_s3" / "tools" / "context_management" / "compression.py"
-    spec = importlib.util.spec_from_file_location("compression", module_path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-compression = load_compression_module()
-SemanticSummarizer = compression.SemanticSummarizer
-KeyInfoExtractor = compression.KeyInfoExtractor
-ReferenceCompressor = compression.ReferenceCompressor
+from agent_s3.tools.context_management.compression import (
+    KeyInfoExtractor,
+    ReferenceCompressor,
+    SemanticSummarizer,
+)
 
 
 def test_semantic_summarizer_metadata():
