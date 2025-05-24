@@ -133,7 +133,10 @@ class CodeAnalyzer:
         parser = self.parser_registry.get_parser(file_path=file_path, language_name=lang)
         if parser:
             return parser.analyze(code_str, file_path or '', tech_stack)
-        logger.error("%s", No parser found for language '{lang}'. Skipping analysis.)
+        logger.error(
+            "No parser found for language '%s'. Skipping analysis.",
+            lang,
+        )
         return {
             "language": lang,
             "elements": [],
@@ -159,7 +162,10 @@ class CodeAnalyzer:
         try:
             content = self.file_tool.read_file(file_path)
             if content is None:
-                logger.warning("%s", Could not read content of file: {file_path})
+                logger.warning(
+                    "Could not read content of file: %s",
+                    file_path,
+                )
                 return None
         except Exception as e:
             logger.error(f"Error reading file {file_path}: {e}", exc_info=True)
@@ -173,14 +179,23 @@ class CodeAnalyzer:
         parser = self.parser_registry.get_parser(language_name=language, file_path=file_path)
         if parser:
             try:
-                logger.info("%s", Analyzing {file_path} with {type(parser).__name__} for language '{language}'.)
+                logger.info(
+                    "Analyzing %s with %s for language '%s'.",
+                    file_path,
+                    type(parser).__name__,
+                    language,
+                )
                 structure = parser.parse_code(content, file_path)
                 return structure
             except Exception as e:
                 logger.error(f"Error analyzing {file_path} with {type(parser).__name__}: {e}", exc_info=True)
                 return None
         else:
-            logger.error("%s", No parser found for language '{language}' for file {file_path}.)
+            logger.error(
+                "No parser found for language '%s' for file %s.",
+                language,
+                file_path,
+            )
             return None
 
 # Main validation functions
@@ -450,9 +465,15 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
             report_path = "validation_error_report.json"
             with open(report_path, "w", encoding="utf-8") as f:
                 json.dump(error_report, f, indent=2)
-            logger.info("%s", Validation error report saved to {report_path})
+            logger.info(
+                "Validation error report saved to %s",
+                report_path,
+            )
         except Exception as e:
-            logger.error("%s", Failed to save validation error report: {e})
+            logger.error(
+                "Failed to save validation error report: %s",
+                e,
+            )
 
     return is_valid, validation_results
 
@@ -1469,7 +1490,7 @@ def write_junit_report(errors: List[str], output_path: str = 'plan_validation.xm
 
         return True
     except Exception as e:
-        logger.error("%s", Error writing JUnit report: {e})
+        logger.error("Error writing JUnit report: %s", e)
         return False
 
 
