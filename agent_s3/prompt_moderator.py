@@ -88,12 +88,13 @@ class PromptModerator:
         """
         editor = self._get_preferred_editor()
 
-        # Always split the editor command for safety
+        # Parse the EDITOR value safely
         cmd_parts = shlex.split(editor)
         if not cmd_parts:
             cmd_parts = ["nano"]
         else:
-            exe_path = shutil.which(cmd_parts[0])
+            candidate = cmd_parts[0]
+            exe_path = candidate if os.path.isabs(candidate) else shutil.which(candidate)
             if not exe_path or not os.path.isabs(exe_path) or not os.path.isfile(exe_path):
                 cmd_parts = ["nano"]
             else:
@@ -287,8 +288,10 @@ class PromptModerator:
             print("Test updates cancelled.")
             return None  # Signal cancellation
 
-    def ask_structured_modification(self, feature_groups: List[Dict[str, Any]]) -> Tuple[Dict[str,
-         Any], str]:        """Ask the user for structured modifications to a feature group plan.
+    def ask_structured_modification(
+        self, feature_groups: List[Dict[str, Any]]
+    ) -> Tuple[Dict[str, Any], str]:
+        """Ask the user for structured modifications to a feature group plan.
 
         Args:
             feature_groups: List of feature group dictionaries
@@ -346,11 +349,13 @@ class PromptModerator:
         print(f"\nSelected: {selected_component}")
 
         # Get modification instructions
-        print("\nPlease enter your modification instructions:")
-        print(f"For '{selected_component}' in '{selected_group.get('group_name', f'Group {group_idx+
-            1}')}'")        print("Be specific about what should be added, removed, or changed.")
-        print("Type 'done' on a new line when finished.")
 
+        print("\nPlease enter your modification instructions:")
+        print(
+            f"For '{selected_component}' in '{selected_group.get('group_name', f'Group {group_idx+1}')}'"
+        )
+        print("Be specific about what should be added, removed, or changed.")
+        print("Type 'done' on a new line when finished.")
         lines = []
         while True:
             line = input()
