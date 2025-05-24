@@ -92,8 +92,33 @@ class TestCodeGeneratorAgentic:
                     "file": "tests/test_integration.py",
                     "test_name": "test_integration",
                     "components_involved": ["test_module", "other_module"],
-                    "code": "def test_integration():\n    assert test_module.test_func()
-                         and other_module.other_func()"                }
+                    "code": (
+                        "def test_integration():\n",
+                        "    assert test_module.test_func() and other_module.other_func()"
+                    ),
+                }
+            ],
+            "property_based_tests": [
+                {
+                    "file": "tests/test_property.py",
+                    "test_name": "test_property_func",
+                    "tested_functions": ["test_module.property_func"],
+                    "code": (
+                        "def test_property_func():\n",
+                        "    assert property_based_check(test_module.property_func)"
+                    ),
+                }
+            ],
+            "acceptance_tests": [
+                {
+                    "file": "tests/test_acceptance.py",
+                    "test_name": "test_acceptance",
+                    "components_involved": ["test_module"],
+                    "code": (
+                        "def test_acceptance():\n",
+                        "    assert user_can_use_test_module()"
+                    ),
+                }
             ]
         }
 
@@ -105,6 +130,10 @@ class TestCodeGeneratorAgentic:
         assert relevant_tests["unit_tests"][0]["test_name"] == "test_test_module_func"
         assert len(relevant_tests["integration_tests"]) == 1
         assert relevant_tests["integration_tests"][0]["components_involved"] == ["test_module", "other_module"]
+        assert len(relevant_tests["property_based_tests"]) == 1
+        assert relevant_tests["property_based_tests"][0]["test_name"] == "test_property_func"
+        assert len(relevant_tests["acceptance_tests"]) == 1
+        assert relevant_tests["acceptance_tests"][0]["test_name"] == "test_acceptance"
 
     def test_generate_file(self, mock_coordinator):
         """Test generation of a single file."""
@@ -118,8 +147,9 @@ class TestCodeGeneratorAgentic:
 
         # Mock necessary methods
         code_generator._extract_relevant_tests = MagicMock(return_value={"unit_tests": []})
-        code_generator._generate_with_validation = MagicMock(return_value="def test_func()
-            :\n    return True")
+        code_generator._generate_with_validation = MagicMock(
+            return_value="def test_func():\n    return True"
+        )
         # Act
         result = code_generator.generate_file(file_path, implementation_details, tests, {})
 
@@ -151,8 +181,7 @@ class TestCodeGeneratorAgentic:
         # Arrange
         code_generator = CodeGenerator(mock_coordinator)
         file_path = "agent_s3/test_module.py"
-        invalid_code = "def test_func()
-            \n    return undefined_variable"  # Missing colon and undefined variable
+        invalid_code = "def test_func():\n    return undefined_variable"  # Missing colon and undefined variable
         # Ensure bash_tool returns a tuple like the real implementation
         mock_coordinator.bash_tool.run_command.return_value = (1, "Syntax error")
 

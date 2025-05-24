@@ -11,12 +11,11 @@ from unittest.mock import patch
 import pytest
 
 from agent_s3.config import Config
-from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager
-from agent_s3.enhanced_scratchpad_manager import LogEntry
-from agent_s3.enhanced_scratchpad_manager import LogLevel
-from agent_s3.enhanced_scratchpad_manager import Section
-
-    LogLevel, Section, LogEntry, EnhancedScratchpadManager
+from agent_s3.enhanced_scratchpad_manager import (
+    EnhancedScratchpadManager,
+    LogEntry,
+    LogLevel,
+    Section,
 )
 
 
