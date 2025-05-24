@@ -124,7 +124,11 @@ class VSCodeIntegration:
             atexit.register(self.stop_server)
             self._atexit_registered = True
 
-        logger.info("%s", WebSocket server started on {self.host}:{self.port})
+        logger.info(
+            "WebSocket server started on %s:%s",
+            self.host,
+            self.port,
+        )
         return True
 
     def _run_server(self) -> None:
@@ -145,7 +149,7 @@ class VSCodeIntegration:
                 await websocket.close()
                 return
             self.active_connections.add(websocket)
-            logger.info("%s", New VS Code connection established: {path})
+            logger.info("New VS Code connection established: %s", path)
 
             try:
                 # Send a welcome message
@@ -158,7 +162,7 @@ class VSCodeIntegration:
                 async for message in websocket:
                     try:
                         data = json.loads(message)
-                        logger.debug("%s", Received message from VS Code: {data})
+                        logger.debug("Received message from VS Code: %s", data)
 
                         # Handle different message types
                         if data.get("type") == "response":
@@ -168,9 +172,11 @@ class VSCodeIntegration:
                             # Process commands from VS Code
                             await self._handle_command(websocket, data)
                         else:
-                            logger.warning("%s", Unknown message type: {data.get('type)}")
+                            logger.warning(
+                                "Unknown message type: %s", data.get("type")
+                            )
                     except json.JSONDecodeError:
-                        logger.error("%s", Failed to parse message: {message})
+                        logger.error("Failed to parse message: %s", message)
             except websockets.exceptions.ConnectionClosed:
                 logger.info("VS Code connection closed")
             finally:
@@ -237,7 +243,7 @@ class VSCodeIntegration:
         try:
             loop.run_until_complete(start_server())
         except OSError as e:
-            logger.error("%s", Failed to start WebSocket server: {e})
+            logger.error("Failed to start WebSocket server: %s", e)
         finally:
             self.is_running = False
             loop.close()
@@ -266,7 +272,7 @@ class VSCodeIntegration:
                 "connections": len(self.active_connections)
             }))
         else:
-            logger.warning("%s", Unknown command: {command})
+            logger.warning("Unknown command: %s", command)
 
     def _write_connection_info(self) -> None:
         """Write connection information to a file for VS Code to discover."""
@@ -290,7 +296,7 @@ class VSCodeIntegration:
                 f"Connection info written to {self.connect_file_path}"
             )
         except Exception as e:
-            logger.error("%s", Failed to write connection info: {e})
+            logger.error("Failed to write connection info: %s", e)
 
     def stop_server(self) -> None:
         """Stop the WebSocket server."""
@@ -318,7 +324,7 @@ class VSCodeIntegration:
                 os.remove(self.connect_file_path)
                 logger.info("Connection file removed")
         except Exception as e:
-            logger.error("%s", Failed to remove connection file: {e})
+            logger.error("Failed to remove connection file: %s", e)
 
     def send_to_chat_ui(self, message: Dict[str, Any]) -> bool:
         """
@@ -338,12 +344,13 @@ class VSCodeIntegration:
             self.message_queue.put(message)
             return True
         except Exception as e:
-            logger.error("%s", Failed to queue message: {e})
+            logger.error("Failed to queue message: %s", e)
             return False
 
-    def get_user_response(self, request: Dict[str, Any], timeout: int = 300) -> Optional[Dict[str,
-         Any]]:        """
-        Get a response from the user via VS Code Chat UI.
+    def get_user_response(
+        self, request: Dict[str, Any], timeout: int = 300
+    ) -> Optional[Dict[str, Any]]:
+        """Get a response from the user via VS Code Chat UI.
 
         Args:
             request: The request to send to VS Code
@@ -377,10 +384,12 @@ class VSCodeIntegration:
 
                 time.sleep(0.1)
 
-            logger.warning("%s", Timeout waiting for user response after {timeout} seconds)
+            logger.warning(
+                "Timeout waiting for user response after %s seconds", timeout
+            )
             return None
         except Exception as e:
-            logger.error("%s", Error getting user response: {e})
+            logger.error("Error getting user response: %s", e)
             return None
 
     def display_plan(self, plan: str, summary: str) -> None:
@@ -455,17 +464,20 @@ class VSCodeIntegration:
             "details": details
         })
 
-    def request_approval(self, message: str, options: List[str] = ["approve", "reject"])
-         -> Optional[str]:        """
-        Request approval from the user via VS Code Chat UI.
+    def request_approval(
+        self, message: str, options: List[str] | None = None
+    ) -> Optional[str]:
+        """Request approval from the user via VS Code Chat UI.
 
         Args:
             message: The message to display to the user
-            options: The options to present to the user
+            options: Optional list of options to present
 
         Returns:
-            The user's selection or None if timeout or error occurred
+            The user's selection or None if timeout or error occurred.
         """
+        if options is None:
+            options = ["approve", "reject"]
         response = self.get_user_response({
             "type": "approval",
             "message": message,

@@ -354,7 +354,7 @@ class ToolRegistry:
                     logger.warning("Cannot register database_tool: No databases configured")
                     return False
             else:
-                logger.warning("%s", Unknown tool: {tool_name})
+                logger.warning("Unknown tool: %s", tool_name)
                 return False
         except Exception as e:
             logger.error("%s", Error registering tool {tool_name}: {e})

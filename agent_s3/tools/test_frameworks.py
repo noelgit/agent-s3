@@ -76,7 +76,10 @@ class TestFrameworks:
             except ImportError:
                 pass
         except Exception as e:
-            logger.warning("%s", Error during Python framework detection: {e})
+            logger.warning(
+                "Error during Python framework detection: %s",
+                e,
+            )
 
         # For JS frameworks, check package.json if available
         if os.path.exists("package.json"):
