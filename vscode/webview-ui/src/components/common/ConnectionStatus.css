@@ -1,0 +1,49 @@
+/*
+ * Styles for the ConnectionStatus component
+ * Provides visual feedback for WebSocket connectivity
+ */
+.connection-status {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  background-color: var(--vscode-editorWidget-background, #1e1e1e);
+  color: var(--vscode-editorWidget-foreground, #d4d4d4);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  font-size: 0.9rem;
+  z-index: 1000;
+}
+
+.status-indicator {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-indicator.connected {
+  background-color: var(--vscode-testing-iconPassed, #28a745);
+}
+
+.status-indicator.disconnected {
+  background-color: var(--vscode-testing-iconFailed, #d13438);
+}
+
+.reconnect-button {
+  margin-left: 0.5rem;
+  padding: 0.2rem 0.6rem;
+  border: none;
+  border-radius: 4px;
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.reconnect-button:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}
