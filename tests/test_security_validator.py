@@ -85,5 +85,5 @@ class TestSecurityValidator:
         # Valid structure
         result, issues = self.validator.validate_architecture_security_items(
             self.architecture_review)
-        assert result == True
+        assert result
         assert not issues
