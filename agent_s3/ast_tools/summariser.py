@@ -13,11 +13,13 @@ prompt_factory = SummarizationPromptFactory()
 validator = SummaryValidator(SummaryValidationConfig())
 
 
-def summarise_unit(code_unit: Dict[str, Any], router_agent: Any, config: Dict[str,
-     Any] | None = None) -> str:    """
-    Summarize a code unit with validation and refinement.
-    """
-    code_text = code_unit.get('text', '')
+def summarise_unit(
+    code_unit: Dict[str, Any],
+    router_agent: Any,
+    config: Dict[str, Any] | None = None,
+) -> str:
+    """Summarize a code unit with validation and refinement."""
+    code_text = code_unit.get("text", "")
     language = code_unit.get('language', None)
     if not code_text.strip():
         return ""

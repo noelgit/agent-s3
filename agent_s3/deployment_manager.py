@@ -82,8 +82,10 @@ class DatabaseConfig:
             return f"postgresql://{self.username}:{password}@{self.host}:{self.port}/{self.database}?sslmode={self.ssl_mode}"
         elif self.db_type == "mysql":
             password = quote_plus(self.password) if self.password else ""
-            return f"mysql+
-                pymysql://{self.username}:{password}@{self.host}:{self.port}/{self.database}"        else:
+            return (
+                f"mysql+pymysql://{self.username}:{password}@{self.host}:{self.port}/{self.database}"
+            )
+        else:
             raise ValueError(f"Unsupported database type: {self.db_type}")
 
     def get_environment_vars(self) -> Dict[str, str]:
@@ -329,8 +331,10 @@ class DeploymentManager:
 
         return response, is_deployment_ready
 
-    def execute_deployment(self, deployment_config: Optional[DeploymentConfig] = None) -> Dict[str,
-         Any]:        """Execute deployment based on configuration.
+    def execute_deployment(
+        self, deployment_config: Optional[DeploymentConfig] = None
+    ) -> Dict[str, Any]:
+        """Execute deployment based on configuration.
 
         Args:
             deployment_config: Optional deployment configuration
@@ -723,12 +727,21 @@ class DeploymentManager:
 
         # Application-specific launch command
         if config.app_type == "flask":
-            cmd += f"{venv_prefix +
-                 ' && ' if venv_prefix else ''}flask --app {config.entry_point.rstrip('.py')} run --host={config.host} --port={config.port} {'--debug' if config.debug_mode else ''}"        elif config.app_type == "django":
-            cmd += f"{venv_prefix +
-                 ' && ' if venv_prefix else ''}python manage.py runserver {config.host}:{config.port}"        elif config.app_type == "fastapi":
-            cmd += f"{venv_prefix +
-                 ' && ' if venv_prefix else ''}uvicorn {config.entry_point.rstrip('.py')}:app --host {config.host} --port {config.port} {'--reload' if config.debug_mode else ''}"        elif config.app_type in ["node", "express"]:
+            cmd += (
+                f"{venv_prefix + (' && ' if venv_prefix else '')}"
+                f"flask --app {config.entry_point.rstrip('.py')} run --host={config.host} --port={config.port} {'--debug' if config.debug_mode else ''}"
+            )
+        elif config.app_type == "django":
+            cmd += (
+                f"{venv_prefix + (' && ' if venv_prefix else '')}"
+                f"python manage.py runserver {config.host}:{config.port}"
+            )
+        elif config.app_type == "fastapi":
+            cmd += (
+                f"{venv_prefix + (' && ' if venv_prefix else '')}"
+                f"uvicorn {config.entry_point.rstrip('.py')}:app --host {config.host} --port {config.port} {'--reload' if config.debug_mode else ''}"
+            )
+        elif config.app_type in ["node", "express"]:
             cmd += f"node {config.entry_point}"
         elif config.app_type == "python":
             cmd += f"{venv_prefix + ' && ' if venv_prefix else ''}python {config.entry_point}"
@@ -1120,8 +1133,10 @@ if __name__ == '__main__':
         chars = string.ascii_letters + string.digits + "!@#$%^&*()_-+=[]{}|:;<>,.?/~"
         return ''.join(secrets.choice(chars) for _ in range(length))
 
-    def _save_deployment_log(self, config: DeploymentConfig, status: str,
-         error: Optional[str] = None) -> None:        """Save deployment log to file.
+    def _save_deployment_log(
+        self, config: DeploymentConfig, status: str, error: Optional[str] = None
+    ) -> None:
+        """Save deployment log to file.
 
         Args:
             config: Deployment configuration
@@ -1376,8 +1391,14 @@ if __name__ == '__main__':
         """
         try:
             # Use regex to extract key configuration details
-            app_type_match = re.search(r"Application Type:?\s*([a-zA-Z0-9_+\- ]+
-                )", response, re.IGNORECASE)            app_type = app_type_match.group(1).strip().lower() if app_type_match else "python"
+            app_type_match = re.search(
+                r"Application Type:?\s*([a-zA-Z0-9_+\- ]+)",
+                response,
+                re.IGNORECASE,
+            )
+            app_type = (
+                app_type_match.group(1).strip().lower() if app_type_match else "python"
+            )
 
             host_match = re.search(r"Host:?\s*([a-zA-Z0-9_.\-]+)", response, re.IGNORECASE)
             host = host_match.group(1).strip() if host_match else "localhost"
@@ -1386,21 +1407,40 @@ if __name__ == '__main__':
             port = int(port_match.group(1)) if port_match else 8000
 
             # Try to extract app name from the summary
-            app_name_match = re.search(r"DEPLOYMENT SUMMARY.*?([a-zA-Z0-9_\- ]+
-                )(?:application|app|service)", response, re.IGNORECASE | re.DOTALL)            app_name = app_name_match.group(1).strip() if app_name_match else f"{app_type.title()} Application"
+
+            app_name_match = re.search(
+                r"DEPLOYMENT SUMMARY.*?([a-zA-Z0-9_\- ]+)(?:application|app|service)",
+                response,
+                re.IGNORECASE | re.DOTALL,
+            )
+            app_name = (
+                app_name_match.group(1).strip()
+                if app_name_match
+                else f"{app_type.title()} Application"
+            )
 
             # Extract debug/environment mode
-            debug_match = re.search(r"(?:Environment Mode|Mode):?\s*([a-zA-Z0-9_\- ]+
-                )", response, re.IGNORECASE)            debug_mode = debug_match and "dev" in debug_match.group(1).lower() or "development" in debug_match.group(1).lower()
-
+            debug_match = re.search(
+                r"(?:Environment Mode|Mode):?\s*([a-zA-Z0-9_\- ]+)",
+                response,
+                re.IGNORECASE,
+            )
+            debug_mode = (
+                (debug_match and "dev" in debug_match.group(1).lower())
+                or (debug_match and "development" in debug_match.group(1).lower())
+            )
             # Extract database configuration if present
             db_type = None
             db_config = None
 
-            db_section = re.search(r"Database:?\s*([^\n]+(?:\n\s+[^\n]+
-                )*)", response, re.IGNORECASE)            if db_section:
-                db_text = db_section.group(1).lower()
 
+            db_section = re.search(
+                r"Database:?\s*([^\n]+(?:\n\s+[^\n]+)*)",
+                response,
+                re.IGNORECASE,
+            )
+            if db_section:
+                db_text = db_section.group(1).lower()
                 if "sqlite" in db_text:
                     db_type = "sqlite"
                     db_path_match = re.search(r"(?:path|file):?\s*([a-zA-Z0-9_.\-/\\]+)", db_text)
@@ -1442,12 +1482,16 @@ if __name__ == '__main__':
                     )
 
             # Extract environment variables
+
             env_vars = {}
-            env_section = re.search(r"ENVIRONMENT VARIABLES:?\s*([^\n]+(?:\n\s+[^\n]+
-                )*)", response, re.IGNORECASE)            if env_section:
+            env_section = re.search(
+                r"ENVIRONMENT VARIABLES:?\s*([^\n]+(?:\n\s+[^\n]+)*)",
+                response,
+                re.IGNORECASE,
+            )
+            if env_section:
                 env_text = env_section.group(1)
                 env_matches = re.findall(r"([A-Z_0-9]+):?\s*([^\n]+)", env_text)
-
                 for key, value in env_matches:
                     env_vars[key.strip()] = value.strip()
 
