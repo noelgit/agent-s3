@@ -329,7 +329,7 @@ def get_personas_content() -> str:
             Confirm the solution adheres to best practices and organizational guidelines.
             """
     except Exception as e:
-        logger.error("%s", Error loading personas content: {str(e)})
+        logger.error("Error loading personas content: %s", str(e))
         return "Error loading personas content. Using default expert personas."
 
 def get_coding_guidelines() -> str:
@@ -350,7 +350,7 @@ def get_coding_guidelines() -> str:
             - Follow project-specific conventions and patterns
             """
     except Exception as e:
-        logger.error("%s", Error loading coding guidelines: {str(e)})
+        logger.error("Error loading coding guidelines: %s", str(e))
         return "Error loading coding guidelines. Using default standards."
 
 
@@ -1029,7 +1029,10 @@ def generate_refined_test_specifications(
     Returns:
         Dictionary containing refined test specifications
     """
-    logger.info("%s", Generating refined test specifications for feature group: {feature_group.get('group_name', 'Unknown)}")
+    logger.info(
+        "Generating refined test specifications for feature group: %s",
+        feature_group.get("group_name", "Unknown"),
+    )
 
     # Extract test requirements and system design from the feature group
     test_requirements = {}
@@ -1159,9 +1162,17 @@ Please maintain the intent of the original test requirements while enriching the
 
                 summary_str = ", ".join(validation_summary)
                 if was_repaired:
-                    logger.info("%s", Test specifications had {len(validation_issues)} issues ({summary_str}) that were automatically repaired)
+                    logger.info(
+                        "Test specifications had %d issues (%s) that were automatically repaired",
+                        len(validation_issues),
+                        summary_str,
+                    )
                 else:
-                    logger.warning("%s", Test specifications have {len(validation_issues)} issues ({summary_str}) that could not be automatically repaired)
+                    logger.warning(
+                        "Test specifications have %d issues (%s) that could not be automatically repaired",
+                        len(validation_issues),
+                        summary_str,
+                    )
 
                 # Add validation summary to response
                 if "discussion" in response_data:
@@ -1175,12 +1186,13 @@ Please maintain the intent of the original test requirements while enriching the
             if was_repaired:
                 response_data["refined_test_requirements"] = repaired_specs
                 if "discussion" in response_data:
-                    response_data["discussion"] +
-                        = "\n\nNote: Some issues were automatically repaired in the test specifications."
+                    response_data[
+                        "discussion"
+                    ] += "\n\nNote: Some issues were automatically repaired in the test specifications."
             return response_data
 
         except json.JSONDecodeError as e:
-            logger.error("%s", Failed to parse JSON response: {e})
+            logger.error("Failed to parse JSON response: %s", e)
 
             # Try to repair JSON structure using json_utils
             logger.info("Attempting to repair JSON structure")
@@ -1207,16 +1219,16 @@ Please maintain the intent of the original test requirements while enriching the
                         logger.info("JSON structure repaired successfully")
                         return repaired_data
                 except Exception as repair_error:
-                    logger.error("%s", Failed to repair JSON structure: {repair_error})
+                    logger.error("Failed to repair JSON structure: %s", repair_error)
 
             raise JSONPlannerError(f"Invalid JSON response: {e}")
 
         except ValueError as e:
-            logger.error("%s", Invalid response structure: {e})
+            logger.error("Invalid response structure: %s", e)
             raise JSONPlannerError(f"Invalid response structure: {e}")
 
     except Exception as e:
-        logger.error("%s", Error generating refined test specifications: {e})
+        logger.error("Error generating refined test specifications: %s", e)
         raise JSONPlannerError(f"Error generating refined test specifications: {e}")
 
 def get_semantic_validation_system_prompt() -> str:
@@ -1456,7 +1468,7 @@ def _call_llm_with_retry(router_agent, system_prompt: str, user_prompt: str, con
             raise ValueError("LLM returned an empty response.")
         return response
     except Exception as e:
-        logger.error("%s", LLM call failed: {e})
+        logger.error("LLM call failed: %s", e)
         raise JSONPlannerError(f"LLM call failed after retries: {e}")
 
 def _parse_and_validate_json(response_text: str, schema: Optional[Dict[str, Any]] = None)
@@ -2215,17 +2227,20 @@ Provide numerical scores (0-10) for coherence, consistency, traceability, securi
             if "critical_issues" not in results:
                 results["critical_issues"] = []
 
-            logger.info("%s", Semantic validation complete. Coherence score: {results.get('coherence_score)}, "
-                       f"Consistency score: {results.get('technical_consistency_score')}")
+            logger.info(
+                "Semantic validation complete. Coherence score: %s, Consistency score: %s",
+                results.get("coherence_score"),
+                results.get("technical_consistency_score"),
+            )
 
             return validation_results
 
         except json.JSONDecodeError as e:
-            logger.error("%s", Failed to parse JSON from semantic validation: {e})
+            logger.error("Failed to parse JSON from semantic validation: %s", e)
             raise JSONPlannerError(f"Invalid JSON in semantic validation: {e}")
 
     except Exception as e:
-        logger.error("%s", Error performing semantic validation: {e})
+        logger.error("Error performing semantic validation: %s", e)
         raise JSONPlannerError(f"Error performing semantic validation: {e}")
 
 def _calculate_syntax_validation_percentage(validation_issues: List[Dict[str, Any]]) -> float:
@@ -2416,7 +2431,11 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
 
         while retry_count <= max_retries:
             try:
-                logger.info("%s", Making LLM call attempt {retry_count + 1}/{max_retries + 1})
+                logger.info(
+                    "Making LLM call attempt %d/%d",
+                    retry_count + 1,
+                    max_retries + 1,
+                )
                 estimator = TokenEstimator()
                 tokens = estimator.estimate_tokens_for_text(system_prompt) + estimator.estimate_tokens_for_text(user_prompt)
                 params = {**llm_params, "max_tokens": max(llm_params.get("max_tokens", 0) - tokens, 0)}
@@ -2430,21 +2449,31 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                 if not response_text:
                     raise ValueError("Received empty response from LLM")
 
-                logger.info("%s", Successfully received response from LLM (length: {len(response_text)} chars))
+                logger.info(
+                    "Successfully received response from LLM (length: %d chars)",
+                    len(response_text),
+                )
                 break  # Break out of the retry loop if successful
 
             except Exception as e:
                 retry_count += 1
                 last_error = e
-                logger.warning("%s", LLM call attempt {retry_count} failed: {str(e)})
+                logger.warning(
+                    "LLM call attempt %d failed: %s",
+                    retry_count,
+                    str(e),
+                )
 
                 if retry_count > max_retries:
-                    logger.error("%s", Failed to get LLM response after {max_retries + 1} attempts)
+                    logger.error(
+                        "Failed to get LLM response after %d attempts",
+                        max_retries + 1,
+                    )
                     raise JSONPlannerError(f"LLM call failed after {max_retries +
                          1} attempts: {str(last_error)}")
                 # Exponential backoff with jitter
                 backoff_time = (2 ** retry_count) + (random.random() * 0.5)
-                logger.info("%s", Retrying in {backoff_time:.2f} seconds...)
+                logger.info("Retrying in %.2f seconds...", backoff_time)
                 time.sleep(backoff_time)
 
         # Enhanced JSON extraction and parsing with robust recovery mechanisms
@@ -2493,7 +2522,10 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                     json_match = re.search(pattern, response_text, re.DOTALL)
                     if json_match:
                         json_str = json_match.group(1)
-                        logger.info("%s", Extracted JSON using {pattern_name} pattern)
+                        logger.info(
+                            "Extracted JSON using %s pattern",
+                            pattern_name,
+                        )
                         break
 
                 # If all patterns fail, use the full response as a last resort
@@ -2502,7 +2534,10 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                     logger.warning("All extraction patterns failed. Using full response as JSON (may cause parsing errors)")
 
             json_extraction_time = time.time() - json_extraction_start
-            logger.info("%s", JSON extraction completed in {json_extraction_time:.2f}s)
+            logger.info(
+                "JSON extraction completed in %.2fs",
+                json_extraction_time,
+            )
 
             # Enhanced JSON parsing with advanced repair capabilities
             parse_start = time.time()
@@ -2518,7 +2553,7 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                     response_data[key] = parsed_data[key]
 
             except json.JSONDecodeError as json_error:
-                logger.warning("%s", Direct JSON parsing failed: {json_error})
+                logger.warning("Direct JSON parsing failed: %s", json_error)
                 logger.info("Attempting JSON repair sequence")
 
                 # Define comprehensive schema for validation and repair
@@ -2551,7 +2586,10 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                 repaired = False
                 for strategy_idx, repair_strategy in enumerate(repair_strategies):
                     try:
-                        logger.info("%s", Attempting repair strategy {strategy_idx + 1})
+                        logger.info(
+                            "Attempting repair strategy %d",
+                            strategy_idx + 1,
+                        )
                         repaired_data = repair_strategy(json_str)
 
                         # Update our response data with repaired data
@@ -2559,12 +2597,19 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                             if key in response_data and repaired_data[key]:
                                 response_data[key] = repaired_data[key]
 
-                        logger.info("%s", Repair strategy {strategy_idx + 1} succeeded)
+                        logger.info(
+                            "Repair strategy %d succeeded",
+                            strategy_idx + 1,
+                        )
                         repaired = True
                         break
                     except Exception as repair_error:
-                        logger.warning("%s", Repair strategy {strategy_idx +
-                             1} failed: {repair_error})                        continue
+                        logger.warning(
+                            "Repair strategy %d failed: %s",
+                            strategy_idx + 1,
+                            repair_error,
+                        )
+                        continue
 
                 if not repaired:
                     logger.error("All repair strategies failed")
@@ -2572,7 +2617,7 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                     logger.warning("Using minimal default structure for implementation plan")
 
             parse_time = time.time() - parse_start
-            logger.info("%s", JSON parsing/repair completed in {parse_time:.2f}s)
+            logger.info("JSON parsing/repair completed in %.2fs", parse_time)
 
             # Comprehensive structure validation
             validate_start = time.time()
@@ -2595,12 +2640,18 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
             is_valid = True
             for section, default_value in required_sections.items():
                 if section not in response_data:
-                    logger.warning("%s", Missing required section '{section}' in response)
+                    logger.warning(
+                        "Missing required section '%s' in response",
+                        section,
+                    )
                     response_data[section] = default_value
                     is_valid = False
                 elif not response_data[section] and default_value:
                     # Section exists but is empty when it shouldn't be
-                    logger.warning("%s", Section '{section}' is empty, initializing with default structure)
+                    logger.warning(
+                        "Section '%s' is empty, initializing with default structure",
+                        section,
+                    )
                     response_data[section] = default_value
                     is_valid = False
 
@@ -2614,7 +2665,10 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                 else:
                     for key, default in required_sections["implementation_strategy"].items():
                         if key not in strategy:
-                            logger.warning("%s", Missing required strategy component '{key}', adding default)
+                            logger.warning(
+                                "Missing required strategy component '%s', adding default",
+                                key,
+                            )
                             strategy[key] = default
                             is_valid = False
 
@@ -2622,7 +2676,7 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                 logger.warning("Response structure validation failed, proceeding with repaired structure")
 
             validate_time = time.time() - validate_start
-            logger.info("%s", Structure validation completed in {validate_time:.2f}s)
+            logger.info("Structure validation completed in %.2fs", validate_time)
 
 
             # Comprehensive implementation plan validation
@@ -2690,25 +2744,44 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
             # Log validation issues with structured categorization
             issue_types = defaultdict(lambda: defaultdict(int))
             if validation_issues:
-                logger.info("%s", Found {len(validation_issues)} validation issues in implementation plan)
+                logger.info(
+                    "Found %d validation issues in implementation plan",
+                    len(validation_issues),
+                )
                 for issue in validation_issues:
                     severity = issue.get("severity", "unknown")
                     issue_type = issue.get("issue_type", "unknown")
                     issue_types[issue_type][severity] += 1
 
                     if severity in ["critical", "high"]:
-                        logger.warning("%s", [{severity.upper()}] {issue.get('description', 'Unknown issue)}")
+                        logger.warning(
+                            "[%s] %s",
+                            severity.upper(),
+                            issue.get("description", "Unknown issue"),
+                        )
                     else:
-                        logger.info("%s", [{severity.upper()}] {issue.get('description', 'Unknown issue)}")
+                        logger.info(
+                            "[%s] %s",
+                            severity.upper(),
+                            issue.get("description", "Unknown issue"),
+                        )
 
                 # Log summary of issue types with severity breakdown
                 logger.info("Validation issue summary:")
                 for issue_type, severities in issue_types.items():
                     severity_counts = ", ".join([f"{severity}: {count}" for severity, count in severities.items()])
-                    logger.info("%s", - {issue_type}: {sum(severities.values())} issues ({severity_counts}))
+                    logger.info(
+                        "%s: %d issues (%s)",
+                        issue_type,
+                        sum(severities.values()),
+                        severity_counts,
+                    )
 
             validation_time = time.time() - validation_start
-            logger.info("%s", Implementation validation completed in {validation_time:.2f}s)
+            logger.info(
+                "Implementation validation completed in %.2fs",
+                validation_time,
+            )
 
             # Calculate comprehensive implementation metrics
             metrics_start = time.time()
@@ -2735,7 +2808,7 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                                                                                                         f"Test coverage: {metrics['test_coverage_score']:.2f}")
 
             metrics_time = time.time() - metrics_start
-            logger.info("%s", Metrics calculation completed in {metrics_time:.2f}s)
+            logger.info("Metrics calculation completed in %.2fs", metrics_time)
 
             # Enhanced repair mechanism with quality improvements
             repair_start = time.time()
@@ -2810,7 +2883,7 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                     # Store validation metrics in response
                     response_data["implementation_metrics"] = new_metrics
                 except Exception as repair_error:
-                    logger.error("%s", Error during implementation plan repair: {repair_error})
+                    logger.error("Error during implementation plan repair: %s", repair_error)
                     # Continue with validated plan if repair fails
                     response_data["implementation_plan"] = validated_plan
                     response_data["implementation_metrics"] = metrics
@@ -2821,7 +2894,7 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                 response_data["implementation_metrics"] = metrics
 
             repair_time = time.time() - repair_start
-            logger.info("%s", Implementation repair completed in {repair_time:.2f}s)
+            logger.info("Implementation repair completed in %.2fs", repair_time)
 
             # Run enhanced semantic coherence validation
             coherence_start = time.time()
@@ -2899,12 +2972,15 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                                     = f"- ... and {len(results['optimization_opportunities']) - 3} more opportunities\n"
                         response_data["discussion"] += coherence_note
             except Exception as coherence_error:
-                logger.error("%s", Semantic coherence validation failed: {coherence_error})
+                logger.error("Semantic coherence validation failed: %s", coherence_error)
                 # Add error information without failing the process
                 response_data.setdefault("semantic_validation", {})["error"] = str(coherence_error)
 
             coherence_time = time.time() - coherence_start
-            logger.info("%s", Semantic coherence validation completed in {coherence_time:.2f}s)
+            logger.info(
+                "Semantic coherence validation completed in %.2fs",
+                coherence_time,
+            )
 
             # Add timing information to metrics
             total_time = time.time() - start_time
@@ -2917,11 +2993,14 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                 "coherence_validation_time_seconds": coherence_time
             })
 
-            logger.info("%s", Implementation plan generation completed in {total_time:.2f}s)
+            logger.info(
+                "Implementation plan generation completed in %.2fs",
+                total_time,
+            )
             return response_data
 
         except json.JSONDecodeError as e:
-            logger.error("%s", Failed to parse JSON response: {e})
+            logger.error("Failed to parse JSON response: %s", e)
 
             # Enhanced JSON repair with more aggressive fallback mechanisms
             try:
@@ -2944,7 +3023,11 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
 
                 # Try each candidate with all repair techniques
                 for i, candidate in enumerate(json_candidates[:3]):  # Try top 3 candidates
-                    logger.info("%s", Trying JSON candidate {i+1} (length: {len(candidate)}))
+                    logger.info(
+                        "Trying JSON candidate %d (length: %d)",
+                        i + 1,
+                        len(candidate),
+                    )
 
                     try:
                         # Basic schema for validation
@@ -2968,7 +3051,7 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                         # Try parsing directly first
                         try:
                             parsed_data = json.loads(cleaned)
-                            logger.info("%s", Successfully parsed candidate {i+1})
+                                logger.info("Successfully parsed candidate %d", i + 1)
 
                             # Validate that it contains implementation_plan
                             if "implementation_plan" in parsed_data:
@@ -2981,10 +3064,14 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                             parsed_data = repair_json_structure(json.loads(cleaned), schema)
 
                             if "implementation_plan" in parsed_data:
-                                logger.info("%s", Successfully repaired candidate {i+1})
+                                logger.info("Successfully repaired candidate %d", i + 1)
                                 return parsed_data
                     except Exception as repair_error:
-                        logger.warning("%s", Failed to repair candidate {i+1}: {repair_error})
+                        logger.warning(
+                            "Failed to repair candidate %d: %s",
+                            i + 1,
+                            repair_error,
+                        )
                         continue
 
                 # If all candidates fail, create a minimal valid response
@@ -3030,14 +3117,17 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
 
                 return minimal_response
             except Exception as extract_error:
-                logger.error("%s", All JSON extraction and repair attempts failed: {extract_error})
+                logger.error(
+                    "All JSON extraction and repair attempts failed: %s",
+                    extract_error,
+                )
                 raise JSONPlannerError(f"Failed to extract or repair JSON: {e} → {extract_error}")
 
         except ValueError as e:
-            logger.error("%s", Invalid response structure: {e})
+            logger.error("Invalid response structure: %s", e)
             raise JSONPlannerError(f"Invalid response structure: {e}")
 
     except Exception as e:
-        logger.error("%s", Error generating implementation plan: {e})
+        logger.error("Error generating implementation plan: %s", e)
         raise JSONPlannerError(f"Error generating implementation plan: {e}")
 # --- END OF FILE planner_json_enforced.py ---
