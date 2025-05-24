@@ -21,6 +21,7 @@ Description: Release notes for Agent-S3.
 
 ### Security
 - API keys are now stored remotely via Supabase, reducing local exposure risk.
+- Replaced all MD5 hashing with SHA-256 for better integrity verification.
 
 ### Removed
 - Deprecated `validate_pre_planning_from_planner` helper in favor of direct

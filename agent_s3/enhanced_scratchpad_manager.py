@@ -229,7 +229,7 @@ class EnhancedScratchpadManager:
         """Create a hash of the configuration for tracking."""
         try:
             config_str = json.dumps(self.config.config, sort_keys=True)
-            return hashlib.md5(config_str.encode()).hexdigest()
+            return hashlib.sha256(config_str.encode()).hexdigest()
         except Exception:
             return "unknown"
 

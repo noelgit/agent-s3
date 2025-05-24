@@ -900,7 +900,7 @@ class ReferenceCompressor(CompressionStrategy):
                 continue
 
             # Hash the chunk for quicker comparison
-            chunk_hash = hashlib.md5(chunk.encode()).hexdigest()
+            chunk_hash = hashlib.sha256(chunk.encode()).hexdigest()
 
             if chunk_hash in potential_patterns:
                 potential_patterns[chunk_hash]["count"] += 1
@@ -921,7 +921,7 @@ class ReferenceCompressor(CompressionStrategy):
                 if len(chunk) < 10:  # Skip very small chunks
                     continue
 
-                chunk_hash = hashlib.md5(chunk.encode()).hexdigest()
+                chunk_hash = hashlib.sha256(chunk.encode()).hexdigest()
                 if chunk_hash in potential_patterns:
                     potential_patterns[chunk_hash]["count"] += 1
                 else:

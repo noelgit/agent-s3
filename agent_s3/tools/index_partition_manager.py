@@ -514,7 +514,7 @@ class IndexPartitionManager:
         if not partition_id:
             # Create a hash of the criteria for the ID
             criteria_str = json.dumps(criteria, sort_keys=True)
-            criteria_hash = hashlib.md5(criteria_str.encode()).hexdigest()[:8]
+            criteria_hash = hashlib.sha256(criteria_str.encode()).hexdigest()[:8]
             partition_id = f"{criteria_hash}_{int(time.time())}"
 
         try:
