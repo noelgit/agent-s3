@@ -202,10 +202,7 @@ export function activate(context: vscode.ExtensionContext) {
       [],
     );
 
-    // Save history when the panel is disposed
-    panel.onDidDispose(() => {
-      context.workspaceState.update("agent-s3.chatHistory", messageHistory);
-    });
+    // No explicit save on dispose; history is persisted as messages arrive
 
     // Set up message handler for chat and interactive messages
     interactiveWebviewManager.setMessageHandler((message: any) => {

@@ -16,6 +16,7 @@ export class BackendConnection implements vscode.Disposable {
   private webSocketClient: WebSocketClient;
   private interactiveWebviewManager: InteractiveWebviewManager | undefined;
   private activeStreams: Map<string, StreamingContent> = new Map();
+  private readonly CHAT_HISTORY_KEY = "agent-s3.chatHistory";
   private outputChannel: vscode.OutputChannel;
   private offlineQueue: any[] = [];
   private workspaceState: vscode.Memento | undefined;
@@ -264,6 +265,15 @@ export class BackendConnection implements vscode.Disposable {
       });
     }
 
+    // Persist the completed agent message
+    this.persistChatMessage({
+      id: streamId,
+      type: "agent",
+      content: stream.content,
+      timestamp: new Date(),
+      isComplete: true,
+    });
+
     // Log completion
     this.outputChannel.appendLine(""); // Ensure we end with a newline
 
@@ -394,6 +404,22 @@ export class BackendConnection implements vscode.Disposable {
   }
 
   /**
+   * Persist a chat message to workspace state
+   */
+  private persistChatMessage(message: ChatHistoryEntry): void {
+    if (!this.workspaceState) {
+      return;
+    }
+
+    const history = this.workspaceState.get<ChatHistoryEntry[]>(
+      this.CHAT_HISTORY_KEY,
+      [],
+    );
+    history.push(message);
+    this.workspaceState.update(this.CHAT_HISTORY_KEY, history);
+  }
+
+  /**
    * Flush queued messages when reconnected
    */
   private flushOfflineQueue(): void {
@@ -505,4 +531,15 @@ interface StreamingContent {
   content: string;
   source: string;
   startTime: Date;
+}
+
+/**
+ * Interface for persisted chat history entries
+ */
+interface ChatHistoryEntry {
+  id: string;
+  type: string;
+  content: string;
+  timestamp: Date;
+  isComplete: boolean;
 }
