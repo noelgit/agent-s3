@@ -9,6 +9,9 @@ import { InteractiveWebviewManager } from "./webview-ui-loader";
 import * as fs from "fs";
 import * as path from "path";
 
+/** Key used for storing chat history in workspace state */
+export const CHAT_HISTORY_KEY = "agent-s3.chatHistory";
+
 /**
  * Manages the connection to the Agent-S3 backend, integrating terminal and WebSocket communication
  */

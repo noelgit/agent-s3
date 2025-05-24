@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { InteractiveWebviewManager } from "./webview-ui-loader";
-import { BackendConnection } from "./backend-connection";
+import { BackendConnection, CHAT_HISTORY_KEY } from "./backend-connection";
 import { initializeWebSocketTester } from "./websocket-tester";
 import { registerPerformanceTestCommand } from "./websocket-performance-test";
 import { quote } from "./shellQuote";
@@ -199,7 +199,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Load persisted chat history from workspace state
     const rawHistory: any[] = context.workspaceState.get(
-      "agent-s3.chatHistory",
+      CHAT_HISTORY_KEY,
       [],
     );
 
@@ -222,10 +222,7 @@ export function activate(context: vscode.ExtensionContext) {
             ? msg.timestamp.toISOString()
             : msg.timestamp,
       }));
-      context.workspaceState.update(
-        "agent-s3.chatHistory",
-        serializedHistory,
-      );
+      context.workspaceState.update(CHAT_HISTORY_KEY, serializedHistory);
     });
 
     // Set up message handler for chat and interactive messages
@@ -281,10 +278,7 @@ export function activate(context: vscode.ExtensionContext) {
                 ? msg.timestamp.toISOString()
                 : msg.timestamp,
           }));
-          context.workspaceState.update(
-            "agent-s3.chatHistory",
-            serializedHistory,
-          );
+          context.workspaceState.update(CHAT_HISTORY_KEY, serializedHistory);
 
           // Forward the message to the backend for processing
           backendConnection.sendMessage({
