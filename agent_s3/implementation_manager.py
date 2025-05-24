@@ -9,6 +9,7 @@ import json
 import os
 import logging
 import datetime
+import re
 from typing import Dict, List, Optional, Any
 
 logger = logging.getLogger(__name__)
@@ -161,10 +162,13 @@ class ImplementationManager:
             with open(design_file, "r") as f:
                 design_content = f.read()
 
-            # Extract design objective (first line or appropriate header)
+            # Extract design objective (first line) and strip markdown headers
             lines = design_content.split("\n")
             if lines and lines[0]:
-                progress["design_objective"] = lines[0].strip()
+                header_line = lines[0].strip()
+                # Remove leading markdown headers such as '#', '##', etc.
+                header_line = re.sub(r"^#+\s*", "", header_line)
+                progress["design_objective"] = header_line
 
             # Extract hierarchical tasks
             tasks = self._extract_tasks_from_design(design_content)
