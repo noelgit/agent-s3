@@ -7,7 +7,7 @@ import json
 import pytest
 from unittest.mock import MagicMock, patch
 
-from agent_s3.tools.plan_validator import PlanValidator
+from agent_s3.tools.plan_validator.validator import PlanValidator
 
 class TestPlanValidator:
     """Test suite for the PlanValidator class."""
@@ -108,10 +108,10 @@ class TestPlanValidator:
         assert result is False
         assert any("no tests specified" in error.lower() for error in errors)
     
-    @patch('agent_s3.tools.plan_validator.PlanValidator.validate_plan_structure')
-    @patch('agent_s3.tools.plan_validator.PlanValidator.validate_implementation_steps')
-    @patch('agent_s3.tools.plan_validator.PlanValidator.validate_architecture_review')
-    @patch('agent_s3.tools.plan_validator.PlanValidator.validate_testing_strategy')
+    @patch('agent_s3.tools.plan_validator.validator.PlanValidator.validate_plan_structure')
+    @patch('agent_s3.tools.plan_validator.validator.PlanValidator.validate_implementation_steps')
+    @patch('agent_s3.tools.plan_validator.validator.PlanValidator.validate_architecture_review')
+    @patch('agent_s3.tools.plan_validator.validator.PlanValidator.validate_testing_strategy')
     def test_validate_full_plan(self, mock_test, mock_arch, mock_impl, mock_struct):
         """Test the full plan validation process with mocks."""
         # All validations pass
