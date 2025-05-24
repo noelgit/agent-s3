@@ -412,60 +412,57 @@ class DatabaseTool:
             # Use specific exceptions if possible
             raise OperationalError(f"SQLAlchemy execution failed: {e}", orig=e, params=params, statement=query) from e
 
-    def _execute_with_bash_tool(self, query: str, params: Dict[str, Any], db_name: str) -> Dict[str,
-         Any]:        """Execute a query using BashTool.
+    def _execute_with_bash_tool(self, query: str, params: Dict[str, Any], db_name: str) -> Dict[str, Any]:
+        """Execute a query using SQLAlchemy with BashTool as a final fallback."""
 
-        Args:
-            query: SQL query to execute
-            params: Dictionary of query parameters
-            db_name: The name of the database configuration to use
+        start_time = time.time()
+        try:
+            with self.get_connection(db_name) as connection:
+                result = connection.execute(text(query), params)
+                duration = (time.time() - start_time) * 1000
+                return {
+                    "success": True,
+                    "results": self._parse_sqlalchemy_results(result),
+                    "duration_ms": duration,
+                }
+        except SQLAlchemyError as exc:
+            logger.warning(
+                "SQLAlchemy execution failed in _execute_with_bash_tool: %s. Falling back to shell command.",
+                exc,
+            )
 
-        Returns:
-            Dictionary with success status, results, and error message if any
-        """
-        execution_start_time = time.time() # Start timing
+        # Fallback to shell command only if SQLAlchemy fails
         db_configs = self.config.config.get("databases", {})
         db_config = db_configs.get(db_name, {})
         db_type = db_config.get("type", "postgresql").lower()
 
-        # Build command based on database type
         command = self._build_db_command(db_config, query)
-        logger.debug("%s", Executing BashTool command: {command}) # Log the command
+        logger.debug("%s", Executing BashTool command: {command})
+        exit_code, output = self.bash_tool.run_command(command, timeout=60)
 
-        # Execute command
-        exit_code, output = self.bash_tool.run_command(command, timeout=60) # Increased timeout slightly
-
-        # Parse output based on database type
         if exit_code == 0:
             if db_type == "sqlite":
-                # SQLite3 with -json flag outputs JSON array, parse directly
                 try:
                     results = json.loads(output)
-                    duration = (time.time() - execution_start_time) * 1000
+                    duration = (time.time() - start_time) * 1000
                     return {"success": True, "results": results, "duration_ms": duration}
                 except json.JSONDecodeError as e:
-                    error_msg = f"JSON decode error: {e}"
-                    logger.error(error_msg)
-                    duration = (time.time() - execution_start_time) * 1000
-                    return {"success": False, "error": error_msg, "raw_output": output, "duration_ms": duration}
-            else:
-                # For PostgreSQL and MySQL, parse as CSV
-                clean_output = self._clean_csv_output(output)
-                results = self._parse_cli_output(clean_output, db_type)
-                duration = (time.time() - execution_start_time) * 1000
-                return {"success": True, "results": results, "duration_ms": duration}
-        else:
-            # Try to extract a more specific error from the output
-            error_detail = output.strip().split('\n')[-1] # Get last line, often contains error
-            error_msg = f"Command failed with exit code {exit_code}. Error: {error_detail}"
-            logger.error("%s", BashTool command failed: {error_msg}\nFull output:\n{output})
-            duration = (time.time() - execution_start_time) * 1000
-            return {
-                "success": False,
-                "error": error_msg, # More specific error
-                "raw_output": output,
-                "duration_ms": duration
-            }
+                    duration = (time.time() - start_time) * 1000
+                    return {"success": False, "error": f"JSON decode error: {e}", "raw_output": output, "duration_ms": duration}
+
+            clean_output = self._clean_csv_output(output)
+            results = self._parse_cli_output(clean_output, db_type)
+            duration = (time.time() - start_time) * 1000
+            return {"success": True, "results": results, "duration_ms": duration}
+
+        error_detail = output.strip().split("\n")[-1]
+        duration = (time.time() - start_time) * 1000
+        return {
+            "success": False,
+            "error": f"Command failed with exit code {exit_code}. Error: {error_detail}",
+            "raw_output": output,
+            "duration_ms": duration,
+        }
 
     def _build_db_command(self, db_config: Dict[str, Any], query: str) -> str:
         """Build the command to execute based on database type.
@@ -525,6 +522,17 @@ class DatabaseTool:
 
         # Fallback - should not reach here
         return f"{client} -e {safe_query}"
+
+    def _parse_sqlalchemy_results(self, result: "sqlalchemy.engine.Result") -> List[Dict[str, Any]]:
+        """Convert SQLAlchemy result to a list of dictionaries."""
+        try:
+            if hasattr(result, "mappings"):
+                return [dict(row) for row in result.mappings()]
+            keys = result.keys()
+            return [dict(zip(keys, row)) for row in result.fetchall()]
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error("Failed to parse SQLAlchemy results: %s", exc)
+            return []
 
     def _parse_cli_output(self, output: str, db_type: str) -> List[Dict[str, Any]]:
         """Parse the CLI output from the database command.

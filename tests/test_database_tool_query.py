@@ -1,8 +1,9 @@
 from unittest.mock import MagicMock
+from contextlib import contextmanager
 
 import pytest
 
-from agent_s3.tools.database_tool import DatabaseTool
+from agent_s3.tools.database_tool import DatabaseTool, OperationalError
 
 class DummyConfig:
     def __init__(self):
@@ -64,4 +65,48 @@ def test_execute_query_fallback_on_error(db_tool, monkeypatch):
     result = db_tool.execute_query("SELECT 1")
 
     db_tool._execute_with_bash_tool.assert_called_once()
+    assert result["success"] is True
+
+
+def test_execute_with_bash_tool_sqlalchemy_path(monkeypatch):
+    monkeypatch.setattr(DatabaseTool, "_setup_connections", lambda self: None)
+    tool = DatabaseTool(DummyConfig())
+    tool.use_sqlalchemy = True
+
+    mock_conn = MagicMock()
+
+    @contextmanager
+    def fake_conn(*_args, **_kwargs):
+        yield mock_conn
+
+    monkeypatch.setattr(tool, "get_connection", fake_conn)
+    mock_conn.execute.return_value = MagicMock(mappings=lambda: [{"n": 1}])
+    tool.bash_tool.run_command = MagicMock()
+
+    result = tool._execute_with_bash_tool("SELECT :n", {"n": 1}, "default")
+
+    mock_conn.execute.assert_called_once()
+    tool.bash_tool.run_command.assert_not_called()
+    assert result["success"] is True
+
+
+def test_execute_with_bash_tool_shell_fallback(monkeypatch):
+    monkeypatch.setattr(DatabaseTool, "_setup_connections", lambda self: None)
+    tool = DatabaseTool(DummyConfig())
+    tool.use_sqlalchemy = True
+
+    @contextmanager
+    def fail_conn(*_args, **_kwargs):
+        raise OperationalError("fail", {}, None)
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(tool, "get_connection", fail_conn)
+    tool.bash_tool.run_command = MagicMock(return_value=(0, "[]"))
+    monkeypatch.setattr(tool, "_build_db_command", lambda *a, **k: "cmd")
+    monkeypatch.setattr(tool, "_clean_csv_output", lambda x: x)
+    monkeypatch.setattr(tool, "_parse_cli_output", lambda x, y: [])
+
+    result = tool._execute_with_bash_tool("SELECT 1", {}, "default")
+
+    tool.bash_tool.run_command.assert_called_once()
     assert result["success"] is True
