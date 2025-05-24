@@ -115,6 +115,15 @@ class TestEnhancedWebSocketServer(unittest.TestCase):
         expected_task_count = 4  # heartbeat, queue processor, expiry cleaner, metrics logger
         self.assertEqual(mock_create_task.call_count, expected_task_count)
 
+        mock_serve.assert_awaited_once_with(
+            self.server._handle_client,
+            self.server.host,
+            self.server.port,
+            ping_interval=self.server.heartbeat_interval,
+            ping_timeout=self.server.heartbeat_interval * 2,
+            max_size=self.server.max_message_size,
+        )
+
     @patch("asyncio.gather", new_callable=AsyncMock)
     async def test_stop(self, mock_gather):
         """Test stopping the WebSocket server."""
@@ -312,6 +321,42 @@ class TestEnhancedWebSocketServer(unittest.TestCase):
 
         handler_task = asyncio.create_task(
             self.server._handle_client(mock_websocket, "/")
+        )
+
+        await asyncio.sleep(0.1)
+        handler_task.cancel()
+
+        mock_websocket.send.assert_called()
+        send_args, _ = mock_websocket.send.call_args_list[-1]
+        sent_msg = json.loads(send_args[0])
+        self.assertEqual(sent_msg["type"], "error_notification")
+
+    @patch("agent_s3.communication.enhanced_websocket_server.logger.error")
+    async def test_custom_limit_oversized_message_rejected(self, mock_logger_error):
+        """Custom max_message_size should reject larger messages."""
+        small_server = EnhancedWebSocketServer(
+            message_bus=self.message_bus,
+            host="localhost",
+            port=self.test_port,
+            auth_token="test-token",
+            heartbeat_interval=1,
+            max_message_size=10,
+        )
+
+        mock_websocket = AsyncMock()
+        mock_websocket.send = AsyncMock()
+
+        mock_websocket.recv = AsyncMock(
+            return_value=json.dumps({"type": "authenticate", "content": {"token": "test-token"}})
+        )
+
+        async def message_gen():
+            yield "x" * 11
+
+        mock_websocket.__aiter__.return_value = message_gen()
+
+        handler_task = asyncio.create_task(
+            small_server._handle_client(mock_websocket, "/")
         )
 
         await asyncio.sleep(0.1)

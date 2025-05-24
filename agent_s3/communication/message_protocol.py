@@ -252,7 +252,7 @@ class Message:
             try:
                 validate(instance=content, schema=MESSAGE_SCHEMAS[self.type.value])
             except jsonschema.exceptions.ValidationError as e:
-                logger.error("%s", Message schema validation failed: {e})
+                logger.error("%s", f"Message schema validation failed: {e}")
                 raise ValueError(
                     f"Message schema validation failed: {e}") from e
 
@@ -311,13 +311,12 @@ class MessageBus:
             "handler_errors": 0
         }
 
-    def register_handler(self, message_type: Union[MessageType, str], handler_fn: Callable[[Message]
-        , None]):        """Register a handler for a specific message type.
-
-        Args:
-            message_type: The message type to handle
-            handler_fn: The handler function that takes a Message as argument
-        """
+    def register_handler(
+        self,
+        message_type: Union[MessageType, str],
+        handler_fn: Callable[[Message], None],
+    ) -> None:
+        """Register a handler for a specific message type."""
         if isinstance(message_type, str):
             message_type = MessageType(message_type)
 
@@ -325,18 +324,16 @@ class MessageBus:
             self.handlers[message_type.value] = []
 
         self.handlers[message_type.value].append(handler_fn)
-        logger.debug("%s", Registered handler for message type: {message_type.value})
+        logger.debug(
+            "%s", f"Registered handler for message type: {message_type.value}"
+        )
 
-    def unregister_handler(self, message_type: Union[MessageType, str],
-         handler_fn: Callable[[Message], None]) -> bool:        """Unregister a handler for a specific message type.
-
-        Args:
-            message_type: The message type
-            handler_fn: The handler function to remove
-
-        Returns:
-            True if handler was removed, False otherwise
-        """
+    def unregister_handler(
+        self,
+        message_type: Union[MessageType, str],
+        handler_fn: Callable[[Message], None],
+    ) -> bool:
+        """Unregister a handler for a specific message type."""
         if isinstance(message_type, str):
             message_type = MessageType(message_type)
 
@@ -369,7 +366,7 @@ class MessageBus:
                     self.metrics["messages_handled"] += 1
                 except Exception as e:
                     self.metrics["handler_errors"] += 1
-                    logger.error("%s", Error in message handler: {e})
+                    logger.error("%s", f"Error in message handler: {e}")
 
         # Also notify topic subscribers
         if message_type in self.topic_subscribers:
@@ -379,18 +376,19 @@ class MessageBus:
                         self.client_handlers[client_id](message)
                         handled = True
                     except Exception as e:
-                        logger.error("%s", Error in client handler for {client_id}: {e})
+                        logger.error(
+                            "%s", f"Error in client handler for {client_id}: {e}"
+                        )
 
         return handled
 
-    def subscribe_client(self, client_id: str, message_type: Union[MessageType, str],
-         handler_fn: Callable[[Message], None]):        """Subscribe a client to a specific message type.
-
-        Args:
-            client_id: The client identifier
-            message_type: The message type to subscribe to
-            handler_fn: The handler function for messages
-        """
+    def subscribe_client(
+        self,
+        client_id: str,
+        message_type: Union[MessageType, str],
+        handler_fn: Callable[[Message], None],
+    ) -> None:
+        """Subscribe a client to a specific message type."""
         if isinstance(message_type, str):
             message_type = MessageType(message_type)
 
@@ -399,16 +397,16 @@ class MessageBus:
 
         self.topic_subscribers[message_type.value].add(client_id)
         self.client_handlers[client_id] = handler_fn
-        logger.debug("%s", Client {client_id} subscribed to {message_type.value})
+        logger.debug(
+            "%s", f"Client {client_id} subscribed to {message_type.value}"
+        )
 
-    def unsubscribe_client(self, client_id: str, message_type: Optional[Union[MessageType,
-         str]] = None):        """Unsubscribe a client from message types.
-
-        Args:
-            client_id: The client identifier
-            message_type: Optional specific message type to unsubscribe from.
-                         If None, unsubscribe from all.
-        """
+    def unsubscribe_client(
+        self,
+        client_id: str,
+        message_type: Optional[Union[MessageType, str]] = None,
+    ) -> None:
+        """Unsubscribe a client from message types."""
         if message_type is not None:
             if isinstance(message_type, str):
                 message_type = MessageType(message_type)
@@ -429,7 +427,7 @@ class MessageBus:
 
         if not has_subscriptions and client_id in self.client_handlers:
             del self.client_handlers[client_id]
-            logger.debug("%s", Removed client handler for {client_id})
+            logger.debug("%s", f"Removed client handler for {client_id}")
 
     def get_metrics(self) -> Dict[str, int]:
         """Get message bus metrics.
@@ -488,21 +486,17 @@ class MessageBus:
         self.publish(message)
         return stream_id
 
-    def publish_stream_content(self, stream_id: str, content: str, session_id: Optional[str] = None)
-         -> None:        """Publish content to an existing stream.
-
-        Args:
-            stream_id: The stream ID returned from publish_stream_start
-            content: The content to stream
-            session_id: Optional session ID to group related messages
-        """
+    def publish_stream_content(
+        self,
+        stream_id: str,
+        content: str,
+        session_id: Optional[str] = None,
+    ) -> None:
+        """Publish content to an existing stream."""
         message = Message(
             type=MessageType.STREAM_CONTENT,
-            content={
-                "stream_id": stream_id,
-                "content": content
-            },
-            session_id=session_id
+            content={"stream_id": stream_id, "content": content},
+            session_id=session_id,
         )
         self.publish(message)
 
@@ -522,20 +516,16 @@ class MessageBus:
         )
         self.publish(message)
 
-    def publish_stream_interactive(self, stream_id: str, component: Dict[str, Any],
-         session_id: Optional[str] = None) -> None:        """Publish an interactive component for a stream.
-
-        Args:
-            stream_id: The stream ID to attach the component to
-            component: The component definition
-            session_id: Optional session ID
-        """
+    def publish_stream_interactive(
+        self,
+        stream_id: str,
+        component: Dict[str, Any],
+        session_id: Optional[str] = None,
+    ) -> None:
+        """Publish an interactive component for a stream."""
         message = Message(
             type=MessageType.STREAM_INTERACTIVE,
-            content={
-                "stream_id": stream_id,
-                "component": component,
-            },
+            content={"stream_id": stream_id, "component": component},
             session_id=session_id,
         )
         self.publish(message)
