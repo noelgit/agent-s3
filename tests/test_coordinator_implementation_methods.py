@@ -1,7 +1,7 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 from agent_s3.coordinator import Coordinator
-
 
 def create_coordinator():
     coord = Coordinator.__new__(Coordinator)

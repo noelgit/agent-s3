@@ -1,10 +1,8 @@
 """Utilities for loading per-user Agent-S3 configuration."""
-
-from __future__ import annotations
-
 import json
 import os
-from typing import Dict, Any
+from typing import Any
+from typing import Dict
 
 CONFIG_PATH = os.path.expanduser("~/.agent_s3/user_config.json")
 

@@ -3,7 +3,8 @@ EnvTool: Environment activation and package management utilities.
 Follows security and performance best practices (see Copilot instructions).
 """
 import os
-from typing import Dict, Optional
+from typing import Dict
+from typing import Optional
 
 class EnvTool:
     """Handles virtual environment activation and package inspection."""

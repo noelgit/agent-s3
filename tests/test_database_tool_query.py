@@ -1,8 +1,8 @@
-import pytest
 from unittest.mock import MagicMock
 
-from agent_s3.tools.database_tool import DatabaseTool
+import pytest
 
+from agent_s3.tools.database_tool import DatabaseTool
 
 class DummyConfig:
     def __init__(self):

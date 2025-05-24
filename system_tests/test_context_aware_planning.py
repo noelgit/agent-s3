@@ -27,12 +27,12 @@ def styled_project(workspace):
     # Create directories
     (workspace / "src").mkdir()
     (workspace / "tests").mkdir()
-    
+
     # Create a Python file with very specific style conventions
     math_utils_path = workspace / "src" / "math_utils.py"
     math_utils_content = """# math_utils.py
 # Copyright (c) 2023 Example Company
-# 
+#
 # Math utility functions with company-standard error handling and logging
 
 import logging
@@ -53,56 +53,56 @@ ERROR_OVERFLOW = "MATH-003"
 def validate_number(value: Any) -> Number:
     \"\"\"
     Validate that a value is a number.
-    
+
     Parameters:
         value: The value to validate
-        
+
     Returns:
         The value, if it's a valid number
-        
+
     Raises:
         TypeError: If the value is not a number
     \"\"\"
     if not isinstance(value, (int, float)):
-        logger.error(f"{ERROR_INVALID_INPUT}: Invalid number: {value}")
+        logger.error("%s", {ERROR_INVALID_INPUT}: Invalid number: {value})
         raise TypeError(f"{ERROR_INVALID_INPUT}: Expected a number, got {type(value).__name__}")
     return value
 
 def add(a: Number, b: Number) -> Number:
     \"\"\"
     Add two numbers with input validation.
-    
+
     Parameters:
         a: First number
         b: Second number
-        
+
     Returns:
         Sum of the two numbers
-        
+
     Raises:
         TypeError: If inputs are not numbers
     \"\"\"
     # Validate inputs
     a = validate_number(a)
     b = validate_number(b)
-    
+
     # Perform operation and log
     result = a + b
-    logger.debug(f"Addition: {a} + {b} = {result}")
-    
+    logger.debug("%s", Addition: {a} + {b} = {result})
+
     return result
 
 def divide(numerator: Number, denominator: Number) -> Number:
     \"\"\"
     Divide numerator by denominator with validation.
-    
+
     Parameters:
         numerator: The number to divide
         denominator: The number to divide by
-        
+
     Returns:
         Result of the division
-        
+
     Raises:
         TypeError: If inputs are not numbers
         ValueError: If denominator is zero
@@ -110,22 +110,22 @@ def divide(numerator: Number, denominator: Number) -> Number:
     # Validate inputs
     numerator = validate_number(numerator)
     denominator = validate_number(denominator)
-    
+
     # Check for zero denominator
     if denominator == 0:
-        logger.error(f"{ERROR_DIVIDE_BY_ZERO}: Division by zero attempted")
+        logger.error("%s", {ERROR_DIVIDE_BY_ZERO}: Division by zero attempted)
         raise ValueError(f"{ERROR_DIVIDE_BY_ZERO}: Cannot divide by zero")
-    
+
     # Perform operation and log
     result = numerator / denominator
-    logger.debug(f"Division: {numerator} / {denominator} = {result}")
-    
+    logger.debug("%s", Division: {numerator} / {denominator} = {result})
+
     return result
 """
-    
+
     with open(math_utils_path, "w") as f:
         f.write(math_utils_content)
-    
+
     # Create a test file with matching style
     test_path = workspace / "tests" / "test_math_utils.py"
     test_content = """# test_math_utils.py
@@ -138,55 +138,55 @@ from src.math_utils import ERROR_INVALID_INPUT, ERROR_DIVIDE_BY_ZERO
 
 class TestMathUtils(unittest.TestCase):
     \"\"\"Test suite for math utility functions.\"\"\"
-    
+
     def setUp(self) -> None:
         \"\"\"Set up test environment.\"\"\"
         # Disable logging for tests
         logging.disable(logging.CRITICAL)
-    
+
     def tearDown(self) -> None:
         \"\"\"Clean up after tests.\"\"\"
         # Re-enable logging
         logging.disable(logging.NOTSET)
-    
+
     def test_validate_number_valid(self) -> None:
         \"\"\"Test validate_number with valid inputs.\"\"\"
         self.assertEqual(validate_number(5), 5)
         self.assertEqual(validate_number(3.14), 3.14)
-    
+
     def test_validate_number_invalid(self) -> None:
         \"\"\"Test validate_number with invalid inputs.\"\"\"
         with self.assertRaises(TypeError) as cm:
             validate_number("not a number")
         self.assertIn(ERROR_INVALID_INPUT, str(cm.exception))
-    
+
     def test_add_valid(self) -> None:
         \"\"\"Test add with valid inputs.\"\"\"
         self.assertEqual(add(2, 3), 5)
         self.assertEqual(add(-1, 1), 0)
         self.assertEqual(add(1.5, 2.5), 4.0)
-    
+
     def test_add_invalid(self) -> None:
         \"\"\"Test add with invalid inputs.\"\"\"
         with self.assertRaises(TypeError) as cm:
             add("2", 3)
         self.assertIn(ERROR_INVALID_INPUT, str(cm.exception))
-    
+
     def test_divide_valid(self) -> None:
         \"\"\"Test divide with valid inputs.\"\"\"
         self.assertEqual(divide(6, 3), 2)
         self.assertEqual(divide(5, 2), 2.5)
-    
+
     def test_divide_by_zero(self) -> None:
         \"\"\"Test divide with zero denominator.\"\"\"
         with self.assertRaises(ValueError) as cm:
             divide(5, 0)
         self.assertIn(ERROR_DIVIDE_BY_ZERO, str(cm.exception))
 """
-    
+
     with open(test_path, "w") as f:
         f.write(test_content)
-    
+
     return {
         "root": workspace,
         "math_utils_path": math_utils_path,
@@ -198,10 +198,10 @@ def test_planning_adapts_to_code_style(styled_project, test_config, scratchpad):
     """Test that the planner adapts to existing code style patterns."""
     # Create Coordinator with necessary components
     coordinator = Coordinator(config=test_config, scratchpad=scratchpad)
-    
+
     # Create a task that requires implementing a new function
     task = "Add a subtract function to the math_utils module"
-    
+
     # Create a mock LLM response for the planner
     with patch('agent_s3.llm_utils.cached_call_llm') as mock_llm:
         # Define a response that should adopt the existing code style
@@ -248,13 +248,13 @@ def test_planning_adapts_to_code_style(styled_project, test_config, scratchpad):
                 ]
             })
         }
-        
+
         # Create a Planner instance with the mock coordinator
         planner = Planner(coordinator=coordinator)
-        
+
         # Call create_plan
         plan = planner.create_plan(task)
-        
+
         # Verify the plan contains the expected elements
         assert "subtract function" in plan.lower()
         assert "ERROR_INVALID_INPUT" in plan
@@ -262,7 +262,7 @@ def test_planning_adapts_to_code_style(styled_project, test_config, scratchpad):
         assert "validate_number" in plan
         assert "test_subtract" in plan.lower()
         assert "logger.debug" in plan.lower()
-        
+
         # The plan should reference the company's style
         assert "following existing style patterns" in plan.lower()
 
@@ -271,10 +271,10 @@ def test_planning_considers_project_structure(basic_project, test_config, scratc
     """Test that the planner considers the existing project structure."""
     # Set up coordinator
     coordinator = Coordinator(config=test_config, scratchpad=scratchpad)
-    
+
     # Task to create a new module
     task = "Create a new module for date handling functions"
-    
+
     # Mock the LLM response
     with patch('agent_s3.llm_utils.cached_call_llm') as mock_llm:
         mock_llm.return_value = {
@@ -308,13 +308,13 @@ def test_planning_considers_project_structure(basic_project, test_config, scratc
                 ]
             })
         }
-        
+
         # Create a planner
         planner = Planner(coordinator=coordinator)
-        
+
         # Get the plan
         plan = planner.create_plan(task)
-        
+
         # Verify the plan respects the project structure
         assert "src/date_utils.py" in plan
         assert "tests/test_date_utils.py" in plan
@@ -325,22 +325,22 @@ def test_planning_avoids_duplication(basic_project, test_config, scratchpad):
     """Test that the planner avoids duplicating existing functionality."""
     # Set up coordinator
     coordinator = Coordinator(config=test_config, scratchpad=scratchpad)
-    
+
     # Add another greeting function
     greetings_path = basic_project["module_file"]
     with open(greetings_path, "a") as f:
         f.write("\ndef formal_greeting(name):\n    return f\"Good day, {name}.\"\n")
-    
+
     # Task that might duplicate existing functionality
     task = "Add a greeting function that is more formal"
-    
+
     # Mock the LLM response to show awareness of existing functions
     with patch('agent_s3.llm_utils.cached_call_llm') as mock_llm:
         mock_llm.return_value = {
             'success': True,
             'response': json.dumps({
                 "discussion": "I notice there's already a formal_greeting function in the module. " +
-                             "Instead of duplicating, I'll create a very_formal_greeting function that's even more formal.",
+                                                                                         "Instead of duplicating, I'll create a very_formal_greeting function that's even more formal.",
                 "plan": [
                     "Add a very_formal_greeting function to src/greetings.py that's more formal than the existing formal_greeting",
                     "Add tests for the new function",
@@ -368,13 +368,13 @@ def test_planning_avoids_duplication(basic_project, test_config, scratchpad):
                 ]
             })
         }
-        
+
         # Create a planner
         planner = Planner(coordinator=coordinator)
-        
+
         # Get the plan
         plan = planner.create_plan(task)
-        
+
         # Verify the plan acknowledges existing functionality
         assert "formal_greeting" in plan
         assert "already" in plan.lower() or "existing" in plan.lower()
@@ -387,11 +387,11 @@ def test_planning_considers_dependencies(workspace, test_config, scratchpad):
     # Create a project with dependencies
     (workspace / "src").mkdir()
     (workspace / "tests").mkdir()
-    
+
     # Create a requirements.txt file
     req_file = workspace / "requirements.txt"
     req_file.write_text("requests==2.28.1\npandas==1.5.3\n")
-    
+
     # Create a simple module that uses these libraries
     api_module = workspace / "src" / "api_client.py"
     api_module.write_text("""
@@ -409,13 +409,13 @@ def get_status(url):
     response = requests.get(url)
     return response.status_code
 """)
-    
+
     # Set up coordinator
     coordinator = Coordinator(config=test_config, scratchpad=scratchpad)
-    
+
     # Task to add functionality that would need new dependencies
     task = "Add a function to save the DataFrame to an Excel file"
-    
+
     # Mock the LLM response
     with patch('agent_s3.llm_utils.cached_call_llm') as mock_llm:
         mock_llm.return_value = {
@@ -457,13 +457,13 @@ def get_status(url):
                 ]
             })
         }
-        
+
         # Create a planner
         planner = Planner(coordinator=coordinator)
-        
+
         # Get the plan
         plan = planner.create_plan(task)
-        
+
         # Verify the plan considers dependencies
         assert "openpyxl" in plan
         assert "requirements.txt" in plan

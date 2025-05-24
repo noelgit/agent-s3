@@ -1,10 +1,10 @@
 import io
-import types
 import subprocess
+import types
 
 from agent_s3.terminal_executor import TerminalExecutor
-from agent_s3.tools.git_tool import GitTool
 from agent_s3.tools.error_context_manager import ErrorContextManager
+from agent_s3.tools.git_tool import GitTool
 
 class DummyConfig:
     def __init__(self):

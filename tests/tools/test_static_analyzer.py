@@ -10,7 +10,7 @@ from agent_s3.tools.static_analyzer import StaticAnalyzer
 PHP_SNIPPET_CLASS = '''
 <?php
 namespace MyApp;
-use OtherApp\BaseClass;
+use OtherApp\\BaseClass;
 class Foo extends BaseClass implements IFoo, IBar {
     public function bar() { baz(); }
 }
@@ -60,21 +60,21 @@ urlpatterns = [
 ]
 """
     results = analyzer.analyze_file("app/urls.py", content=code)
-    
+
     # Verify view functions get framework_role='view'
     view_functions = [
-        n for n in results['nodes'] 
+        n for n in results['nodes']
         if n.get('framework_role') == 'view'
     ]
     assert len(view_functions) == 2, "Should detect both function and class views"
-    
+
     # Verify route_handler edges are resolved
     route_edges = [
         e for e in results['edges']
         if e['type'] == 'route_handler' and e['resolved']
     ]
     assert len(route_edges) == 2, "Both routes should be resolved"
-    
+
     # Verify Flask-style detection (negative test)
     flask_code = '''
 from flask import Flask

@@ -1,8 +1,8 @@
 import os
-import unittest
 import socket
-from agent_s3.vscode_integration import VSCodeIntegration
+import unittest
 
+from agent_s3.vscode_integration import VSCodeIntegration
 
 def get_free_port() -> int:
     s = socket.socket()

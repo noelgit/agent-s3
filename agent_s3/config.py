@@ -224,30 +224,30 @@ class ConfigModel(BaseModel):
 
 class Config:
     """Configuration manager for Agent-S3.
-    
+
     Loads and provides access to configuration data and coding guidelines from .github/copilot-instructions.md.
     """
-    
+
     def __init__(self, guidelines_path: Optional[str] = None):
         """Initialize the configuration manager.
-        
+
         Args:
             guidelines_path: Optional path to the guidelines file. If not provided,
                            uses the default path in the project root.
         """
         # Default paths
         self.guidelines_path = guidelines_path or str(Path(os.getcwd()) / ".github" / "copilot-instructions.md")
-        
+
         # OS Detection
         self.host_os_type = platform.system().lower()
         self.host_os = self.host_os_type  # Add alias for compatibility
-        
+
         # Flag to track if config loading failed
         self.load_failed = False
-        
+
         # GitHub token placeholder
         self.github_token = None
-        
+
         self.guidelines: List[str] = []
         self.settings: ConfigModel = ConfigModel()
         self._config_dict = self.settings.dict()
@@ -293,9 +293,9 @@ class Config:
                     if isinstance(user_config, dict):
                         runtime_config.update(user_config)
             except json.JSONDecodeError:
-                logger.error(f"Invalid JSON in {json_path}")
+                logger.error("Invalid JSON in %s", json_path)
             except Exception as e:
-                logger.error(f"Error loading {json_path}: {e}")
+                logger.error("Error loading %s: %s", json_path, e)
 
         # Load additional llm model configuration if available
         llm_config_path = os.path.join(os.getcwd(), 'llm.json')
@@ -307,7 +307,7 @@ class Config:
             except json.JSONDecodeError:
                 logger.error("Invalid JSON in llm.json")
             except Exception as e:
-                logger.error(f"Error loading llm.json: {e}")
+                logger.error("Error loading llm.json: %s", e)
 
         try:
             self.config = runtime_config
@@ -332,10 +332,10 @@ class Config:
         # Load fresh config
         self.load()
         logger.info("Configuration reloaded")
-    
+
     def _extract_guidelines_from_md(self) -> List[str]:
         """Extract coding guidelines from .github/copilot-instructions.md.
-        
+
         Returns:
             List of guidelines extracted from markdown headings and lists.
         """
@@ -344,48 +344,48 @@ class Config:
             if os.path.exists(self.guidelines_path):
                 with open(self.guidelines_path, 'r', encoding='utf-8') as f:
                     content = f.read()
-                
+
                 # Extract section headings (##, ###)
                 section_headers = re.findall(r'^#{2,3}\s+(.+?)$', content, re.MULTILINE)
                 guidelines.extend(section_headers)
-                
+
                 # Extract list items (- bullet points)
                 list_items = re.findall(r'^\s*-\s+(.+?)$', content, re.MULTILINE)
                 guidelines.extend(list_items)
-                
-                logger.info(f"Extracted {len(guidelines)} guidelines from {self.guidelines_path}")
+
+                logger.info("Extracted %d guidelines from %s", len(guidelines), self.guidelines_path)
             else:
-                logger.warning(f"Guidelines file not found: {self.guidelines_path}")
+                logger.warning("Guidelines file not found: %s", self.guidelines_path)
         except Exception as e:
-            logger.error(f"Error extracting guidelines: {e}")
-        
+            logger.error("Error extracting guidelines: %s", e)
+
         return guidelines
-    
+
     def get_guideline_fragments(self, max_fragments: int = 5) -> List[str]:
         """Get a sample of guideline fragments to enhance prompts.
-        
+
         Args:
             max_fragments: Maximum number of guideline fragments to return
-            
+
         Returns:
             List of guideline fragments, limited to max_fragments
         """
         if not self.guidelines:
             return []
-        
+
         # Return a sample of guidelines
         import random
         if len(self.guidelines) <= max_fragments:
             return self.guidelines
         else:
             return random.sample(self.guidelines, max_fragments)
-            
+
     def get_log_file_path(self, log_type: str) -> str:
         """Get the path to a specific log file.
-        
+
         Args:
             log_type: Type of log file ("development", "debug", or "error")
-            
+
         Returns:
             Absolute path to the log file
         """
@@ -397,10 +397,10 @@ class Config:
 
 def get_config():
     """Get the loaded configuration instance.
-    
+
     If the configuration hasn't been loaded yet, it will be loaded
     with default parameters.
-    
+
     Returns:
         The loaded configuration dictionary.
     """

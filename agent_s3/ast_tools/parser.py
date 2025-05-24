@@ -28,11 +28,13 @@ try:
 except AttributeError:  # pragma: no cover - legacy API
     JS_PARSER.set_language(JS_LANGUAGE)
 
+
 def parse_python(code: str) -> Any:
     """Parse Python code to a concrete syntax tree (CST) using LibCST."""
     if libcst is None:
         raise ImportError("libcst is required for parse_python")
     return libcst.parse_module(code)
+
 
 def parse_js(code: str):
     """Parse JavaScript code to a syntax tree using Tree-sitter."""

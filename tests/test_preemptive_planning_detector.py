@@ -1,6 +1,6 @@
-from agent_s3.tools import preemptive_planning_detector as ppd
 from unittest.mock import patch
 
+from agent_s3.tools import preemptive_planning_detector as ppd
 
 VALID_PLAN = {
     "original_request": "Test",

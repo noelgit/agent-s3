@@ -1,9 +1,13 @@
 """
 SummaryValidator: Validates LLM-generated summaries for faithfulness, detail preservation, and structure.
 """
-from typing import Optional, Dict, Any, Union
-from agent_s3.tools.summarization.validation_metrics import compute_overall_quality
+from typing import Any
+from typing import Dict
+from typing import Optional
+from typing import Union
+
 from agent_s3.tools.summarization.validation_config import SummaryValidationConfig
+from agent_s3.tools.summarization.validation_metrics import compute_overall_quality
 
 class SummaryValidator:
     """Validates LLM-generated summaries against source content."""

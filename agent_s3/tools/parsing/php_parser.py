@@ -18,8 +18,8 @@ class PHPTreeSitterParser(LanguageParser):
     def get_supported_extensions(self) -> List[str]:
         return ['.php', '.php3', '.php4', '.php5', '.phtml']
 
-    def analyze(self, code_str: str, file_path: str, tech_stack: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        nodes = []
+    def analyze(self, code_str: str, file_path: str, tech_stack: Optional[Dict[str, Any]] = None)
+         -> Dict[str, Any]:        nodes = []
         edges = []
         try:
             tree = self.parser.parse(bytes(code_str, 'utf8'))

@@ -90,15 +90,15 @@ class TestPlanner(unittest.TestCase):
 
         # Instantiate Planner with mocked Coordinator
         self.planner = Planner(coordinator=self.mock_coordinator)
-        
+
         # Mock the new components added in our implementation
         self.planner.context_gatherer = MagicMock()
         self.planner.context_gatherer.gather_context.return_value = {}
-        
+
         self.planner.persona_debate_manager = MagicMock()
         self.planner.persona_debate_manager._default_debate_template = "Debate Template"
         self.planner.persona_debate_manager.personas = [{"role": "Expert"}, {"role": "Critic"}]
-        
+
         # Also assign the mocked router to the planner instance directly
         self.planner.router = self.mock_coordinator.router
 
@@ -128,8 +128,8 @@ class TestPlanner(unittest.TestCase):
         self.assertIn("Focuses on how.", personas["Expert Coder"])
         mock_exists.assert_called_with(expected_path)
         mock_file.assert_called_once_with(expected_path, "r", encoding='utf-8')
-        self.mock_coordinator.scratchpad.log.assert_any_call("Planner", "Successfully loaded 4 personas from " + expected_path)
-
+        self.mock_coordinator.scratchpad.log.assert_any_call("Planner", "Successfully loaded 4 personas from " +
+                                     expected_path)
 
     @patch("os.path.exists", return_value=False)
     def test_load_personas_not_found(self, mock_exists):

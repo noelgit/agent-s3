@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
+from agent_s3.pre_planning_errors import ValidationError
+from agent_s3.pre_planning_errors import handle_pre_planning_errors
 from agent_s3.pre_planning_validator import PrePlanningValidator
-from agent_s3.pre_planning_errors import handle_pre_planning_errors, ValidationError
 
 # Create a simple validator
 validator = PrePlanningValidator()

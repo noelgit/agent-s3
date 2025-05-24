@@ -37,10 +37,10 @@ logger = logging.getLogger(__name__)
 def get_base_system_prompt() -> str:
     """
     Get the base system prompt for pre-planning.
-    
+
     This provides the foundational instructions that all pre-planners should follow.
     Specialized implementations may extend this with additional format requirements.
-    
+
     Returns:
         String containing the base system prompt
     """
@@ -78,13 +78,13 @@ Follow these general guidelines:
 def get_base_user_prompt(task_description: str) -> str:
     """
     Get the base user prompt for pre-planning.
-    
+
     This provides the foundation for what to ask the LLM during pre-planning.
     Specialized implementations may extend this with format requirements.
-    
+
     Args:
         task_description: The original task description
-        
+
     Returns:
         String containing the base user prompt
     """
@@ -118,10 +118,10 @@ def get_json_user_prompt(task_description: str) -> str:
 def create_fallback_pre_planning_output(task_description: str) -> Dict[str, Any]:
     """
     Create a minimal fallback pre-planning output when regular pre-planning fails.
-    
+
     Args:
         task_description: The original task description
-        
+
     Returns:
         Dictionary with basic pre-planning structure
     """
@@ -165,38 +165,38 @@ def create_fallback_json(task_description: str) -> Dict[str, Any]:
 def validate_pre_planning_output(data: Dict[str, Any]) -> Tuple[bool, str]:
     """
     Basic validation of pre-planning output for minimal correctness.
-    
+
     Args:
         data: Pre-planning output to validate
-        
+
     Returns:
         Tuple of (is_valid, error_message)
     """
     if not isinstance(data, dict):
         return False, "Pre-planning output is not a dictionary"
-    
+
     # Check for request info
     if "original_request" not in data:
         return False, "Missing 'original_request' in output"
-    
+
     # Check for features array
     if "features" not in data or not isinstance(data["features"], list):
         return False, "Missing or invalid 'features' in output"
-    
+
     if not data["features"]:
         return False, "Features array is empty"
-    
+
     # Basic feature structure validation
     for i, feature in enumerate(data["features"]):
         if not isinstance(feature, dict):
             return False, f"Feature at index {i} is not a dictionary"
-        
+
         if "name" not in feature:
             return False, f"Feature at index {i} is missing 'name'"
-        
+
         if "description" not in feature:
             return False, f"Feature at index {i} is missing 'description'"
-    
+
     return True, "Pre-planning output is valid"
 
 # JSON schema for validation
@@ -239,7 +239,7 @@ def validate_preplan_all(data) -> Tuple[bool, str]:
     is_valid, validation_msg = validate_json_schema(data)
     if not is_valid:
         errors.append(f"JSON schema validation error: {validation_msg}")
-    
+
     # 2. Enhanced validation with PrePlannerJsonValidator
     try:
         from agent_s3.pre_planner_json_validator import PrePlannerJsonValidator
@@ -250,7 +250,7 @@ def validate_preplan_all(data) -> Tuple[bool, str]:
                 errors.append(f"Enhanced validation error: {error}")
     except Exception as e:
         errors.append(f"Enhanced validator exception: {str(e)}")
-    
+
     # 3. Static plan checker
     try:
         from agent_s3.tools.plan_validator import validate_pre_plan
@@ -263,7 +263,7 @@ def validate_preplan_all(data) -> Tuple[bool, str]:
                 errors.append(f"Static plan checker error: {static_msg}")
     except Exception as e:
         errors.append(f"Static plan checker exception: {e}")
-    
+
     # 4. Planner compatibility
     try:
         from agent_s3.planner_json_enforced import validate_pre_planning_for_planner
@@ -272,7 +272,7 @@ def validate_preplan_all(data) -> Tuple[bool, str]:
             errors.append(f"Planner compatibility error: {planner_msg}")
     except Exception as e:
         errors.append(f"Planner compatibility check exception: {e}")
-    
+
     return (len(errors) == 0), "\n".join(errors)
 
 def integrate_with_coordinator(
@@ -283,17 +283,17 @@ def integrate_with_coordinator(
 ) -> Dict[str, Any]:
     """
     Integrate pre-planning with the coordinator.
-    
+
     This function is the main entry point for the coordinator to use pre-planning.
     It handles the entire pre-planning workflow and returns the results in a format
     that the coordinator can use.
-    
+
     Args:
         coordinator: The coordinator instance
         task_description: The task description
         context: Optional context dictionary
         max_preplanning_attempts: Maximum number of attempts for the pre-planning step
-        
+
     Returns:
         Dictionary containing pre-planning results
     """
@@ -326,20 +326,20 @@ def integrate_with_coordinator(
         success, pre_planning_data = call_pre_planner_with_enforced_json(
             router_agent, task_description, context
         )
-    
+
     if success:
         # Extract key information for the coordinator
         test_requirements = []
         dependencies = []
         edge_cases = []
-        
+
         # Process feature groups
         for group in pre_planning_data.get("feature_groups", []):
             for feature in group.get("features", []):
                 # Extract test requirements
                 if "test_requirements" in feature:
                     test_reqs = feature["test_requirements"]
-                    
+
                     # Unit tests
                     for test in test_reqs.get("unit_tests", []):
                         test_requirements.append({
@@ -348,7 +348,7 @@ def integrate_with_coordinator(
                             "target": test.get("target_element", ""),
                             "expected": test.get("expected_outcome", "")
                         })
-                    
+
                     # Integration tests
                     for test in test_reqs.get("integration_tests", []):
                         if isinstance(test, dict):
@@ -363,7 +363,7 @@ def integrate_with_coordinator(
                                 "type": "integration",
                                 "description": test
                             })
-                    
+
                     # Acceptance tests
                     for test in test_reqs.get("acceptance_tests", []):
                         test_requirements.append({
@@ -372,11 +372,11 @@ def integrate_with_coordinator(
                             "when": test.get("when", ""),
                             "then": test.get("then", "")
                         })
-                
+
                 # Extract dependencies
                 if "dependencies" in feature:
                     deps = feature["dependencies"]
-                    
+
                     # Internal dependencies
                     for dep in deps.get("internal", []):
                         dependencies.append({
@@ -384,7 +384,7 @@ def integrate_with_coordinator(
                             "name": dep,
                             "feature": feature.get("name", "")
                         })
-                    
+
                     # External dependencies
                     for dep in deps.get("external", []):
                         dependencies.append({
@@ -392,7 +392,7 @@ def integrate_with_coordinator(
                             "name": dep,
                             "feature": feature.get("name", "")
                         })
-                    
+
                     # Feature dependencies
                     for dep in deps.get("feature_dependencies", []):
                         dependencies.append({
@@ -402,11 +402,11 @@ def integrate_with_coordinator(
                             "reason": dep.get("reason", ""),
                             "feature": feature.get("name", "")
                         })
-                
+
                 # Extract edge cases from risk assessment
                 if "risk_assessment" in feature:
                     risk = feature["risk_assessment"]
-                    
+
                     # Potential regressions
                     for reg in risk.get("potential_regressions", []):
                         edge_cases.append({
@@ -414,7 +414,7 @@ def integrate_with_coordinator(
                             "description": reg,
                             "feature": feature.get("name", "")
                         })
-                    
+
                     # Backward compatibility concerns
                     for concern in risk.get("backward_compatibility_concerns", []):
                         edge_cases.append({
@@ -422,15 +422,15 @@ def integrate_with_coordinator(
                             "description": concern,
                             "feature": feature.get("name", "")
                         })
-        
+
         # Assess complexity
         from agent_s3.complexity_analyzer import ComplexityAnalyzer
         complexity_analyzer = ComplexityAnalyzer()
         complexity_result = complexity_analyzer.assess_complexity(
-            pre_planning_data, 
+            pre_planning_data,
             task_description=task_description
         )
-        
+
         # Return results
         return {
             "success": True,
@@ -579,8 +579,8 @@ def pre_planning_workflow(
 
     raise JSONValidationError("Failed to generate valid pre-planning data")
 
-def process_response(response: str, original_request: str) -> Tuple[Union[bool, str], Dict[str, Any]]:
-    """Validate and interpret an LLM response.
+def process_response(response: str, original_request: str) -> Tuple[Union[bool, str], Dict[str,
+     Any]]:    """Validate and interpret an LLM response.
 
     Args:
         response: The raw response from the LLM.
@@ -645,7 +645,7 @@ def process_response(response: str, original_request: str) -> Tuple[Union[bool, 
         return True, data # Fully valid
     else:
         # Try to repair structure only if validation failed completely
-        logger.warning(f"JSON schema validation failed: {validation_msg}. Attempting repair.")
+        logger.warning("%s", JSON schema validation failed: {validation_msg}. Attempting repair.)
         try:
             repaired = repair_json_structure(data)
             is_valid2, validation_msg2 = validate_json_schema(repaired)
@@ -708,7 +708,7 @@ def ensure_element_id_consistency(pre_planning_data: Dict[str, Any]) -> Dict[str
 
                             element["element_id"] = element_id
                             assigned_ids.add(element_id)
-                            logger.info(f"Generated element_id {element_id} for element {element_name}")
+                            logger.info("%s", Generated element_id {element_id} for element {element_name})
                         else:
                             # Normalize existing element_id
                             element_id = element["element_id"]
@@ -720,7 +720,7 @@ def ensure_element_id_consistency(pre_planning_data: Dict[str, Any]) -> Dict[str
                                     element_id = f"{base_id}_{counter}"
                                     counter += 1
                                 element["element_id"] = element_id
-                                logger.info(f"Renamed duplicate element_id from {base_id} to {element_id}")
+                                logger.info("%s", Renamed duplicate element_id from {base_id} to {element_id})
                             assigned_ids.add(element_id)
 
                     # Second pass: ensure test_requirements reference valid element_ids
@@ -745,7 +745,7 @@ def ensure_element_id_consistency(pre_planning_data: Dict[str, Any]) -> Dict[str
                                     if matched_element and "element_id" in matched_element:
                                         # Set or fix target_element_id
                                         test["target_element_id"] = matched_element["element_id"]
-                                        logger.info(f"Linked test to element_id {matched_element['element_id']} based on target_element {target_element}")
+                                        logger.info("%s", Linked test to element_id {matched_element['element_id']} based on target_element {target_element})
 
                         # Process property-based tests
                         if "property_based_tests" in feature["test_requirements"] and isinstance(feature["test_requirements"]["property_based_tests"], list):
@@ -767,7 +767,7 @@ def ensure_element_id_consistency(pre_planning_data: Dict[str, Any]) -> Dict[str
                                     if matched_element and "element_id" in matched_element:
                                         # Set or fix target_element_id
                                         test["target_element_id"] = matched_element["element_id"]
-                                        logger.info(f"Linked property test to element_id {matched_element['element_id']} based on target_element {target_element}")
+                                        logger.info("%s", Linked property test to element_id {matched_element['element_id']} based on target_element {target_element})
 
     return pre_planning_data
 
@@ -867,7 +867,7 @@ You MUST follow these steps IN ORDER to produce a valid pre-planning JSON:
    - ALL file operations MUST include proper validation
    - NEVER include code enabling command injection
    - ALWAYS include explicit security review for security-critical features
-   - NEVER include blacklisted terms: "rm -rf", "deltree", "format", "DROP TABLE", "DROP DATABASE", 
+   - NEVER include blacklisted terms: "rm -rf", "deltree", "format", "DROP TABLE", "DROP DATABASE",
      "DELETE FROM", "TRUNCATE TABLE", "sudo", "chmod 777", "eval(", "exec(", "system(", "shell_exec"
 
 4. You MUST balance detail and conciseness:
@@ -956,8 +956,8 @@ You MUST follow these steps IN ORDER to produce a valid pre-planning JSON:
                 "element_type": "enum (class | function | interface | enum_type | struct)",
                 "name": "string (e.g., MyClass, my_function)",
                 "element_id": "string (Unique identifier for this element, e.g., auth_service_login_function)",
-                "signature": "string (e.g., def my_function(param1: int, param2: str) -> bool:, class MyClass(BaseClass):)",
-                "description": "string (Purpose and brief description of the element)",
+                "signature": "string (e.g., def my_function(param1: int, param2: str) -> bool:,
+                     class MyClass(BaseClass):)",                "description": "string (Purpose and brief description of the element)",
                 "key_attributes_or_methods": ["string (For classes: list of important method names or attributes, empty list if not applicable)"],
                 "target_file": "string (The planned file path for this element, e.g., src/module/file.py)"
               }
@@ -1165,8 +1165,8 @@ class PrePlanner:
             "complexity_assessment": {},
         }
 
-    def _attempt_repair(self, data: Dict[str, Any], errors: List[str]) -> Tuple[Dict[str, Any], bool]:
-        """Attempt to repair invalid pre-planning data."""
+    def _attempt_repair(self, data: Dict[str, Any], errors: List[str]) -> Tuple[Dict[str, Any],
+         bool]:        """Attempt to repair invalid pre-planning data."""
         if self.config.get("use_json_enforcement", True):
             from agent_s3.pre_planner_json_validator import PrePlannerJsonValidator
 

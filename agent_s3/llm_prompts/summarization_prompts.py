@@ -3,11 +3,7 @@
 This module provides language-specific prompt templates for summarizing code
 units. It is intentionally lightweight for the unit tests in this repository.
 """
-
-from __future__ import annotations
-
 from dataclasses import dataclass
-
 
 @dataclass
 class SummarizationPromptGenerator:

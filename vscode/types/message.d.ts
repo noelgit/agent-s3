@@ -14,7 +14,7 @@ export enum MessageType {
   PROGRESS_UPDATE = "progress_update",
   USER_RESPONSE = "user_response",
   ERROR_NOTIFICATION = "error_notification",
-  
+
   // Connection management
   CONNECTION_ESTABLISHED = "connection_established",
   AUTHENTICATION_RESULT = "authentication_result",
@@ -23,14 +23,14 @@ export enum MessageType {
   SERVER_HEARTBEAT = "server_heartbeat",
   RECONNECT = "reconnect",
   RECONNECTION_RESULT = "reconnection_result",
-  
+
   // Streaming message types
   THINKING = "thinking",
   STREAM_START = "stream_start",
   STREAM_CONTENT = "stream_content",
   STREAM_END = "stream_end",
   STREAM_INTERACTIVE = "stream_interactive",
-  
+
   // UI-specific messages
   NOTIFICATION = "notification",
   INTERACTIVE_DIFF = "interactive_diff",
@@ -40,7 +40,7 @@ export enum MessageType {
   CODE_SNIPPET = "code_snippet",
   FILE_TREE = "file_tree",
   TASK_BREAKDOWN = "task_breakdown",
-  THINKING_INDICATOR = "thinking_indicator"
+  THINKING_INDICATOR = "thinking_indicator",
 }
 
 /**
@@ -53,7 +53,7 @@ export enum ConnectionState {
   AUTHENTICATING = "authenticating",
   AUTHENTICATED = "authenticated",
   RECONNECTING = "reconnecting",
-  ERROR = "error"
+  ERROR = "error",
 }
 
 /**
@@ -126,7 +126,7 @@ export interface StreamInteractiveMessage extends Message {
   content: {
     stream_id: string;
     component: {
-      type: 'button' | 'input';
+      type: "button" | "input";
       id: string;
       label?: string;
       action?: string;
@@ -143,7 +143,7 @@ export interface NotificationMessage extends Message {
   content: {
     title: string;
     text: string;
-    level: 'info' | 'warning' | 'error';
+    level: "info" | "warning" | "error";
   };
 }
 
@@ -157,7 +157,7 @@ export interface ProgressIndicatorMessage extends Message {
     percentage: number;
     steps?: Array<{
       name: string;
-      status: 'pending' | 'in-progress' | 'completed' | 'failed';
+      status: "pending" | "in-progress" | "completed" | "failed";
       details?: string;
     }>;
     estimated_time_remaining?: number;
@@ -214,7 +214,7 @@ export interface StreamingContent {
  */
 export interface ChatMessage {
   id: string;
-  type: 'user' | 'agent' | 'system';
+  type: "user" | "agent" | "system";
   content: string;
   timestamp: Date;
   isComplete: boolean;

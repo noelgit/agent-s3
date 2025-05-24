@@ -5,7 +5,6 @@
 # time can lead to unnecessary dependency errors during test collection when
 # optional packages are missing. To mitigate this we expose a lazy import layer
 # so that components are loaded only when first accessed.
-
 from importlib import import_module
 from typing import Any
 

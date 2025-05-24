@@ -1,6 +1,5 @@
 from agent_s3.tools.parsing.fallback_parser import EnhancedRegexParser
 
-
 def test_fallback_parser_basic():
     code = """
 import os

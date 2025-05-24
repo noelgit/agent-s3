@@ -1,8 +1,7 @@
 import importlib.util
-import types
-import sys
 from pathlib import Path
-
+import sys
+import types
 
 def load_json_editor_bridge(monkeypatch):
     """Load json_editor_bridge module with stubbed VSCode dependencies."""

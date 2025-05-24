@@ -93,10 +93,10 @@ class EnhancedRegexParser(ILanguageParser):
                     )
                 )
                 continue
-                
+
             # ES6 imports
-            m = re.search(r"import\s+(?:{\s*[\w\s,]+\s*}|[\w\s*]+)\s+from\s+['\"]([^'\"]+)['\"]", line_strip)
-            if m:
+            m = re.search(r"import\s+(?:{\s*[\w\s,]+\s*}|[\w\s*]+)\s+from\s+['\"]([^'\"]+
+                )['\"]", line_strip)            if m:
                 imports.append(
                     Import(
                         module=m.group(1),
@@ -105,10 +105,10 @@ class EnhancedRegexParser(ILanguageParser):
                     )
                 )
                 continue
-                
+
             # PHP uses/requires
-            m = re.search(r"(?:use|require|include|require_once|include_once)\s+['\"]?([^;'\"]+)['\"]?", line_strip)
-            if m:
+            m = re.search(r"(?:use|require|include|require_once|include_once)\s+['\"]?([^;'\"]+
+                )['\"]?", line_strip)            if m:
                 imports.append(
                     Import(
                         module=m.group(1),
@@ -124,8 +124,8 @@ class EnhancedRegexParser(ILanguageParser):
         functions: List[FunctionDef] = []
         # Match Python/JavaScript/PHP function definitions
         pattern = re.compile(
-            r"^\s*(?:def|function|async\s+function|public\s+function|private\s+function|static\s+function)\s+(?P<name>[A-Za-z_][\w]*)", 
-            re.MULTILINE
+            r"^\s*(?:def|function|async\s+function|public\s+function|private\s+function|static\s+
+                function)\s+(?P<name>[A-Za-z_][\w]*)",            re.MULTILINE
         )
         for match in pattern.finditer(code):
             start_line = code.count("\n", 0, match.start()) + 1
@@ -145,10 +145,10 @@ class EnhancedRegexParser(ILanguageParser):
                 functions.append(
                     FunctionDef(name=match.group("name"), start_line=start_line)
                 )
-        
+
         # Lambda/arrow functions with explicit names
         pattern3 = re.compile(
-            r"(?:const|let|var)\s+(?P<name>[A-Za-z_][\w]*)\s*=\s*(?:function|\([^\)]*\)\s*=>)", 
+            r"(?:const|let|var)\s+(?P<name>[A-Za-z_][\w]*)\s*=\s*(?:function|\([^\)]*\)\s*=>)",
             re.MULTILINE
         )
         for match in pattern3.finditer(code):
@@ -157,10 +157,10 @@ class EnhancedRegexParser(ILanguageParser):
                 functions.append(
                     FunctionDef(name=match.group("name"), start_line=start_line)
                 )
-                
+
         # Class methods
         pattern4 = re.compile(
-            r"^\s*(?:public|private|protected|static|async)?\s*(?P<name>[A-Za-z_][\w]*)\s*\([^\)]*\)\s*{", 
+            r"^\s*(?:public|private|protected|static|async)?\s*(?P<name>[A-Za-z_][\w]*)\s*\([^\)]*\)\s*{",
             re.MULTILINE
         )
         for match in pattern4.finditer(code):
@@ -171,7 +171,7 @@ class EnhancedRegexParser(ILanguageParser):
                 functions.append(
                     FunctionDef(name=method_name, start_line=start_line)
                 )
-                
+
         return functions
 
     def extract_classes(self, code: str) -> List[ClassDef]:
@@ -179,31 +179,31 @@ class EnhancedRegexParser(ILanguageParser):
         classes: List[ClassDef] = []
         # Standard class declarations
         pattern = re.compile(
-            r"^\s*(?:class|interface|trait|abstract\s+class)\s+(?P<name>[A-Za-z_][\w]*)", 
+            r"^\s*(?:class|interface|trait|abstract\s+class)\s+(?P<name>[A-Za-z_][\w]*)",
             re.MULTILINE
         )
         for match in pattern.finditer(code):
             start_line = code.count("\n", 0, match.start()) + 1
             classes.append(ClassDef(name=match.group("name"), start_line=start_line))
-            
+
         # JavaScript class expressions
         pattern2 = re.compile(
-            r"(?:const|let|var)\s+(?P<name>[A-Za-z_][\w]*)\s*=\s*class\s*{", 
+            r"(?:const|let|var)\s+(?P<name>[A-Za-z_][\w]*)\s*=\s*class\s*{",
             re.MULTILINE
         )
         for match in pattern2.finditer(code):
             start_line = code.count("\n", 0, match.start()) + 1
             classes.append(ClassDef(name=match.group("name"), start_line=start_line))
-            
+
         # TypeScript interfaces
         pattern3 = re.compile(
-            r"(?:export\s+)?interface\s+(?P<name>[A-Za-z_][\w]*)", 
+            r"(?:export\s+)?interface\s+(?P<name>[A-Za-z_][\w]*)",
             re.MULTILINE
         )
         for match in pattern3.finditer(code):
             start_line = code.count("\n", 0, match.start()) + 1
             classes.append(ClassDef(name=match.group("name"), start_line=start_line))
-            
+
         return classes
 
     def extract_variables(self, code: str) -> List[VariableDef]:
@@ -217,32 +217,32 @@ class EnhancedRegexParser(ILanguageParser):
         for match in pattern.finditer(code):
             line_no = code.count("\n", 0, match.start()) + 1
             variables.append(VariableDef(name=match.group("name"), line_number=line_no))
-            
+
         # PHP variables
         pattern2 = re.compile(r"^\s*\$(?P<name>[A-Za-z_][\w]*)\s*=", re.MULTILINE)
         for match in pattern2.finditer(code):
             line_no = code.count("\n", 0, match.start()) + 1
             variables.append(VariableDef(name=match.group("name"), line_number=line_no))
-        
+
         # TypeScript/Java declarations without assignment
         pattern3 = re.compile(
-            r"^\s*(?:public|private|protected)?\s*(?:const|readonly)?\s*(?P<name>[A-Za-z_][\w]*)\s*:\s*[A-Za-z_][\w<>,\[\]]*\s*;", 
+            r"^\s*(?:public|private|protected)?\s*(?:const|readonly)?\s*(?P<name>[A-Za-z_][\w]*)\s*:\s*[A-Za-z_][\w<>,\[\]]*\s*;",
             re.MULTILINE
         )
         for match in pattern3.finditer(code):
             line_no = code.count("\n", 0, match.start()) + 1
             variables.append(VariableDef(name=match.group("name"), line_number=line_no))
-            
+
         return variables
 
     def extract_dependencies(self, code: str) -> List[Dependency]:
         """Derive dependencies from imports and class inheritance."""
         deps: List[Dependency] = []
-        
+
         # Import dependencies
         for imp in self.extract_imports(code):
             deps.append(Dependency(source="", target=imp.module, type="import"))
-            
+
         # Extract class inheritance in OOP languages
         pattern = re.compile(
             r"class\s+([A-Za-z_][\w]*)\s+(?:extends|implements|:)\s+([A-Za-z_][\w,\s]*)",
@@ -253,7 +253,7 @@ class EnhancedRegexParser(ILanguageParser):
             for base in base_classes:
                 base = base.strip()
                 deps.append(Dependency(source=match.group(1), target=base, type="inherit"))
-        
+
         # Function calls (basic detection)
         pattern2 = re.compile(r"(?P<name>[A-Za-z_][\w]*)\s*\([^\)]*\)", re.MULTILINE)
         for match in pattern2.finditer(code):
@@ -261,12 +261,12 @@ class EnhancedRegexParser(ILanguageParser):
             # Skip common built-ins and low-signal names
             if func_name not in ("print", "if", "for", "while", "log", "console"):
                 deps.append(Dependency(source="", target=func_name, type="call"))
-                
+
         return deps
 
     def get_language_capability_score(self) -> float:
         """Return a score indicating how capable this parser is.
-        
+
         The score is between 0 and 1, where:
         - 0.0: Not capable at all
         - 0.5: Moderately capable with good heuristics

@@ -1,6 +1,5 @@
-
-from agent_s3.json_utils import repair_json_structure, validate_json_against_schema
-
+from agent_s3.json_utils import repair_json_structure
+from agent_s3.json_utils import validate_json_against_schema
 
 def test_repair_json_structure_nested_arrays():
     schema = {

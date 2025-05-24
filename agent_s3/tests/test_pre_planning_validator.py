@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Test for the PrePlanningValidator class."""
-
 import unittest
+
 from agent_s3.pre_planning_validator import PrePlanningValidator
 
 class TestPrePlanningValidator(unittest.TestCase):
     """Tests for the PrePlanningValidator class."""
-    
+
     def setUp(self):
         """Set up the validator and sample data."""
         self.validator = PrePlanningValidator()
-        
+
         # Valid test data
         self.valid_data = {
             "feature_groups": [
@@ -36,20 +36,20 @@ class TestPrePlanningValidator(unittest.TestCase):
                 }
             ]
         }
-    
+
     def test_structure_validation_success(self):
         """Test that structure validation passes for valid data."""
         is_valid, errors = self.validator.validate_structure(self.valid_data)
         self.assertTrue(is_valid)
         self.assertEqual(len(errors), 0)
-    
+
     def test_structure_validation_failure(self):
         """Test that structure validation fails for invalid data."""
         invalid_data = {"missing_feature_groups": []}
         is_valid, errors = self.validator.validate_structure(invalid_data)
         self.assertFalse(is_valid)
         self.assertGreater(len(errors), 0)
-    
+
     def test_complete_validation(self):
         """Test that complete validation works."""
         is_valid, result = self.validator.validate_all(self.valid_data)

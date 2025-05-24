@@ -1,11 +1,11 @@
-import os
-import json
-import unittest
-import tempfile
-from pathlib import Path
 import importlib.util
+import json
+import os
+from pathlib import Path
 import sys
+import tempfile
 import types
+import unittest
 
 module_path = Path(__file__).resolve().parents[1] / "agent_s3" / "router_agent.py"
 spec = importlib.util.spec_from_file_location("router_agent", module_path)

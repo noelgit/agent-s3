@@ -5,7 +5,6 @@ import pytest
 
 from agent_s3.tools.memory_manager import MemoryManager
 
-
 @pytest.fixture
 def eviction_manager(tmp_path, mock_components):
     config = {

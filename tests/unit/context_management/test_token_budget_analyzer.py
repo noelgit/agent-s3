@@ -1,9 +1,7 @@
-import sys
-import types
 import importlib.util
 from pathlib import Path
-
-
+import sys
+import types
 
 def load_token_budget(monkeypatch):
     """Load token_budget module with a dummy tiktoken implementation."""

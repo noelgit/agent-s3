@@ -8,19 +8,19 @@ GRAMMAR_CACHE = {}
 def get_language(language_name: str) -> Any:
     """
     Gets a tree-sitter language using the modern capsule API approach.
-    
+
     Args:
         language_name: The language name (e.g., 'python', 'javascript')
-        
+
     Returns:
         The tree-sitter Language object
     """
     if language_name in GRAMMAR_CACHE:
         return GRAMMAR_CACHE[language_name]
-        
+
     try:
         from tree_sitter import Language
-        
+
         if language_name == "javascript":
             import tree_sitter_javascript
             grammar = Language(tree_sitter_javascript.language())
@@ -50,7 +50,7 @@ def execute_query(grammar: Any, node: Any, query_string: str) -> List[Dict[str, 
     """
     Executes a tree-sitter query against a given AST node using the specified grammar.
     Returns a list of dictionaries with node information and capture name.
-    
+
     Example return value:
     [
         {"node": <node_object>, "capture_name": "name"},
@@ -62,7 +62,7 @@ def execute_query(grammar: Any, node: Any, query_string: str) -> List[Dict[str, 
         query = Query(grammar, query_string)
         matches = query.matches(node)
         result = []
-        
+
         # Based on debug output, matches is a list of (pattern_idx, captures_dict) tuples
         # where captures_dict maps capture names to lists of nodes
         for _, captures_dict in matches:
@@ -72,7 +72,7 @@ def execute_query(grammar: Any, node: Any, query_string: str) -> List[Dict[str, 
                         "node": capture_node,
                         "capture_name": capture_name
                     })
-                
+
         return result
     except Exception as e:
         raise RuntimeError(f"Failed to execute query: {e}")

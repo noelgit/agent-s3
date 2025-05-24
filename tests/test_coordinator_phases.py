@@ -5,12 +5,13 @@ These tests focus specifically on the execution of individual phases
 within the Coordinator's task execution flow, with a focus on error handling,
 graceful degradation, and appropriate output formatting.
 """
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import pytest
-from unittest.mock import MagicMock, patch
 
-from agent_s3.coordinator import Coordinator
 from agent_s3.config import Config
+from agent_s3.coordinator import Coordinator
 from agent_s3.enhanced_scratchpad_manager import LogLevel
 from agent_s3.pre_planner_json_enforced import integrate_with_coordinator
 
@@ -42,9 +43,9 @@ def coordinator(mock_config):
          patch('agent_s3.coordinator.TaskResumer'), \
          patch('agent_s3.coordinator.WorkspaceInitializer'), \
          patch('agent_s3.coordinator.DatabaseManager'):
-        
+
         coordinator = Coordinator(config=mock_config)
-        
+
         # Mock required components for tests
         coordinator.pre_planner = MagicMock()
         coordinator.planner = MagicMock()
@@ -62,7 +63,7 @@ def coordinator(mock_config):
         coordinator.error_context_manager = MagicMock()
         coordinator.debugging_manager = MagicMock()
         coordinator.router_agent = MagicMock()
-        
+
         yield coordinator
 
 # Test initialize_workspace method
@@ -74,14 +75,14 @@ def test_initialize_workspace_success(coordinator):
     coordinator.workspace_initializer.workspace_path = MagicMock()
     coordinator.workspace_initializer.github_dir = MagicMock()
     coordinator.workspace_initializer.validation_failure_reason = None
-    
+
     # Mock Path operations
     with patch('pathlib.Path.exists', return_value=True), \
          patch('pathlib.Path.stat', return_value=MagicMock(st_size=100, st_ctime=12345678)):
-        
+
         # Execute
         result = coordinator.initialize_workspace()
-        
+
         # Assert
         assert result["success"] is True
         assert result["is_workspace_valid"] is True
@@ -94,20 +95,20 @@ def test_initialize_workspace_permission_error(coordinator):
     # Set up mock to raise permission error
     coordinator.workspace_initializer.workspace_path = MagicMock()
     coordinator.workspace_initializer.github_dir = MagicMock()
-    
+
     # Mock Path operations to simulate permission error
     with patch('pathlib.Path.touch', side_effect=PermissionError("Permission denied")):
-        
+
         # Execute
         result = coordinator.initialize_workspace()
-        
+
         # Assert
         assert result["success"] is False
         assert len(result["errors"]) > 0
         assert result["errors"][0]["type"] == "permission"
         coordinator.workspace_initializer.initialize_workspace.assert_not_called()
-        coordinator.scratchpad.log.assert_any_call("Coordinator", 
-                                                  result["errors"][0]["message"], 
+        coordinator.scratchpad.log.assert_any_call("Coordinator",
+                                                  result["errors"][0]["message"],
                                                   level=LogLevel.ERROR)
 
 def test_initialize_workspace_partial_success(coordinator):
@@ -117,16 +118,16 @@ def test_initialize_workspace_partial_success(coordinator):
     coordinator.workspace_initializer.workspace_path = MagicMock()
     coordinator.workspace_initializer.github_dir = MagicMock()
     coordinator.workspace_initializer.validation_failure_reason = "README.md not found"
-    
+
     # Mock Path operations
     with patch('pathlib.Path.exists', return_value=True), \
          patch('pathlib.Path.stat', return_value=MagicMock(st_size=100, st_ctime=12345678)), \
          patch('pathlib.Path.touch'), \
          patch('pathlib.Path.unlink'):
-        
+
         # Execute
         result = coordinator.initialize_workspace()
-        
+
         # Assert
         assert result["success"] is True  # Overall success
         assert result["is_workspace_valid"] is False  # But workspace not valid
@@ -140,15 +141,15 @@ def test_initialize_workspace_exception(coordinator):
     coordinator.workspace_initializer.initialize_workspace.side_effect = Exception("Unexpected error")
     coordinator.workspace_initializer.workspace_path = MagicMock()
     coordinator.workspace_initializer.github_dir = MagicMock()
-    
+
     # Mock Path operations
     with patch('pathlib.Path.exists', return_value=True), \
          patch('pathlib.Path.touch'), \
          patch('pathlib.Path.unlink'):
-        
+
         # Execute
         result = coordinator.initialize_workspace()
-        
+
         # Assert
         assert result["success"] is False
         assert len(result["errors"]) > 0
@@ -328,19 +329,19 @@ def test_feature_group_processor_consolidated_workflow(coordinator):
     """Test the consolidated workflow through feature_group_processor."""
     # Add feature_group_processor mock
     coordinator.feature_group_processor = MagicMock()
-    
+
     # Setup sample pre-planning data
     pre_planning_data = {
         "feature_groups": [
             {
-                "group_name": "Authentication", 
+                "group_name": "Authentication",
                 "features": [
                     {"name": "Login", "files_affected": ["auth.py"]}
                 ]
             }
         ]
     }
-    
+
     # Mock the process_pre_planning_output method
     coordinator.feature_group_processor.process_pre_planning_output.return_value = {
         "success": True,
@@ -356,13 +357,13 @@ def test_feature_group_processor_consolidated_workflow(coordinator):
             }
         }
     }
-    
+
     # Mock present_consolidated_plan_to_user to return user approval
     coordinator.feature_group_processor.present_consolidated_plan_to_user.return_value = ("yes", None)
-    
+
     # Execute run_task
     coordinator.run_task("Implement authentication feature")
-    
+
     # Assert
     coordinator.feature_group_processor.process_pre_planning_output.assert_called_once()
     coordinator.feature_group_processor.present_consolidated_plan_to_user.assert_called_once()
@@ -372,19 +373,19 @@ def test_feature_group_processor_with_user_modifications(coordinator):
     """Test the consolidated workflow with user modifications."""
     # Add feature_group_processor mock
     coordinator.feature_group_processor = MagicMock()
-    
+
     # Setup sample pre-planning data
     pre_planning_data = {
         "feature_groups": [
             {
-                "group_name": "Authentication", 
+                "group_name": "Authentication",
                 "features": [
                     {"name": "Login", "files_affected": ["auth.py"]}
                 ]
             }
         ]
     }
-    
+
     # Mock the process_pre_planning_output method
     coordinator.feature_group_processor.process_pre_planning_output.return_value = {
         "success": True,
@@ -400,10 +401,10 @@ def test_feature_group_processor_with_user_modifications(coordinator):
             }
         }
     }
-    
+
     # Mock present_consolidated_plan_to_user to return user modifications
     coordinator.feature_group_processor.present_consolidated_plan_to_user.return_value = ("modify", "Add two-factor authentication")
-    
+
     # Mock update_plan_with_modifications
     coordinator.feature_group_processor.update_plan_with_modifications.return_value = {
         "architecture_review": {
@@ -413,10 +414,10 @@ def test_feature_group_processor_with_user_modifications(coordinator):
         "implementation_plan": {"auth.py": [{"function": "login()"}, {"function": "two_factor_auth()"}]},
         "tests": {"unit_tests": [{"test_name": "test_login"}]}
     }
-    
+
     # Execute run_task
     coordinator.run_task("Implement authentication feature")
-    
+
     # Assert
     coordinator.feature_group_processor.process_pre_planning_output.assert_called_once()
     coordinator.feature_group_processor.present_consolidated_plan_to_user.assert_called_once()
@@ -430,28 +431,28 @@ def test_feature_group_processor_error_handling(coordinator):
     """Test error handling in the consolidated workflow."""
     # Add feature_group_processor mock
     coordinator.feature_group_processor = MagicMock()
-    
+
     # Mock the process_pre_planning_output method to return an error
     coordinator.feature_group_processor.process_pre_planning_output.return_value = {
         "success": False,
         "error": "Failed to process feature groups",
         "feature_group_results": {}
     }
-    
+
     # Add debugging_manager mock for recovery plan generation
     coordinator.debugging_manager.generate_recovery_plan.return_value = {
         "description": "Retry with simplified feature groups"
     }
-    
+
     # Execute run_task
     coordinator.run_task("Implement feature with error")
-    
+
     # Assert
     coordinator.feature_group_processor.process_pre_planning_output.assert_called_once()
     coordinator.debugging_manager.generate_recovery_plan.assert_called_once()
     coordinator.scratchpad.log.assert_any_call(
-        "Coordinator", 
-        "Feature group processing failed: Failed to process feature groups", 
+        "Coordinator",
+        "Feature group processing failed: Failed to process feature groups",
         level=LogLevel.ERROR
     )
 

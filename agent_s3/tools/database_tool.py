@@ -57,91 +57,91 @@ logger = logging.getLogger(__name__)
 
 class DatabaseTool:
     """Tool for secure database operations with fallback to shell commands."""
-    
+
     # Explicitly list supported database types
     SUPPORTED_TYPES = ["postgresql", "mysql", "sqlite"]
-    
+
     # Map database types to CLI clients
     DB_CLIENTS = {
         "postgresql": "psql",
         "mysql": "mysql",
         "sqlite": "sqlite3"
     }
-    
+
     # Map database types to connection parameter formats for CLI
     DB_CLI_ARGS = {
         "postgresql": "-h {host} -p {port} -U {username} -d {database}",
         "mysql": "-h{host} -P{port} -u{username} -p{password} {database}",
         "sqlite": "{database}"
     }
-    
+
     # Stricter validation patterns
     DANGEROUS_COMMANDS_REGEX = re.compile(
-        r"\b(DROP\s+(TABLE|DATABASE|USER|INDEX)|TRUNCATE\s+TABLE|DELETE\s+FROM\s+(?!.*\bWHERE\b)|GRANT\s+|REVOKE\s+|CREATE\s+USER|ALTER\s+USER)\b", 
-        re.IGNORECASE | re.MULTILINE
-    )
+        r"\b(DROP\s+(TABLE|DATABASE|USER|INDEX)|TRUNCATE\s+TABLE|DELETE\s+FROM\s+
+            (?!.*\bWHERE\b)|GRANT\s+|REVOKE\s+|CREATE\s+USER|ALTER\s+
+                USER)\b",        re.IGNORECASE | re.MULTILINE    )
     POTENTIAL_INJECTION_REGEX = re.compile(
-        r"(--|;|/\*|\*/|xp_cmdshell|WAITFOR\s+DELAY|BENCHMARK\(|SLEEP\()", 
+        r"(--|;|/\*|\*/|xp_cmdshell|WAITFOR\s+DELAY|BENCHMARK\(|SLEEP\()",
         re.IGNORECASE
     )
 
     def __init__(self, config, bash_tool: Optional[BashTool] = None):
         """Initialize the database tool with configuration.
-        
+
         Args:
             config: Configuration object containing database settings
             bash_tool: Optional BashTool for executing shell commands
         """
         self.config = config
         self.bash_tool = bash_tool or BashTool(config)
-        
+
         # Initialize connections dictionary
         self.connections = {}
-        
+
         # Track if we can use SQLAlchemy
         self.use_sqlalchemy = SQLALCHEMY_AVAILABLE
-        
+
         # Log SQLAlchemy availability
         if self.use_sqlalchemy:
             logger.info("SQLAlchemy is available, using for database operations")
         else:
             logger.warning("SQLAlchemy not available, falling back to shell commands for all operations")
-        
+
         # Set up database connections
         self._setup_connections()
 
     def _get_db_env_vars(self) -> Dict[str, str]:
         """Get database environment variables for secure credential management.
-        
+
         Returns:
             Dictionary of environment variables
         """
         db_env_vars = {}
-        
+
         # Extract database configurations
         db_configs = self.config.config.get("databases", {})
-        
+
         # Add environment variables for each database
         for db_name, db_config in db_configs.items():
             db_type = db_config.get("type", "postgresql").lower()
-            
+
             # Create environment variables based on database type
             if db_type == "postgresql":
                 # PostgreSQL uses PGPASSWORD
                 password = db_config.get("password", "")
                 if password:
                     db_env_vars["PGPASSWORD"] = password
-            
+
             # Create DB_NAME_USER and DB_NAME_PASSWORD environment variables
             env_prefix = f"DB_{db_name.upper()}"
             username = db_config.get("username", "")
             password = db_config.get("password", "")
-            
+
             if username:
                 db_env_vars[f"{env_prefix}_USER"] = username
             if password:
                 db_env_vars[f"{env_prefix}_PASSWORD"] = password
-        
+
         return db_env_vars
 
     def _setup_connections(self) -> None:
@@ -149,19 +149,19 @@ class DatabaseTool:
         if not self.use_sqlalchemy:
             logger.warning("SQLAlchemy not available, skipping connection setup")
             return
-        
+
         # Extract database configurations
         db_configs = self.config.config.get("databases", {})
-        
+
         if not db_configs:
             logger.warning("No database configurations found in config")
             return
-        
+
         for db_name, db_config in db_configs.items():
             try:
                 # Build connection string
                 connection_string = self._build_connection_string(db_config)
-                
+
                 # Create engine with a pool
                 engine = create_engine(
                     connection_string,
@@ -171,52 +171,52 @@ class DatabaseTool:
                     pool_recycle=1800,  # Recycle connections after 30 minutes
                     echo=False  # Set to True for SQL query logging
                 )
-                
+
                 # Test connection
                 with engine.connect() as conn:
                     conn.execute(text("SELECT 1"))
-                
+
                 # Store the engine
                 self.connections[db_name] = engine
-                logger.info(f"Successfully connected to database '{db_name}'")
-            
+                logger.info("%s", Successfully connected to database '{db_name}')
+
             except Exception as e:
-                logger.error(f"Failed to connect to database '{db_name}': {e}")
+                logger.error("%s", Failed to connect to database '{db_name}': {e})
                 # Don't store failed connections
 
     def _build_connection_string(self, db_config: Dict[str, Any]) -> str:
         """Build SQLAlchemy connection string from configuration.
-        
+
         Args:
             db_config: Database configuration dictionary
-            
+
         Returns:
             SQLAlchemy connection string
-            
+
         Raises:
             ValueError: If database type is not supported
         """
         db_type = db_config.get("type", "postgresql").lower()
-        
+
         if db_type not in self.SUPPORTED_TYPES:
             raise ValueError(f"Unsupported database type: {db_type}")
-        
+
         # Handle SQLite separately
         if db_type == "sqlite":
             db_path = db_config.get("path", "db.sqlite")
             return f"sqlite:///{db_path}"
-        
+
         # Build connection string for PostgreSQL and MySQL
         host = db_config.get("host", "localhost")
         port = db_config.get("port", 5432 if db_type == "postgresql" else 3306)
         database = db_config.get("database", "")
         username = db_config.get("username", "")
         password = db_config.get("password", "")
-        
+
         # URL encode username and password for safety
         safe_username = quote_plus(username) if username else ""
         safe_password = quote_plus(password) if password else ""
-        
+
         # Build authentication part
         auth_part = ""
         if safe_username:
@@ -224,62 +224,62 @@ class DatabaseTool:
             if safe_password:
                 auth_part += f":{safe_password}"
             auth_part += "@"
-        
+
         # Build connection string based on database type
         if db_type == "postgresql":
             return f"postgresql://{auth_part}{host}:{port}/{database}"
         elif db_type == "mysql":
             return f"mysql+pymysql://{auth_part}{host}:{port}/{database}"
-        
+
         # Fallback (shouldn't reach here due to supported types check)
         raise ValueError(f"Failed to build connection string for {db_type}")
 
     @contextmanager
     def get_connection(self, db_name: str = "default"):
         # ...existing code...
-        
+
         engine = self.connections[db_name]
         connection = None # Initialize connection to None
         transaction = None # Initialize transaction to None
         try:
             connection = engine.connect()
             transaction = connection.begin()
-            logger.debug(f"Acquired connection and started transaction for {db_name}")
+            logger.debug("%s", Acquired connection and started transaction for {db_name})
             yield connection
             transaction.commit()
-            logger.debug(f"Committed transaction for {db_name}")
+            logger.debug("%s", Committed transaction for {db_name})
         except SQLAlchemyError as e: # Catch specific SQLAlchemy errors
             if transaction:
                 transaction.rollback()
-                logger.error(f"Database transaction rolled back for {db_name} due to error: {e}")
+                logger.error("%s", Database transaction rolled back for {db_name} due to error: {e})
             else:
-                 logger.error(f"Database connection failed for {db_name}: {e}")
+                 logger.error("%s", Database connection failed for {db_name}: {e})
             # Re-raise the specific error for better upstream handling
-            raise e 
+            raise e
         finally:
             if connection:
                 connection.close()
-                logger.debug(f"Closed connection for {db_name}")
+                logger.debug("%s", Closed connection for {db_name})
 
     # --- Explicit Transaction Control ---
-    def begin_transaction(self, db_name: str = "default") -> Optional["sqlalchemy.engine.Connection"]:
-        """Begin a transaction manually. Returns the connection. Caller must commit/rollback and close."""
+    def begin_transaction(self, db_name: str = "default")
+         -> Optional["sqlalchemy.engine.Connection"]:        """Begin a transaction manually. Returns the connection. Caller must commit/rollback and close."""
         if not self.use_sqlalchemy:
             logger.warning("Manual transactions require SQLAlchemy. Operation skipped.")
             return None
         if db_name not in self.connections:
-            logger.error(f"Database '{db_name}' not configured or connection failed")
+            logger.error("%s", Database '{db_name}' not configured or connection failed)
             return None
-        
+
         engine = self.connections[db_name]
         connection = None
         try:
             connection = engine.connect()
             connection.begin() # Start transaction
-            logger.info(f"Manual transaction started for {db_name}")
+            logger.info("%s", Manual transaction started for {db_name})
             return connection
         except SQLAlchemyError as e:
-            logger.error(f"Failed to begin manual transaction for {db_name}: {e}")
+            logger.error("%s", Failed to begin manual transaction for {db_name}: {e})
             if connection:
                 connection.close()
             return None
@@ -297,7 +297,7 @@ class DatabaseTool:
                  logger.warning("No active transaction to commit.")
             return True
         except SQLAlchemyError as e:
-            logger.error(f"Failed to commit manual transaction: {e}")
+            logger.error("%s", Failed to commit manual transaction: {e})
             return False
         finally:
             connection.close()
@@ -316,7 +316,7 @@ class DatabaseTool:
                 logger.warning("No active transaction to rollback.")
             return True
         except SQLAlchemyError as e:
-            logger.error(f"Failed to rollback manual transaction: {e}")
+            logger.error("%s", Failed to rollback manual transaction: {e})
             return False
         finally:
             connection.close()
@@ -329,36 +329,36 @@ class DatabaseTool:
 
         Uses SQLAlchemy if available, falls back to BashTool if necessary.
         Enhanced validation and error reporting.
-        
+
         Args:\n            # ...existing args...
         Returns:\n            # ...existing returns...
         """
         start_time = time.time()  # Start timing
         if not query or not query.strip(): # Check for empty/whitespace query
             return {"success": False, "error": "Query cannot be empty", "results": [], "duration_ms": 0}
-            
+
         params = params or {}
-        
+
         # Enhanced security validation
         validation_result = self._validate_query(query)
         if not validation_result["valid"]:
-            logger.warning(f"Query validation failed: {validation_result['reason']}")
+            logger.warning("%s", Query validation failed: {validation_result['reason']})
             return {
                 "success": False,
                 "error": validation_result["reason"],
                 "results": [],
                 "duration_ms": (time.time() - start_time) * 1000 # Add duration
             }
-        
+
         # Try SQLAlchemy first
         if self.use_sqlalchemy and not force_fallback and db_name in self.connections:
             try:
                 result = self._execute_with_sqlalchemy(query, params, db_name)
                 result["duration_ms"] = (time.time() - start_time) * 1000 # Add duration
-                logger.info(f"Executed query via SQLAlchemy on {db_name} in {result['duration_ms']:.2f} ms")
+                logger.info("%s", Executed query via SQLAlchemy on {db_name} in {result['duration_ms']:.2f} ms)
                 return result
             except (OperationalError, ProgrammingError, IntegrityError) as e: # Catch specific, potentially recoverable errors
-                 logger.warning(f"SQLAlchemy query failed with {type(e).__name__}: {e}. Falling back to BashTool.")
+                 logger.warning("%s", SQLAlchemy query failed with {type(e).__name__}: {e}. Falling back to BashTool.)
                  # Fall through to BashTool
             except SQLAlchemyError as e: # Catch other SQLAlchemy errors
                  error_msg = f"SQLAlchemy query failed unexpectedly: {e}"
@@ -372,22 +372,22 @@ class DatabaseTool:
                  return {"success": False, "error": error_msg, "results": [], "duration_ms": (time.time() - start_time) * 1000}
 
         # Fallback to BashTool
-        logger.info(f"Attempting query execution via BashTool fallback for {db_name}")
+        logger.info("%s", Attempting query execution via BashTool fallback for {db_name})
         try:
             result = self._execute_with_bash_tool(query, params, db_name)
             result["duration_ms"] = (time.time() - start_time) * 1000 # Add duration
             if result["success"]:
-                 logger.info(f"Executed query via BashTool on {db_name} in {result['duration_ms']:.2f} ms")
+                 logger.info("%s", Executed query via BashTool on {db_name} in {result['duration_ms']:.2f} ms)
             else:
-                 logger.error(f"BashTool query failed on {db_name}: {result.get('error', 'Unknown error')}")
+                 logger.error("%s", BashTool query failed on {db_name}: {result.get('error', 'Unknown error)}")
             return result
         except Exception as e:
             error_msg = f"Database query failed with BashTool fallback: {e}"
             logger.exception(error_msg) # Log with traceback
             return {"success": False, "error": error_msg, "results": [], "duration_ms": (time.time() - start_time) * 1000}
 
-    def _execute_with_sqlalchemy(self, query: str, params: Dict[str, Any], db_name: str) -> Dict[str, Any]:
-        """Execute a query using SQLAlchemy.
+    def _execute_with_sqlalchemy(self, query: str, params: Dict[str, Any], db_name: str) -> Dict[str
+        , Any]:        """Execute a query using SQLAlchemy.
 
         Args:
             query: SQL query to execute
@@ -412,8 +412,8 @@ class DatabaseTool:
             # Use specific exceptions if possible
             raise OperationalError(f"SQLAlchemy execution failed: {e}", orig=e, params=params, statement=query) from e
 
-    def _execute_with_bash_tool(self, query: str, params: Dict[str, Any], db_name: str) -> Dict[str, Any]:
-        """Execute a query using BashTool.
+    def _execute_with_bash_tool(self, query: str, params: Dict[str, Any], db_name: str) -> Dict[str,
+         Any]:        """Execute a query using BashTool.
 
         Args:
             query: SQL query to execute
@@ -430,11 +430,11 @@ class DatabaseTool:
 
         # Build command based on database type
         command = self._build_db_command(db_config, query)
-        logger.debug(f"Executing BashTool command: {command}") # Log the command
+        logger.debug("%s", Executing BashTool command: {command}) # Log the command
 
         # Execute command
         exit_code, output = self.bash_tool.run_command(command, timeout=60) # Increased timeout slightly
-        
+
         # Parse output based on database type
         if exit_code == 0:
             if db_type == "sqlite":
@@ -458,7 +458,7 @@ class DatabaseTool:
             # Try to extract a more specific error from the output
             error_detail = output.strip().split('\n')[-1] # Get last line, often contains error
             error_msg = f"Command failed with exit code {exit_code}. Error: {error_detail}"
-            logger.error(f"BashTool command failed: {error_msg}\nFull output:\n{output}")
+            logger.error("%s", BashTool command failed: {error_msg}\nFull output:\n{output})
             duration = (time.time() - execution_start_time) * 1000
             return {
                 "success": False,
@@ -495,12 +495,12 @@ class DatabaseTool:
         host = shlex.quote(db_config.get("host", "localhost"))
         port = str(db_config.get("port", 5432 if db_type == "postgresql" else 3306))
         database = shlex.quote(db_config.get("database", ""))
-        
+
         # Get credentials - prefer environment variables
         db_name_env = db_config.get("name", "default").upper() # Use different var name
         username = shlex.quote(os.environ.get(f"DB_{db_name_env}_USER") or db_config.get("username", ""))
         password = os.environ.get(f"DB_{db_name_env}_PASSWORD") or db_config.get("password", "") # Don't quote password directly
-        
+
         # Build arguments based on database type
         if db_type == "postgresql":
             # Set PGPASSWORD environment variable instead of passing it on command line
@@ -514,7 +514,7 @@ class DatabaseTool:
         elif db_type == "mysql":
             # For MySQL, use -pPASSWORD (no space)
             cmd_args = self.DB_CLI_ARGS[db_type].format(
-                host=host, port=port, username=username, 
+                host=host, port=port, username=username,
                 password="", # Placeholder
                 database=database
             )
@@ -522,7 +522,7 @@ class DatabaseTool:
             password_arg = f"-p{shlex.quote(password)}" if password else ""
             # Use --batch --raw for cleaner output, -e for execute
             return f"{client} {cmd_args} {password_arg} --batch --raw -e {safe_query}"
-            
+
         # Fallback - should not reach here
         return f"{client} -e {safe_query}"
 
@@ -545,7 +545,7 @@ class DatabaseTool:
             if db_type in ["sqlite", "postgresql"] and clean_lines:
                 import csv
                 from io import StringIO
-                
+
                 # Use csv reader
                 reader = csv.reader(StringIO('\\n'.join(clean_lines)))
                 headers = next(reader)
@@ -555,21 +555,21 @@ class DatabaseTool:
             elif db_type == "mysql" and clean_lines: # MySQL uses tab-separated by default with --batch --raw
                 import csv
                 from io import StringIO
-                
+
                 reader = csv.reader(StringIO('\\n'.join(clean_lines)), delimiter='\\t')
                 headers = next(reader)
                 results = [dict(zip(headers, row)) for row in reader]
                 return results
-                
+
             # Fallback: return the raw output if parsing fails or format is unexpected
-            logger.warning(f"Could not parse CLI output for {db_type}, returning raw lines.")
+            logger.warning("%s", Could not parse CLI output for {db_type}, returning raw lines.)
             return [{"output": '\\n'.join(clean_lines)}]
-                
+
         except (StopIteration, csv.Error) as e: # Catch CSV parsing errors
-             logger.error(f"Error parsing CLI output ({db_type}) as CSV: {e}\\nOutput:\\n{output}")
+             logger.error("%s", Error parsing CLI output ({db_type}) as CSV: {e}\\nOutput:\\n{output})
              return [{"raw_output": '\\n'.join(clean_lines)}] # Return raw on parsing error
         except Exception as e: # Catch any other parsing errors
-             logger.error(f"Unexpected error parsing CLI output ({db_type}): {e}\\nOutput:\\n{output}")
+             logger.error("%s", Unexpected error parsing CLI output ({db_type}): {e}\\nOutput:\\n{output})
              return [{"raw_output": '\\n'.join(clean_lines)}]
 
     def _validate_query(self, query: str) -> Dict[str, Any]:
@@ -585,16 +585,16 @@ class DatabaseTool:
         if self.DANGEROUS_COMMANDS_REGEX.search(query):
             match = self.DANGEROUS_COMMANDS_REGEX.search(query).group(1)
             return {"valid": False, "reason": f"Potentially unsafe operation detected: {match}"}
-        
+
         # Check for UPDATE/DELETE without WHERE (simplified check)
-        if re.search(r"\b(UPDATE|DELETE\s+FROM)\b", query, re.IGNORECASE) and not re.search(r"\bWHERE\b", query, re.IGNORECASE):
-            return {"valid": False, "reason": "UPDATE or DELETE without WHERE clause is discouraged"}
-                
+        if re.search(r"\b(UPDATE|DELETE\s+
+            FROM)\b", query, re.IGNORECASE) and not re.search(r"\bWHERE\b", query, re.IGNORECASE):            return {"valid": False, "reason": "UPDATE or DELETE without WHERE clause is discouraged"}
+
         # Check for potential injection patterns
         if self.POTENTIAL_INJECTION_REGEX.search(query):
             match = self.POTENTIAL_INJECTION_REGEX.search(query).group(1)
             return {"valid": False, "reason": f"Potential SQL injection pattern detected: {match}"}
-                
+
         # Check for balanced quotes (basic check)
         if query.count("\"") % 2 != 0 or query.count('\'') % 2 != 0:
              return {"valid": False, "reason": "Unbalanced quotes detected"}
@@ -623,32 +623,32 @@ class DatabaseTool:
         # Split script into individual queries - Improved splitting
         # Handles simple cases, might fail with complex PL/SQL or comments
         queries = [q.strip() for q in re.split(r';\\s*$\\n?|\';\\s*(?=--)|;\s*(?=/\\*)', script_content, flags=re.MULTILINE) if q.strip()]
-        
+
         if not queries:
              return {"success": False, "error": "No valid queries found in script"}
 
-        logger.info(f"Executing {len(queries)} queries from script: {script_path}")
+        logger.info("%s", Executing {len(queries)} queries from script: {script_path})
         results = []
-        
+
         # Option 1: Execute within a single transaction (if using SQLAlchemy)
         if self.use_sqlalchemy and db_name in self.connections:
             try:
                 with self.get_connection(db_name) as conn: # Use context manager for transaction
                     for i, query in enumerate(queries):
-                        logger.debug(f"Executing script query {i+1}/{len(queries)}")
+                        logger.debug("%s", Executing script query {i+1}/{len(queries)})
                         validation = self._validate_query(query)
                         if not validation["valid"]:
                             raise ValueError(f"Invalid query in script: {validation['reason']}\\nQuery: {query[:100]}...")
 
                         result = conn.execute(text(query))
                         results.append({
-                            "success": True, 
+                            "success": True,
                             "query_index": i,
                             "rowcount": result.rowcount if hasattr(result, "rowcount") else None
                         })
                     # Transaction committed automatically by context manager if no errors
                     duration = (time.time() - execution_start_time) * 1000
-                    logger.info(f"Successfully executed script {script_path} via SQLAlchemy in {duration:.2f} ms")
+                    logger.info("%s", Successfully executed script {script_path} via SQLAlchemy in {duration:.2f} ms)
                     return {"success": True, "results": results, "queries_executed": len(results), "duration_ms": duration}
             except Exception as e:
                  duration = (time.time() - execution_start_time) * 1000
@@ -658,24 +658,24 @@ class DatabaseTool:
                  return {"success": False, "error": error_msg, "partial_results": results, "duration_ms": duration}
 
         # Option 2: Execute queries individually (fallback or if SQLAlchemy not used)
-        logger.warning(f"Executing script {script_path} query by query (no single transaction)")
+        logger.warning("%s", Executing script {script_path} query by query (no single transaction))
         for i, query in enumerate(queries):
-            logger.debug(f"Executing script query {i+1}/{len(queries)}")
+            logger.debug("%s", Executing script query {i+1}/{len(queries)})
             result = self.execute_query(query, db_name=db_name) # Uses execute_query's validation
             results.append(result)
-            
+
             # Stop on first error
             if not result["success"]:
                 duration = (time.time() - execution_start_time) * 1000
                 return {
                     "success": False,
-                    "error": f"Script execution failed at query {i+1}: {result.get('error', 'Unknown error')}",
-                    "partial_results": results,
+                    "error": f"Script execution failed at query {i+
+                        1}: {result.get('error', 'Unknown error')}",                    "partial_results": results,
                     "duration_ms": duration # Add duration
                 }
-        
+
         duration = (time.time() - execution_start_time) * 1000
-        logger.info(f"Successfully executed script {script_path} query-by-query in {duration:.2f} ms")
+        logger.info("%s", Successfully executed script {script_path} query-by-query in {duration:.2f} ms)
         return {
             "success": True,
             "results": results,
@@ -683,35 +683,35 @@ class DatabaseTool:
             "duration_ms": duration # Add duration
         }
 
-    def get_schema_info(self, db_name: str = "default", table_name: Optional[str] = None) -> Dict[str, Any]:
-        """Get database schema information for all tables or a specific table.
-        
+    def get_schema_info(self, db_name: str = "default", table_name: Optional[str] = None)
+         -> Dict[str, Any]:        """Get database schema information for all tables or a specific table.
+
         Args:
             db_name: The name of the database configuration to use
             table_name: Optional specific table name to inspect
-            
+
         Returns:
             Dictionary with schema information
         """
         start_time = time.time() # Start timing
         db_configs = self.config.config.get("databases", {})
-        
+
         if db_name not in db_configs:
-            logger.error(f"Database '{db_name}' not configured")
+            logger.error("%s", Database '{db_name}' not configured)
             return {"success": False, "error": f"Database '{db_name}' not configured"}
 
         db_config = db_configs[db_name]
         db_type = db_config.get("type", "postgresql").lower()
-        
+
         # Use SQLAlchemy Inspector if available for more reliable schema info
         if self.use_sqlalchemy and db_name in self.connections:
             try:
                 engine = self.connections[db_name]
                 inspector = inspect(engine)
                 schema_data = {}
-                
+
                 tables_to_inspect = [table_name] if table_name else inspector.get_table_names()
-                
+
                 for tbl in tables_to_inspect:
                     columns = inspector.get_columns(tbl)
                     schema_data[tbl] = [
@@ -728,17 +728,17 @@ class DatabaseTool:
                     # schema_data[tbl]["foreign_keys"] = inspector.get_foreign_keys(tbl)
 
                 duration = (time.time() - start_time) * 1000
-                logger.info(f"Retrieved schema info for {db_name} via SQLAlchemy Inspector in {duration:.2f} ms")
+                logger.info("%s", Retrieved schema info for {db_name} via SQLAlchemy Inspector in {duration:.2f} ms)
                 return {"success": True, "schema": schema_data, "method": "sqlalchemy_inspector", "duration_ms": duration}
             except Exception as e:
-                logger.warning(f"SQLAlchemy Inspector failed for schema info: {e}. Falling back to query.")
+                logger.warning("%s", SQLAlchemy Inspector failed for schema info: {e}. Falling back to query.)
                 # Fall through to query-based method
 
         # Fallback to query-based schema retrieval
-        logger.info(f"Attempting schema retrieval via query for {db_name}")
+        logger.info("%s", Attempting schema retrieval via query for {db_name})
         query = "" # Initialize query
         params = {}
-        
+
         # Query to get table information - customize based on database type
         if db_type == "postgresql":
             table_filter_pg = ""
@@ -746,14 +746,14 @@ class DatabaseTool:
                  table_filter_pg = "AND table_name = :table_name"
                  params["table_name"] = table_name
             query = f"""
-                SELECT 
-                    table_name, column_name, data_type, is_nullable, column_default 
-                FROM 
-                    information_schema.columns 
-                WHERE 
-                    table_schema = 'public' 
+                SELECT
+                    table_name, column_name, data_type, is_nullable, column_default
+                FROM
+                    information_schema.columns
+                WHERE
+                    table_schema = 'public'
                     {table_filter_pg}
-                ORDER BY 
+                ORDER BY
                     table_name, ordinal_position
             """
 
@@ -765,14 +765,14 @@ class DatabaseTool:
                  table_filter_mysql = "AND table_name = :table_name"
                  params["table_name"] = table_name
             query = f"""
-                SELECT 
-                    table_name, column_name, data_type, is_nullable, column_default 
-                FROM 
-                    information_schema.columns 
-                WHERE 
-                    table_schema = :table_schema 
+                SELECT
+                    table_name, column_name, data_type, is_nullable, column_default
+                FROM
+                    information_schema.columns
+                WHERE
+                    table_schema = :table_schema
                     {table_filter_mysql}
-                ORDER BY 
+                ORDER BY
                     table_name, ordinal_position
             """
         elif db_type == "sqlite":
@@ -781,26 +781,26 @@ class DatabaseTool:
                   table_filter_sqlite = "AND m.name = :table_name"
                   params["table_name"] = table_name
              query = f"""
-                SELECT 
-                    m.name AS table_name, 
-                    p.name AS column_name, 
-                    p.type AS data_type, 
-                    p.notnull AS is_nullable, 
-                    p.dflt_value AS column_default 
-                FROM 
-                    sqlite_master AS m 
-                JOIN 
-                    pragma_table_info(m.name) AS p ON m.name = p.table_name 
-                WHERE 
+                SELECT
+                    m.name AS table_name,
+                    p.name AS column_name,
+                    p.type AS data_type,
+                    p.notnull AS is_nullable,
+                    p.dflt_value AS column_default
+                FROM
+                    sqlite_master AS m
+                JOIN
+                    pragma_table_info(m.name) AS p ON m.name = p.table_name
+                WHERE
                     m.type = 'table' AND
                     m.name NOT LIKE 'sqlite_%'
                     {table_filter_sqlite}
-                ORDER BY 
+                ORDER BY
                     m.name, p.cid
             """
-            
+
         result = self.execute_query(query, params=params, db_name=db_name) # Use execute_query
-        
+
         # Structure the result if successful
         if result["success"]:
             schema_data = {}
@@ -816,22 +816,22 @@ class DatabaseTool:
             result["schema"] = schema_data # Add structured schema
             del result["results"] # Remove raw results
             result["duration_ms"] = (time.time() - start_time) * 1000 # Recalculate duration
-            logger.info(f"Retrieved schema info for {db_name} via query in {result['duration_ms']:.2f} ms")
+            logger.info("%s", Retrieved schema info for {db_name} via query in {result['duration_ms']:.2f} ms)
         else:
              result["duration_ms"] = (time.time() - start_time) * 1000 # Add duration on failure too
-             logger.error(f"Failed to retrieve schema info for {db_name} via query: {result.get('error')}")
+             logger.error("%s", Failed to retrieve schema info for {db_name} via query: {result.get('error)}")
 
         return result
 
-    def explain_query(self, query: str, params: Optional[Dict[str, Any]] = None, 
+    def explain_query(self, query: str, params: Optional[Dict[str, Any]] = None,
                       db_name: str = "default") -> Dict[str, Any]:
         """Get the execution plan for a query (EXPLAIN).
-        
+
         Args:
             query: SQL query to explain (typically SELECT, INSERT, UPDATE, DELETE)
             params: Optional query parameters
             db_name: The name of the database configuration to use
-            
+
         Returns:
             Dictionary with the execution plan or error
         """
@@ -844,22 +844,22 @@ class DatabaseTool:
 
         # Prepend EXPLAIN (syntax might vary slightly, basic EXPLAIN is common)
         explain_query = f"EXPLAIN {query}"
-        
+
         # Execute the EXPLAIN query - use execute_query for validation and execution
         result = self.execute_query(explain_query, params=params, db_name=db_name)
-        
+
         # Rename 'results' to 'plan' for clarity
         if result["success"]:
             result["plan"] = result.pop("results", [])
-            logger.info(f"Retrieved query plan for {db_name} in {result.get('duration_ms', 0):.2f} ms")
+            logger.info("%s", Retrieved query plan for {db_name} in {result.get('duration_ms', 0):.2f} ms)
         else:
-             logger.error(f"Failed to retrieve query plan for {db_name}: {result.get('error')}")
+             logger.error("%s", Failed to retrieve query plan for {db_name}: {result.get('error)}")
              result["plan"] = [] # Ensure plan key exists even on failure
 
         return result
 
-    def test_connection(self, db_name: str = "default") -> Dict[str, Any]:  # Return type changed to Any
-        """Test database connection. Returns detailed status."""
+    def test_connection(self, db_name: str = "default") -> Dict[str,
+         Any]:  # Return type changed to Any        """Test database connection. Returns detailed status."""
         start_time = time.time()
         # Try SQLAlchemy first if available
         if self.use_sqlalchemy and db_name in self.connections:
@@ -869,7 +869,7 @@ class DatabaseTool:
                     result = conn.execute(text("SELECT 1"))
                     scalar_result = result.scalar() # Fetch the result
                 duration = (time.time() - start_time) * 1000
-                logger.info(f"SQLAlchemy connection test successful for {db_name} in {duration:.2f} ms")
+                logger.info("%s", SQLAlchemy connection test successful for {db_name} in {duration:.2f} ms)
                 return {
                     "success": True,
                     "message": f"Connection successful (Result: {scalar_result})",
@@ -877,30 +877,30 @@ class DatabaseTool:
                 }
             except SQLAlchemyError as e: # Catch specific errors
                 duration = (time.time() - start_time) * 1000
-                logger.warning(f"SQLAlchemy connection test failed for {db_name}: {e}")
+                logger.warning("%s", SQLAlchemy connection test failed for {db_name}: {e})
                 # Fall through to BashTool, but record the SQLAlchemy error
                 sqlalchemy_error = str(e)
             except Exception as e: # Catch unexpected errors
                  duration = (time.time() - start_time) * 1000
-                 logger.error(f"Unexpected error during SQLAlchemy connection test for {db_name}: {e}")
+                 logger.error("%s", Unexpected error during SQLAlchemy connection test for {db_name}: {e})
                  return {"success": False, "error": f"Unexpected error: {e}", "duration_ms": duration}
 
         # Fallback to BashTool
-        logger.info(f"Attempting connection test via BashTool fallback for {db_name}")
+        logger.info("%s", Attempting connection test via BashTool fallback for {db_name})
         try:
             result = self.execute_query("SELECT 1", db_name=db_name, force_fallback=True)
             duration = (time.time() - start_time) * 1000 # Recalculate duration
             if result["success"]:
                 # Try to get the actual result from the output if possible
                 select_result = result.get("results", [{}])[0].get("1", "N/A") # Adjust key based on parsing
-                logger.info(f"BashTool connection test successful for {db_name} in {duration:.2f} ms")
+                logger.info("%s", BashTool connection test successful for {db_name} in {duration:.2f} ms)
                 return {
                     "success": True,
                     "message": f"Connection successful using fallback (Result: {select_result})",
                     "duration_ms": duration
                 }
             else:
-                logger.error(f"BashTool connection test failed for {db_name}: {result.get('error')}")
+                logger.error("%s", BashTool connection test failed for {db_name}: {result.get('error)}")
                 return {
                     "success": False,
                     "error": result.get("error", "Unknown error during fallback test"),
@@ -909,7 +909,7 @@ class DatabaseTool:
                 }
         except Exception as e:
             duration = (time.time() - start_time) * 1000
-            logger.error(f"Connection test failed during BashTool fallback for {db_name}: {e}")
+            logger.error("%s", Connection test failed during BashTool fallback for {db_name}: {e})
             return {
                 "success": False,
                 "error": f"Connection test failed: {str(e)}",

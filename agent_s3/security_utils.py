@@ -1,6 +1,6 @@
 """Security-related utility functions for Agent-S3."""
-
-from typing import MutableMapping, Dict
+from typing import Dict
+from typing import MutableMapping
 
 SENSITIVE_HEADERS = {"authorization", "cookie", "set-cookie"}
 

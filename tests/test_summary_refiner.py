@@ -4,8 +4,6 @@ from agent_s3.tools.summarization.summary_refiner import SummaryRefiner
 from agent_s3.tools.summarization.summary_validator import SummaryValidator
 from agent_s3.tools.summarization.validation_config import SummaryValidationConfig
 
-
-
 class DummyPromptFactory:
     def get_prompt(self, language, source, task):
         return "dummy prompt"

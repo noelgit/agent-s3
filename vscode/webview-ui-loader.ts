@@ -1,6 +1,6 @@
-import * as vscode from 'vscode';
-import * as path from 'path';
-import * as fs from 'fs';
+import * as vscode from "vscode";
+import * as path from "path";
+import * as fs from "fs";
 
 /**
  * Creates and manages a webview panel for React-based interactive components
@@ -27,40 +27,48 @@ export class InteractiveWebviewManager {
 
     // Otherwise, create a new panel
     this.panel = vscode.window.createWebviewPanel(
-      'agent-s3-interactive',
-      'Agent-S3 Interactive Components',
+      "agent-s3-interactive",
+      "Agent-S3 Interactive Components",
       vscode.ViewColumn.Beside,
       {
         enableScripts: true,
         retainContextWhenHidden: true,
         localResourceRoots: [
-          vscode.Uri.joinPath(this.extensionUri, 'webview-ui')
-        ]
-      }
+          vscode.Uri.joinPath(this.extensionUri, "webview-ui"),
+        ],
+      },
     );
 
     // Set webview content
     this.panel.webview.html = this.getWebviewContent(this.panel.webview);
 
     // Handle disposal
-    this.panel.onDidDispose(() => {
-      this.panel = undefined;
-      
-      // Dispose of all disposables associated with this panel
-      while (this.disposables.length) {
-        const disposable = this.disposables.pop();
-        if (disposable) {
-          disposable.dispose();
+    this.panel.onDidDispose(
+      () => {
+        this.panel = undefined;
+
+        // Dispose of all disposables associated with this panel
+        while (this.disposables.length) {
+          const disposable = this.disposables.pop();
+          if (disposable) {
+            disposable.dispose();
+          }
         }
-      }
-    }, null, this.disposables);
+      },
+      null,
+      this.disposables,
+    );
 
     // Handle messages from the webview
-    this.panel.webview.onDidReceiveMessage(message => {
-      if (this.messageHandler) {
-        this.messageHandler(message);
-      }
-    }, null, this.disposables);
+    this.panel.webview.onDidReceiveMessage(
+      (message) => {
+        if (this.messageHandler) {
+          this.messageHandler(message);
+        }
+      },
+      null,
+      this.disposables,
+    );
 
     return this.panel;
   }
@@ -88,12 +96,12 @@ export class InteractiveWebviewManager {
    */
   private getWebviewContent(webview: vscode.Webview): string {
     // Local path to the bundled React app
-    const webviewPath = path.join(this.extensionUri.fsPath, 'webview-ui');
-    const indexPath = path.join(webviewPath, 'index.html');
+    const webviewPath = path.join(this.extensionUri.fsPath, "webview-ui");
+    const indexPath = path.join(webviewPath, "index.html");
 
     // Read the HTML file
-    let html = fs.existsSync(indexPath) 
-      ? fs.readFileSync(indexPath, 'utf8')
+    let html = fs.existsSync(indexPath)
+      ? fs.readFileSync(indexPath, "utf8")
       : this.getFallbackHtml();
 
     // Create a nonce for CSP
@@ -126,9 +134,9 @@ export class InteractiveWebviewManager {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Agent-S3 Interactive View</title>
   <style>
-    body { 
-      font-family: var(--vscode-font-family); 
-      color: var(--vscode-foreground); 
+    body {
+      font-family: var(--vscode-font-family);
+      color: var(--vscode-foreground);
       background-color: var(--vscode-editor-background);
       display: flex;
       flex-direction: column;
@@ -165,8 +173,9 @@ export class InteractiveWebviewManager {
    * Generate a nonce string
    */
   private getNonce(): string {
-    let text = '';
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let text = "";
+    const possible =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     for (let i = 0; i < 32; i++) {
       text += possible.charAt(Math.floor(Math.random() * possible.length));
     }
@@ -176,7 +185,11 @@ export class InteractiveWebviewManager {
   /**
    * Replace local resource paths with webview URIs
    */
-  private replaceResourcePaths(html: string, webview: vscode.Webview, basePath: string): string {
+  private replaceResourcePaths(
+    html: string,
+    webview: vscode.Webview,
+    basePath: string,
+  ): string {
     // Find all resource paths in the HTML
     const srcRegex = /src=["']([^"']+)["']/g;
     const hrefRegex = /href=["']([^"']+)["']/g;
@@ -184,28 +197,28 @@ export class InteractiveWebviewManager {
     // Replace src attributes
     html = html.replace(srcRegex, (match, src) => {
       // Skip external URLs and data URIs
-      if (src.startsWith('http') || src.startsWith('data:')) {
+      if (src.startsWith("http") || src.startsWith("data:")) {
         return match;
       }
 
       // Create a URI for the resource
       const resourcePath = path.join(basePath, src);
       const uri = webview.asWebviewUri(vscode.Uri.file(resourcePath));
-      
+
       return `src="${uri}"`;
     });
 
     // Replace href attributes
     html = html.replace(hrefRegex, (match, href) => {
       // Skip external URLs and fragment identifiers
-      if (href.startsWith('http') || href.startsWith('#')) {
+      if (href.startsWith("http") || href.startsWith("#")) {
         return match;
       }
 
       // Create a URI for the resource
       const resourcePath = path.join(basePath, href);
       const uri = webview.asWebviewUri(vscode.Uri.file(resourcePath));
-      
+
       return `href="${uri}"`;
     });
 

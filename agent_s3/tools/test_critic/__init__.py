@@ -5,11 +5,9 @@ Provides both static analysis of test quality and actual test execution
 as part of the TDD/ATDD workflow.
 """
 
-from .core import TestCritic, TestType, TestVerdict, select_adapter, Adapter
-
 __all__ = [
     'TestCritic',
-    'TestType', 
+    'TestType',
     'TestVerdict',
     'select_adapter',
     'Adapter',

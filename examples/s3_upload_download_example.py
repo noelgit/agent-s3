@@ -9,16 +9,14 @@ Usage:
     python examples/s3_upload_download_example.py --bucket my-bucket --upload local.txt --key uploads/myfile.txt
     python examples/s3_upload_download_example.py --bucket my-bucket --download downloaded.txt --key uploads/myfile.txt
 """
-
-from __future__ import annotations
-
 import argparse
 import logging
 import os
 from pathlib import Path
 
 import boto3
-from botocore.exceptions import BotoCoreError, ClientError
+from botocore.exceptions import BotoCoreError
+from botocore.exceptions import ClientError
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 LOGGER = logging.getLogger("s3_example")

@@ -2,6 +2,7 @@
 Unit tests for EnvTool.
 """
 from unittest.mock import MagicMock
+
 from agent_s3.tools.env_tool import EnvTool
 
 def test_activate_virtual_env_detects_venv(monkeypatch):

@@ -3,16 +3,16 @@ Integration tests for the pre_planner_json_enforced module with coordinator.
 
 Tests that the enforced JSON pre-planning integrates correctly with the coordinator.
 """
+import json
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import pytest
-import json
-from unittest.mock import MagicMock, patch
 
-from agent_s3.coordinator import Coordinator
 from agent_s3.config import Config
-import agent_s3.pre_planner_json_enforced as pre_planner_json_enforced
+from agent_s3.coordinator import Coordinator
 from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager
-
+import agent_s3.pre_planner_json_enforced as pre_planner_json_enforced
 
 class TestEnforcedJsonCoordinatorIntegration:
     """Integration tests for enforced JSON with coordinator."""
@@ -39,7 +39,7 @@ class TestEnforcedJsonCoordinatorIntegration:
     def mock_router_agent(self):
         """Create a mock router agent that returns fake JSON responses."""
         agent = MagicMock()
-        
+
         # Setup fake JSON response
         json_response = {
             "original_request": "Implement authentication",
@@ -76,10 +76,10 @@ class TestEnforcedJsonCoordinatorIntegration:
                 "score": 180
             }
         }
-        
+
         # Return as string to simulate LLM response
         agent.call_llm_by_role.return_value = json.dumps(json_response)
-        
+
         return agent
 
     @pytest.fixture
@@ -87,10 +87,10 @@ class TestEnforcedJsonCoordinatorIntegration:
         """Create a mock coordinator with necessary components for testing."""
         # Create mock scratchpad
         scratchpad = MagicMock(spec=EnhancedScratchpadManager)
-        
+
         # Create mock progress tracker
         progress_tracker = MagicMock()
-        
+
         # Create and patch coordinator
         with patch('agent_s3.coordinator.TaskStateManager'), \
              patch('agent_s3.coordinator.WorkspaceInitializer'), \
@@ -99,14 +99,14 @@ class TestEnforcedJsonCoordinatorIntegration:
              patch('agent_s3.coordinator.DebuggingManager'), \
              patch('agent_s3.coordinator.CommandProcessor'), \
              patch('agent_s3.coordinator.DatabaseManager'):
-            
+
             coordinator = Coordinator(config=mock_config)
-            
+
             # Replace with mocks
             coordinator.scratchpad = scratchpad
             coordinator.progress_tracker = progress_tracker
             coordinator.router_agent = mock_router_agent
-            
+
             # Patch any init-related methods to prevent errors
             coordinator.file_tool = MagicMock()
             coordinator.bash_tool = MagicMock()
@@ -135,7 +135,7 @@ class TestEnforcedJsonCoordinatorIntegration:
             coordinator.task_resumer = MagicMock()
             coordinator.persona_debate = MagicMock()
             coordinator.command_processor = MagicMock()
-            
+
             yield coordinator
 
     def test_pre_planning_with_enforced_json(self, mock_coordinator):
@@ -188,7 +188,7 @@ class TestEnforcedJsonCoordinatorIntegration:
     def test_direct_integration_with_coordinator(self, mock_call, mock_coordinator):
         """Test direct integration between pre_planner_json_enforced and coordinator."""
         task = "Implement new authentication feature"
-        
+
         # Setup mock for call_pre_planner_with_enforced_json
         json_data = {
             "original_request": task,
@@ -224,12 +224,12 @@ class TestEnforcedJsonCoordinatorIntegration:
             }
         }
         mock_call.return_value = (True, json_data)
-        
+
         # Call the integration function directly
         result = pre_planner_json_enforced.integrate_with_coordinator(
             mock_coordinator, task
         )
-        
+
         # Verify integration results
         assert result["success"] is True
         assert result["uses_enforced_json"] is True
@@ -237,7 +237,7 @@ class TestEnforcedJsonCoordinatorIntegration:
         assert "dependencies" in result
         assert "features" in result
         assert "complexity_score" in result
-        
+
         # Verify the right function was called with the right arguments
         mock_call.assert_called_once_with(mock_coordinator.router_agent, task)
 

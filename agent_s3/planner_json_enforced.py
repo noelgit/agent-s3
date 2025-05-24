@@ -27,146 +27,146 @@ from agent_s3.tools.context_management.token_budget import TokenEstimator
 def validate_json_schema(data: Dict[str, Any]) -> Tuple[bool, str, List[int]]:
     """
     Validate JSON data against the required schema.
-    
+
     Args:
         data: The JSON data to validate
-        
+
     Returns:
         Tuple of (is_valid, error_message, valid_indices)
     """
     # Check for required top-level keys
     if not isinstance(data, dict):
         return False, "Data must be a dictionary", []
-    
+
     # Check for feature_groups array
     if "feature_groups" not in data:
         return False, "Missing 'feature_groups' key", []
-    
+
     feature_groups = data.get("feature_groups", [])
     if not isinstance(feature_groups, list):
         return False, "'feature_groups' must be an array", []
-    
+
     if not feature_groups:
         return False, "'feature_groups' array is empty", []
-    
+
     # Track which feature groups are valid
     valid_indices = []
-    
+
     # Validate each feature group
     for i, group in enumerate(feature_groups):
         if not isinstance(group, dict):
             continue
-        
+
         # Check required group fields
         if "group_name" not in group:
             continue
-        
+
         if "features" not in group or not isinstance(group["features"], list):
             continue
-        
+
         # Check if features array is empty
         if not group["features"]:
             continue
-        
+
         # Check each feature in the group
         features_valid = True
         for feature in group["features"]:
             if not isinstance(feature, dict):
                 features_valid = False
                 break
-            
+
             # Check required feature fields
             required_fields = ["name", "description"]
             if not all(field in feature for field in required_fields):
                 features_valid = False
                 break
-        
+
         if features_valid:
             valid_indices.append(i)
-    
+
     # If no valid feature groups found, return error
     if not valid_indices:
         return False, "No valid feature groups found", []
-    
+
     # If some feature groups are valid but not all, return partial success
     if len(valid_indices) < len(feature_groups):
         return False, f"Only {len(valid_indices)} of {len(feature_groups)} feature groups are valid", valid_indices
-    
+
     # All feature groups are valid
     return True, "", valid_indices
 
 def repair_json_structure(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Attempt to repair a JSON structure to match the expected schema.
-    
+
     Args:
         data: The JSON data to repair
-        
+
     Returns:
         Repaired JSON data
     """
     repaired = {}
-    
+
     # Ensure original_request exists
     if "original_request" not in data:
         repaired["original_request"] = "Unknown request"
     else:
         repaired["original_request"] = data["original_request"]
-    
+
     # Ensure feature_groups exists and is a list
     if "feature_groups" not in data or not isinstance(data["feature_groups"], list):
         repaired["feature_groups"] = []
     else:
         repaired["feature_groups"] = []
-        
+
         # Process each feature group
         for group in data["feature_groups"]:
             if not isinstance(group, dict):
                 continue
-            
+
             repaired_group = {}
-            
+
             # Ensure group_name exists
             if "group_name" not in group:
                 continue  # Skip groups without names
             repaired_group["group_name"] = group["group_name"]
-            
+
             # Ensure group_description exists
             if "group_description" not in group:
                 repaired_group["group_description"] = f"Description for {group['group_name']}"
             else:
                 repaired_group["group_description"] = group["group_description"]
-            
+
             # Ensure features exists and is a list
             if "features" not in group or not isinstance(group["features"], list):
                 repaired_group["features"] = []
             else:
                 repaired_group["features"] = []
-                
+
                 # Process each feature
                 for feature in group["features"]:
                     if not isinstance(feature, dict):
                         continue
-                    
+
                     repaired_feature = {}
-                    
+
                     # Ensure name exists
                     if "name" not in feature:
                         continue  # Skip features without names
                     repaired_feature["name"] = feature["name"]
-                    
+
                     # Ensure description exists
                     if "description" not in feature:
                         repaired_feature["description"] = f"Description for {feature['name']}"
                     else:
                         repaired_feature["description"] = feature["description"]
-                    
+
                     # Ensure files_affected exists
                     if "files_affected" not in feature or not isinstance(feature["files_affected"], list):
                         repaired_feature["files_affected"] = []
                     else:
                         repaired_feature["files_affected"] = feature["files_affected"]
-                    
+
                     # Ensure test_requirements exists
                     if "test_requirements" not in feature or not isinstance(feature["test_requirements"], dict):
                         repaired_feature["test_requirements"] = {
@@ -181,14 +181,14 @@ def repair_json_structure(data: Dict[str, Any]) -> Dict[str, Any]:
                         }
                     else:
                         repaired_feature["test_requirements"] = feature["test_requirements"]
-                        
+
                         # Ensure test_strategy exists
                         if "test_strategy" not in repaired_feature["test_requirements"]:
                             repaired_feature["test_requirements"]["test_strategy"] = {
                                 "coverage_goal": "80%",
                                 "ui_test_approach": "manual"
                             }
-                    
+
                     # Ensure dependencies exists
                     if "dependencies" not in feature or not isinstance(feature["dependencies"], dict):
                         repaired_feature["dependencies"] = {
@@ -198,7 +198,7 @@ def repair_json_structure(data: Dict[str, Any]) -> Dict[str, Any]:
                         }
                     else:
                         repaired_feature["dependencies"] = feature["dependencies"]
-                    
+
                     # Ensure risk_assessment exists
                     if "risk_assessment" not in feature or not isinstance(feature["risk_assessment"], dict):
                         repaired_feature["risk_assessment"] = {
@@ -214,7 +214,7 @@ def repair_json_structure(data: Dict[str, Any]) -> Dict[str, Any]:
                         }
                     else:
                         repaired_feature["risk_assessment"] = feature["risk_assessment"]
-                    
+
                     # Ensure system_design exists
                     if "system_design" not in feature or not isinstance(feature["system_design"], dict):
                         repaired_feature["system_design"] = {
@@ -225,17 +225,17 @@ def repair_json_structure(data: Dict[str, Any]) -> Dict[str, Any]:
                         }
                     else:
                         repaired_feature["system_design"] = feature["system_design"]
-                        
+
                         # Ensure code_elements exists
                         if "code_elements" not in repaired_feature["system_design"]:
                             repaired_feature["system_design"]["code_elements"] = []
-                    
+
                     repaired_group["features"].append(repaired_feature)
-            
+
             # Only add the group if it has features
             if repaired_group["features"]:
                 repaired["feature_groups"].append(repaired_group)
-    
+
     # If no valid feature groups were found, create a minimal valid structure
     if not repaired["feature_groups"]:
         repaired["feature_groups"] = [{
@@ -279,13 +279,13 @@ def repair_json_structure(data: Dict[str, Any]) -> Dict[str, Any]:
                 }
             }]
         }]
-    
+
     return repaired
 
 def get_openrouter_params() -> Dict[str, Any]:
     """
     Get parameters for OpenRouter API to enforce JSON output.
-    
+
     Returns:
         Dictionary of parameters for the API call
     """
@@ -329,7 +329,7 @@ def get_personas_content() -> str:
             Confirm the solution adheres to best practices and organizational guidelines.
             """
     except Exception as e:
-        logger.error(f"Error loading personas content: {str(e)}")
+        logger.error("%s", Error loading personas content: {str(e)})
         return "Error loading personas content. Using default expert personas."
 
 def get_coding_guidelines() -> str:
@@ -350,7 +350,7 @@ def get_coding_guidelines() -> str:
             - Follow project-specific conventions and patterns
             """
     except Exception as e:
-        logger.error(f"Error loading coding guidelines: {str(e)}")
+        logger.error("%s", Error loading coding guidelines: {str(e)})
         return "Error loading coding guidelines. Using default standards."
 
 
@@ -442,8 +442,8 @@ CRITICAL INSTRUCTION: You MUST respond in valid JSON format ONLY, conforming EXA
   "implementation_plan": { // Detailed file/function level plan, refining input 'system_design' based on architecture_review
     "file_path_1.py": [ // Key is the full path to the file to be modified or created
       {
-        "function": "def function_name(param1: type, param2: type) -> return_type:", // Full signature
-        "description": "Purpose of the function and how it contributes to the feature",
+        "function": "def function_name(param1: type, param2: type) -> return_type:",
+             // Full signature        "description": "Purpose of the function and how it contributes to the feature",
         "element_id": "string (Should match an element_id from system_design.code_elements)", // Link to code element for test alignment
         "steps": [
           {
@@ -502,8 +502,8 @@ IMPORTANT: You MUST perform the following two steps sequentially to generate the
    - Your main task here is to generate the detailed structured steps for implementation, not to redesign the interfaces unless your review identified specific issues with them.
    - DO NOT restart the review process from Step 1. Your goal here is to detail the 'how-to' based on the code elements provided in the system_design, with adjustments only as recommended in your architecture review.
    - For each function in the `implementation_plan`:
-       - The `function` field should be the full, typed signature (e.g., `def get_user_profile(user_id: int) -> Optional[UserProfile]:`).
-       - The `description` should explain its purpose.
+       - The `function` field should be the full, typed signature (e.g., `def get_user_profile(
+           user_id: int) -> Optional[UserProfile]:`).       - The `description` should explain its purpose.
        - The `steps` array should contain structured step objects:
            - `step_description`: A single, clear, actionable implementation step.
            - `pseudo_code`: Optional. A brief pseudo-code snippet if the step is complex.
@@ -532,7 +532,7 @@ def get_implementation_planning_system_prompt() -> str:
     Get the enhanced system prompt for implementation planning with stricter JSON enforcement.
     This prompt provides detailed guidance for creating comprehensive implementation plans
     that address architecture review findings and satisfy test requirements.
-    
+
     Returns:
         Properly formatted system prompt string
     """
@@ -544,8 +544,8 @@ def get_implementation_planning_system_prompt() -> str:
   "implementation_plan": {
     "file_path_1.py": [
       {
-        "function": "string (Full function signature, e.g., 'def get_user_by_id(user_id: int) -> Optional[User]:')",
-        "description": "string (Purpose of the function and how it contributes to the feature)",
+        "function": "string (Full function signature, e.g., 'def get_user_by_id(user_id: int)
+             -> Optional[User]:')",        "description": "string (Purpose of the function and how it contributes to the feature)",
         "element_id": "string (Must match an element_id from system_design.code_elements)",
         "steps": [
           {
@@ -769,7 +769,7 @@ Before finalizing your output, verify that:
 5. Security concerns are explicitly addressed with appropriate measures
 6. The discussion section explains your implementation approach clearly
 
-Your implementation plan will be used to guide the actual coding work, so it must be clear, comprehensive, and technically sound. 
+Your implementation plan will be used to guide the actual coding work, so it must be clear, comprehensive, and technically sound.
 The resulting implementation must be able to pass the tests developed in the test implementation phase.
 """
 
@@ -777,7 +777,7 @@ def get_test_specification_refinement_system_prompt() -> str:
     """
     Get the system prompt for test specification refinement based on architecture review insights.
     This enhanced version focuses on quality over quantity and maintains strict traceability.
-    
+
     Returns:
         Properly formatted system prompt string
     """
@@ -897,7 +897,7 @@ You MUST follow these steps IN ORDER to produce valid test specifications:
      * Expand inputs to cover normal and edge cases
      * Detail expected outcomes precisely
      * Add edge cases based on architecture review findings
-     * Specify necessary mocking requirements 
+     * Specify necessary mocking requirements
      * Link to architecture issues being addressed, if applicable
      * Assign appropriate priority level (Critical/High/Medium/Low)
    - Add new unit tests for any gaps identified in the architecture review
@@ -956,7 +956,7 @@ You MUST follow these steps IN ORDER to produce valid test specifications:
 
 1. ⚠️ You MUST maintain traceability:
    - **EVERY** test must reference correct target_element_ids from system_design.code_elements
-   - **EVERY** test addressing an architecture issue must reference that issue 
+   - **EVERY** test addressing an architecture issue must reference that issue
    - **ALWAYS** use the exact element_ids from the system_design.code_elements array
    - **VERIFY** element IDs exist in the system design before referencing them
 
@@ -1010,7 +1010,7 @@ The output of this step will be used in subsequent planning stages. Your refined
 If the original test requirements are already comprehensive and well-designed, your refinements should focus on enhancing traceability, improving detail, and ensuring alignment with architectural concerns."""
 
 def generate_refined_test_specifications(
-    router_agent, 
+    router_agent,
     feature_group: Dict[str, Any],
     architecture_review: Dict[str, Any],
     task_description: str,
@@ -1018,23 +1018,23 @@ def generate_refined_test_specifications(
 ) -> Dict[str, Any]:
     """
     Generate refined test specifications based on architecture review and system design.
-    
+
     Args:
         router_agent: The LLM router agent for making LLM calls
         feature_group: The feature group data
         architecture_review: The architecture review data
         task_description: Original task description
         context: Optional additional context
-        
+
     Returns:
         Dictionary containing refined test specifications
     """
-    logger.info(f"Generating refined test specifications for feature group: {feature_group.get('group_name', 'Unknown')}")
-    
+    logger.info("%s", Generating refined test specifications for feature group: {feature_group.get('group_name', 'Unknown)}")
+
     # Extract test requirements and system design from the feature group
     test_requirements = {}
     system_design = {}
-    
+
     for feature in feature_group.get("features", []):
         if isinstance(feature, dict):
             # Merge test requirements across features
@@ -1049,7 +1049,7 @@ def generate_refined_test_specifications(
                         if test_type not in test_requirements:
                             test_requirements[test_type] = {}
                         test_requirements[test_type].update(tests)
-            
+
             # Collect system design elements
             feature_sys_design = feature.get("system_design", {})
             if feature_sys_design:
@@ -1058,7 +1058,7 @@ def generate_refined_test_specifications(
                         system_design[key] = value
                     elif isinstance(value, list) and isinstance(system_design[key], list):
                         system_design[key].extend(value)
-    
+
     # Prepare input data for the LLM
     user_prompt = f"""Please refine and enhance the test specifications for the following feature based on the system design and architecture review.
 
@@ -1093,7 +1093,7 @@ Please maintain the intent of the original test requirements while enriching the
     # Get LLM parameters from json_utils to maintain consistency
     from .json_utils import get_openrouter_json_params
     llm_params = get_openrouter_json_params()
-    
+
     # Call the LLM
     try:
         system_prompt = get_test_specification_refinement_system_prompt()
@@ -1109,7 +1109,7 @@ Please maintain the intent of the original test requirements while enriching the
             user_prompt=user_prompt,
             config=llm_params
         )
-        
+
         # Parse and validate the response
         try:
             # Extract JSON from the response
@@ -1123,17 +1123,17 @@ Please maintain the intent of the original test requirements while enriching the
                     json_str = json_match.group(1)
                 else:
                     json_str = response_text
-            
+
             # Parse the JSON
             response_data = json.loads(json_str)
-            
+
             # Validate expected structure
             if "refined_test_requirements" not in response_data:
                 raise ValueError("Missing 'refined_test_requirements' in response")
-            
+
             # Enhanced validation and repair
             from .test_spec_validator import validate_and_repair_test_specifications
-            
+
             logger.info("Validating test specifications for element IDs, architecture issue coverage, and priority consistency")
             repaired_specs, validation_issues, was_repaired = validate_and_repair_test_specifications(
                 response_data["refined_test_requirements"],
@@ -1143,7 +1143,7 @@ Please maintain the intent of the original test requirements while enriching the
                 embedding_client=getattr(router_agent, "embedding_client", None),
                 context=context,
             )
-            
+
             # Log validation summary
             issue_types = {}
             for issue in validation_issues:
@@ -1151,18 +1151,18 @@ Please maintain the intent of the original test requirements while enriching the
                 if issue_type not in issue_types:
                     issue_types[issue_type] = 0
                 issue_types[issue_type] += 1
-            
+
             if validation_issues:
                 validation_summary = []
                 for issue_type, count in issue_types.items():
                     validation_summary.append(f"{count} {issue_type.replace('_', ' ')} issues")
-                
+
                 summary_str = ", ".join(validation_summary)
                 if was_repaired:
-                    logger.info(f"Test specifications had {len(validation_issues)} issues ({summary_str}) that were automatically repaired")
+                    logger.info("%s", Test specifications had {len(validation_issues)} issues ({summary_str}) that were automatically repaired)
                 else:
-                    logger.warning(f"Test specifications have {len(validation_issues)} issues ({summary_str}) that could not be automatically repaired")
-                
+                    logger.warning("%s", Test specifications have {len(validation_issues)} issues ({summary_str}) that could not be automatically repaired)
+
                 # Add validation summary to response
                 if "discussion" in response_data:
                     response_data["discussion"] += f"\n\nValidation Summary: {summary_str}"
@@ -1170,21 +1170,21 @@ Please maintain the intent of the original test requirements while enriching the
                     response_data["discussion"] = f"Validation Summary: {summary_str}"
             else:
                 logger.info("Test specifications passed all validations")
-            
+
             # Update the response data with repaired specifications if needed
             if was_repaired:
                 response_data["refined_test_requirements"] = repaired_specs
                 if "discussion" in response_data:
-                    response_data["discussion"] += "\n\nNote: Some issues were automatically repaired in the test specifications."
-            
+                    response_data["discussion"] +
+                        = "\n\nNote: Some issues were automatically repaired in the test specifications."
             return response_data
-            
+
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON response: {e}")
-            
+            logger.error("%s", Failed to parse JSON response: {e})
+
             # Try to repair JSON structure using json_utils
             logger.info("Attempting to repair JSON structure")
-            
+
             json_str = extract_json_from_text(response_text)
             if json_str:
                 try:
@@ -1199,30 +1199,30 @@ Please maintain the intent of the original test requirements while enriching the
                         },
                         "discussion": ""
                     }
-                    
+
                     partial_data = json.loads(json_str)
                     repaired_data = repair_json_structure(partial_data, schema)
-                    
+
                     if "refined_test_requirements" in repaired_data:
                         logger.info("JSON structure repaired successfully")
                         return repaired_data
                 except Exception as repair_error:
-                    logger.error(f"Failed to repair JSON structure: {repair_error}")
-            
+                    logger.error("%s", Failed to repair JSON structure: {repair_error})
+
             raise JSONPlannerError(f"Invalid JSON response: {e}")
-            
+
         except ValueError as e:
-            logger.error(f"Invalid response structure: {e}")
+            logger.error("%s", Invalid response structure: {e})
             raise JSONPlannerError(f"Invalid response structure: {e}")
-    
+
     except Exception as e:
-        logger.error(f"Error generating refined test specifications: {e}")
+        logger.error("%s", Error generating refined test specifications: {e})
         raise JSONPlannerError(f"Error generating refined test specifications: {e}")
 
 def get_semantic_validation_system_prompt() -> str:
     """
     Get the system prompt for semantic validation of planning outputs.
-    
+
     Returns:
         Properly formatted system prompt string
     """
@@ -1403,8 +1403,8 @@ Before finalizing your output, verify that:
 Your semantic validation will be used to improve the quality and coherence of the final implementation plan before coding begins.
 """
 
-def get_consolidated_plan_user_prompt(feature_group: Dict[str, Any], task_description: str, context: Optional[Dict[str, Any]] = None) -> str:
-    """
+def get_consolidated_plan_user_prompt(feature_group: Dict[str, Any], task_description: str,
+     context: Optional[Dict[str, Any]] = None) -> str:    """
     Get the user prompt for the consolidated planning LLM call.
 
     Args:
@@ -1438,8 +1438,8 @@ Your task is to:
 Ensure your response strictly adheres to the JSON schema provided in the system prompt. Focus on creating a practical, actionable plan based *only* on the provided information.
 """
 
-def _call_llm_with_retry(router_agent, system_prompt: str, user_prompt: str, config: Dict[str, Any], retries: int = 2, initial_backoff: float = 1.0) -> str:
-    """Helper function to call LLM with retry logic."""
+def _call_llm_with_retry(router_agent, system_prompt: str, user_prompt: str, config: Dict[str, Any],
+     retries: int = 2, initial_backoff: float = 1.0) -> str:    """Helper function to call LLM with retry logic."""
     estimator = TokenEstimator()
     prompt_tokens = estimator.estimate_tokens_for_text(system_prompt) + estimator.estimate_tokens_for_text(user_prompt)
     safe_max = max(config.get("max_tokens", 0) - prompt_tokens, 0)
@@ -1456,11 +1456,11 @@ def _call_llm_with_retry(router_agent, system_prompt: str, user_prompt: str, con
             raise ValueError("LLM returned an empty response.")
         return response
     except Exception as e:
-        logger.error(f"LLM call failed: {e}")
+        logger.error("%s", LLM call failed: {e})
         raise JSONPlannerError(f"LLM call failed after retries: {e}")
 
-def _parse_and_validate_json(response_text: str, schema: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Extracts, parses, and optionally validates JSON from LLM response."""
+def _parse_and_validate_json(response_text: str, schema: Optional[Dict[str, Any]] = None)
+     -> Dict[str, Any]:    """Extracts, parses, and optionally validates JSON from LLM response."""
     # --- (Implementation as provided previously, uses extract_json_from_text) ---
     json_text = extract_json_from_text(response_text)
     if not json_text:
@@ -1486,11 +1486,11 @@ def _parse_and_validate_json(response_text: str, schema: Optional[Dict[str, Any]
             raise JSONPlannerError(f"File path key in implementation_plan must be a string, got {type(file_path)}")
         if not isinstance(function_list, list):
             raise JSONPlannerError(f"Value for file '{file_path}' in implementation_plan must be a list of functions, got {type(function_list)}")
-        
+
         for func_idx, func_details in enumerate(function_list):
             if not isinstance(func_details, dict):
                 raise JSONPlannerError(f"Function entry {func_idx} in '{file_path}' must be a dictionary, got {type(func_details)}")
-            
+
             required_func_keys = {"function", "description", "steps", "edge_cases"}
             missing_func_keys = required_func_keys - func_details.keys()
             if missing_func_keys:
@@ -1506,18 +1506,18 @@ def _parse_and_validate_json(response_text: str, schema: Optional[Dict[str, Any]
             steps = func_details.get("steps")
             if not isinstance(steps, list):
                 raise JSONPlannerError(f"steps for function entry {func_idx} in '{file_path}' must be a list, got {type(steps)}")
-            
+
             for step_idx, step_detail in enumerate(steps):
                 if not isinstance(step_detail, dict):
                     raise JSONPlannerError(f"Step {step_idx} for function {func_idx} in '{file_path}' must be a dictionary, got {type(step_detail)}")
-                
+
                 required_step_keys = {"step_description", "pseudo_code", "relevant_data_structures", "api_calls_made", "error_handling_notes"}
                 missing_step_keys = required_step_keys - step_detail.keys()
                 if missing_step_keys:
                      # Allow pseudo_code to be optional by not raising error if it's the only one missing and others are present
                     if not (len(missing_step_keys) == 1 and "pseudo_code" in missing_step_keys and step_detail.get("step_description")): # pseudo_code is optional
                         raise JSONPlannerError(f"Step {step_idx} for function {func_idx} in '{file_path}' missing keys: {missing_step_keys}")
-                
+
                 if not isinstance(step_detail.get("step_description"), str):
                     raise JSONPlannerError(f"step_description for step {step_idx}, func {func_idx} in '{file_path}' must be a string.")
                 if "pseudo_code" in step_detail and not isinstance(step_detail.get("pseudo_code"), str): # Optional field
@@ -1534,14 +1534,14 @@ def _parse_and_validate_json(response_text: str, schema: Optional[Dict[str, Any]
     tests_plan = data.get("tests")
     if not isinstance(tests_plan, dict):
         raise JSONPlannerError(f"Top-level 'tests' field must be a dictionary, got {type(tests_plan)}")
-    
+
     expected_test_categories = ["unit_tests", "integration_tests", "property_based_tests", "acceptance_tests"]
     for category in expected_test_categories:
         if category not in tests_plan:
             raise JSONPlannerError(f"'tests' field missing category: '{category}'")
         if not isinstance(tests_plan[category], list):
             raise JSONPlannerError(f"'tests.{category}' must be a list, got {type(tests_plan[category])}")
-            
+
     # Example: Basic check for architecture_review structure
     architecture_review_plan = data.get("architecture_review")
     if not isinstance(architecture_review_plan, dict):
@@ -1708,7 +1708,7 @@ def get_architecture_review_system_prompt() -> str:
 Your task is to build upon the pre-planning phase outputs by analyzing a feature group's system design and identifying logical gaps, optimization opportunities, and architectural considerations.
 
 **IMPORTANT: Your responsibility is to refine the system design from the preplanner.**
-Focus on high-value improvements to security, performance, and maintainability. Do not nitpick. 
+Focus on high-value improvements to security, performance, and maintainability. Do not nitpick.
 If there is nothing to refine because the system design is already good and complete, then it is perfectly acceptable to leave it as is.
 
 **CRITICAL INSTRUCTION: You MUST respond in valid JSON format ONLY, conforming EXACTLY to this schema:**
@@ -1877,22 +1877,22 @@ If the design is already sound with few or no issues, the subsequent phases can 
 """
 
 def validate_planning_semantic_coherence(
-    router_agent, 
-    architecture_review, 
-    refined_test_specs, 
-    test_implementations, 
-    implementation_plan, 
-    task_description, 
+    router_agent,
+    architecture_review,
+    refined_test_specs,
+    test_implementations,
+    implementation_plan,
+    task_description,
     context=None,
     system_design=None
 ):
     """
     Validates the semantic coherence between different planning phase outputs.
-    
+
     This function ensures that there is consistency and logical coherence between the architecture review,
     test specifications, test implementations, and implementation plan. It helps identify any disconnects
     that might lead to issues in later phases.
-    
+
     Args:
         router_agent: The LLM router agent
         architecture_review: The architecture review data
@@ -1902,12 +1902,12 @@ def validate_planning_semantic_coherence(
         task_description: Original task description
         context: Optional additional context
         system_design: Optional system design data for element ID validation
-        
+
     Returns:
         Dictionary containing validation results with coherence scores and issue details
     """
     logger.info("Validating semantic coherence between planning phase outputs")
-    
+
     # Import here to avoid circular imports
     from .test_spec_validator import validate_and_repair_test_specifications
     from .tools.phase_validator import validate_security_concerns
@@ -1919,10 +1919,10 @@ def validate_planning_semantic_coherence(
         _validate_implementation_test_alignment,
         _calculate_implementation_metrics
     )
-    
+
     # Perform specific validations for security concerns and test specifications
     validation_details = {}
-    
+
     # Validate security concerns in architecture review
     if architecture_review and "security_concerns" in architecture_review:
         is_valid, error_message, security_validation_details = validate_security_concerns(architecture_review)
@@ -1931,7 +1931,7 @@ def validate_planning_semantic_coherence(
             "error_message": error_message,
             "details": security_validation_details
         }
-    
+
     # Validate test specifications against architecture review and system design
     if refined_test_specs and architecture_review and system_design:
         repaired_specs, validation_issues, was_repaired = validate_and_repair_test_specifications(
@@ -1950,7 +1950,7 @@ def validate_planning_semantic_coherence(
         # If there were repairs, use the repaired specifications
         if was_repaired:
             refined_test_specs = repaired_specs
-            
+
     # Validate test implementations against test specifications, system design, and architecture review
     if test_implementations and refined_test_specs and system_design and architecture_review:
         validated_implementations, validation_issues, needs_repair = validate_test_implementations(
@@ -1968,7 +1968,7 @@ def validate_planning_semantic_coherence(
         # which may have minor fixes applied
         if needs_repair:
             test_implementations = validated_implementations
-    
+
     # Validate implementation plan against system design, architecture review, and test implementations
     if implementation_plan and system_design and architecture_review and test_implementations:
         validation_result = validate_implementation_plan(
@@ -1977,13 +1977,13 @@ def validate_planning_semantic_coherence(
         validated_plan = validation_result.data
         validation_issues = validation_result.issues
         needs_repair = validation_result.needs_repair
-        
+
         # Calculate implementation metrics for deeper semantic analysis
         element_ids = set()
         for element in system_design.get("code_elements", []):
             if isinstance(element, dict) and "element_id" in element:
                 element_ids.add(element["element_id"])
-                
+
         # Extract architecture issues for validation
         architecture_issues = []
         if architecture_review:
@@ -2005,7 +2005,7 @@ def validate_planning_semantic_coherence(
                             "severity": concern.get("severity", "High"),
                             "issue_type": "security_concern"
                         })
-        
+
         # Extract test requirements for deeper validation
         test_requirements = {}
         if test_implementations and "tests" in test_implementations:
@@ -2017,20 +2017,20 @@ def validate_planning_semantic_coherence(
                                 if element_id not in test_requirements:
                                     test_requirements[element_id] = []
                                 test_requirements[element_id].append(test)
-        
+
         # Calculate comprehensive implementation metrics
         metrics = _calculate_implementation_metrics(
             validated_plan, element_ids, architecture_issues, test_requirements
         )
-        
+
         # Perform specialized validations
         quality_issues = _validate_implementation_quality(validated_plan, metrics)
         security_issues = _validate_implementation_security(validated_plan, architecture_issues)
         test_alignment_issues = _validate_implementation_test_alignment(validated_plan, test_requirements)
-        
+
         # Combine all validation issues
         all_implementation_issues = validation_issues + quality_issues + security_issues + test_alignment_issues
-        
+
         validation_details["implementation_plan_validation"] = {
             "has_issues": len(all_implementation_issues) > 0,
             "needs_repair": needs_repair,
@@ -2040,7 +2040,7 @@ def validate_planning_semantic_coherence(
             "element_coverage_score": metrics.get("element_coverage_score", 0.0),
             "architecture_issue_addressal_score": metrics.get("architecture_issue_addressal_score", 0.0)
         }
-    
+
     # Perform cross-phase validation assessments
     # Check for implementation-test alignment
     cross_phase_issues = []
@@ -2052,7 +2052,7 @@ def validate_planning_semantic_coherence(
                 for function in functions:
                     if isinstance(function, dict) and "element_id" in function:
                         implemented_elements.add(function["element_id"])
-        
+
         # Find test elements without implementations
         tested_elements = set()
         for test_type, tests in test_implementations["tests"].items():
@@ -2060,11 +2060,11 @@ def validate_planning_semantic_coherence(
                 for test in tests:
                     if isinstance(test, dict) and "target_element_ids" in test:
                         tested_elements.update(test["target_element_ids"])
-        
+
         # Identify misalignments
         untested_implementations = implemented_elements - tested_elements
         unimplemented_tests = tested_elements - implemented_elements
-        
+
         if untested_implementations:
             cross_phase_issues.append({
                 "issue_type": "untested_implementation",
@@ -2072,7 +2072,7 @@ def validate_planning_semantic_coherence(
                 "description": f"Found {len(untested_implementations)} implemented elements without tests",
                 "elements": list(untested_implementations)
             })
-        
+
         if unimplemented_tests:
             cross_phase_issues.append({
                 "issue_type": "unimplemented_test",
@@ -2080,7 +2080,7 @@ def validate_planning_semantic_coherence(
                 "description": f"Found {len(unimplemented_tests)} tested elements without implementations",
                 "elements": list(unimplemented_tests)
             })
-    
+
     # Check for architecture-implementation alignment
     if implementation_plan and architecture_review:
         # Check if all critical architecture issues are addressed
@@ -2090,19 +2090,19 @@ def validate_planning_semantic_coherence(
                 for function in functions:
                     if isinstance(function, dict) and "architecture_issues_addressed" in function:
                         addressed_issues.update(function["architecture_issues_addressed"])
-        
+
         # Get all critical/high issues that should be addressed
         critical_issues = set()
         if "logical_gaps" in architecture_review:
             for gap in architecture_review["logical_gaps"]:
                 if isinstance(gap, dict) and "id" in gap and gap.get("severity", "").lower() in ["critical", "high"]:
                     critical_issues.add(gap["id"])
-        
+
         if "security_concerns" in architecture_review:
             for concern in architecture_review["security_concerns"]:
                 if isinstance(concern, dict) and "id" in concern and concern.get("severity", "").lower() in ["critical", "high"]:
                     critical_issues.add(concern["id"])
-        
+
         # Find unaddressed critical issues
         unaddressed_critical = critical_issues - addressed_issues
         if unaddressed_critical:
@@ -2112,7 +2112,7 @@ def validate_planning_semantic_coherence(
                 "description": f"Found {len(unaddressed_critical)} critical architecture issues not addressed in implementation",
                 "issues": list(unaddressed_critical)
             })
-    
+
     # Add cross-phase validation to the details
     validation_details["cross_phase_validation"] = {
         "has_issues": len(cross_phase_issues) > 0,
@@ -2120,7 +2120,7 @@ def validate_planning_semantic_coherence(
         "implementation_test_alignment_score": 1.0 - (len(unimplemented_tests) / max(len(tested_elements), 1) if 'unimplemented_tests' in locals() else 0.0),
         "architecture_implementation_alignment_score": 1.0 - (len(unaddressed_critical) / max(len(critical_issues), 1) if 'unaddressed_critical' in locals() else 0.0)
     }
-    
+
     # Create a consolidated input for validation
     validation_input = {
         "architecture_review": architecture_review,
@@ -2132,10 +2132,10 @@ def validate_planning_semantic_coherence(
         "validation_details": validation_details,
         "cross_phase_validation": validation_details.get("cross_phase_validation", {})
     }
-    
+
     # Get the semantic validation system prompt
     system_prompt = get_semantic_validation_system_prompt()
-    
+
     # Create user prompt for semantic validation
     user_prompt = f"""
 # Task Description
@@ -2167,19 +2167,19 @@ Please evaluate the overall coherence, technical consistency, and cross-componen
 of these planning outputs with special attention to:
 
 1. Security Validation: Analyze how security concerns in the architecture review are addressed by tests and implementation
-2. Priority Alignment: Verify that test priorities properly align with architecture issue severity 
+2. Priority Alignment: Verify that test priorities properly align with architecture issue severity
 3. Element ID Coverage: Ensure critical issues have appropriate test coverage
 
 Provide numerical scores (0-10) for coherence, consistency, traceability, security validation, and priority alignment.
 """
-    
+
     # Set up parameters for LLM call
     config = {
         "response_format": {"type": "json_object"},
         "temperature": 0.2,  # Lower temp for consistency
         "max_tokens": 4096   # Ensure enough space
     }
-    
+
     try:
         # Call LLM to validate semantic coherence
         response_text = _call_llm_with_retry(
@@ -2188,77 +2188,77 @@ Provide numerical scores (0-10) for coherence, consistency, traceability, securi
             user_prompt=user_prompt,
             config=config
         )
-        
+
         # Parse and validate response
         try:
             # Extract JSON from the response text
             json_text = extract_json_from_text(response_text)
-            
+
             if not json_text:
                 raise JSONPlannerError("Failed to extract JSON from semantic validation response")
-            
+
             validation_results = json.loads(json_text)
-            
+
             # Basic validation of expected structure
             if "validation_results" not in validation_results:
                 raise JSONPlannerError("Semantic validation missing 'validation_results' key")
-            
+
             results = validation_results["validation_results"]
-            
+
             # Check for required score fields
             required_scores = ["coherence_score", "technical_consistency_score"]
             for score_field in required_scores:
                 if score_field not in results:
                     results[score_field] = 5  # Default middle score if missing
-            
+
             # Check for critical issues array
             if "critical_issues" not in results:
                 results["critical_issues"] = []
-                
-            logger.info(f"Semantic validation complete. Coherence score: {results.get('coherence_score')}, " 
+
+            logger.info("%s", Semantic validation complete. Coherence score: {results.get('coherence_score)}, "
                        f"Consistency score: {results.get('technical_consistency_score')}")
-            
+
             return validation_results
-                
+
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON from semantic validation: {e}")
+            logger.error("%s", Failed to parse JSON from semantic validation: {e})
             raise JSONPlannerError(f"Invalid JSON in semantic validation: {e}")
-            
+
     except Exception as e:
-        logger.error(f"Error performing semantic validation: {e}")
+        logger.error("%s", Error performing semantic validation: {e})
         raise JSONPlannerError(f"Error performing semantic validation: {e}")
 
 def _calculate_syntax_validation_percentage(validation_issues: List[Dict[str, Any]]) -> float:
     """
     Calculate the percentage of tests that pass syntax validation.
-    
+
     Args:
         validation_issues: List of validation issues found in test implementations
-        
+
     Returns:
         Percentage of tests that pass syntax validation (0-100)
     """
-    syntax_issues = [issue for issue in validation_issues 
+    syntax_issues = [issue for issue in validation_issues
                      if issue.get("issue_type") in ["empty_code", "missing_imports", "incorrect_structure"]]
-    
+
     # If there are no syntax issues, return 100%
     if not syntax_issues:
         return 100.0
-    
+
     # If we have both the total count and issue count, calculate the percentage
     # Assuming each issue affects one test and there's no duplication
     unique_affected_tests = set()
     for issue in syntax_issues:
         test_key = f"{issue.get('category', '')}-{issue.get('test_index', '')}"
         unique_affected_tests.add(test_key)
-    
+
     # Estimate total tests as roughly 3x the number of affected tests
     # This is a heuristic since we don't have the total test count available
     estimated_total_tests = max(len(unique_affected_tests) * 3, 10)
-    
+
     # Calculate percentage
     percentage = 100 * (1 - (len(unique_affected_tests) / estimated_total_tests))
-    
+
     # Ensure the percentage is within bounds
     return max(0.0, min(100.0, percentage))
 
@@ -2266,44 +2266,44 @@ def _calculate_syntax_validation_percentage(validation_issues: List[Dict[str, An
 def _calculate_traceability_coverage(validation_issues: List[Dict[str, Any]]) -> float:
     """
     Calculate the percentage of tests with proper traceability to architecture elements.
-    
+
     Args:
         validation_issues: List of validation issues found in test implementations
-        
+
     Returns:
         Percentage of tests with proper traceability (0-100)
     """
-    traceability_issues = [issue for issue in validation_issues 
+    traceability_issues = [issue for issue in validation_issues
                            if issue.get("issue_type") in ["invalid_element_id", "missing_field"]]
-    
+
     # If there are no traceability issues, return 100%
     if not traceability_issues:
         return 100.0
-    
+
     # Similar approach to syntax validation
     unique_affected_tests = set()
     for issue in traceability_issues:
-        test_key = f"{issue.get('category', '')}-{issue.get('test_index', '')}" 
+        test_key = f"{issue.get('category', '')}-{issue.get('test_index', '')}"
         unique_affected_tests.add(test_key)
-    
+
     # Estimate total tests
     estimated_total_tests = max(len(unique_affected_tests) * 3, 10)
-    
+
     # Calculate percentage
     percentage = 100 * (1 - (len(unique_affected_tests) / estimated_total_tests))
-    
+
     # Ensure the percentage is within bounds
     return max(0.0, min(100.0, percentage))
 
 
-def _calculate_security_coverage(validation_issues: List[Dict[str, Any]], architecture_review: Dict[str, Any]) -> float:
-    """
+def _calculate_security_coverage(validation_issues: List[Dict[str, Any]],
+     architecture_review: Dict[str, Any]) -> float:    """
     Calculate the percentage of security concerns properly addressed by tests.
-    
+
     Args:
         validation_issues: List of validation issues found in test implementations
         architecture_review: The architecture review containing security concerns
-        
+
     Returns:
         Percentage of security concerns properly addressed (0-100)
     """
@@ -2311,23 +2311,23 @@ def _calculate_security_coverage(validation_issues: List[Dict[str, Any]], archit
     security_concerns = architecture_review.get("security_concerns", [])
     if not security_concerns:
         return 100.0  # No security concerns to address
-    
+
     # Count unaddressed security issues
-    unaddressed_issues = [issue for issue in validation_issues 
-                          if issue.get("issue_type") == "unaddressed_critical_issue" 
+    unaddressed_issues = [issue for issue in validation_issues
+                          if issue.get("issue_type") == "unaddressed_critical_issue"
                           and issue.get("arch_issue_id", "").startswith("SEC-")]
-    
+
     # Calculate percentage
     total_security_concerns = len(security_concerns)
     addressed_concerns = total_security_concerns - len(unaddressed_issues)
-    
+
     percentage = 100 * (addressed_concerns / total_security_concerns) if total_security_concerns > 0 else 100.0
-    
+
     # Ensure the percentage is within bounds
     return max(0.0, min(100.0, percentage))
 
 def generate_implementation_plan(
-    router_agent, 
+    router_agent,
     system_design: Dict[str, Any],
     architecture_review: Dict[str, Any],
     tests: Dict[str, Any],
@@ -2338,7 +2338,7 @@ def generate_implementation_plan(
     Generate implementation plan based on architecture review and tests.
     Includes comprehensive validation and repair of the implementation plan
     for quality assurance and semantic coherence across planning phases.
-    
+
     Args:
         router_agent: The LLM router agent for making LLM calls
         system_design: The system design data
@@ -2346,13 +2346,13 @@ def generate_implementation_plan(
         tests: The test implementations
         task_description: Original task description
         context: Optional additional context
-        
+
     Returns:
         Dictionary containing implementation plan with validation metrics and semantic coherence assessment
     """
     logger.info("Generating implementation plan")
     start_time = time.time()
-    
+
     # Create an enhanced user prompt with explicit guidance on addressing architecture review findings
     # and ensuring test compatibility
     user_prompt = f"""Please create a detailed implementation plan based on the system design, architecture review, and test implementations.
@@ -2401,22 +2401,22 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
     # Get LLM parameters from json_utils to maintain consistency
     from .json_utils import get_openrouter_json_params
     llm_params = get_openrouter_json_params()
-    
+
     # Call the LLM with enhanced retry logic
     try:
         # Use the implementation planning system prompt from this module
         system_prompt = get_implementation_planning_system_prompt()
-        
+
         # Use improved retry logic for LLM calls with exponential backoff
         max_retries = 3  # Increased from 2 to 3 for better reliability
         retry_count = 0
-        
+
         response_text = None
         last_error = None
-        
+
         while retry_count <= max_retries:
             try:
-                logger.info(f"Making LLM call attempt {retry_count + 1}/{max_retries + 1}")
+                logger.info("%s", Making LLM call attempt {retry_count + 1}/{max_retries + 1})
                 estimator = TokenEstimator()
                 tokens = estimator.estimate_tokens_for_text(system_prompt) + estimator.estimate_tokens_for_text(user_prompt)
                 params = {**llm_params, "max_tokens": max(llm_params.get("max_tokens", 0) - tokens, 0)}
@@ -2426,27 +2426,27 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                     user_prompt=user_prompt,
                     config=params
                 )
-                
+
                 if not response_text:
                     raise ValueError("Received empty response from LLM")
-                
-                logger.info(f"Successfully received response from LLM (length: {len(response_text)} chars)")
+
+                logger.info("%s", Successfully received response from LLM (length: {len(response_text)} chars))
                 break  # Break out of the retry loop if successful
-                
+
             except Exception as e:
                 retry_count += 1
                 last_error = e
-                logger.warning(f"LLM call attempt {retry_count} failed: {str(e)}")
-                
+                logger.warning("%s", LLM call attempt {retry_count} failed: {str(e)})
+
                 if retry_count > max_retries:
-                    logger.error(f"Failed to get LLM response after {max_retries + 1} attempts")
-                    raise JSONPlannerError(f"LLM call failed after {max_retries + 1} attempts: {str(last_error)}") 
-                
+                    logger.error("%s", Failed to get LLM response after {max_retries + 1} attempts)
+                    raise JSONPlannerError(f"LLM call failed after {max_retries +
+                         1} attempts: {str(last_error)}")
                 # Exponential backoff with jitter
                 backoff_time = (2 ** retry_count) + (random.random() * 0.5)
-                logger.info(f"Retrying in {backoff_time:.2f} seconds...")
+                logger.info("%s", Retrying in {backoff_time:.2f} seconds...)
                 time.sleep(backoff_time)
-        
+
         # Enhanced JSON extraction and parsing with robust recovery mechanisms
         try:
             # Initialize response data with default structure
@@ -2463,64 +2463,64 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                 },
                 "discussion": ""
             }
-            
+
             # Extract JSON from the response with multiple fallback mechanisms
             json_extraction_start = time.time()
             json_str = extract_json_from_text(response_text)
-            
+
             if not json_str:
                 logger.warning("Failed to extract JSON using primary method. Attempting multiple fallback extraction patterns.")
-                
+
                 # Try different extraction patterns in sequence
                 extraction_patterns = [
                     # Code block pattern (most common)
                     (r'```json\n(.*?)\n```', "code block"),
-                    
+
                     # Markdown code block without language specifier
                     (r'```\n(.*?)\n```', "generic code block"),
-                    
+
                     # Direct JSON pattern with optional whitespace
                     (r'(\{\s*"implementation_plan"\s*:.*\})', "direct JSON pattern"),
-                    
+
                     # Broader JSON pattern fallback
                     (r'({[\s\S]*})', "general JSON pattern"),
-                    
+
                     # XML-like pattern (sometimes LLMs wrap JSON in XML-like tags)
                     (r'<json>([\s\S]*?)<\/json>', "XML-like wrapper")
                 ]
-                
+
                 for pattern, pattern_name in extraction_patterns:
                     json_match = re.search(pattern, response_text, re.DOTALL)
                     if json_match:
                         json_str = json_match.group(1)
-                        logger.info(f"Extracted JSON using {pattern_name} pattern")
+                        logger.info("%s", Extracted JSON using {pattern_name} pattern)
                         break
-                
+
                 # If all patterns fail, use the full response as a last resort
                 if not json_str:
                     json_str = response_text
                     logger.warning("All extraction patterns failed. Using full response as JSON (may cause parsing errors)")
-            
+
             json_extraction_time = time.time() - json_extraction_start
-            logger.info(f"JSON extraction completed in {json_extraction_time:.2f}s")
-            
+            logger.info("%s", JSON extraction completed in {json_extraction_time:.2f}s)
+
             # Enhanced JSON parsing with advanced repair capabilities
             parse_start = time.time()
-            
+
             # Try to parse the JSON directly first
             try:
                 logger.info("Attempting direct JSON parsing")
                 parsed_data = json.loads(json_str)
                 logger.info("JSON parsed successfully")
-                
+
                 # Update our response data with parsed data
                 for key in parsed_data:
                     response_data[key] = parsed_data[key]
-                    
+
             except json.JSONDecodeError as json_error:
-                logger.warning(f"Direct JSON parsing failed: {json_error}")
+                logger.warning("%s", Direct JSON parsing failed: {json_error})
                 logger.info("Attempting JSON repair sequence")
-                
+
                 # Define comprehensive schema for validation and repair
                 schema = {
                     "implementation_plan": {},
@@ -2535,48 +2535,48 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                     },
                     "discussion": ""
                 }
-                
+
                 # Multiple repair attempts with different strategies
                 repair_strategies = [
                     # Strategy 1: Basic quote replacement and repair
                     lambda js: repair_json_structure(json.loads(js.replace("'", '"')), schema),
-                    
+
                     # Strategy 2: Remove trailing commas in arrays/objects that cause syntax errors
                     lambda js: repair_json_structure(json.loads(re.sub(r',\s*([}\]])', r'\1', js.replace("'", '"'))), schema),
-                    
+
                     # Strategy 3: Extract just the implementation_plan object if it's identifiable
                     lambda js: {"implementation_plan": json.loads(re.search(r'"implementation_plan"\s*:\s*(\{.*?\})', js, re.DOTALL).group(1))}
                 ]
-                
+
                 repaired = False
                 for strategy_idx, repair_strategy in enumerate(repair_strategies):
                     try:
-                        logger.info(f"Attempting repair strategy {strategy_idx + 1}")
+                        logger.info("%s", Attempting repair strategy {strategy_idx + 1})
                         repaired_data = repair_strategy(json_str)
-                        
+
                         # Update our response data with repaired data
                         for key in repaired_data:
                             if key in response_data and repaired_data[key]:
                                 response_data[key] = repaired_data[key]
-                                
-                        logger.info(f"Repair strategy {strategy_idx + 1} succeeded")
+
+                        logger.info("%s", Repair strategy {strategy_idx + 1} succeeded)
                         repaired = True
                         break
                     except Exception as repair_error:
-                        logger.warning(f"Repair strategy {strategy_idx + 1} failed: {repair_error}")
-                        continue
-                
+                        logger.warning("%s", Repair strategy {strategy_idx +
+                             1} failed: {repair_error})                        continue
+
                 if not repaired:
                     logger.error("All repair strategies failed")
                     # We'll continue with our default structured response_data
                     logger.warning("Using minimal default structure for implementation plan")
-            
+
             parse_time = time.time() - parse_start
-            logger.info(f"JSON parsing/repair completed in {parse_time:.2f}s")
-            
+            logger.info("%s", JSON parsing/repair completed in {parse_time:.2f}s)
+
             # Comprehensive structure validation
             validate_start = time.time()
-            
+
             # Check if all required sections exist and create them if missing
             required_sections = {
                 "implementation_plan": {},
@@ -2591,19 +2591,19 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                 },
                 "discussion": ""
             }
-            
+
             is_valid = True
             for section, default_value in required_sections.items():
                 if section not in response_data:
-                    logger.warning(f"Missing required section '{section}' in response")
+                    logger.warning("%s", Missing required section '{section}' in response)
                     response_data[section] = default_value
                     is_valid = False
                 elif not response_data[section] and default_value:
                     # Section exists but is empty when it shouldn't be
-                    logger.warning(f"Section '{section}' is empty, initializing with default structure")
+                    logger.warning("%s", Section '{section}' is empty, initializing with default structure)
                     response_data[section] = default_value
                     is_valid = False
-            
+
             # Additional validation for nested structures
             if "implementation_strategy" in response_data:
                 strategy = response_data["implementation_strategy"]
@@ -2614,43 +2614,43 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                 else:
                     for key, default in required_sections["implementation_strategy"].items():
                         if key not in strategy:
-                            logger.warning(f"Missing required strategy component '{key}', adding default")
+                            logger.warning("%s", Missing required strategy component '{key}', adding default)
                             strategy[key] = default
                             is_valid = False
-            
+
             if not is_valid:
                 logger.warning("Response structure validation failed, proceeding with repaired structure")
-            
+
             validate_time = time.time() - validate_start
-            logger.info(f"Structure validation completed in {validate_time:.2f}s")
-            
-            
+            logger.info("%s", Structure validation completed in {validate_time:.2f}s)
+
+
             # Comprehensive implementation plan validation
             validation_start = time.time()
             logger.info("Beginning implementation plan validation")
-            
+
             implementation_plan = response_data["implementation_plan"]
-            
+
             # Prepare data for validation
             # Extract element IDs for validation and metric calculation
             element_ids = set()
             for element in system_design.get("code_elements", []):
                 if isinstance(element, dict) and "element_id" in element:
                     element_ids.add(element["element_id"])
-            
+
             # Extract architecture issues for validation
             architecture_issues = []
             if "logical_gaps" in architecture_review:
                 for gap in architecture_review["logical_gaps"]:
                     if isinstance(gap, dict):
-                        severity = gap.get("severity", "Medium") 
+                        severity = gap.get("severity", "Medium")
                         architecture_issues.append({
                             "id": gap.get("id", ""),
                             "description": gap.get("description", ""),
                             "severity": severity,
                             "issue_type": "logical_gap"
                         })
-                        
+
             if "security_concerns" in architecture_review:
                 for concern in architecture_review["security_concerns"]:
                     if isinstance(concern, dict):
@@ -2661,7 +2661,7 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                             "severity": severity,
                             "issue_type": "security_concern"
                         })
-            
+
             # Extract test requirements for validation with more detailed organization
             test_requirements = {}
             for test_type, test_list in tests.get("tests", {}).items():
@@ -2675,7 +2675,7 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                                 test_with_type = dict(test)
                                 test_with_type["test_type"] = test_type
                                 test_requirements[element_id].append(test_with_type)
-            
+
             # Perform validation with detailed logging
             validation_result = validate_implementation_plan(
                 implementation_plan,
@@ -2686,33 +2686,33 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
             validated_plan = validation_result.data
             validation_issues = validation_result.issues
             needs_repair = validation_result.needs_repair
-            
+
             # Log validation issues with structured categorization
             issue_types = defaultdict(lambda: defaultdict(int))
             if validation_issues:
-                logger.info(f"Found {len(validation_issues)} validation issues in implementation plan")
+                logger.info("%s", Found {len(validation_issues)} validation issues in implementation plan)
                 for issue in validation_issues:
                     severity = issue.get("severity", "unknown")
                     issue_type = issue.get("issue_type", "unknown")
                     issue_types[issue_type][severity] += 1
-                    
+
                     if severity in ["critical", "high"]:
-                        logger.warning(f"[{severity.upper()}] {issue.get('description', 'Unknown issue')}")
+                        logger.warning("%s", [{severity.upper()}] {issue.get('description', 'Unknown issue)}")
                     else:
-                        logger.info(f"[{severity.upper()}] {issue.get('description', 'Unknown issue')}")
-                
+                        logger.info("%s", [{severity.upper()}] {issue.get('description', 'Unknown issue)}")
+
                 # Log summary of issue types with severity breakdown
                 logger.info("Validation issue summary:")
                 for issue_type, severities in issue_types.items():
                     severity_counts = ", ".join([f"{severity}: {count}" for severity, count in severities.items()])
-                    logger.info(f"- {issue_type}: {sum(severities.values())} issues ({severity_counts})")
-            
+                    logger.info("%s", - {issue_type}: {sum(severities.values())} issues ({severity_counts}))
+
             validation_time = time.time() - validation_start
-            logger.info(f"Implementation validation completed in {validation_time:.2f}s")
-            
+            logger.info("%s", Implementation validation completed in {validation_time:.2f}s)
+
             # Calculate comprehensive implementation metrics
             metrics_start = time.time()
-            
+
             # Calculate base metrics
             metrics = _calculate_implementation_metrics(
                 validated_plan,
@@ -2720,7 +2720,7 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                 architecture_issues,
                 test_requirements
             )
-            
+
             # Add additional metrics for better assessment
             metrics["validation_time_seconds"] = validation_time
             metrics["issue_count_by_type"] = {k: sum(v.values()) for k, v in issue_types.items()}
@@ -2728,19 +2728,19 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                 severity: sum(counts.get(severity, 0) for counts in issue_types.values())
                 for severity in ["critical", "high", "medium", "low"]
             }
-            
+
             logger.info(f"Implementation metrics: Overall score: {metrics['overall_score']:.2f}, " +
                        f"Element coverage: {metrics['element_coverage_score']:.2f}, " +
                        f"Architecture issue addressal: {metrics['architecture_issue_addressal_score']:.2f}, " +
-                       f"Test coverage: {metrics['test_coverage_score']:.2f}")
-            
+                                                                                                        f"Test coverage: {metrics['test_coverage_score']:.2f}")
+
             metrics_time = time.time() - metrics_start
-            logger.info(f"Metrics calculation completed in {metrics_time:.2f}s")
-            
+            logger.info("%s", Metrics calculation completed in {metrics_time:.2f}s)
+
             # Enhanced repair mechanism with quality improvements
             repair_start = time.time()
             repaired_plan = validated_plan  # Default to the validated plan
-            
+
             if needs_repair:
                 logger.info("Repairing implementation plan to fix validation issues")
                 try:
@@ -2752,7 +2752,7 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                         tests
                     )
                     response_data["implementation_plan"] = repaired_plan
-                    
+
                     # Calculate new metrics after repair
                     new_metrics = _calculate_implementation_metrics(
                         repaired_plan,
@@ -2760,26 +2760,26 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                         architecture_issues,
                         test_requirements
                     )
-                    
+
                     # Add repair metrics
                     new_metrics["validation_time_seconds"] = validation_time
                     new_metrics["repair_time_seconds"] = time.time() - repair_start
                     new_metrics["pre_repair_score"] = metrics["overall_score"]
-                    new_metrics["improvement_percentage"] = ((new_metrics["overall_score"] - metrics["overall_score"]) / 
+                    new_metrics["improvement_percentage"] = ((new_metrics["overall_score"] - metrics["overall_score"]) /
                                                            max(0.001, metrics["overall_score"])) * 100
-                    
+
                     logger.info(f"Post-repair metrics: Overall score: {new_metrics['overall_score']:.2f}, " +
-                               f"Element coverage: {new_metrics['element_coverage_score']:.2f}, " +
-                               f"Architecture issue addressal: {new_metrics['architecture_issue_addressal_score']:.2f}, " +
-                               f"Test coverage: {new_metrics['test_coverage_score']:.2f}")
-                    
+                                                                                                       f"Element coverage: {new_metrics['element_coverage_score']:.2f}, " +
+                                                                                                                                                                             f"Architecture issue addressal: {new_metrics['architecture_issue_addressal_score']:.2f}, " +
+                                                                                                                                                                                                   f"Test coverage: {new_metrics['test_coverage_score']:.2f}")
+
                     # Add validation and repair information to the discussion
                     if "discussion" not in response_data:
                         response_data["discussion"] = ""
-                    
+
                     repair_note = "\n\n## Implementation Plan Validation and Repair\n\n"
-                    repair_note += "The implementation plan was automatically validated and the following issues were addressed:\n\n"
-                    
+                    repair_note +
+                        = "The implementation plan was automatically validated and the following issues were addressed:\n\n"
                     # Group issues by type and severity for clearer reporting
                     issues_by_category = defaultdict(list)
                     for issue in validation_issues:
@@ -2787,30 +2787,30 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                         issue_type = issue.get("issue_type", "unknown")
                         category = f"{severity.upper()} {issue_type}"
                         issues_by_category[category].append(issue.get("description", "Unknown issue"))
-                    
+
                     for category, descriptions in issues_by_category.items():
                         repair_note += f"### {category} ({len(descriptions)} issues)\n\n"
                         for i, description in enumerate(descriptions[:5]):  # Show at most 5 issues per category
                             repair_note += f"- {description}\n"
                         if len(descriptions) > 5:
-                            repair_note += f"- ... and {len(descriptions) - 5} more similar issues\n"
-                        repair_note += "\n"
-                    
+                            repair_note +
+                                = f"- ... and {len(descriptions) - 5} more similar issues\n"                        repair_note +
+                                                                        = "\n"
                     # Add metrics improvement summary
                     if new_metrics["overall_score"] > metrics["overall_score"]:
                         improvement = (new_metrics["overall_score"] - metrics["overall_score"]) * 100
                         repair_note += "\n### Quality Improvement\n\n"
                         repair_note += f"Overall quality score improved by {improvement:.1f}%.\n"
-                        repair_note += f"- Element coverage: {metrics['element_coverage_score']:.2f} → {new_metrics['element_coverage_score']:.2f}\n"
-                        repair_note += f"- Architecture issue addressal: {metrics['architecture_issue_addressal_score']:.2f} → {new_metrics['architecture_issue_addressal_score']:.2f}\n"
-                        repair_note += f"- Test coverage: {metrics['test_coverage_score']:.2f} → {new_metrics['test_coverage_score']:.2f}\n"
-                    
+                        repair_note +
+                            = f"- Element coverage: {metrics['element_coverage_score']:.2f} → {new_metrics['element_coverage_score']:.2f}\n"                        repair_note +
+                                                                                            = f"- Architecture issue addressal: {metrics['architecture_issue_addressal_score']:.2f} → {new_metrics['architecture_issue_addressal_score']:.2f}\n"                        repair_note +
+                                                                                                                            = f"- Test coverage: {metrics['test_coverage_score']:.2f} → {new_metrics['test_coverage_score']:.2f}\n"
                     response_data["discussion"] += repair_note
-                    
+
                     # Store validation metrics in response
                     response_data["implementation_metrics"] = new_metrics
                 except Exception as repair_error:
-                    logger.error(f"Error during implementation plan repair: {repair_error}")
+                    logger.error("%s", Error during implementation plan repair: {repair_error})
                     # Continue with validated plan if repair fails
                     response_data["implementation_plan"] = validated_plan
                     response_data["implementation_metrics"] = metrics
@@ -2819,10 +2819,10 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                 logger.info("Implementation plan validation successful")
                 response_data["implementation_plan"] = validated_plan
                 response_data["implementation_metrics"] = metrics
-            
+
             repair_time = time.time() - repair_start
-            logger.info(f"Implementation repair completed in {repair_time:.2f}s")
-            
+            logger.info("%s", Implementation repair completed in {repair_time:.2f}s)
+
             # Run enhanced semantic coherence validation
             coherence_start = time.time()
             try:
@@ -2837,39 +2837,39 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                     context,
                     system_design
                 )
-                
+
                 # Add semantic coherence results to the response
                 if coherence_results:
                     # Add semantic validation to the response
                     response_data["semantic_validation"] = coherence_results
-                    
+
                     # Calculate additional cross-phase metrics
                     if "validation_results" in coherence_results:
                         results = coherence_results["validation_results"]
-                        
+
                         # Add summary of semantic validation to the discussion
                         if "discussion" not in response_data:
                             response_data["discussion"] = ""
-                        
+
                         coherence_note = "\n\n## Semantic Coherence Validation Results\n\n"
-                        coherence_note += "The implementation plan was validated for semantic coherence across architecture review, test implementation, and system design.\n\n"
-                        
+                        coherence_note +
+                            = "The implementation plan was validated for semantic coherence across architecture review, test implementation, and system design.\n\n"
                         # Add scores
                         coherence_note += "### Validation Scores\n\n"
-                        coherence_note += f"- **Coherence Score**: {results.get('coherence_score', 0.0):.1f}/10\n"
-                        coherence_note += f"- **Technical Consistency**: {results.get('technical_consistency_score', 0.0):.1f}/10\n"
-                        coherence_note += f"- **Implementation-Test Alignment**: {results.get('implementation_test_alignment_score', 0.0):.2f}/1.0\n"
-                        
+                        coherence_note +
+                            = f"- **Coherence Score**: {results.get('coherence_score', 0.0):.1f}/10\n"                        coherence_note +
+                                                                                            = f"- **Technical Consistency**: {results.get('technical_consistency_score', 0.0):.1f}/10\n"                        coherence_note +
+                                                                                                                            = f"- **Implementation-Test Alignment**: {results.get('implementation_test_alignment_score', 0.0):.2f}/1.0\n"
                         # Add cross-validation findings
                         if "cross_component_traceability" in results:
                             traceability = results["cross_component_traceability"]
-                            coherence_note += f"- **Traceability Score**: {traceability.get('score', 0.0):.1f}/10\n\n"
-                        
+                            coherence_note +
+                                = f"- **Traceability Score**: {traceability.get('score', 0.0):.1f}/10\n\n"
                         # Add security validation results if available
                         if "security_validation" in results:
                             security = results["security_validation"]
-                            coherence_note += f"- **Security Validation**: {security.get('score', 0.0):.1f}/10\n\n"
-                        
+                            coherence_note +
+                                = f"- **Security Validation**: {security.get('score', 0.0):.1f}/10\n\n"
                         # Add critical issues if present
                         if "critical_issues" in results and results["critical_issues"]:
                             coherence_note += "### Critical Issues\n\n"
@@ -2877,12 +2877,12 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                                 issue_desc = issue.get("description", "Unknown issue")
                                 issue_severity = issue.get("severity", "critical")
                                 coherence_note += f"- **[{issue_severity.upper()}]** {issue_desc}\n"
-                            
+
                             if len(results["critical_issues"]) > 5:
-                                coherence_note += f"- ... and {len(results['critical_issues']) - 5} more critical issues\n"
-                                
+                                coherence_note +
+                                    = f"- ... and {len(results['critical_issues']) - 5} more critical issues\n"
                             coherence_note += "\n"
-                        
+
                         # Add optimization opportunities
                         if "optimization_opportunities" in results and results["optimization_opportunities"]:
                             coherence_note += "### Optimization Opportunities\n\n"
@@ -2893,19 +2893,19 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                                 coherence_note += f"- **[{opt_effort} effort]** {opt_desc}\n"
                                 if opt_benefit:
                                     coherence_note += f"  - Benefit: {opt_benefit}\n"
-                            
+
                             if len(results["optimization_opportunities"]) > 3:
-                                coherence_note += f"- ... and {len(results['optimization_opportunities']) - 3} more opportunities\n"
-                                
+                                coherence_note +
+                                    = f"- ... and {len(results['optimization_opportunities']) - 3} more opportunities\n"
                         response_data["discussion"] += coherence_note
             except Exception as coherence_error:
-                logger.error(f"Semantic coherence validation failed: {coherence_error}")
+                logger.error("%s", Semantic coherence validation failed: {coherence_error})
                 # Add error information without failing the process
                 response_data.setdefault("semantic_validation", {})["error"] = str(coherence_error)
-            
+
             coherence_time = time.time() - coherence_start
-            logger.info(f"Semantic coherence validation completed in {coherence_time:.2f}s")
-            
+            logger.info("%s", Semantic coherence validation completed in {coherence_time:.2f}s)
+
             # Add timing information to metrics
             total_time = time.time() - start_time
             response_data.setdefault("implementation_metrics", {}).update({
@@ -2916,36 +2916,36 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                 "repair_time_seconds": repair_time,
                 "coherence_validation_time_seconds": coherence_time
             })
-            
-            logger.info(f"Implementation plan generation completed in {total_time:.2f}s")
+
+            logger.info("%s", Implementation plan generation completed in {total_time:.2f}s)
             return response_data
-            
+
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON response: {e}")
-            
+            logger.error("%s", Failed to parse JSON response: {e})
+
             # Enhanced JSON repair with more aggressive fallback mechanisms
             try:
                 logger.info("Attempting aggressive JSON structure repair")
-                
+
                 # Define a more tolerant JSON extraction regex pattern
                 json_pattern = r'({[\s\S]*?})'
                 matches = re.finditer(json_pattern, response_text, re.DOTALL)
-                
+
                 # Try different potential JSON chunks in the response
                 json_candidates = []
-                
+
                 for match in matches:
                     candidate = match.group(1)
                     if len(candidate) > 100:  # Ignore tiny matches
                         json_candidates.append(candidate)
-                
+
                 # Sort candidates by length (longest first - likely to be the full response)
                 json_candidates.sort(key=len, reverse=True)
-                
+
                 # Try each candidate with all repair techniques
                 for i, candidate in enumerate(json_candidates[:3]):  # Try top 3 candidates
-                    logger.info(f"Trying JSON candidate {i+1} (length: {len(candidate)})")
-                    
+                    logger.info("%s", Trying JSON candidate {i+1} (length: {len(candidate)}))
+
                     try:
                         # Basic schema for validation
                         schema = {
@@ -2961,15 +2961,15 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                             },
                             "discussion": ""
                         }
-                        
+
                         # Basic text cleaning - replace single quotes, fix trailing commas
                         cleaned = re.sub(r',\s*([}\]])', r'\1', candidate.replace("'", '"'))
-                        
+
                         # Try parsing directly first
                         try:
                             parsed_data = json.loads(cleaned)
-                            logger.info(f"Successfully parsed candidate {i+1}")
-                            
+                            logger.info("%s", Successfully parsed candidate {i+1})
+
                             # Validate that it contains implementation_plan
                             if "implementation_plan" in parsed_data:
                                 logger.info("Found implementation_plan in parsed data")
@@ -2979,17 +2979,17 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                         except json.JSONDecodeError:
                             # Try repair
                             parsed_data = repair_json_structure(json.loads(cleaned), schema)
-                            
+
                             if "implementation_plan" in parsed_data:
-                                logger.info(f"Successfully repaired candidate {i+1}")
+                                logger.info("%s", Successfully repaired candidate {i+1})
                                 return parsed_data
                     except Exception as repair_error:
-                        logger.warning(f"Failed to repair candidate {i+1}: {repair_error}")
+                        logger.warning("%s", Failed to repair candidate {i+1}: {repair_error})
                         continue
-                
+
                 # If all candidates fail, create a minimal valid response
                 logger.warning("All JSON extraction and repair attempts failed, creating minimal valid response")
-                
+
                 minimal_response = {
                     "implementation_plan": {},
                     "implementation_strategy": {
@@ -3003,7 +3003,7 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                     },
                     "discussion": "Implementation plan generation failed. Please check the logs for details."
                 }
-                
+
                 # Extract any potential functions from the text
                 function_matches = re.finditer(r'def\s+([a-zA-Z0-9_]+)\s*\((.*?)\)', response_text)
                 for match in function_matches:
@@ -3013,31 +3013,31 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                     file_path = f"extracted_function_{func_name}.py"  # Placeholder file
                     if file_path not in minimal_response["implementation_plan"]:
                         minimal_response["implementation_plan"][file_path] = []
-                        
+
                     minimal_response["implementation_plan"][file_path].append({
                         "function": f"def {func_name}({func_params}):",
                         "description": "Function extracted from response text",
                         "steps": [{"step_description": "Implement function logic"}],
                         "edge_cases": ["Extracted from failed parsing, requires manual review"]
                     })
-                
+
                 # Add error information
                 minimal_response["error"] = {
                     "message": f"JSON parsing failed: {e}",
                     "recovery": "Minimal implementation plan structure created",
                     "timestamp": datetime.now().isoformat()
                 }
-                
+
                 return minimal_response
             except Exception as extract_error:
-                logger.error(f"All JSON extraction and repair attempts failed: {extract_error}")
+                logger.error("%s", All JSON extraction and repair attempts failed: {extract_error})
                 raise JSONPlannerError(f"Failed to extract or repair JSON: {e} → {extract_error}")
-            
+
         except ValueError as e:
-            logger.error(f"Invalid response structure: {e}")
+            logger.error("%s", Invalid response structure: {e})
             raise JSONPlannerError(f"Invalid response structure: {e}")
-    
+
     except Exception as e:
-        logger.error(f"Error generating implementation plan: {e}")
+        logger.error("%s", Error generating implementation plan: {e})
         raise JSONPlannerError(f"Error generating implementation plan: {e}")
 # --- END OF FILE planner_json_enforced.py ---

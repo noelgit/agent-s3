@@ -1,8 +1,13 @@
-import time
+from collections import OrderedDict
+from collections import defaultdict
 import json
 import logging
-from collections import defaultdict, OrderedDict
-from typing import Dict, Any, List, Tuple, Set
+import time
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Set
+from typing import Tuple
 
 logger = logging.getLogger(__name__)
 

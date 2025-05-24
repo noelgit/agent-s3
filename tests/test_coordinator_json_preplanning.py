@@ -3,16 +3,16 @@ Tests for the coordinator's pre-planning JSON enforcement functionality.
 
 Tests that verify the coordinator correctly prioritizes and uses enforced JSON pre-planning.
 """
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import pytest
-from unittest.mock import MagicMock, patch
 
 from agent_s3.pre_planner_json_enforced import integrate_with_coordinator
 
-
 class TestCoordinatorJsonPrePlanning:
     """Tests for the coordinator's pre-planning functionality with JSON enforcement."""
-    
+
     @patch('agent_s3.pre_planner_json_enforced.integrate_with_coordinator')
     def test_pre_planning_prioritizes_enforced_json(self, mock_enforced_json):
         """Test that enforced JSON integration is used."""
@@ -33,7 +33,7 @@ class TestCoordinatorJsonPrePlanning:
         assert result.get("status") == "completed"
         assert result.get("success") is True
         assert result.get("uses_enforced_json") is True
-    
+
     @patch('agent_s3.pre_planner_json_enforced.integrate_with_coordinator')
     def test_fallback_to_standard_json_when_enforced_fails(self, mock_enforced_json):
         """Test that errors propagate when enforced JSON fails."""
@@ -45,7 +45,7 @@ class TestCoordinatorJsonPrePlanning:
 
         with pytest.raises(Exception):
             integrate_with_coordinator(coordinator, "Test task")
-    
+
     @patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json')
     def test_direct_integration_function(self, mock_call):
         """Test the integration function directly."""
@@ -84,18 +84,18 @@ class TestCoordinatorJsonPrePlanning:
             }
         }
         mock_call.return_value = (True, json_data)
-        
+
         # Create mock coordinator
         mock_coordinator = MagicMock()
         mock_coordinator.router_agent = MagicMock()
-        
+
         # Call the integration function directly
         task = "Test task"
         result = integrate_with_coordinator(mock_coordinator, task)
-        
+
         # Verify the call to call_pre_planner_with_enforced_json
         mock_call.assert_called_once_with(mock_coordinator.router_agent, task)
-        
+
         # Verify the result
         assert result["success"] is True
         assert result["uses_enforced_json"] is True
@@ -103,7 +103,7 @@ class TestCoordinatorJsonPrePlanning:
         assert "dependencies" in result
         assert "features" in result
         assert "complexity_score" in result
-    
+
     @patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json')
     def test_updated_test_requirements_integration(self, mock_call):
         """Test that updated test requirements are correctly integrated."""

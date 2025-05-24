@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class MessageType(Enum):
     """Enumeration of message types for the message bus."""
-    
+
     # General message types
     TERMINAL_OUTPUT = "terminal_output"
     APPROVAL_REQUEST = "approval_request"
@@ -26,7 +26,7 @@ class MessageType(Enum):
     PROGRESS_UPDATE = "progress_update"
     USER_RESPONSE = "user_response"
     ERROR_NOTIFICATION = "error_notification"
-    
+
     # Connection management
     CONNECTION_ESTABLISHED = "connection_established"
     AUTHENTICATION_RESULT = "authentication_result"
@@ -35,7 +35,7 @@ class MessageType(Enum):
     SERVER_HEARTBEAT = "server_heartbeat"
     RECONNECT = "reconnect"
     RECONNECTION_RESULT = "reconnection_result"
-    
+
     # Streaming message types
     THINKING = "thinking"
     THINKING_INDICATOR = "thinking_indicator"
@@ -43,13 +43,13 @@ class MessageType(Enum):
     STREAM_CONTENT = "stream_content"
     STREAM_END = "stream_end"
     STREAM_INTERACTIVE = "stream_interactive"
-    
+
     # UI-specific messages
     NOTIFICATION = "notification"
     COMMAND_RESULT = "command_result"
     USER_INPUT = "user_input"
     UI_STATE_UPDATE = "ui_state_update"
-    
+
     # Enhanced message types for interactive UI
     INTERACTIVE_DIFF = "interactive_diff"
     INTERACTIVE_APPROVAL = "interactive_approval"
@@ -62,7 +62,7 @@ class MessageType(Enum):
 
 class OutputCategory(Enum):
     """Categories for terminal output classification."""
-    
+
     GENERAL = "general"
     APPROVAL_PROMPT = "approval_prompt"
     DIFF_CONTENT = "diff_content"
@@ -224,7 +224,7 @@ MESSAGE_SCHEMAS = {
 
 class Message:
     """Represents a message in the message bus."""
-    
+
     def __init__(
         self,
         type: Union[MessageType, str],
@@ -234,7 +234,7 @@ class Message:
         schema_validation: bool = True
     ):
         """Initialize a new message.
-        
+
         Args:
             type: The message type
             content: The message content
@@ -246,19 +246,19 @@ class Message:
         self.content = content
         self.id = id or str(uuid.uuid4())
         self.timestamp = timestamp or datetime.now().isoformat()
-        
+
         # Validate against schema if applicable
         if schema_validation and self.type.value in MESSAGE_SCHEMAS:
             try:
                 validate(instance=content, schema=MESSAGE_SCHEMAS[self.type.value])
             except jsonschema.exceptions.ValidationError as e:
-                logger.error(f"Message schema validation failed: {e}")
+                logger.error("%s", Message schema validation failed: {e})
                 raise ValueError(
                     f"Message schema validation failed: {e}") from e
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert the message to a dictionary for JSON serialization.
-        
+
         Returns:
             Dictionary representation of the message
         """
@@ -268,15 +268,15 @@ class Message:
             "content": self.content,
             "timestamp": self.timestamp
         }
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any], schema_validation: bool = True) -> "Message":
         """Create a message from a dictionary.
-        
+
         Args:
             data: Dictionary representation of the message
             schema_validation: Whether to validate against schema
-            
+
         Returns:
             New Message instance
         """
@@ -287,10 +287,10 @@ class Message:
             timestamp=data.get("timestamp"),
             schema_validation=schema_validation
         )
-    
+
     def __str__(self) -> str:
         """String representation of the message.
-        
+
         Returns:
             String representation
         """
@@ -299,7 +299,7 @@ class Message:
 
 class MessageBus:
     """Central message bus for routing messages between components."""
-    
+
     def __init__(self):
         """Initialize the message bus."""
         self.handlers: Dict[str, List[Callable[[Message], None]]] = {}
@@ -310,36 +310,36 @@ class MessageBus:
             "messages_handled": 0,
             "handler_errors": 0
         }
-        
-    def register_handler(self, message_type: Union[MessageType, str], handler_fn: Callable[[Message], None]):
-        """Register a handler for a specific message type.
-        
+
+    def register_handler(self, message_type: Union[MessageType, str], handler_fn: Callable[[Message]
+        , None]):        """Register a handler for a specific message type.
+
         Args:
             message_type: The message type to handle
             handler_fn: The handler function that takes a Message as argument
         """
         if isinstance(message_type, str):
             message_type = MessageType(message_type)
-            
+
         if message_type.value not in self.handlers:
             self.handlers[message_type.value] = []
-            
+
         self.handlers[message_type.value].append(handler_fn)
-        logger.debug(f"Registered handler for message type: {message_type.value}")
-        
-    def unregister_handler(self, message_type: Union[MessageType, str], handler_fn: Callable[[Message], None]) -> bool:
-        """Unregister a handler for a specific message type.
-        
+        logger.debug("%s", Registered handler for message type: {message_type.value})
+
+    def unregister_handler(self, message_type: Union[MessageType, str],
+         handler_fn: Callable[[Message], None]) -> bool:        """Unregister a handler for a specific message type.
+
         Args:
             message_type: The message type
             handler_fn: The handler function to remove
-            
+
         Returns:
             True if handler was removed, False otherwise
         """
         if isinstance(message_type, str):
             message_type = MessageType(message_type)
-            
+
         if message_type.value in self.handlers:
             try:
                 self.handlers[message_type.value].remove(handler_fn)
@@ -347,19 +347,19 @@ class MessageBus:
             except ValueError:
                 return False
         return False
-        
+
     def publish(self, message: Message) -> bool:
         """Publish a message to the bus.
-        
+
         Args:
             message: The message to publish
-            
+
         Returns:
             True if any handlers processed the message, False otherwise
         """
         message_type = message.type.value
         self.metrics["messages_published"] += 1
-        
+
         handled = False
         if message_type in self.handlers:
             for handler in self.handlers[message_type]:
@@ -369,8 +369,8 @@ class MessageBus:
                     self.metrics["messages_handled"] += 1
                 except Exception as e:
                     self.metrics["handler_errors"] += 1
-                    logger.error(f"Error in message handler: {e}")
-            
+                    logger.error("%s", Error in message handler: {e})
+
         # Also notify topic subscribers
         if message_type in self.topic_subscribers:
             for client_id in self.topic_subscribers[message_type]:
@@ -379,13 +379,13 @@ class MessageBus:
                         self.client_handlers[client_id](message)
                         handled = True
                     except Exception as e:
-                        logger.error(f"Error in client handler for {client_id}: {e}")
-                        
+                        logger.error("%s", Error in client handler for {client_id}: {e})
+
         return handled
-    
-    def subscribe_client(self, client_id: str, message_type: Union[MessageType, str], handler_fn: Callable[[Message], None]):
-        """Subscribe a client to a specific message type.
-        
+
+    def subscribe_client(self, client_id: str, message_type: Union[MessageType, str],
+         handler_fn: Callable[[Message], None]):        """Subscribe a client to a specific message type.
+
         Args:
             client_id: The client identifier
             message_type: The message type to subscribe to
@@ -393,17 +393,17 @@ class MessageBus:
         """
         if isinstance(message_type, str):
             message_type = MessageType(message_type)
-        
+
         if message_type.value not in self.topic_subscribers:
             self.topic_subscribers[message_type.value] = set()
-            
+
         self.topic_subscribers[message_type.value].add(client_id)
         self.client_handlers[client_id] = handler_fn
-        logger.debug(f"Client {client_id} subscribed to {message_type.value}")
-    
-    def unsubscribe_client(self, client_id: str, message_type: Optional[Union[MessageType, str]] = None):
-        """Unsubscribe a client from message types.
-        
+        logger.debug("%s", Client {client_id} subscribed to {message_type.value})
+
+    def unsubscribe_client(self, client_id: str, message_type: Optional[Union[MessageType,
+         str]] = None):        """Unsubscribe a client from message types.
+
         Args:
             client_id: The client identifier
             message_type: Optional specific message type to unsubscribe from.
@@ -412,33 +412,33 @@ class MessageBus:
         if message_type is not None:
             if isinstance(message_type, str):
                 message_type = MessageType(message_type)
-                
+
             if message_type.value in self.topic_subscribers:
                 self.topic_subscribers[message_type.value].discard(client_id)
         else:
             # Unsubscribe from all topics
             for topic in self.topic_subscribers:
                 self.topic_subscribers[topic].discard(client_id)
-                
+
         # Remove client handler if no more subscriptions
         has_subscriptions = False
         for topic_subscribers in self.topic_subscribers.values():
             if client_id in topic_subscribers:
                 has_subscriptions = True
                 break
-                
+
         if not has_subscriptions and client_id in self.client_handlers:
             del self.client_handlers[client_id]
-            logger.debug(f"Removed client handler for {client_id}")
-    
+            logger.debug("%s", Removed client handler for {client_id})
+
     def get_metrics(self) -> Dict[str, int]:
         """Get message bus metrics.
-        
+
         Returns:
             Dictionary of metrics
         """
         return self.metrics.copy()
-    
+
     def reset_metrics(self):
         """Reset message bus metrics."""
         for key in self.metrics:
@@ -446,11 +446,11 @@ class MessageBus:
 
     def publish_thinking(self, source: str, session_id: Optional[str] = None) -> str:
         """Publish a thinking indicator message to indicate the agent is processing.
-        
+
         Args:
             source: The source of the thinking action
             session_id: Optional session ID to group related messages
-            
+
         Returns:
             The stream ID that can be used for subsequent streaming messages
         """
@@ -465,14 +465,14 @@ class MessageBus:
         )
         self.publish(message)
         return stream_id
-        
+
     def publish_stream_start(self, source: str, session_id: Optional[str] = None) -> str:
         """Start a new content stream.
-        
+
         Args:
             source: The source of the stream
             session_id: Optional session ID to group related messages
-            
+
         Returns:
             The stream ID that can be used for subsequent streaming messages
         """
@@ -487,10 +487,10 @@ class MessageBus:
         )
         self.publish(message)
         return stream_id
-    
-    def publish_stream_content(self, stream_id: str, content: str, session_id: Optional[str] = None) -> None:
-        """Publish content to an existing stream.
-        
+
+    def publish_stream_content(self, stream_id: str, content: str, session_id: Optional[str] = None)
+         -> None:        """Publish content to an existing stream.
+
         Args:
             stream_id: The stream ID returned from publish_stream_start
             content: The content to stream
@@ -505,10 +505,10 @@ class MessageBus:
             session_id=session_id
         )
         self.publish(message)
-    
+
     def publish_stream_end(self, stream_id: str, session_id: Optional[str] = None) -> None:
         """End a content stream.
-        
+
         Args:
             stream_id: The stream ID to close
             session_id: Optional session ID to group related messages
@@ -522,8 +522,8 @@ class MessageBus:
         )
         self.publish(message)
 
-    def publish_stream_interactive(self, stream_id: str, component: Dict[str, Any], session_id: Optional[str] = None) -> None:
-        """Publish an interactive component for a stream.
+    def publish_stream_interactive(self, stream_id: str, component: Dict[str, Any],
+         session_id: Optional[str] = None) -> None:        """Publish an interactive component for a stream.
 
         Args:
             stream_id: The stream ID to attach the component to
@@ -543,10 +543,10 @@ class MessageBus:
 
 class MessageQueue:
     """Queue for storing and processing messages asynchronously."""
-    
+
     def __init__(self, max_size: int = 1000):
         """Initialize the message queue.
-        
+
         Args:
             max_size: Maximum number of messages to store in the queue
         """
@@ -558,74 +558,74 @@ class MessageQueue:
             "dropped": 0,
             "max_queue_length": 0
         }
-        
+
     def enqueue(self, message: Message) -> bool:
         """Add a message to the queue.
-        
+
         Args:
             message: The message to queue
-            
+
         Returns:
             True if message was queued, False if queue is full
         """
         if len(self.queue) >= self.max_size:
             self.metrics["dropped"] += 1
             return False
-            
+
         self.queue.append(message)
         self.metrics["enqueued"] += 1
-        
+
         # Update max queue length metric
         if len(self.queue) > self.metrics["max_queue_length"]:
             self.metrics["max_queue_length"] = len(self.queue)
-            
+
         return True
-        
+
     def dequeue(self) -> Optional[Message]:
         """Remove and return the next message from the queue.
-        
+
         Returns:
             The next message, or None if queue is empty
         """
         if not self.queue:
             return None
-            
+
         message = self.queue.pop(0)
         self.metrics["dequeued"] += 1
         return message
-        
+
     def peek(self) -> Optional[Message]:
         """View the next message without removing it.
-        
+
         Returns:
             The next message, or None if queue is empty
         """
         return self.queue[0] if self.queue else None
-        
+
     def is_empty(self) -> bool:
         """Check if the queue is empty.
-        
+
         Returns:
             True if the queue is empty, False otherwise
         """
         return len(self.queue) == 0
-        
+
     def size(self) -> int:
         """Get the current size of the queue.
-        
+
         Returns:
             Number of messages in the queue
         """
         return len(self.queue)
-    
+
     def get_metrics(self) -> Dict[str, int]:
         """Get queue metrics.
-        
+
         Returns:
             Dictionary of metrics
         """
         return self.metrics.copy()
-    
+
     def clear(self):
         """Clear the queue and reset metrics."""
         self.queue.clear()

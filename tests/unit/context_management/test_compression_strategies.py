@@ -1,7 +1,6 @@
 import importlib.util
 from pathlib import Path
 
-
 def load_compression_module():
     module_path = Path(__file__).resolve().parents[3] / "agent_s3" / "tools" / "context_management" / "compression.py"
     spec = importlib.util.spec_from_file_location("compression", module_path)

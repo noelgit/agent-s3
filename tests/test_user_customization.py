@@ -1,10 +1,11 @@
 import json
 import os
 import tempfile
-from agent_s3 import user_config
-from agent_s3.debugging_manager import DebuggingManager
 from unittest.mock import MagicMock
 
+from agent_s3 import user_config
+
+from agent_s3.debugging_manager import DebuggingManager
 
 def test_debugging_manager_respects_user_config(monkeypatch):
     tmp = tempfile.NamedTemporaryFile(delete=False)

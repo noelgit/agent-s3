@@ -4,12 +4,13 @@ Tests for the Coordinator validation and debugging phases.
 These tests focus on how the Coordinator validates code changes, handles test failures,
 executes debugging workflows, and recovers from failures.
 """
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import pytest
-from unittest.mock import MagicMock, patch
 
-from agent_s3.coordinator import Coordinator
 from agent_s3.config import Config
+from agent_s3.coordinator import Coordinator
 from agent_s3.enhanced_scratchpad_manager import Section
 
 # Test fixtures
@@ -37,9 +38,9 @@ def coordinator(mock_config):
          patch('agent_s3.coordinator.TaskStateManager'), \
          patch('agent_s3.coordinator.TaskResumer'), \
          patch('agent_s3.coordinator.DatabaseManager'):
-        
+
         coordinator = Coordinator(config=mock_config)
-        
+
         # Mock required components for tests
         coordinator.test_runner_tool = MagicMock()
         coordinator.test_critic = MagicMock()
@@ -55,7 +56,7 @@ def coordinator(mock_config):
         coordinator.error_context_manager = MagicMock()
         coordinator.debugging_manager = MagicMock()
         coordinator.env_tool = MagicMock()
-        
+
         yield coordinator
 
 # Test _run_validation_phase method
@@ -66,10 +67,10 @@ def test_validation_phase_all_pass(coordinator):
     coordinator.database_manager.setup_database.return_value = {"success": True}
     coordinator.bash_tool.run_command.side_effect = [(0, "No lint errors"), (0, "No type errors")]
     coordinator.run_tests = MagicMock(return_value={"success": True, "output": "All tests passed", "coverage": 80.0})
-    
+
     # Execute
     result = coordinator._run_validation_phase()
-    
+
     # Assert
     assert result["success"] is True  # Validation passed
     assert result["step"] is None  # No failing step
@@ -77,7 +78,7 @@ def test_validation_phase_all_pass(coordinator):
     assert result["type_output"] == "No type errors"
     assert result["test_output"] == "All tests passed"
     assert result["coverage"] == 80.0
-    
+
     # Verify all validations were performed
     coordinator.database_manager.setup_database.assert_called()
     coordinator.database_manager.database_tool.get_schema_info.assert_called()
@@ -88,10 +89,10 @@ def test_validation_phase_database_failure(coordinator):
     """Test validation phase with database connection failure."""
     # Set up mocks for database validation failure
     coordinator.database_manager.setup_database.return_value = {
-        "success": False, 
+        "success": False,
         "error": "Database connection failed"
     }
-    
+
     # Execute
     result = coordinator._run_validation_phase()
 
@@ -99,7 +100,7 @@ def test_validation_phase_database_failure(coordinator):
     assert result["success"] is False  # Validation failed
     assert result["step"] == "database"  # Failing step
     assert result["test_output"] == "Database connection failed"  # Error info
-    
+
     # Verify only database validation was performed
     coordinator.database_manager.setup_database.assert_called()
     coordinator.database_manager.database_tool.get_schema_info.assert_not_called()
@@ -111,7 +112,7 @@ def test_validation_phase_lint_failure(coordinator):
     # Set up mocks for successful database validation but linting failure
     coordinator.database_manager.setup_database.return_value = {"success": True}
     coordinator.bash_tool.run_command.side_effect = [(1, "Lint errors found"), (0, "No type errors")]
-    
+
     # Execute
     result = coordinator._run_validation_phase()
 
@@ -119,7 +120,7 @@ def test_validation_phase_lint_failure(coordinator):
     assert result["success"] is False  # Validation failed
     assert result["step"] == "lint"  # Failing step
     assert result["lint_output"] == "Lint errors found"  # Error info
-    
+
     # Verify validations were performed up to the failing point
     coordinator.database_manager.setup_database.assert_called()
     coordinator.database_manager.database_tool.get_schema_info.assert_called()
@@ -131,7 +132,7 @@ def test_validation_phase_type_check_failure(coordinator):
     # Set up mocks for successful database and lint validation but type check failure
     coordinator.database_manager.setup_database.return_value = {"success": True}
     coordinator.bash_tool.run_command.side_effect = [(0, "No lint errors"), (1, "Type errors found")]
-    
+
     # Execute
     result = coordinator._run_validation_phase()
 
@@ -139,7 +140,7 @@ def test_validation_phase_type_check_failure(coordinator):
     assert result["success"] is False  # Validation failed
     assert result["step"] == "type_check"  # Failing step
     assert result["type_output"] == "Type errors found"  # Error info
-    
+
     # Verify validations were performed up to the failing point
     coordinator.database_manager.setup_database.assert_called()
     coordinator.database_manager.database_tool.get_schema_info.assert_called()
@@ -156,7 +157,7 @@ def test_validation_phase_test_failure(coordinator):
         "output": "Test failures detected",
         "coverage": 50.0,
     })
-    
+
     # Execute
     result = coordinator._run_validation_phase()
 
@@ -165,7 +166,7 @@ def test_validation_phase_test_failure(coordinator):
     assert result["step"] == "tests"  # Failing step
     assert result["test_output"] == "Test failures detected"  # Error info
     assert result["coverage"] == 50.0
-    
+
     # Verify all validations were performed up to the failing point
     coordinator.database_manager.setup_database.assert_called()
     coordinator.database_manager.database_tool.get_schema_info.assert_called()
@@ -240,12 +241,12 @@ def test_run_tests_success(coordinator):
     coordinator.test_runner_tool.detect_runner.return_value = "pytest"
     coordinator.test_runner_tool.run_tests.return_value = (True, "All tests passed")
     coordinator.test_runner_tool.parse_coverage_report.return_value = 85.5
-    
+
     # Mock path exists
     with patch('os.path.exists', return_value=True):
         # Execute
         result = coordinator.run_tests()
-        
+
         # Assert
         assert result["success"] is True
         assert result["output"] == "All tests passed"
@@ -261,10 +262,10 @@ def test_run_tests_failure(coordinator):
     coordinator.env_tool.activate_virtual_env.return_value = "source venv/bin/activate &&"
     coordinator.test_runner_tool.detect_runner.return_value = "pytest"
     coordinator.test_runner_tool.run_tests.return_value = (False, "Test failures detected")
-    
+
     # Execute
     result = coordinator.run_tests()
-    
+
     # Assert
     assert result["success"] is False
     assert result["output"] == "Test failures detected"
@@ -287,18 +288,18 @@ def test_run_tests_with_database_setup(coordinator):
         }
     }
     coordinator.config.config["databases"] = db_configs
-    
+
     # Set up mocks
     coordinator.env_tool.activate_virtual_env.return_value = "source venv/bin/activate &&"
     coordinator.test_runner_tool.detect_runner.return_value = "pytest"
     coordinator.test_runner_tool.run_tests.return_value = (True, "All tests passed")
     coordinator.database_manager.setup_database.return_value = {"success": True}
-    
+
     # Mock path exists
     with patch('os.path.exists', return_value=False):
         # Execute
         result = coordinator.run_tests()
-        
+
         # Assert
         assert result["success"] is True
         assert result["output"] == "All tests passed"
@@ -327,10 +328,10 @@ def test_debug_last_test_success(coordinator):
     }
     coordinator.scratchpad.start_section = MagicMock()
     coordinator.scratchpad.end_section = MagicMock()
-    
+
     # Execute
     result = coordinator.debug_last_test()
-    
+
     # Assert
     assert result is None  # Successful debugging returns None
     coordinator.progress_tracker.get_latest_progress.assert_called_once()
@@ -359,10 +360,10 @@ def test_debug_last_test_advanced_debugging(coordinator):
     }
     coordinator.scratchpad.start_section = MagicMock()
     coordinator.scratchpad.end_section = MagicMock()
-    
+
     # Execute
     result = coordinator.debug_last_test()
-    
+
     # Assert
     assert result is None  # Successful debugging returns None
     coordinator.progress_tracker.get_latest_progress.assert_called_once()
@@ -376,10 +377,10 @@ def test_debug_last_test_no_output(coordinator):
     """Test debug_last_test method with no test output available."""
     # Set up mocks
     coordinator.progress_tracker.get_latest_progress.return_value = None
-    
+
     # Execute
     result = coordinator.debug_last_test()
-    
+
     # Assert
     assert result is None  # No debugging needed
     coordinator.progress_tracker.get_latest_progress.assert_called_once()
@@ -394,10 +395,10 @@ def test_debug_last_test_exception(coordinator):
         "output": "Test error: assert x == y failed"
     }
     coordinator.error_context_manager.collect_error_context.side_effect = Exception("Error context failed")
-    
+
     # Execute
     result = coordinator.debug_last_test()
-    
+
     # Assert
     assert "Error during finalization" in result  # Error message returned
     coordinator.progress_tracker.get_latest_progress.assert_called_once()

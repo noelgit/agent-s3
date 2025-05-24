@@ -1,8 +1,7 @@
-import tempfile
 import shutil
+import tempfile
 
 from agent_s3.tools.index_partition_manager import IndexPartitionManager
-
 
 def test_partition_selection_and_optimization():
     tmpdir = tempfile.mkdtemp(prefix="idx_mgr_test_")

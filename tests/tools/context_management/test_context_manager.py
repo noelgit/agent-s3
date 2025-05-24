@@ -100,11 +100,11 @@ def test_optimize_context_immediately_returns_optimized_copy():
     cm._memory_manager = Mock()
     cm._memory_manager.hierarchical_summarize = Mock(return_value="Summarized content")
     cm._tools_initialized = True
-    
+
     # Test context optimization
     test_context = {"code_context": {"test.py": "# Test code\ndef test(): pass"}}
     result = cm.optimize_context_immediately(test_context)
-    
+
     # Verify result is a copy, not the original
     assert result is not test_context
     # Verify token counting was called
@@ -115,12 +115,12 @@ def test_ensure_background_optimization_running():
     cm = ContextManager(config={"background_enabled": True})
     # Mock the _start_background_optimization method
     cm._start_background_optimization = Mock()
-    
+
     # Test when optimization is not running
     cm.optimization_running = False
     cm.ensure_background_optimization_running()
     cm._start_background_optimization.assert_called_once()
-    
+
     # Reset mock and test when optimization is already running
     cm._start_background_optimization.reset_mock()
     cm.optimization_running = True
@@ -131,18 +131,18 @@ def test_background_task_scheduling():
     """Test that BackgroundTask correctly tracks when tasks should run."""
     cm = ContextManager()
     task = cm._BackgroundTask("test_task", lambda: True, interval=10.0, priority=2)
-    
+
     # Task should not run right after creation (last_run is 0)
     assert task.should_run(5.0)
-    
+
     # After running, task should update last_run timestamp
     task.run()
     current_time = task.last_run
-    
+
     # Task should not run again immediately
     assert not task.should_run(current_time)
     assert not task.should_run(current_time + 5.0)
-    
+
     # Task should run after interval has passed
     assert task.should_run(current_time + 10.0)
     assert task.should_run(current_time + 15.0)
@@ -150,17 +150,17 @@ def test_background_task_scheduling():
 def test_dependency_graph_function_relocation(monkeypatch):
     """Test that _update_dependency_graph correctly handles function relocation between files."""
     from unittest.mock import Mock
-    
+
     cm = ContextManager()
-    
+
     # Mock the file tool
     file_tool_mock = Mock()
     file_tool_mock.get_workspace_root.return_value = '/workspace'
     cm._file_tool = file_tool_mock
-    
+
     # Create mock analyzer
     analyzer_mock = Mock()
-    
+
     # Setup initial dependency graph state
     cm._dependency_graph = {
         "nodes": {
@@ -176,7 +176,7 @@ def test_dependency_graph_function_relocation(monkeypatch):
         ]
     }
     cm._graph_last_updated = time.time()
-    
+
     # Setup mock for analyze_file_with_tech_stack to simulate function moved to file2
     def mock_analyze_file(fp, tech_stack, project_root):
         if fp == "file1.py":
@@ -198,27 +198,27 @@ def test_dependency_graph_function_relocation(monkeypatch):
                 ]
             }
         return {'nodes': [], 'edges': []}
-    
+
     analyzer_mock.analyze_file_with_tech_stack.side_effect = mock_analyze_file
-    
+
     # Mock edge resolution to return edges unchanged
     analyzer_mock.resolve_dependency_targets.side_effect = lambda nodes, edges: edges
-    
+
     # Patch StaticAnalyzer import to return our mock
     monkeypatch.setattr('agent_s3.tools.static_analyzer.StaticAnalyzer', lambda **kwargs: analyzer_mock)
-    
+
     # Update the graph
     cm._update_dependency_graph(["file1.py", "file2.py"])
-    
+
     # Verify:
     # 1. func1 node is now updated to the new ID
     assert "func1_new" in cm._dependency_graph["nodes"]
     assert "func1" not in cm._dependency_graph["nodes"]
-    
+
     # 2. New contains edge from file2 to func1_new exists
-    assert any(e["source"] == "file2" and e["target"] == "func1_new" and e["type"] == "contains" 
+    assert any(e["source"] == "file2" and e["target"] == "func1_new" and e["type"] == "contains"
                for e in cm._dependency_graph["edges"])
-    
+
     # 3. Old call edge is properly updated to reference the new function ID
     call_edges = [e for e in cm._dependency_graph["edges"] if e["type"] == "call"]
     assert len(call_edges) >= 1
@@ -228,22 +228,22 @@ def test_dependency_graph_function_relocation(monkeypatch):
 def test_refine_context_with_missing_tools():
     """Test that _refine_current_context handles missing tools with appropriate fallbacks."""
     from unittest.mock import Mock
-    
+
     cm = ContextManager()
-    
+
     # Configure with only token_budget_analyzer and memory_manager (minimal required tools)
     cm._token_budget_analyzer = Mock()
     cm._token_budget_analyzer.get_token_count.return_value = 100
     cm._token_budget_analyzer.get_total_token_count.return_value = 500
     cm._token_budget_analyzer.allocate_tokens.side_effect = lambda content, scores, budget: {k: 50 for k in content}
-    
+
     cm._memory_manager = Mock()
     cm._memory_manager.hierarchical_summarize.return_value = "Summarized content"
-    
+
     # Missing code_analysis_tool and compression_manager
     cm._code_analysis_tool = None
     cm._compression_manager = None
-    
+
     # Create test context
     with cm._context_lock:
         cm.current_context = {
@@ -255,32 +255,32 @@ def test_refine_context_with_missing_tools():
                 "README.md": "# Project Documentation\n" * 50
             }
         }
-    
+
     # Run refinement
     refined = cm._refine_current_context()
-    
+
     # Verify fallbacks were used:
     # 1. Should use uniform importance scoring without code_analysis_tool
     assert "code_context" in refined
     assert len(refined["code_context"]) == 2
-    
+
     # 2. Should use hierarchical_summarize for code content
     cm._memory_manager.hierarchical_summarize.assert_called()
-    
+
     # Set up a second test with only token_budget_analyzer (no memory_manager)
     cm2 = ContextManager()
     cm2._token_budget_analyzer = cm._token_budget_analyzer
     cm2._memory_manager = None
     cm2._compression_manager = None
     cm2._code_analysis_tool = None
-    
+
     # Create test context
     with cm2._context_lock:
         cm2.current_context = cm.current_context.copy()
-    
+
     # Run refinement
     refined2 = cm2._refine_current_context()
-    
+
     # Should still have content, but truncated
     assert "code_context" in refined2
     assert len(refined2["code_context"]) == 2

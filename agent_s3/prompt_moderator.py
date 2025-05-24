@@ -13,7 +13,7 @@ from .communication.vscode_bridge import VSCodeBridge
 
 class PromptModerator:
     """Handles user interactions, presents plans, and manages approvals.
-    
+
     Provides methods for both terminal-based and VS Code Chat UI-based interaction.
     """
 
@@ -28,10 +28,10 @@ class PromptModerator:
         self.ui_mode = "terminal"  # Default to terminal UI mode
         self.vscode_bridge = None  # Will be set by set_vscode_bridge
         self.max_plan_iterations = 5  # Maximum number of plan modification iterations
-        
+
     def set_vscode_bridge(self, vscode_bridge: VSCodeBridge):
         """Set the VS Code bridge integration for chat UI communication.
-        
+
         Args:
             vscode_bridge: VS Code bridge instance
         """
@@ -43,20 +43,20 @@ class PromptModerator:
     def is_vscode_mode(self):
         """Check if VS Code integration is active and preferred."""
         return (
-            self.vscode_bridge and 
-            self.vscode_bridge.connection_active and 
+            self.vscode_bridge and
+            self.vscode_bridge.connection_active and
             self.vscode_bridge.config.prefer_ui
         )
-        
+
     def _get_preferred_editor(self) -> str:
         """Determine the user's preferred text editor.
-        
+
         Returns:
             Command to open the preferred editor
         """
         if hasattr(self, '_preferred_editor') and self._preferred_editor:
             return self._preferred_editor
-            
+
         # Try to determine preferred editor
         editor = os.environ.get('EDITOR')
         if not editor:
@@ -73,16 +73,16 @@ class PromptModerator:
                         break
                     except subprocess.CalledProcessError:
                         continue
-                
+
                 if not editor:
                     editor = 'nano'  # Default to nano if nothing else is found
-        
+
         self._preferred_editor = editor
         return editor
-        
+
     def _open_in_editor(self, file_path: str) -> None:
         """Open a file in the user's preferred editor.
-        
+
         Args:
             file_path: Path to the file to edit
         """
@@ -108,40 +108,40 @@ class PromptModerator:
             print(f"Error opening editor: {e}")
             # Fallback to basic terminal input if editor fails
             print("Editor failed. Please enter your content directly (type 'EOF' on a new line when done):")
-            
+
             lines = []
             with open(file_path, 'r') as f:
                 lines = f.readlines()
-            
+
             print("".join(lines))
             print("\nEnter new content:")
-            
+
             new_lines = []
             while True:
                 line = input()
                 if line.strip() == 'EOF':
                     break
                 new_lines.append(line + '\n')
-            
+
             with open(file_path, 'w') as f:
                 f.writelines(new_lines)
-                
+
     def confirm_test_code(self, test_data: Dict[str, Any]) -> Dict[str, Any]:
         """Present test code to user for review and modifications.
-        
+
         Args:
             test_data: Dictionary containing test information and code
-            
+
         Returns:
             Updated test data after user review/modifications
         """
         print("\n=== TEST REVIEW REQUIRED ===")
         print("Please review the generated tests to ensure they correctly validate the desired behavior.")
         print("This is a critical step for ensuring correct implementation.\n")
-        
+
         # Create a temporary file with the test code for editing
         tests_to_edit = []
-        
+
         # Organize tests for display
         for i, test_item in enumerate(test_data.get("tests", [])):
             if isinstance(test_item, dict):
@@ -149,7 +149,7 @@ class PromptModerator:
                 test_code = test_item.get("test_code", "")
                 test_file = test_item.get("file", f"test_{i+1}.py")
                 expected = test_item.get("expected_outcome", "")
-                
+
                 print(f"\nTest {i+1}: {test_desc}")
                 print(f"File: {test_file}")
                 print(f"Expected Outcome: {expected}")
@@ -157,127 +157,127 @@ class PromptModerator:
                 print("```")
                 print(test_code)
                 print("```")
-                
+
                 tests_to_edit.append((i, test_item))
-        
+
         if not tests_to_edit:
             print("No tests found to review!")
             return test_data
-        
+
         # Ask if user wants to modify tests
         modify = self.ask_ternary_question("Do you want to proceed with these tests, modify them, or cancel?")
-        
+
         if modify == "no":
             print("Test review cancelled.")
             return None  # Signal cancellation
-        
+
         if modify == "yes":
             print("Tests approved without modification.")
             return test_data
-        
+
         # User wants to modify tests
         updated_test_data = test_data.copy()
         updated_tests = updated_test_data.get("tests", []).copy()
-        
+
         # Handle each test one by one
         for idx, test_item in tests_to_edit:
             original_test = test_item.copy()
             test_desc = original_test.get("description", f"Test {idx+1}")
-            
+
             print(f"\nEditing Test {idx+1}: {test_desc}")
             action = input("Action (edit/skip/delete/add): ").strip().lower()
-            
+
             if action == "edit":
                 with tempfile.NamedTemporaryFile(suffix=".py", mode="w+", delete=False) as temp:
                     temp.write(original_test.get("test_code", ""))
                     temp_path = temp.name
-                
+
                 # Open in editor
                 self._open_in_editor(temp_path)
-                
+
                 # Read back the edited content
                 with open(temp_path, "r") as temp:
                     edited_code = temp.read()
-                
+
                 # Update the test
                 updated_test = original_test.copy()
                 updated_test["test_code"] = edited_code
-                
+
                 # Ask for description update
                 new_desc = input(f"New description (leave empty to keep '{test_desc}'): ").strip()
                 if new_desc:
                     updated_test["description"] = new_desc
-                
+
                 # Replace the test in the list
                 updated_tests[idx] = updated_test
-                
+
                 # Clean up
                 os.unlink(temp_path)
-                
+
             elif action == "delete":
                 confirm = input(f"Confirm deletion of Test {idx+1} (yes/no): ").strip().lower()
                 if confirm in ["yes", "y"]:
                     # Mark for removal
                     updated_tests[idx] = None
-                    
+
             elif action == "add":
                 print("Please enter new test details:")
                 new_test = {}
                 new_test["description"] = input("Description: ").strip()
                 new_test["file"] = input("File path: ").strip() or f"test_new_{len(updated_tests)}.py"
                 new_test["expected_outcome"] = input("Expected outcome: ").strip()
-                
+
                 with tempfile.NamedTemporaryFile(suffix=".py", mode="w+", delete=False) as temp:
                     temp.write("# Enter new test code here\n")
                     temp_path = temp.name
-                
+
                 # Open in editor
                 self._open_in_editor(temp_path)
-                
+
                 # Read back the edited content
                 with open(temp_path, "r") as temp:
                     new_test["test_code"] = temp.read()
-                
+
                 # Add to the list
                 updated_tests.append(new_test)
-                
+
                 # Clean up
                 os.unlink(temp_path)
-        
+
         # Remove deleted tests
         updated_tests = [test for test in updated_tests if test is not None]
         updated_test_data["tests"] = updated_tests
-        
+
         # Ask if user wants to add more tests
         while self.ask_yes_no_question("Do you want to add another test?"):
             new_test = {}
             new_test["description"] = input("Description: ").strip()
             new_test["file"] = input("File path: ").strip() or f"test_new_{len(updated_tests)}.py"
             new_test["expected_outcome"] = input("Expected outcome: ").strip()
-            
+
             with tempfile.NamedTemporaryFile(suffix=".py", mode="w+", delete=False) as temp:
                 temp.write("# Enter new test code here\n")
                 temp_path = temp.name
-            
+
             # Open in editor
             self._open_in_editor(temp_path)
-            
+
             # Read back the edited content
             with open(temp_path, "r") as temp:
                 new_test["test_code"] = temp.read()
-            
+
             # Add to the list
             updated_tests.append(new_test)
-            
+
             # Clean up
             os.unlink(temp_path)
-        
+
         # Final confirmation
         print("\n=== UPDATED TESTS ===")
         for i, test_item in enumerate(updated_tests):
             print(f"\nTest {i+1}: {test_item.get('description', '')}")
             print(f"File: {test_item.get('file', '')}")
-            
+
         confirm = self.ask_yes_no_question("Confirm these updated tests?")
         if confirm:
             print("Tests confirmed. Proceeding with code generation.")
@@ -286,27 +286,27 @@ class PromptModerator:
         else:
             print("Test updates cancelled.")
             return None  # Signal cancellation
-            
-    def ask_structured_modification(self, feature_groups: List[Dict[str, Any]]) -> Tuple[Dict[str, Any], str]:
-        """Ask the user for structured modifications to a feature group plan.
-        
+
+    def ask_structured_modification(self, feature_groups: List[Dict[str, Any]]) -> Tuple[Dict[str,
+         Any], str]:        """Ask the user for structured modifications to a feature group plan.
+
         Args:
             feature_groups: List of feature group dictionaries
-            
+
         Returns:
             Tuple of (selected feature group dict, modification text)
         """
         print("\n=== MODIFICATION REQUEST ===")
         print("Please specify which feature group and component you want to modify:")
-        
+
         if not feature_groups:
             print("No feature groups available to modify!")
             return None, ""
-        
+
         # Display available feature groups
         for i, group in enumerate(feature_groups):
             print(f"{i+1}. {group.get('group_name', f'Group {i+1}')}")
-        
+
         # Get user selection
         group_idx = -1
         while group_idx < 0 or group_idx >= len(feature_groups):
@@ -316,22 +316,22 @@ class PromptModerator:
                     print(f"Please enter a number between 1 and {len(feature_groups)}")
             except ValueError:
                 print("Please enter a valid number")
-        
+
         selected_group = feature_groups[group_idx]
         print(f"\nSelected: {selected_group.get('group_name', f'Group {group_idx+1}')}")
-        
+
         # Ask what component to modify
         components = [
-            "architecture_review", 
+            "architecture_review",
             "implementation_plan",
-            "tests", 
+            "tests",
             "general_approach"
         ]
-        
+
         print("\nWhich component do you want to modify?")
         for i, comp in enumerate(components):
             print(f"{i+1}. {comp}")
-        
+
         # Get user selection
         comp_idx = -1
         while comp_idx < 0 or comp_idx >= len(components):
@@ -341,31 +341,31 @@ class PromptModerator:
                     print(f"Please enter a number between 1 and {len(components)}")
             except ValueError:
                 print("Please enter a valid number")
-        
+
         selected_component = components[comp_idx]
         print(f"\nSelected: {selected_component}")
-        
+
         # Get modification instructions
         print("\nPlease enter your modification instructions:")
-        print(f"For '{selected_component}' in '{selected_group.get('group_name', f'Group {group_idx+1}')}'")
-        print("Be specific about what should be added, removed, or changed.")
+        print(f"For '{selected_component}' in '{selected_group.get('group_name', f'Group {group_idx+
+            1}')}'")        print("Be specific about what should be added, removed, or changed.")
         print("Type 'done' on a new line when finished.")
-        
+
         lines = []
         while True:
             line = input()
             if line.strip() == 'done':
                 break
             lines.append(line)
-        
+
         modification_text = f"Component: {selected_component}\n"
         modification_text += "\n".join(lines)
-        
+
         return selected_group, modification_text
-        
+
     def notify_user(self, message: str, level: str = "info") -> None:
         """Notify the user with a formatted message.
-        
+
         Args:
             message: The message to display
             level: The level of the message (info, warning, error, success)
@@ -377,34 +377,34 @@ class PromptModerator:
             "success": "✅ SUCCESS: "
         }
         prefix = prefix_map.get(level.lower(), prefix_map["info"])
-        
+
         # Log the message to scratchpad regardless of UI mode
         if self.scratchpad:
             self.scratchpad.log("Moderator", f"[{level.upper()}] {message}")
-        
+
         # Display via appropriate UI
         formatted_message = f"{prefix}{message}"
-        
+
         if self.is_vscode_mode():
             # Send to VS Code UI
             self.vscode_bridge.send_terminal_output(formatted_message)
         else:
             # Default terminal output
             print(f"\n{formatted_message}")
-        
+
     def present_plan(self, plan: str, summary: str) -> Tuple[bool, str]:
         """Present the execution plan to the user for approval.
-        
+
         Args:
             plan: The detailed execution plan
             summary: A summary of the plan
-            
+
         Returns:
             Tuple of (approved, final_prompt)
         """
         if self.scratchpad:
             self.scratchpad.log("Moderator", "Presenting plan to user for approval")
-        
+
         # Format plan for display
         plan_display = "\n" + "="*80 + "\n"
         plan_display += "EXECUTION PLAN SUMMARY:\n"
@@ -415,48 +415,48 @@ class PromptModerator:
         plan_display += "-"*80 + "\n"
         plan_display += plan + "\n"
         plan_display += "="*80
-        
+
         # Display via appropriate UI
         if self.is_vscode_mode():
             # Send to VS Code UI
             self.vscode_bridge.send_terminal_output(plan_display)
-            
 
-            
+
+
             # Create enhanced interactive approval options
             approval_options = [
                 {
-                    "id": "yes", 
-                    "label": "Approve Plan", 
+                    "id": "yes",
+                    "label": "Approve Plan",
                     "shortcut": "Y",
                     "description": "Proceed with the plan as written"
                 },
                 {
-                    "id": "no", 
-                    "label": "Reject Plan", 
+                    "id": "no",
+                    "label": "Reject Plan",
                     "shortcut": "N",
                     "description": "Reject the plan and start over"
                 },
                 {
-                    "id": "edit", 
-                    "label": "Edit Plan", 
+                    "id": "edit",
+                    "label": "Edit Plan",
                     "shortcut": "E",
                     "description": "Modify aspects of the plan before proceeding"
                 }
             ]
-            
+
             # Send enhanced interactive approval request
             wait_for_response = self.vscode_bridge.send_interactive_approval(
                 title="Plan Approval Required",
                 description=f"Summary: {summary}\n\nPlease review the proposed plan and choose an option.",
                 options=approval_options
             )
-            
+
             if wait_for_response:
                 response = wait_for_response()
                 if response:
                     option_id = response.get("option_id", "").lower()
-                    
+
                     if option_id == "yes":
                         if self.scratchpad:
                             self.scratchpad.log("Moderator", "User approved the plan via VS Code UI")
@@ -472,11 +472,11 @@ class PromptModerator:
                         else:
                             # If no modifications provided in the response, ask separately
                             modified_plan = self.ask_for_modification("Enter your modifications to the plan:")
-                            
+
                         if self.scratchpad:
                             self.scratchpad.log("Moderator", "User modified the plan via VS Code UI")
                         return True, modified_plan
-                
+
             # Fallback to terminal if VS Code response fails or times out
             if (self.vscode_bridge.config.fallback_to_terminal):
                 self.notify_user("No response from VS Code UI, falling back to terminal", level="warning")
@@ -484,13 +484,13 @@ class PromptModerator:
                 if self.scratchpad:
                     self.scratchpad.log("Moderator", "No response from VS Code UI, defaulting to reject")
                 return False, plan
-        
+
         # Default terminal interaction
         print(plan_display)
-        
+
         while True:
             user_input = input("\nDo you approve this plan? (y/n/edit): ").strip().lower()
-            
+
             if user_input in ["y", "yes"]:
                 if self.scratchpad:
                     self.scratchpad.log("Moderator", "User approved the plan")
@@ -503,90 +503,90 @@ class PromptModerator:
                 modified_plan = self.ask_for_modification("Enter your modified plan:")
                 if self.scratchpad:
                     self.scratchpad.log("Moderator", "User modified the plan")
-                    
+
                 return True, modified_plan
             else:
                 print("Invalid input. Please enter 'y', 'n', or 'edit'.")
 
     def present_patch_with_diff(self, changes: Dict[str, str], iteration: int = 1) -> bool:
         """Present the generated patch with diff for user approval.
-        
+
         Args:
             changes: Dictionary mapping file paths to their new contents
             iteration: The current iteration number
-            
+
         Returns:
             True if the user approves the patch, False otherwise
         """
         if self.scratchpad:
             self.scratchpad.log("Moderator", f"Presenting patch for iteration {iteration}")
-            
+
         if not changes:
             self.notify_user("No changes were generated.", level="warning")
             return False
-            
+
         # Compute diffs for each file
         diffs = self._compute_diffs(changes)
-        
+
         # Format diffs for display
         diffs_display = f"\n{'='*80}\n"
         diffs_display += f"CODE CHANGES (ITERATION {iteration}):\n"
         diffs_display += f"{'-'*80}\n"
-        
+
         diff_files = []
         for file_path, diff in diffs.items():
             file_diff = f"\nFile: {file_path}\n{'-'*40}\n{diff}"
             diffs_display += file_diff
-            
+
             # Collect structured diff data for VS Code UI
             diff_files.append({
                 "filename": file_path,
                 "content": diff,
                 "is_new": "(NEW FILE)" in diff
             })
-            
+
         diffs_display += f"\n{'='*80}"
-        
+
         # Display via appropriate UI
         if self.is_vscode_mode():
             # Send to VS Code UI
             self.vscode_bridge.send_terminal_output(diffs_display)
-            
+
             # Extract before and after content for interactive diff display
             enhanced_diff_files = []
-            
+
             for file_diff in diff_files:
                 file_path = file_diff["filename"]
                 content = file_diff["content"]
                 is_new = file_diff["is_new"]
-                
+
                 if is_new:
                     # For new files, before is empty and after is the full content
                     before = ""
-                    after = "\n".join([line.lstrip("+") for line in content.split("\n") 
+                    after = "\n".join([line.lstrip("+") for line in content.split("\n")
                                      if line.startswith("+") and not line.startswith("+++")])
                 else:
                     # For existing files, extract before/after from diff
                     before, after = self._extract_before_after_content(content)
-                
+
                 enhanced_diff_files.append({
                     "filename": file_path,
                     "before": before,
                     "after": after,
                     "is_new": is_new
                 })
-            
+
             # Send enhanced interactive diff display
             wait_for_response = self.vscode_bridge.send_interactive_diff(
                 files=enhanced_diff_files,
                 summary=f"Code Changes (Iteration {iteration})"
             )
-            
+
             if wait_for_response:
                 response = wait_for_response()
                 if response:
                     action = response.get("response", "").lower()
-                    
+
                     if action in ["approve", "yes", "y"]:
                         if self.scratchpad:
                             self.scratchpad.log("Moderator", "User approved changes via VS Code UI")
@@ -595,7 +595,7 @@ class PromptModerator:
                         if self.scratchpad:
                             self.scratchpad.log("Moderator", "User rejected changes via VS Code UI")
                         return False
-                
+
             # Fallback to terminal if VS Code response fails
             if self.vscode_bridge.config.fallback_to_terminal:
                 self.notify_user("No response from VS Code UI, falling back to terminal", level="warning")
@@ -603,14 +603,14 @@ class PromptModerator:
                 if self.scratchpad:
                     self.scratchpad.log("Moderator", "No response from VS Code UI, defaulting to reject")
                 return False
-        
+
         # Default terminal output
         print(diffs_display)
-        
+
         # Ask for approval
         while True:
             user_input = input("\nDo you approve these changes? (y/n): ").strip().lower()
-            
+
             if user_input in ["y", "yes"]:
                 if self.scratchpad:
                     self.scratchpad.log("Moderator", f"User approved changes for iteration {iteration}")
@@ -624,19 +624,19 @@ class PromptModerator:
 
     def _compute_diffs(self, changes: Dict[str, str]) -> Dict[str, str]:
         """Compute diffs between current files and the proposed changes.
-        
+
         Args:
             changes: Dictionary mapping file paths to their new contents
-            
+
         Returns:
             Dictionary mapping file paths to their computed diffs
         """
         diffs = {}
-        
+
         for file_path, new_content in changes.items():
             full_path = os.path.join(self.coordinator.config.config.get('project_root', os.getcwd()), file_path)
             is_new_file = not os.path.exists(full_path)
-            
+
             if is_new_file:
                 # For new files, just show the whole content with "+" prefixes
                 diff_lines = [f"+{line}" for line in new_content.split("\n")]
@@ -646,7 +646,7 @@ class PromptModerator:
                 try:
                     with open(full_path, 'r') as f:
                         old_content = f.read()
-                    
+
                     # Use the proper diff tool if available
                     if hasattr(self.coordinator, 'code_analysis_tool') and hasattr(self.coordinator.code_analysis_tool, 'compute_diff'):
                         diff = self.coordinator.code_analysis_tool.compute_diff(old_content, new_content)
@@ -655,7 +655,7 @@ class PromptModerator:
                         # Simplified diff: uses a basic line-by-line comparison
                         old_lines = old_content.split("\n")
                         new_lines = new_content.split("\n")
-                        
+
                         # Simple diff implementation
                         diff_lines = []
                         for i, (old_line, new_line) in enumerate(zip(old_lines, new_lines)):
@@ -664,7 +664,7 @@ class PromptModerator:
                                 diff_lines.append(f"+{new_line}")
                             else:
                                 diff_lines.append(f" {old_line}")
-                                
+
                         # Handle different line counts
                         if len(old_lines) > len(new_lines):
                             for i in range(len(new_lines), len(old_lines)):
@@ -672,14 +672,14 @@ class PromptModerator:
                         elif len(new_lines) > len(old_lines):
                             for i in range(len(old_lines), len(new_lines)):
                                 diff_lines.append(f"+{new_lines[i]}")
-                                
+
                         diffs[file_path] = "\n".join(diff_lines)
-                        
+
                 except Exception as e:
                     if self.scratchpad:
                         self.scratchpad.log("Moderator", f"Error computing diff for {file_path}: {e}")
                     diffs[file_path] = f"(ERROR COMPUTING DIFF: {e})\n{new_content}"
-                    
+
         return diffs
 
     def ask_binary_question(self, question: str) -> bool:
@@ -702,8 +702,8 @@ class PromptModerator:
             else:
                 print("Invalid input. Please enter 'y' or 'n'.")
 
-    def explain_plan_section(self, section_data: Dict[str, Any], section_path: str) -> Optional[str]:
-        """Request an explanation for a section of the generated plan.
+    def explain_plan_section(self, section_data: Dict[str, Any], section_path: str)
+         -> Optional[str]:        """Request an explanation for a section of the generated plan.
 
         Args:
             section_data: The data for the section to explain
@@ -802,10 +802,10 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
 
     def ask_for_input(self, prompt: str) -> str:
         """Ask the user for free-form input.
-        
+
         Args:
             prompt: The prompt to display to the user
-            
+
         Returns:
             The user's input
         """
@@ -828,26 +828,26 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
                 description=question,
                 options=[
                     {
-                        "id": "yes", 
-                        "label": "Yes", 
+                        "id": "yes",
+                        "label": "Yes",
                         "shortcut": "Y",
                         "description": "Proceed"
                     },
                     {
-                        "id": "no", 
-                        "label": "No", 
+                        "id": "no",
+                        "label": "No",
                         "shortcut": "N",
                         "description": "Cancel"
                     }
                 ]
             )
-            
+
             if wait_for_response:
                 response = wait_for_response()
                 if response:
                     option_id = response.get("option_id", "").lower()
                     return option_id == "yes"
-            
+
             # Fallback to terminal if VS Code response fails
             if self.vscode_bridge.config.fallback_to_terminal:
                 self.notify_user("No response from VS Code UI, falling back to terminal", level="warning")
@@ -855,11 +855,11 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
                 if self.scratchpad:
                     self.scratchpad.log("Moderator", "No response from VS Code UI, defaulting to No")
                 return False
-                
+
         # Use terminal interaction
         while True:
             user_input = input(f"{question} (y/n): ").strip().lower()
-            
+
             if user_input in ["y", "yes"]:
                 if self.scratchpad:
                     self.scratchpad.log("Moderator", "User responded 'yes'")
@@ -870,7 +870,7 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
                 return False
             else:
                 print("Invalid input. Please enter 'y' or 'n'.")
-    
+
     def ask_for_modification(self, prompt: str, supports_json_path: bool = False) -> str:
         """Ask the user for structured modifications to the plan.
 
@@ -898,15 +898,15 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
         print("DESCRIPTION: Add error handling for database connection failures")
         print("\nYou can provide multiple modifications by separating them with '---'")
         print("(Type 'DONE' on a new line when finished)")
-        
+
         lines = []
         current_section = []
-        
+
         # Track section completeness
         sections = []
         current_modification = {}
         expected_keys = ["COMPONENT", "LOCATION", "CHANGE_TYPE", "DESCRIPTION"]
-        
+
         while True:
             try:
                 line = input()
@@ -917,7 +917,7 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
                         if current_modification:
                             sections.append(current_modification)
                     break
-                
+
                 # Check for section separator
                 if line.strip() == "---":
                     # Add current section to lines
@@ -929,10 +929,10 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
                             current_modification = {}  # Reset for next section
                     current_section = []
                     continue
-                
+
                 # Add line to current section
                 current_section.append(line)
-                
+
                 # Try to parse structured components
                 key_value = line.split(":", 1)
                 if len(key_value) == 2:
@@ -940,15 +940,15 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
                     value = key_value[1].strip()
                     if key in expected_keys:
                         current_modification[key] = value
-                
+
             except EOFError:  # Handle Ctrl+D or similar EOF signals
                 break
-        
+
         # If we have structured modifications, convert to a more standardized format
         if sections:
             if self.scratchpad:
                 self.scratchpad.log("Moderator", f"Received {len(sections)} structured modifications")
-            
+
             # Create a standardized JSON-like format for easier processing
             structured_output = "STRUCTURED_MODIFICATIONS:\n"
             for i, section in enumerate(sections):
@@ -957,11 +957,11 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
                     if key in section:
                         structured_output += f"  {key}: {section[key]}\n"
                 structured_output += "\n"
-            
+
             # Append the raw input at the end for reference
             raw_input = "\n".join(lines)
             structured_output += "RAW_INPUT:\n" + raw_input
-            
+
             return structured_output
         else:
             # Fall back to the original format if not enough structure was provided
@@ -989,7 +989,7 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
 
     def show_code_snippet(self, snippet: str, title: str = "Code Snippet") -> None:
         """Display a code snippet with proper formatting.
-        
+
         Args:
             snippet: The code snippet to display
             title: Optional title for the snippet
@@ -1001,18 +1001,18 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
 
     def present_choices(self, prompt: str, choices: List[str]) -> int:
         """Present a list of choices to the user and return their selection.
-        
+
         Args:
             prompt: The prompt to display to the user
             choices: List of choices to present
-            
+
         Returns:
             The index of the selected choice
         """
         print(f"\n{prompt}")
         for i, choice in enumerate(choices):
             print(f"{i+1}. {choice}")
-            
+
         while True:
             try:
                 selection = int(input("\nEnter your choice (number): "))
@@ -1025,7 +1025,7 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
 
     def show_progress(self, message: str, progress: float) -> None:
         """Show a progress indicator.
-        
+
         Args:
             message: The message to display
             progress: Progress value between 0.0 and 1.0
@@ -1035,14 +1035,14 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
         bar = '█' * filled_length + '░' * (bar_length - filled_length)
         percent = int(progress * 100)
         progress_text = f"\r{message} |{bar}| {percent}%"
-        
+
         # Print to terminal
         print(progress_text, end='')
         sys.stdout.flush()
-        
+
         if progress >= 1.0:
             print()  # Newline after completion
-            
+
         # Send to VS Code UI if available
         if self.is_vscode_mode():
             # Use enhanced progress indicator with step tracking
@@ -1052,7 +1052,7 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
                     if step["status"] == "in_progress":
                         step["percentage"] = percent
                         break
-                
+
                 # Check if we need to advance to the next step
                 if percent >= 100:
                     for i, step in enumerate(self._progress_steps):
@@ -1064,7 +1064,7 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
                                 self._progress_steps[i + 1]["status"] = "in_progress"
                                 self._progress_steps[i + 1]["percentage"] = 0
                             break
-                
+
                 # Send enhanced progress indicator
                 self.vscode_bridge.send_progress_indicator(
                     title="Task Progress",
@@ -1076,31 +1076,31 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
             else:
                 # Legacy progress update
                 self.vscode_bridge.send_progress_update(message, percent)
-            
+
         if self.scratchpad:
             self.scratchpad.log("Moderator", f"{message}: {percent}%")
 
     def format_error(self, error_message: str, stack_trace: Optional[str] = None) -> str:
         """Format an error message for display.
-        
+
         Args:
             error_message: The error message to display
             stack_trace: Optional stack trace
-            
+
         Returns:
             Formatted error message
         """
         formatted = f"\n❌ ERROR: {error_message}"
-        
+
         if stack_trace:
             formatted += f"\n\nStack Trace:\n{stack_trace}"
-            
+
         return formatted
 
     # Fix missing placeholder f-string issue
     def display_validation_error(self, message: str, file_path: Optional[str] = None) -> None:
         """Display a validation error message.
-        
+
         Args:
             message: The error message to display
             file_path: Optional path to the file with the error
@@ -1108,32 +1108,32 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
         error_prefix = "Validation Error"
         if file_path:
             error_prefix = f"Validation Error in {file_path}"
-            
+
         print(f"\n❌ {error_prefix}: {message}")
-        
+
         if self.scratchpad:
             self.scratchpad.log("Moderator", f"[VALIDATION] {error_prefix}: {message}")
 
     # Fix missing placeholder f-string issue
-    def prompt_file_selection(self, file_list: List[str], prompt_text: str = "Select a file") -> Optional[str]:
-        """Prompt the user to select a file from a list.
-        
+    def prompt_file_selection(self, file_list: List[str], prompt_text: str = "Select a file")
+         -> Optional[str]:        """Prompt the user to select a file from a list.
+
         Args:
             file_list: List of files to choose from
             prompt_text: Text to display as the prompt
-            
+
         Returns:
             The selected file path, or None if selection was canceled
         """
         if not file_list:
             print("No files available for selection.")
             return None
-            
+
         print(f"\n{prompt_text}:")
         for i, file_path in enumerate(file_list):
             print(f"{i+1}. {file_path}")
         print("0. Cancel")
-        
+
         while True:
             try:
                 selection = int(input("\nEnter your choice (number): "))
@@ -1150,10 +1150,10 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
 
     def request_confirmation(self, message: str) -> bool:
         """Request confirmation from the user with a custom message.
-        
+
         Args:
             message: The message to display
-            
+
         Returns:
             True if confirmed, False otherwise
         """
@@ -1162,7 +1162,7 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
 
     def display_execution_result(self, success: bool, message: str) -> None:
         """Display the result of an execution.
-        
+
         Args:
             success: Whether the execution was successful
             message: The message to display
@@ -1171,15 +1171,15 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
             print(f"\n✅ {message}")
         else:
             print(f"\n❌ {message}")
-            
+
         if self.scratchpad:
             status = "SUCCESS" if success else "FAILURE"
             self.scratchpad.log("Moderator", f"[{status}] {message}")
 
     # Fix missing placeholder f-string issue
-    def show_file_content(self, file_path: str, content: str, highlight_lines: Optional[Set[int]] = None) -> None:
-        """Show file content with optional line highlighting.
-        
+    def show_file_content(self, file_path: str, content: str,
+         highlight_lines: Optional[Set[int]] = None) -> None:        """Show file content with optional line highlighting.
+
         Args:
             file_path: Path to the file
             content: Content of the file
@@ -1187,10 +1187,10 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
         """
         print(f"\nFile: {file_path}")
         print("-" * (len(file_path) + 6))
-        
+
         if highlight_lines is None:
             highlight_lines = set()
-            
+
         for i, line in enumerate(content.split("\n"), 1):
             if i in highlight_lines:
                 # Highlight the line
@@ -1201,35 +1201,35 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
 
     def present_consolidated_plan(self, plan: Dict[str, Any]) -> Tuple[str, Optional[str]]:
         """Present the consolidated plan to the user, grouped by feature.
-        
+
         This method displays the plan in a structured way, highlighting architecture
         and tests for each feature group for clarity. It also handles pagination
         for large plans to manage information overload.
-        
+
         Args:
             plan: The consolidated plan to present
-            
+
         Returns:
             Tuple of (decision, modification_text)
         """
         if self.scratchpad:
             self.scratchpad.log("Moderator", "Presenting consolidated plan to user")
-        
+
         if not plan:
             return "no", "No consolidated plan provided"
-        
+
         group_name = plan.get("group_name", "Unnamed Group")
-        
+
         # Format plan for display
         print(f"\n{'='*30}")
         print(f"FEATURE GROUP: {group_name}")
         print(f"{'='*30}")
         print(f"\nDescription: {plan.get('group_description', 'No description')}")
-        
+
         # Show architecture review summary
         print("\nARCHITECTURE REVIEW:")
         architecture_review = plan.get("architecture_review", {})
-        
+
         logical_gaps = architecture_review.get("logical_gaps", [])
         if logical_gaps:
             print(f"- Logical Gaps: {len(logical_gaps)}")
@@ -1239,7 +1239,7 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
                 print(f"  ... and {len(logical_gaps) - 3} more gaps.")
         else:
             print("- No logical gaps identified")
-            
+
         optimizations = architecture_review.get("optimization_suggestions", [])
         if optimizations:
             print(f"- Optimization Suggestions: {len(optimizations)}")
@@ -1249,11 +1249,11 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
                 print(f"  ... and {len(optimizations) - 3} more suggestions.")
         else:
             print("- No optimization suggestions")
-        
+
         # Show test summary
         print("\nTESTS:")
         tests = plan.get("tests", {})
-        
+
         unit_tests = tests.get("unit_tests", [])
         if unit_tests:
             print(f"- Unit Tests: {len(unit_tests)}")
@@ -1263,11 +1263,11 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
                 print(f"  ... and {len(unit_tests) - 3} more unit tests.")
         else:
             print("- No unit tests")
-            
+
         integration_tests = tests.get("integration_tests", [])
         if integration_tests:
             print(f"- Integration Tests: {len(integration_tests)}")
-        
+
         # Show implementation summary
         print("\nIMPLEMENTATION PLAN:")
         implementation_plan = plan.get("implementation_plan", {})
@@ -1279,7 +1279,7 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
                 print(f"  ... and {len(implementation_plan) - 3} more files.")
         else:
             print("- No implementation details")
-        
+
         # Show semantic validation results if available
         semantic_validation = plan.get("semantic_validation", {})
         if semantic_validation and "error" not in semantic_validation:
@@ -1288,7 +1288,7 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
             consistency_score = semantic_validation.get("technical_consistency_score", 0)
             print(f"- Coherence Score: {coherence_score:.2f}")
             print(f"- Technical Consistency Score: {consistency_score:.2f}")
-            
+
             critical_issues = semantic_validation.get("critical_issues", [])
             if critical_issues:
                 print(f"- Critical Issues: {len(critical_issues)}")
@@ -1298,29 +1298,29 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
                     print(f"  ... and {len(critical_issues) - 3} more issues.")
             else:
                 print("- No critical issues identified")
-        
+
         # Ask for user decision
         print("\nDECISION:")
         decision = self.ask_ternary_question(
             "Do you want to proceed with this plan? (yes/no/modify)"
         )
-        
+
         modification_text = None
         if decision == "modify":
             modification_text = self.handle_user_modification(plan)
-        
+
         return decision, modification_text
-    
+
     def handle_user_modification(self, plan: Dict[str, Any]) -> str:
         """Handle user modifications to the plan in a structured way.
-        
+
         This method parses user input for modifications, maps them to the
         corresponding JSON node or text section in the plan, and applies
         the changes to a copy of the plan.
-        
+
         Args:
             plan: The plan to modify
-            
+
         Returns:
             The modification text
         """
@@ -1333,23 +1333,23 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
         print("DESCRIPTION: Add a logical gap for error handling in the authentication flow")
         print("\nOr provide free-form instructions for general modifications.")
         print("Type 'done' on a new line when finished.")
-        
+
         lines = []
         while True:
             line = input()
             if line.strip().lower() == 'done':
                 break
             lines.append(line)
-        
+
         # Process the modification text
         modification_text = "\n".join(lines)
-        
+
         # Try to parse structured modifications
         structured_mods = self._parse_structured_modifications(modification_text)
-        
+
         if structured_mods and self.scratchpad:
             self.scratchpad.log("Moderator", f"Parsed {len(structured_mods)} structured modifications")
-            
+
             # Create a standardized format for easier processing
             formatted_text = "STRUCTURED_MODIFICATIONS:\n"
             for i, mod in enumerate(structured_mods):
@@ -1357,27 +1357,27 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
                 for key, value in mod.items():
                     formatted_text += f"  {key}: {value}\n"
                 formatted_text += "\n"
-            
+
             # Append the raw input for reference
             formatted_text += "RAW_INPUT:\n" + modification_text
-            
+
             return formatted_text
-        
+
         return modification_text
-    
+
     def _parse_structured_modifications(self, text: str) -> List[Dict[str, str]]:
         """Parse structured modifications from text.
-        
+
         Args:
             text: The modification text
-            
+
         Returns:
             List of structured modifications
         """
         modifications = []
         current_mod = {}
         expected_keys = ["COMPONENT", "LOCATION", "CHANGE_TYPE", "DESCRIPTION"]
-        
+
         # Split by lines and process
         lines = text.split('\n')
         for line in lines:
@@ -1387,22 +1387,22 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
                     modifications.append(current_mod)
                     current_mod = {}
                 continue
-            
+
             # Try to parse key-value pairs
             parts = line.split(':', 1)
             if len(parts) == 2:
                 key = parts[0].strip().upper()
                 value = parts[1].strip()
-                
+
                 if key in expected_keys:
                     current_mod[key] = value
-        
+
         # Add the last modification if not empty
         if current_mod:
             modifications.append(current_mod)
-        
+
         return modifications
-    
+
     def display_discussion_and_plan(self, discussion: str, plan: str) -> None:
         """Display the discussion transcript and the implementation plan to the user."""
         if self.scratchpad:

@@ -38,33 +38,33 @@ TOKEN_BUDGET_LIMITS = {
 # Language-specific keywords
 PYTHON_KEYWORDS = set(keyword.kwlist)
 JS_KEYWORDS = {
-    "break", "case", "catch", "class", "const", "continue", "debugger", 
-    "default", "delete", "do", "else", "export", "extends", "false", 
-    "finally", "for", "function", "if", "import", "in", "instanceof", 
-    "new", "null", "return", "super", "switch", "this", "throw", "true", 
+    "break", "case", "catch", "class", "const", "continue", "debugger",
+    "default", "delete", "do", "else", "export", "extends", "false",
+    "finally", "for", "function", "if", "import", "in", "instanceof",
+    "new", "null", "return", "super", "switch", "this", "throw", "true",
     "try", "typeof", "var", "void", "while", "with", "yield",
     # ES6+ keywords
     "let", "static", "await", "async"
 }
 PHP_KEYWORDS = {
-    "__halt_compiler", "abstract", "and", "array", "as", "break", 
-    "callable", "case", "catch", "class", "clone", "const", "continue", 
-    "declare", "default", "die", "do", "echo", "else", "elseif", 
-    "empty", "enddeclare", "endfor", "endforeach", "endif", "endswitch", 
-    "endwhile", "eval", "exit", "extends", "final", "finally", "fn", 
-    "for", "foreach", "function", "global", "goto", "if", "implements", 
-    "include", "include_once", "instanceof", "insteadof", "interface", 
-    "isset", "list", "namespace", "new", "or", "print", "private", 
-    "protected", "public", "require", "require_once", "return", "static", 
+    "__halt_compiler", "abstract", "and", "array", "as", "break",
+    "callable", "case", "catch", "class", "clone", "const", "continue",
+    "declare", "default", "die", "do", "echo", "else", "elseif",
+    "empty", "enddeclare", "endfor", "endforeach", "endif", "endswitch",
+    "endwhile", "eval", "exit", "extends", "final", "finally", "fn",
+    "for", "foreach", "function", "global", "goto", "if", "implements",
+    "include", "include_once", "instanceof", "insteadof", "interface",
+    "isset", "list", "namespace", "new", "or", "print", "private",
+    "protected", "public", "require", "require_once", "return", "static",
     "switch", "throw", "trait", "try", "unset", "use", "var", "while", "xor", "yield"
 }
 
 # System-reserved environment variable names
 RESERVED_ENV_VARS = {
-    "PATH", "HOME", "USER", "SHELL", "LANG", "TERM", "EDITOR", 
+    "PATH", "HOME", "USER", "SHELL", "LANG", "TERM", "EDITOR",
     "PYTHONPATH", "JAVA_HOME", "LD_LIBRARY_PATH", "TEMP", "TMP",
-    "NODE_ENV", "PORT", "HOST", "DATABASE_URL", "PWD", "PS1", 
-    "DISPLAY", "HOSTNAME", "LOGNAME", "_", "OLDPWD", "MAIL", 
+    "NODE_ENV", "PORT", "HOST", "DATABASE_URL", "PWD", "PS1",
+    "DISPLAY", "HOSTNAME", "LOGNAME", "_", "OLDPWD", "MAIL",
     "SSH_CONNECTION", "SSH_TTY", "TERM_PROGRAM", "SHELL_SESSION_ID",
     "HTTP_HOST", "DOCUMENT_ROOT", "SERVER_PROTOCOL", "REQUEST_METHOD",
     "SCRIPT_FILENAME", "QUERY_STRING", "PHP_SELF"
@@ -84,11 +84,11 @@ class CodeElement:
     start_line: int = 0
     end_line: int = 0
     params: List[str] = None
-    
+
     def __post_init__(self):
         if self.params is None:
             self.params = []
-    
+
     def __repr__(self) -> str:
         """String representation of the element."""
         return f"{self.element_type}:{self.name}:{self.start_line}-{self.end_line}"
@@ -100,7 +100,7 @@ class SemanticRelation:
     source: str
     target: str
     relation_type: str
-    
+
     def __repr__(self) -> str:
         """String representation of the relationship."""
         return f"{self.source} {self.relation_type} {self.target}"
@@ -112,8 +112,8 @@ class CodeAnalyzer:
         self.parser_registry = parser_registry or ParserRegistry()
         self.file_tool = file_tool
 
-    def analyze_code(self, code_str: str, lang: str = None, file_path: str = None, tech_stack: dict = None) -> Dict[str, Any]:
-        """
+    def analyze_code(self, code_str: str, lang: str = None, file_path: str = None,
+         tech_stack: dict = None) -> Dict[str, Any]:        """
         Analyze code and extract elements and relationships using the pluggable parsing framework.
         Args:
             code_str: Code string to analyze
@@ -133,7 +133,7 @@ class CodeAnalyzer:
         parser = self.parser_registry.get_parser(file_path=file_path, language_name=lang)
         if parser:
             return parser.analyze(code_str, file_path or '', tech_stack)
-        logger.error(f"No parser found for language '{lang}'. Skipping analysis.")
+        logger.error("%s", No parser found for language '{lang}'. Skipping analysis.)
         return {
             "language": lang,
             "elements": [],
@@ -159,7 +159,7 @@ class CodeAnalyzer:
         try:
             content = self.file_tool.read_file(file_path)
             if content is None:
-                logger.warning(f"Could not read content of file: {file_path}")
+                logger.warning("%s", Could not read content of file: {file_path})
                 return None
         except Exception as e:
             logger.error(f"Error reading file {file_path}: {e}", exc_info=True)
@@ -173,37 +173,37 @@ class CodeAnalyzer:
         parser = self.parser_registry.get_parser(language_name=language, file_path=file_path)
         if parser:
             try:
-                logger.info(f"Analyzing {file_path} with {type(parser).__name__} for language '{language}'.")
+                logger.info("%s", Analyzing {file_path} with {type(parser).__name__} for language '{language}'.)
                 structure = parser.parse_code(content, file_path)
                 return structure
             except Exception as e:
                 logger.error(f"Error analyzing {file_path} with {type(parser).__name__}: {e}", exc_info=True)
                 return None
         else:
-            logger.error(f"No parser found for language '{language}' for file {file_path}.")
+            logger.error("%s", No parser found for language '{language}' for file {file_path}.)
             return None
 
 # Main validation functions
-def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_registry=None) -> Tuple[bool, Dict[str, Any]]:
-    """
+def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_registry=None)
+     -> Tuple[bool, Dict[str, Any]]:    """
     Validate Pre-Planner JSON output with fast, deterministic checks.
-    
+
     This function performs comprehensive validation of the pre-planning JSON output,
     including schema validation, code syntax checking, identifier hygiene, path validity,
     token budget compliance, duplicate symbol detection, and content scanning for
     dangerous operations.
-    
+
     Args:
         data: The Pre-Planner JSON data structure to validate
         repo_root: Optional repository root path for file glob validation
         context_registry: Optional context registry for accessing project context
-        
+
     Returns:
         Tuple of (is_valid, validation_results dict with critical errors and warnings)
     """
     if repo_root is None:
         repo_root = os.getcwd()
-    
+
     # Initialize structured validation results
     validation_results = {
         "critical": [],  # Critical errors that should block workflow
@@ -215,23 +215,23 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
             "tests": False
         }
     }
-    
+
     # Scan for dangerous content patterns
     dangerous_patterns = [
-        "rm -rf", "deltree", "format", "DROP TABLE", "DROP DATABASE", 
-        "DELETE FROM", "TRUNCATE TABLE", "sudo", "chmod 777", 
+        "rm -rf", "deltree", "format", "DROP TABLE", "DROP DATABASE",
+        "DELETE FROM", "TRUNCATE TABLE", "sudo", "chmod 777",
         "eval(", "exec(", "system(", "shell_exec", "os.system"
     ]
-    
+
     # Check for dangerous content in descriptions, signatures, etc.
     for group_idx, group in enumerate(data.get("feature_groups", [])):
         if not isinstance(group, dict):
             continue
-            
+
         for feature_idx, feature in enumerate(group.get("features", [])):
             if not isinstance(feature, dict):
                 continue
-                
+
             # Check feature description for dangerous content
             description = feature.get("description", "")
             for pattern in dangerous_patterns:
@@ -241,17 +241,17 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
                         "category": "security",
                         "suggestion": f"Remove or replace the dangerous operation '{pattern}'"
                     })
-            
+
             # Check system_design elements
             if "system_design" in feature and isinstance(feature["system_design"], dict):
                 # Mark architecture section as present
                 validation_results["sections"]["architecture"] = True
-                
+
                 # Check code elements
                 for el_idx, element in enumerate(feature["system_design"].get("code_elements", [])):
                     if not isinstance(element, dict):
                         continue
-                        
+
                     # Check signature and description
                     for field in ["signature", "description"]:
                         content = element.get(field, "")
@@ -262,7 +262,7 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
                                     "category": "security",
                                     "suggestion": f"Remove or replace the dangerous operation '{pattern}'"
                                 })
-            
+
             # Check test_requirements
             if "test_requirements" in feature and isinstance(feature["test_requirements"], dict):
                 # Mark tests section as present
@@ -284,7 +284,7 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
                         "category": "tests",
                         "suggestion": "Add unit, integration, property-based, or acceptance tests"
                     })
-            
+
             # Check implementation steps if present
             if "implementation_steps" in feature and isinstance(feature["implementation_steps"], list):
                 valid_steps_found = False
@@ -306,7 +306,7 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
 
                 if valid_steps_found:
                     validation_results["sections"]["implementation"] = True
-    
+
     # Run all validation checks with severity classification
     # Schema validation - critical if basic structure is invalid
     for error in validate_schema(data):
@@ -322,7 +322,7 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
                 "category": "schema",
                 "suggestion": None
             })
-    
+
     # Code syntax validation - critical if code stubs have syntax errors
     for error in validate_code_syntax(data):
         validation_results["critical"].append({
@@ -330,13 +330,13 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
             "category": "syntax",
             "suggestion": error.get("suggestion")
         })
-    
+
     # Identifier hygiene validation - critical if reserved keywords used
     for error in validate_identifier_hygiene(data):
         if "reserved" in error.lower() or "duplicate" in error.lower():
             validation_results["critical"].append({
                 "message": error,
-                "category": "identifiers", 
+                "category": "identifiers",
                 "suggestion": None
             })
         else:
@@ -345,7 +345,7 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
                 "category": "identifiers",
                 "suggestion": None
             })
-    
+
     # Path validity - warnings only
     for error in validate_path_validity(data, repo_root):
         validation_results["warnings"].append({
@@ -353,7 +353,7 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
             "category": "paths",
             "suggestion": None
         })
-    
+
     # Token budget - critical if significantly over budget
     for error in validate_token_budget(data):
         if "exceeds global budget" in error.lower():
@@ -368,7 +368,7 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
                 "category": "tokens",
                 "suggestion": None
             })
-    
+
     # Duplicate symbols - critical error
     for error in validate_duplicate_symbols(data):
         validation_results["critical"].append({
@@ -376,7 +376,7 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
             "category": "duplicates",
             "suggestion": None
         })
-    
+
     # Reserved prefixes - warnings
     for error in validate_reserved_prefixes(data):
         validation_results["warnings"].append({
@@ -384,7 +384,7 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
             "category": "env_vars",
             "suggestion": None
         })
-    
+
     # Stub test coherence - warnings
     for error in validate_stub_test_coherence(data):
         validation_results["warnings"].append({
@@ -392,7 +392,7 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
             "category": "tests",
             "suggestion": None
         })
-    
+
     # Complexity sanity - warnings
     for error in validate_complexity_sanity(data):
         validation_results["warnings"].append({
@@ -400,7 +400,7 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
             "category": "complexity",
             "suggestion": None
         })
-    
+
     # Check for missing sections
     missing_sections = []
     for section, present in validation_results["sections"].items():
@@ -411,7 +411,7 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
                 "category": "completeness",
                 "suggestion": f"Add the {section.capitalize()} section to ensure a complete plan"
             })
-    
+
     # Calculate summary counts
     validation_results["summary"] = {
         "critical_count": len(validation_results["critical"]),
@@ -419,10 +419,10 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
         "suggestion_count": len(validation_results["suggestions"]),
         "missing_sections": missing_sections
     }
-    
+
     # Plan is invalid if there are any critical errors
     is_valid = len(validation_results["critical"]) == 0
-    
+
     # Add structured errors to context registry if available
     if context_registry and not is_valid:
         try:
@@ -430,7 +430,7 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
         except Exception:
             # Don't fail validation if context registry update fails
             pass
-    
+
     # Generate a more detailed error report
     if not is_valid:
         error_report = {
@@ -444,90 +444,90 @@ def validate_pre_plan(data: Dict[str, Any], repo_root: str = None, context_regis
                 for section in validation_results["sections"]
             }
         }
-        
+
         # Save error report to file for debugging
         try:
             report_path = "validation_error_report.json"
             with open(report_path, "w", encoding="utf-8") as f:
                 json.dump(error_report, f, indent=2)
-            logger.info(f"Validation error report saved to {report_path}")
+            logger.info("%s", Validation error report saved to {report_path})
         except Exception as e:
-            logger.error(f"Failed to save validation error report: {e}")
-    
+            logger.error("%s", Failed to save validation error report: {e})
+
     return is_valid, validation_results
 
 
 def validate_schema(data: Dict[str, Any]) -> List[str]:
     """
     Validate basic schema structure and types.
-    
+
     This function performs comprehensive validation of the pre-planning JSON schema,
     ensuring all required sections (Architecture, Implementation, Tests) are present
     and properly structured.
     """
     errors = []
-    
+
     # Basic type checks
     if not isinstance(data, dict):
         errors.append("Pre-plan data must be a dictionary")
         return errors  # Can't continue if not a dict
-    
+
     # Check required top-level keys
     if "original_request" not in data:
         errors.append("Missing required field 'original_request'")
     elif not isinstance(data["original_request"], str):
         errors.append("Field 'original_request' must be a string")
-    
+
     if "feature_groups" not in data:
         errors.append("Missing required field 'feature_groups'")
         return errors  # Can't continue without feature_groups
-    
+
     if not isinstance(data["feature_groups"], list):
         errors.append("Field 'feature_groups' must be a list")
         return errors  # Can't continue if not a list
-    
+
     # Check each feature group
     for i, group in enumerate(data["feature_groups"]):
         group_prefix = f"Feature group {i}"
-        
+
         if not isinstance(group, dict):
             errors.append(f"{group_prefix} must be a dictionary")
             continue
-        
+
         # Check required feature group fields
         if "group_name" not in group:
             errors.append(f"{group_prefix} missing required field 'group_name'")
         elif not isinstance(group["group_name"], str):
             errors.append(f"{group_prefix} field 'group_name' must be a string")
-        
+
         if "group_description" not in group:
             errors.append(f"{group_prefix} missing required field 'group_description'")
         elif not isinstance(group["group_description"], str):
             errors.append(f"{group_prefix} field 'group_description' must be a string")
-        
+
         if "features" not in group:
             errors.append(f"{group_prefix} missing required field 'features'")
             continue
-        
+
         if not isinstance(group["features"], list):
             errors.append(f"{group_prefix} field 'features' must be a list")
             continue
-        
+
         # Check each feature
         for j, feature in enumerate(group["features"]):
             feature_prefix = f"Feature {j} in group {i}"
-            
+
             if not isinstance(feature, dict):
                 errors.append(f"{feature_prefix} must be a dictionary")
                 continue
-            
+
             # Check required feature fields
             for field in ["name", "description"]:
                 if field not in feature:
                     errors.append(f"{feature_prefix} missing required field '{field}'")
                 elif not isinstance(feature[field], str):
                     errors.append(f"{feature_prefix} field '{field}' must be a string")
-            
+
             # Check files_affected
             if "files_affected" not in feature:
                 errors.append(f"{feature_prefix} missing required field 'files_affected'")
@@ -537,7 +537,7 @@ def validate_schema(data: Dict[str, Any]) -> List[str]:
                 for k, file_path in enumerate(feature["files_affected"]):
                     if not isinstance(file_path, str):
                         errors.append(f"{feature_prefix} files_affected[{k}] must be a string")
-            
+
             # Check test_requirements
             if "test_requirements" not in feature:
                 errors.append(f"{feature_prefix} missing required field 'test_requirements'")
@@ -564,14 +564,14 @@ def validate_schema(data: Dict[str, Any]) -> List[str]:
                             if not isinstance(test_case, structure_def["item_type"]):
                                 errors.append(f"{tc_prefix} must be a {structure_def['item_type'].__name__}")
                                 continue
-                            
+
                             if structure_def["item_type"] is dict:
                                 for field, expected_field_type in structure_def["fields"].items():
                                     if field not in test_case:
                                         errors.append(f"{tc_prefix} missing required field '{field}'")
                                     elif not isinstance(test_case[field], expected_field_type):
                                         errors.append(f"{tc_prefix} field '{field}' must be a {expected_field_type.__name__}")
-            
+
             # Check dependencies
             if "dependencies" not in feature:
                 errors.append(f"{feature_prefix} missing required field 'dependencies'")
@@ -584,13 +584,13 @@ def validate_schema(data: Dict[str, Any]) -> List[str]:
                         errors.append(f"{feature_prefix} dependencies missing '{dep_type}'")
                     elif not isinstance(deps[dep_type], list):
                         errors.append(f"{feature_prefix} dependencies field '{dep_type}' must be a list")
-            
+
             # Check risk_assessment
             if "risk_assessment" not in feature:
                 errors.append(f"{feature_prefix} missing required field 'risk_assessment'")
             elif not isinstance(feature["risk_assessment"], dict):
                 errors.append(f"{feature_prefix} field 'risk_assessment' must be a dictionary")
-            
+
             # Check system_design (Architecture section)
             if "system_design" not in feature:
                 errors.append(f"{feature_prefix} missing required field 'system_design' (Architecture section)")
@@ -602,7 +602,7 @@ def validate_schema(data: Dict[str, Any]) -> List[str]:
                 for arch_field in ["overview", "code_elements", "data_flow"]:
                     if arch_field not in system_design_data:
                         errors.append(f"{feature_prefix} system_design missing required field '{arch_field}'")
-                
+
                 if "code_elements" in system_design_data and not isinstance(system_design_data["code_elements"], list):
                     errors.append(f"{feature_prefix} system_design field 'code_elements' must be a list")
                 elif "code_elements" in system_design_data and len(system_design_data["code_elements"]) == 0:
@@ -623,12 +623,12 @@ def validate_schema(data: Dict[str, Any]) -> List[str]:
                                 errors.append(f"{ce_prefix} field '{field}' must be a string")
                             elif field == "element_id" and not code_el[field].strip():
                                 errors.append(f"{ce_prefix} field 'element_id' cannot be empty")
-                        
+
                         # Validate element_type values
                         valid_element_types = {"class", "function", "interface", "enum_type", "struct", "method", "module"}
                         if "element_type" in code_el and code_el["element_type"] not in valid_element_types:
                             errors.append(f"{ce_prefix} field 'element_type' must be one of: {', '.join(valid_element_types)}")
-                        
+
                         # Optional fields and their types
                         optional_fields = {
                             "params": list, # list of strings
@@ -647,7 +647,7 @@ def validate_schema(data: Dict[str, Any]) -> List[str]:
                                 for p_idx, attr_val in enumerate(code_el[field]):
                                     if not isinstance(attr_val, str):
                                         errors.append(f"{ce_prefix} field 'key_attributes_or_methods[{p_idx}]' must be a string")
-    
+
     return errors
 
 
@@ -657,16 +657,16 @@ def validate_identifier_hygiene(data: Dict[str, Any]) -> List[str]:
     This version iterates through the structured code_elements.
     """
     errors = []
-    
+
     for group_idx, group_data in enumerate(data.get("feature_groups", [])):
         if not isinstance(group_data, dict):
             # This case should ideally be caught by schema validation first
-            logger.warning(f"Skipping feature group at index {group_idx} due to unexpected type: {type(group_data)}")
+            logger.warning("%s", Skipping feature group at index {group_idx} due to unexpected type: {type(group_data)})
             continue
         group_name = group_data.get("group_name", f"Group {group_idx}")
         for feature_idx, feature_data in enumerate(group_data.get("features", [])):
             if not isinstance(feature_data, dict):
-                logger.warning(f"Skipping feature at index {feature_idx} in group '{group_name}' due to unexpected type: {type(feature_data)}")
+                logger.warning("%s", Skipping feature at index {feature_idx} in group '{group_name}' due to unexpected type: {type(feature_data)})
                 continue
             current_feature_name = feature_data.get("name", f"Feature {feature_idx}")
             feature_location_log_prefix = f"Feature '{current_feature_name}' in group '{group_name}'"
@@ -674,31 +674,31 @@ def validate_identifier_hygiene(data: Dict[str, Any]) -> List[str]:
             system_design = feature_data.get("system_design")
             if not isinstance(system_design, dict):
                 errors.append(f"{feature_location_log_prefix}: 'system_design' is missing or not a dictionary.")
-                logger.debug(f"{feature_location_log_prefix}: system_design is type {type(system_design)}, expected dict.")
+                logger.debug("%s", {feature_location_log_prefix}: system_design is type {type(system_design)}, expected dict.)
                 continue
 
             code_elements = system_design.get("code_elements")
             if not isinstance(code_elements, list):
                 errors.append(f"{feature_location_log_prefix}: 'system_design.code_elements' is missing or not a list.")
-                logger.debug(f"{feature_location_log_prefix}: system_design.code_elements is type {type(code_elements)}, expected list.")
+                logger.debug("%s", {feature_location_log_prefix}: system_design.code_elements is type {type(code_elements)}, expected list.)
                 continue
 
             for el_idx, element in enumerate(code_elements):
                 if not isinstance(element, dict):
                     errors.append(f"{feature_location_log_prefix}: code_elements[{el_idx}] is not a dictionary.")
-                    logger.debug(f"{feature_location_log_prefix}: code_elements[{el_idx}] is type {type(element)}, expected dict.")
+                    logger.debug("%s", {feature_location_log_prefix}: code_elements[{el_idx}] is type {type(element)}, expected dict.)
                     continue
 
                 identifier = element.get("name")
                 if not isinstance(identifier, str) or not identifier.strip():
                     errors.append(f"{feature_location_log_prefix}: code_elements[{el_idx}] has missing, empty, or non-string 'name'.")
                     continue # Identifier is crucial for this validation
-                
+
                 target_file = element.get("target_file", "")
                 if not isinstance(target_file, str): # Ensure target_file is a string for path operations
-                    logger.warning(f"{feature_location_log_prefix}: code_elements[{el_idx}] has non-string 'target_file' (type: {type(target_file)}). Using empty string as fallback.")
+                    logger.warning("%s", {feature_location_log_prefix}: code_elements[{el_idx}] has non-string 'target_file' (type: {type(target_file)}). Using empty string as fallback.)
                     target_file = ""
-                    
+
                 lang_keywords = PYTHON_KEYWORDS # Default
                 current_lang_name = "Python"
                 if isinstance(target_file, str) and target_file:
@@ -721,17 +721,17 @@ def validate_identifier_hygiene(data: Dict[str, Any]) -> List[str]:
                     errors.append(
                         f"{feature_location_log_prefix}: Identifier '{identifier}' (in code_elements[{el_idx}]) uses a reserved {current_lang_name} keyword '{id_simple_part}'."
                     )
-                
+
                 if id_simple_part and id_simple_part[0].isdigit():
                     errors.append(
                         f"{feature_location_log_prefix}: Identifier '{identifier}' (in code_elements[{el_idx}]) starts with a digit."
                     )
-                
+
                 if len(id_simple_part) > 70:
                      errors.append(
                         f"{feature_location_log_prefix}: Identifier part '{id_simple_part}' in '{identifier}' (code_elements[{el_idx}]) is too long (>{len(id_simple_part)} chars)."
                     )
-                
+
                 # Regex for typical class/function/method names (simple part)
                 if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", id_simple_part):
                     # If the simple part fails, check if the full identifier is a valid qualified name (e.g., My.Class.method)
@@ -745,11 +745,11 @@ def validate_identifier_hygiene(data: Dict[str, Any]) -> List[str]:
 def validate_path_validity(data: Dict[str, Any], repo_root: str) -> List[str]:
     """Validate that specified file paths are syntactically valid, relative, and do not traverse upwards."""
     errors = []
-    
+
     if not repo_root:
         logger.warning("Repository root not provided for path validity checks. Using current directory as fallback for some checks.")
         repo_root = os.getcwd()
-    
+
     # abs_repo_root = os.path.abspath(repo_root) # Not directly used in current checks, but good to have if needed later
 
     paths_to_validate_with_context = [] # List of (path_string, context_string_for_error_message)
@@ -767,7 +767,7 @@ def validate_path_validity(data: Dict[str, Any], repo_root: str) -> List[str]:
                 continue
             current_feature_name = feature_data.get("name", f"Unnamed Feature {feature_idx}")
             feature_log_prefix = f"Feature '{current_feature_name}' in group '{group_name}'"
-            
+
             # Validate files_affected
             files_affected = feature_data.get("files_affected", [])
             if isinstance(files_affected, list):
@@ -788,7 +788,7 @@ def validate_path_validity(data: Dict[str, Any], repo_root: str) -> List[str]:
                         if not isinstance(el_data, dict):
                             # errors.append(f"{feature_log_prefix}: system_design.code_elements[{el_idx}] is not a dictionary.")
                             continue
-                        
+
                         target_file = el_data.get("target_file") # Might be None if key missing
                         element_name = el_data.get("name", f"element at index {el_idx}")
 
@@ -815,7 +815,7 @@ def validate_path_validity(data: Dict[str, Any], repo_root: str) -> List[str]:
         if ".." in path_str:
             errors.append(f"{context_str}: Path '{path_str}' traverses upwards ('..'), which is disallowed.")
             continue
-        
+
         if os.path.isabs(path_str):
             errors.append(f"{context_str}: Path '{path_str}' is absolute, which is disallowed. All paths must be relative to the project root.")
             continue
@@ -826,52 +826,52 @@ def validate_path_validity(data: Dict[str, Any], repo_root: str) -> List[str]:
                  errors.append(f"{context_str}: Path '{path_str}' contains backslashes ('\\') which might cause issues on non-Windows systems. Use forward slashes ('/') for portability.")
         except Exception as e:
             errors.append(f"{context_str}: Error performing basic path checks on '{path_str}': {e}")
-            
+
     return errors
 
 
 def validate_token_budget(data: Dict[str, Any]) -> List[str]:
     """Validate that token budget estimates are within limits."""
     errors = []
-    
+
     # Track total token usage across all feature groups
     total_tokens = 0
-    
+
     for i, group in enumerate(data.get("feature_groups", [])):
         if not isinstance(group, dict):
             continue
-        
+
         group_tokens = 0
-        
+
         for j, feature in enumerate(group.get("features", [])):
             if not isinstance(feature, dict):
                 continue
-            
+
             # Extract token estimate and complexity
             est_tokens = feature.get("est_tokens", 0)
             complexity = feature.get("complexity_enum", 0)
-            
+
             # Validate tokens against complexity
             if complexity in TOKEN_BUDGET_LIMITS and est_tokens > TOKEN_BUDGET_LIMITS[complexity]:
                 errors.append(f"Feature {feature.get('name', f'{j}')} in group {group.get('group_name', f'{i}')} " +
-                             f"exceeds token budget: {est_tokens} tokens for complexity level {complexity}")
-            
+                                                                                         f"exceeds token budget: {est_tokens} tokens for complexity level {complexity}")
+
             group_tokens += est_tokens
-        
+
         total_tokens += group_tokens
-    
+
     # Check against global token budget (if defined)
     global_budget = data.get("token_budget", 100000)
     if total_tokens > global_budget:
         errors.append(f"Total token estimate ({total_tokens}) exceeds global budget ({global_budget})")
-    
+
     return errors
 
 
 def validate_duplicate_symbols(data: Dict[str, Any]) -> List[str]:
     """Check for duplicate symbols within each feature's system_design.code_elements and optionally across features."""
     errors = []
-    
+
     # Global tracking for symbols across all features (symbol_name, target_file) -> feature_location_log
     all_symbols_globally = {}
 
@@ -882,10 +882,10 @@ def validate_duplicate_symbols(data: Dict[str, Any]) -> List[str]:
         for feature_idx, feature_data in enumerate(group_data.get("features", [])):
             if not isinstance(feature_data, dict):
                 continue
-            
+
             current_feature_name = feature_data.get("name", f"Feature {feature_idx}")
             feature_location_log_prefix = f"Feature '{current_feature_name}' in group '{group_name}'"
-            
+
             system_design = feature_data.get("system_design")
             if not isinstance(system_design, dict):
                 # errors.append(f"{feature_location_log_prefix}: system_design is not a dictionary.")
@@ -898,17 +898,17 @@ def validate_duplicate_symbols(data: Dict[str, Any]) -> List[str]:
 
             # Symbol tracking per feature: (symbol_name, target_file) -> list of element indices
             symbols_in_current_feature = defaultdict(list)
-            
+
             for el_idx, element in enumerate(code_elements):
                 if not isinstance(element, dict):
                     continue
-                
+
                 symbol_name = element.get("name")
                 # Use a default for target_file if not present or not a string, to make the symbol_key valid
                 target_file = element.get("target_file")
                 if not isinstance(target_file, str) or not target_file.strip():
                     target_file = "undefined_target_file"
-                
+
                 element_type = element.get("element_type", "unknown_type")
 
 
@@ -936,7 +936,7 @@ def validate_duplicate_symbols(data: Dict[str, Any]) -> List[str]:
                         )
                 else:
                     all_symbols_globally[symbol_key_global_scope] = current_global_loc_info
-            
+
             # Report duplicates found within the current feature's code_elements
             for (s_name, s_file), locations in symbols_in_current_feature.items():
                 if len(locations) > 1:
@@ -978,7 +978,7 @@ def validate_reserved_prefixes(data: Dict[str, Any]) -> List[str]:
                 signature_str = element.get("signature", "")
                 description_str = element.get("description", "")
                 element_name = element.get("name", f"element_{el_idx}")
-                
+
                 # Analyze signature for env var usage if it looks like a code block
                 if isinstance(signature_str, str) and signature_str.strip():
                     # CodeAnalyzer expects a block of code. A signature might be too small.
@@ -1002,13 +1002,13 @@ def validate_reserved_prefixes(data: Dict[str, Any]) -> List[str]:
                         content_to_analyze = signature_str
                         if lang_for_analysis == "python" and signature_str.strip().endswith(":"):
                             content_to_analyze = signature_str + "\n  pass"
-                        
+
                         analysis_result = analyzer.analyze_code(content_to_analyze, lang=lang_for_analysis)
                         if analysis_result.get("env_vars"):
-                            logger.debug(f"{feature_log_prefix}, element '{element_name}': Found env_vars {analysis_result['env_vars']} in signature.")
+                            logger.debug("%s", {feature_log_prefix}, element '{element_name}': Found env_vars {analysis_result['env_vars']} in signature.)
                             env_vars_found_globally.update(analysis_result["env_vars"])
                     except Exception as e:
-                        logger.debug(f"Could not analyze signature of element '{element_name}' for env vars: {e}")
+                        logger.debug("%s", Could not analyze signature of element '{element_name}' for env vars: {e})
 
                 # Analyze description for env var usage (if descriptions can contain code)
                 if isinstance(description_str, str) and "os.getenv" in description_str or "process.env" in description_str: # Quick check
@@ -1016,11 +1016,11 @@ def validate_reserved_prefixes(data: Dict[str, Any]) -> List[str]:
                         # Descriptions are less likely to have a clear language, default to python or try to detect
                         analysis_result = analyzer.analyze_code(description_str) # Auto-detect lang
                         if analysis_result.get("env_vars"):
-                            logger.debug(f"{feature_log_prefix}, element '{element_name}': Found env_vars {analysis_result['env_vars']} in description.")
+                            logger.debug("%s", {feature_log_prefix}, element '{element_name}': Found env_vars {analysis_result['env_vars']} in description.)
                             env_vars_found_globally.update(analysis_result["env_vars"])
                     except Exception as e:
-                        logger.debug(f"Could not analyze description of element '{element_name}' for env vars: {e}")
-    
+                        logger.debug("%s", Could not analyze description of element '{element_name}' for env vars: {e})
+
     # Check collected environment variables
     for env_var in env_vars_found_globally:
         if env_var in RESERVED_ENV_VARS:
@@ -1031,7 +1031,7 @@ def validate_reserved_prefixes(data: Dict[str, Any]) -> List[str]:
         # The original check for "__" might be too specific or covered by the general regex.
         # elif "__" in env_var: # This was an old check
         #     errors.append(f"Environment variable '{env_var}' should use single underscore separator")
-            
+
     return errors
 
 
@@ -1050,7 +1050,7 @@ def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
 
     for group_idx, group_data in enumerate(data.get("feature_groups", [])):
         if not isinstance(group_data, dict):
-            logger.warning(f"Skipping feature group at index {group_idx} in stub/test coherence check due to unexpected type: {type(group_data)}")
+            logger.warning("%s", Skipping feature group at index {group_idx} in stub/test coherence check due to unexpected type: {type(group_data)})
             continue
         group_name = group_data.get("group_name", f"Group {group_idx}")
         for feature_idx, feature_data in enumerate(group_data.get("features", [])):
@@ -1062,7 +1062,7 @@ def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
 
             current_feature_name = feature_data.get("name", f"Feature {feature_idx}")
             feature_log_prefix = f"Feature '{current_feature_name}' in group '{group_name}'"
-            
+
             system_design = feature_data.get("system_design")
             test_requirements = feature_data.get("test_requirements")
             implementation_plan = feature_data.get("implementation_plan")
@@ -1122,7 +1122,7 @@ def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
                             lang = "php"
                         elif step_file_path.endswith(".java"):
                             lang = "java"
-                        
+
                         try:
                             analysis_results = analyzer.analyze_code(code_block, lang=lang)
                             for el_data in analysis_results.get("elements", []):
@@ -1130,7 +1130,7 @@ def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
                                 implemented_code_signatures.add((step_file_path, el_data.name))
                         except Exception as e:
                             errors.append(f"{feature_log_prefix}: Error analyzing code_block in implementation_plan.steps[{step_idx}] for '{step_file_path}': {str(e)[:100]}")
-            
+
             # 3. Process tests: check target_element (design coherence) and tested_functions (implementation coherence)
             all_test_targets_from_design_link = set() # Names targeted via 'target_element'
             all_tested_signatures_from_impl_link = set() # (file, name) targeted via 'tested_functions'
@@ -1148,12 +1148,12 @@ def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
                     # Optional: log if a test type is expected but missing, or if it's not a list
                     # errors.append(f"{feature_log_prefix}: test_requirements.{test_key_in_req} is missing or not a list.")
                     continue
-                
+
                 for tc_idx, test_case in enumerate(test_list):
                     if not isinstance(test_case, dict):
                         errors.append(f"{feature_log_prefix}: {display_name}[{tc_idx}] is not a dictionary.")
                         continue
-                    
+
                     # Check 'target_element' (link to system_design)
                     target_design_el = test_case.get("target_element")
                     if isinstance(target_design_el, str) and target_design_el:
@@ -1179,7 +1179,7 @@ def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
                             if not isinstance(tested_func_str, str) or "::" not in tested_func_str:
                                 errors.append(f"{feature_log_prefix}: {display_name}[{tc_idx}].tested_functions[{tf_idx}] ('{tested_func_str}') is invalid. Expected format 'file_path::element_name'.")
                                 continue
-                            
+
                             try:
                                 tf_path, tf_name = tested_func_str.split("::", 1)
                                 current_tested_sig = (tf_path, tf_name)
@@ -1189,19 +1189,19 @@ def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
                                     # More detailed error if name matches but path doesn't, or vice-versa
                                     found_by_name_only = [p for p, s_name in implemented_code_signatures if s_name == tf_name]
                                     found_by_path_only = [s_name for p, s_name in implemented_code_signatures if p == tf_path]
-                                    
+
                                     error_msg = f"{feature_log_prefix}: {display_name}[{tc_idx}].tested_functions[{tf_idx}] ('{tested_func_str}') does not match any (file_path, element_name) pair derived from the implementation_plan. "
                                     if not implemented_code_signatures:
-                                        error_msg += "No elements found in implementation_plan steps."
-                                    else:
+                                        error_msg +
+                                            = "No elements found in implementation_plan steps."                                    else:
                                         if found_by_name_only and tf_path not in [p for p, _ in implemented_code_signatures if _ == tf_name]:
-                                            error_msg += f"Element name '{tf_name}' exists in implementation_plan but under different file path(s): {list(set(found_by_name_only))[:3]}. "
-                                        elif found_by_path_only and tf_name not in [s_name for p, s_name in implemented_code_signatures if p == tf_path]:
-                                            error_msg += f"File path '{tf_path}' exists in implementation_plan but does not contain element '{tf_name}'. Elements in this file: {list(set(found_by_path_only))[:3]}. "
-                                        else: # General mismatch
+                                            error_msg +
+                                                = f"Element name '{tf_name}' exists in implementation_plan but under different file path(s): {list(set(found_by_name_only))[:3]}. "                                        elif found_by_path_only and tf_name not in [s_name for p, s_name in implemented_code_signatures if p == tf_path]:
+                                            error_msg +
+                                                = f"File path '{tf_path}' exists in implementation_plan but does not contain element '{tf_name}'. Elements in this file: {list(set(found_by_path_only))[:3]}. "                                        else: # General mismatch
                                             preview_impl_sigs = list(implemented_code_signatures)[:3]
-                                            error_msg += f"Available in implementation_plan: {preview_impl_sigs}"
-                                            if len(implemented_code_signatures) > 3:
+                                            error_msg +
+                                                = f"Available in implementation_plan: {preview_impl_sigs}"                                            if len(implemented_code_signatures) > 3:
                                                 error_msg += "..."
                                     errors.append(error_msg)
                             except ValueError:
@@ -1216,7 +1216,7 @@ def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
                 el_type = element_types_map_from_design.get(name, "unknown")
                 if el_type in testable_element_types:
                     actually_testable_elements_in_design.add(name)
-            
+
             untested_design_elements = actually_testable_elements_in_design - all_test_targets_from_design_link
             if untested_design_elements:
                 for symbol_name in untested_design_elements:
@@ -1248,7 +1248,7 @@ def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
 def validate_code_syntax(data: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
     Validate syntax of code signatures in system_design.code_elements.
-    
+
     Args:
         data: Parsed JSON data from pre-planner
 
@@ -1264,14 +1264,14 @@ def validate_code_syntax(data: Dict[str, Any]) -> List[Dict[str, Any]]:
         for feature_idx, feature_data in enumerate(group_data.get("features", [])):
             if not isinstance(feature_data, dict):
                 continue
-            
+
             current_feature_name = feature_data.get("name", f"Feature {feature_idx}")
-            
+
             system_design = feature_data.get("system_design")
             if not isinstance(system_design, dict):
                 # errors.append({...}) # Covered by schema validation
                 continue
-            
+
             code_elements = system_design.get("code_elements")
             if not isinstance(code_elements, list):
                 # errors.append({...}) # Covered by schema validation
@@ -1306,7 +1306,7 @@ def validate_code_syntax(data: Dict[str, Any]) -> List[Dict[str, Any]]:
                         lang = "php"
                     elif target_file.endswith(".java"):
                         lang = "java"
-                
+
                 parse_content = signature_str
                 try:
                     if lang == "python":
@@ -1327,8 +1327,8 @@ def validate_code_syntax(data: Dict[str, Any]) -> List[Dict[str, Any]]:
                             if "=>" in signature_str:
                                 if not signature_str.strip().endswith(";") and not signature_str.strip().endswith("}"):
                                      # Try to wrap in a const assignment if it looks like an arrow func expression
-                                     if not re.match(r"^\s*(const|let|var)\s+\w+\s*=", signature_str):
-                                         parse_content = f"const tempFunc = {signature_str};"
+                                     if not re.match(r"^\s*(const|let|var)\s+\w+
+                                         \s*=", signature_str):                                         parse_content = f"const tempFunc = {signature_str};"
                                      elif not signature_str.strip().endswith(";"):
                                          parse_content = f"{signature_str};"
 
@@ -1338,7 +1338,7 @@ def validate_code_syntax(data: Dict[str, Any]) -> List[Dict[str, Any]]:
                              parse_content = f"{signature_str} {{}}"
                         elif element_type == "interface" and not signature_str.strip().endswith("}"):
                              parse_content = f"{signature_str} {{}}"
-                        
+
                         # Use the appropriate parser from agent_s3.ast_tools
                         if lang == "javascript":
                             parse_js(bytes(parse_content, "utf8"))
@@ -1384,60 +1384,60 @@ def validate_code_syntax(data: Dict[str, Any]) -> List[Dict[str, Any]]:
                         "message": f"Syntax error or parsing issue in {lang} signature '{signature_str[:50]}...': {str(e)}. Parsed as: '{parse_content[:50]}...'"
                     })
     return errors
-            
+
 
 
 def validate_complexity_sanity(data: Dict[str, Any]) -> List[str]:
     """Check that complexity levels correlate with token estimates."""
     errors = []
-    
+
     for i, group in enumerate(data.get("feature_groups", [])):
         if not isinstance(group, dict):
             continue
-        
+
         for j, feature in enumerate(group.get("features", [])):
             if not isinstance(feature, dict):
                 continue
-            
+
             # Extract token estimate and complexity
             est_tokens = feature.get("est_tokens", 0)
             complexity = feature.get("complexity_enum", 0)
-            
+
             # Check if complexity level exists
             if complexity not in TOKEN_BUDGET_LIMITS:
                 errors.append(f"Feature {feature.get('name', f'{j}')} in group {group.get('group_name', f'{i}')} " +
-                             f"has invalid complexity level: {complexity}")
+                                                                                         f"has invalid complexity level: {complexity}")
                 continue
-            
+
             # Sanity checks for complexity vs. token count
             if complexity == 0 and est_tokens > TOKEN_BUDGET_LIMITS[0]:  # trivial
                 errors.append(f"Feature {feature.get('name', f'{j}')} in group {group.get('group_name', f'{i}')} " +
-                             f"marked as trivial but has {est_tokens} tokens (expected < {TOKEN_BUDGET_LIMITS[0]})")
+                                                                                         f"marked as trivial but has {est_tokens} tokens (expected < {TOKEN_BUDGET_LIMITS[0]})")
             elif complexity == 1 and est_tokens > TOKEN_BUDGET_LIMITS[1]:  # simple
                 errors.append(f"Feature {feature.get('name', f'{j}')} in group {group.get('group_name', f'{i}')} " +
-                             f"marked as simple but has {est_tokens} tokens (expected < {TOKEN_BUDGET_LIMITS[1]})")
+                                                                                         f"marked as simple but has {est_tokens} tokens (expected < {TOKEN_BUDGET_LIMITS[1]})")
             elif complexity == 2 and est_tokens > TOKEN_BUDGET_LIMITS[2]:  # moderate
                 errors.append(f"Feature {feature.get('name', f'{j}')} in group {group.get('group_name', f'{i}')} " +
-                             f"marked as moderate but has {est_tokens} tokens (expected < {TOKEN_BUDGET_LIMITS[2]})")
-    
+                                                                                         f"marked as moderate but has {est_tokens} tokens (expected < {TOKEN_BUDGET_LIMITS[2]})")
+
     return errors
 
 
 def write_junit_report(errors: List[str], output_path: str = 'plan_validation.xml') -> bool:
     """
     Write validation errors as JUnit XML for CI integration.
-    
+
     Args:
         errors: List of validation error messages
         output_path: Path to write the JUnit XML report
-        
+
     Returns:
         True if report was written successfully
     """
     try:
         # Create the root element
         testsuites = ET.Element("testsuites")
-        
+
         # Create a testsuite element
         testsuite = ET.SubElement(testsuites, "testsuite")
         testsuite.set("name", "Plan Validation")
@@ -1445,14 +1445,14 @@ def write_junit_report(errors: List[str], output_path: str = 'plan_validation.xm
         testsuite.set("errors", str(len(errors)))
         testsuite.set("failures", "0")
         testsuite.set("timestamp", datetime.datetime.now().isoformat())
-        
+
         if errors:
             # Create a testcase for each error
             for error in errors:
                 testcase = ET.SubElement(testsuite, "testcase")
                 testcase.set("name", error[:40] + "..." if len(error) > 40 else error)
                 testcase.set("classname", "plan_validator")
-                
+
                 # Add error element
                 error_elem = ET.SubElement(testcase, "error")
                 error_elem.set("message", error)
@@ -1462,50 +1462,50 @@ def write_junit_report(errors: List[str], output_path: str = 'plan_validation.xm
             testcase = ET.SubElement(testsuite, "testcase")
             testcase.set("name", "Plan validation passed")
             testcase.set("classname", "plan_validator")
-        
+
         # Create the XML tree and write to file
         tree = ET.ElementTree(testsuites)
         tree.write(output_path, encoding="utf-8", xml_declaration=True)
-        
+
         return True
     except Exception as e:
-        logger.error(f"Error writing JUnit report: {e}")
+        logger.error("%s", Error writing JUnit report: {e})
         return False
 
 
 def create_github_annotations(errors: List[str]) -> List[Dict[str, Any]]:
     """
     Format validation errors as GitHub annotations.
-    
+
     Args:
         errors: List of validation error messages
-        
+
     Returns:
         List of annotation dictionaries
     """
     annotations = []
-    
+
     for error in errors:
         annotation = {
             "message": error,
             "annotation_level": "failure",
             "title": "Plan Validation Error"
         }
-        
+
         # Try to extract file path and line number if available
         file_match = re.search(r'in\s+file\s+[\'"]?([^\'"\s]+)[\'"]?', error)
         if file_match:
             annotation["path"] = file_match.group(1)
-        
+
         # Try to extract specific path for duplicate route paths
         route_match = re.search(r'Route\s+[\'"]([^\'"]+)[\'"]', error)
         if route_match:
             annotation["path"] = "api_routes.md"  # Create a virtual file for route issues
-            
+
         # Mark as warning for certain types of issues
         if any(x in error.lower() for x in ["warning", "suggest", "recommend", "consider"]):
             annotation["annotation_level"] = "warning"
-        
+
         annotations.append(annotation)
-    
+
     return annotations

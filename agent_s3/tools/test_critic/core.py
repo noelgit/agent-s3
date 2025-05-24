@@ -16,69 +16,69 @@ from abc import ABC, abstractmethod
 
 class Adapter(ABC):
     """Abstract base class for test framework adapters."""
-    
+
     name = "base_adapter"
-    
+
     @abstractmethod
     def detect(self, workspace: Path) -> bool:
         """
         Detect if this adapter is suitable for the given workspace.
-        
+
         Args:
             workspace: Path to the workspace directory
-            
+
         Returns:
             True if this adapter can be used for the workspace, False otherwise
         """
         pass
-    
+
     @abstractmethod
     def collect_only(self, workspace: Path) -> List[str]:
         """
         Run a test collection to check for syntax errors.
-        
+
         Args:
             workspace: Path to the workspace directory
-            
+
         Returns:
             List of error messages (empty if no errors)
         """
         pass
-    
+
     @abstractmethod
     def smoke_run(self, workspace: Path) -> bool:
         """
         Run a smoke test to check if tests pass.
-        
+
         Args:
             workspace: Path to the workspace directory
-            
+
         Returns:
             True if tests pass, False otherwise
         """
         pass
-    
+
     @abstractmethod
     def coverage(self, workspace: Path) -> Optional[float]:
         """
         Run code coverage analysis.
-        
+
         Args:
             workspace: Path to the workspace directory
-            
+
         Returns:
             Coverage percentage or None if coverage analysis is not available
         """
         pass
-    
+
     @abstractmethod
     def mutation(self, workspace: Path) -> Optional[float]:
         """
         Run mutation testing.
-        
+
         Args:
             workspace: Path to the workspace directory
-            
+
         Returns:
             Mutation score percentage or None if mutation testing is not available
         """
@@ -110,32 +110,32 @@ class TestVerdict(StrEnum):
 def select_adapter(workspace: Path, lang_hint: Optional[str] = None) -> 'Adapter':
     """
     Select the appropriate test adapter based on the workspace content and optional language hint.
-    
+
     Args:
         workspace: Path to the workspace directory
         lang_hint: Optional language hint to prioritize adapter selection
-        
+
     Returns:
         Selected adapter instance
-    
+
     Raises:
         ValueError: If no suitable adapter is found
     """
     from .adapters.python_pytest import PythonPytestAdapter
     from .adapters.js_jest import JsJestAdapter
     from .adapters.php_pest import PhpPestAdapter
-    
+
     # Create a list of adapters to check
     adapters = [
         PythonPytestAdapter(),
         JsJestAdapter(),
         PhpPestAdapter()
     ]
-    
+
     # If language hint is provided, prioritize the corresponding adapter
     if lang_hint:
         lang_hint = lang_hint.lower()
-        
+
         # Reorder adapters based on hint
         if lang_hint in ["python", "py"]:
             adapters.insert(0, adapters.pop(adapters.index(next(a for a in adapters if isinstance(a, PythonPytestAdapter)))))
@@ -143,13 +143,13 @@ def select_adapter(workspace: Path, lang_hint: Optional[str] = None) -> 'Adapter
             adapters.insert(0, adapters.pop(adapters.index(next(a for a in adapters if isinstance(a, JsJestAdapter)))))
         elif lang_hint in ["php"]:
             adapters.insert(0, adapters.pop(adapters.index(next(a for a in adapters if isinstance(a, PhpPestAdapter)))))
-    
+
     # Try each adapter's detect method
     for adapter in adapters:
         if adapter.detect(workspace):
-            logger.info(f"Selected test adapter: {adapter.name}")
+            logger.info("%s", Selected test adapter: {adapter.name})
             return adapter
-    
+
     # If no adapter detected, try to use a default based on common file patterns
     if (
         (workspace / "pyproject.toml").exists()
@@ -166,7 +166,7 @@ def select_adapter(workspace: Path, lang_hint: Optional[str] = None) -> 'Adapter
     elif (workspace / "composer.json").exists() or list(workspace.glob("**/*.php")):
         logger.info("Defaulting to PHP test adapter based on composer.json or .php files")
         return adapters[2]  # PHP adapter
-    
+
     # If still no adapter found, raise an error
     raise ValueError(f"No suitable test adapter found for workspace {workspace}")
 
@@ -174,33 +174,33 @@ class TestCritic:
     """
     Unified TestCritic class combining both test execution and static analysis capabilities.
     Provides both actual test running (TDD workflow) and static analysis for test quality.
-    
+
     For TDD workflow:
     - Executes test frameworks to verify tests fail before implementation
     - Runs code coverage and mutation testing
-    
+
     For static analysis:
     - Analyzes test quality and coverage using pattern analysis
     - Evaluates test types and ensuring proper implementation
     - Reviews test plans for proper test coverage
     """
-    
+
     def __init__(self, coordinator=None):
         """Initialize with optional coordinator for LLM access."""
         self.coordinator = coordinator
         self.llm = coordinator.llm if coordinator else None
         self.workspace = Path(coordinator.config.get_workspace_path()) if coordinator and hasattr(coordinator, 'config') and coordinator.config else Path.cwd()
-        
+
         # Set up static analysis patterns
         self._init_test_patterns()
-        
+
         # Try to detect the appropriate adapter
         try:
             self.adapter = select_adapter(self.workspace)
         except Exception as e:
-            logger.warning(f"Could not select test adapter: {str(e)}")
+            logger.warning("%s", Could not select test adapter: {str(e)})
             self.adapter = None
-    
+
     def _init_test_patterns(self):
         """Initialize regex patterns for identifying test types."""
         self.patterns = {
@@ -313,7 +313,7 @@ class TestCritic:
                 ]
             }
         }
-        
+
         # Framework-specific patterns for test assertions
         self.assertion_patterns = {
             "pytest": [r"assert\s+", r"pytest\.raises"],
@@ -321,7 +321,7 @@ class TestCritic:
             "jest": [r"expect\s*\(.*\)\.to", r"assert\."],
             "mocha": [r"assert\.", r"expect\s*\("],
         }
-        
+
         # Patterns that indicate test quality issues
         self.quality_issue_patterns = [
             r"# TODO",
@@ -333,19 +333,19 @@ class TestCritic:
             r"@pytest\.mark\.skip",
             r"@unittest\.skip"
         ]
-    
+
     # =========================================================================
     # TDD/ATDD Workflow Methods - Running Actual Tests
     # =========================================================================
-    
+
     def run_analysis(self, workspace: Optional[Path] = None) -> dict:
         """
         Run full test analysis using the appropriate adapter and return verdict.
         This is the primary method for the TDD workflow which executes actual tests.
-        
+
         Args:
             workspace: Optional workspace path to use instead of the default
-            
+
         Returns:
             Dictionary with test analysis results
         """
@@ -354,7 +354,7 @@ class TestCritic:
             try:
                 self.adapter = select_adapter(workspace)
             except Exception as e:
-                logger.warning(f"Could not select test adapter: {str(e)}")
+                logger.warning("%s", Could not select test adapter: {str(e)})
                 return {
                     "verdict": TestVerdict.FAIL,
                     "details": {
@@ -365,13 +365,13 @@ class TestCritic:
                         "mutation_score": 0.0
                     }
                 }
-        
+
         # If no adapter is available, try to detect one
         if not self.adapter:
             try:
                 self.adapter = select_adapter(self.workspace)
             except Exception as e:
-                logger.warning(f"Could not select test adapter: {str(e)}")
+                logger.warning("%s", Could not select test adapter: {str(e)})
                 return {
                     "verdict": TestVerdict.FAIL,
                     "details": {
@@ -382,11 +382,11 @@ class TestCritic:
                         "mutation_score": 0.0
                     }
                 }
-        
+
         # Run the tests and evaluate results
         try:
-            logger.info(f"Running test critic with {self.adapter.name} adapter")
-            
+            logger.info("%s", Running test critic with {self.adapter.name} adapter)
+
             # Run each test step
             results = {
                 "collect_errors": self.adapter.collect_only(self.workspace),
@@ -394,16 +394,16 @@ class TestCritic:
                 "coverage_percent": self.adapter.coverage(self.workspace),
                 "mutation_score": self.adapter.mutation(self.workspace),
             }
-            
+
             # Write results to files using the reporter
             from .reporter import Reporter
             Reporter(self.workspace).write(results)
-            
+
             # Evaluate results and return verdict
             return self._evaluate_results(results)
-            
+
         except Exception as e:
-            logger.error(f"Error running test critic: {str(e)}")
+            logger.error("%s", Error running test critic: {str(e)})
             # Return a result object indicating failure
             return {
                 "verdict": TestVerdict.FAIL,
@@ -415,59 +415,59 @@ class TestCritic:
                     "error": str(e)
                 }
             }
-    
+
     def _evaluate_results(self, results: dict) -> dict:
         """
         Evaluate test results against thresholds and produce verdict.
-        
+
         Args:
             results: Dictionary of test results
-            
+
         Returns:
             Dictionary with verdict and details
         """
         verdict = TestVerdict.PASS
-        
+
         # Check collection errors
         if results.get("collect_errors"):
             verdict = TestVerdict.FAIL
-            
+
         # Check smoke test
         if not results.get("smoke_passed", False):
             verdict = TestVerdict.FAIL
-            
+
         # Check coverage threshold
         if (coverage := results.get("coverage_percent", 0)) is not None and coverage < 80.0 :
             verdict = max(verdict, TestVerdict.WARN) # type: ignore
-            
+
         # Check mutation score threshold
         mutation = results.get("mutation_score")
         if mutation is not None and mutation < 70.0:
             verdict = max(verdict, TestVerdict.WARN) # type: ignore
-            
+
         return {
             "verdict": verdict,
             "details": results
         }
-    
+
     # =========================================================================
     # Static Analysis Methods - Analyzing Test Quality Without Running Tests
     # =========================================================================
-    
+
     def analyze_test_file(self, file_path: str, content: str) -> Dict[str, Any]:
         """
         Analyze a test file to determine test types, quality and coverage.
-        
+
         Args:
             file_path: Path to the test file
             content: Content of the test file
-            
+
         Returns:
             Dictionary with analysis results
         """
         # Determine language from file extension
         language = "javascript" if file_path.endswith(('.js', '.jsx', '.ts', '.tsx')) else "python"
-        
+
         # Initialize results
         results = {
             "file_path": file_path,
@@ -478,13 +478,13 @@ class TestCritic:
             "issues": [],
             "verdict": TestVerdict.FAIL # Start with FAIL, upgrade if conditions met
         }
-        
+
         # Count tests
         results["test_count"] = self._count_tests(content, language)
-        
+
         # Count assertions
         results["assertion_count"] = self._count_assertions(content, language)
-        
+
         # Detect test types
         detected_test_types: Set[TestType] = set()
         for test_type_enum_member in TestType: # Iterate through all enum members
@@ -495,19 +495,19 @@ class TestCritic:
                 detected_test_types.add(test_type_enum_member)
         results["test_types"] = sorted(list(t.value for t in detected_test_types))
 
-        
+
         # Detect quality issues
         issues = self._detect_quality_issues(content)
         if issues:
             results["issues"].extend(issues) # Append to existing issues
-        
+
         # Determine verdict based on tests, assertions and issues
         results["verdict"] = self._determine_static_verdict(results)
-        
+
         return results
 
-    def critique_tests(self, tests_plan: Dict[str, Any], risk_assessment: Dict[str, Any]) -> Dict[str, Any]:
-        """
+    def critique_tests(self, tests_plan: Dict[str, Any], risk_assessment: Dict[str, Any])
+         -> Dict[str, Any]:        """
         Critiques the planned test implementations against the risk assessment.
         This method is called by FeatureGroupProcessor on the *planned* tests.
 
@@ -538,7 +538,7 @@ class TestCritic:
             (t.lower() if t.lower().endswith("_tests") else t.lower() + "_tests")
             for t in required_test_characteristics.get("required_types", [])
         }
-        
+
         # Define some default essential test types
         default_essential_types_normalized = {"unit_tests", "integration_tests"}
         all_required_categories_normalized = required_types_from_risk_normalized.union(default_essential_types_normalized)
@@ -558,9 +558,9 @@ class TestCritic:
         # 2. Analyze the content of each planned test
         for test_category_key, planned_tests_list in tests_plan.items():
             if not isinstance(planned_tests_list, list):
-                logger.warning(f"Unexpected format for planned tests in category '{test_category_key}'. Expected list, got {type(planned_tests_list)}")
+                logger.warning("%s", Unexpected format for planned tests in category '{test_category_key}'. Expected list, got {type(planned_tests_list)})
                 continue
-            
+
             critique_results["planned_test_analysis"][test_category_key] = []
             for i, p_test_obj in enumerate(planned_tests_list):
                 if not isinstance(p_test_obj, dict):
@@ -574,7 +574,7 @@ class TestCritic:
                 if not planned_code:
                      all_issues.append({"severity": "minor", "description": f"Planned test '{planned_test_name}' in {test_category_key} has no code."})
                      # Still create an analysis entry, but it will likely fail
-                
+
                 # Use analyze_test_file for static analysis of the planned code
                 individual_analysis = self.analyze_test_file(planned_file_path, planned_code)
                 critique_results["planned_test_analysis"][test_category_key].append({
@@ -600,7 +600,7 @@ class TestCritic:
                                     tested_file_path = func_ref.split("::")[0].strip()
                                     if tested_file_path in critical_files_risk:
                                         covered_critical_files.add(tested_file_path)
-            
+
             uncovered_critical = [f for f in critical_files_risk if f not in covered_critical_files]
             if uncovered_critical:
                 issue_desc = f"Critical files from risk assessment not explicitly covered by planned tests (via 'tested_functions'): {', '.join(uncovered_critical)}"
@@ -623,7 +623,7 @@ class TestCritic:
                     if isinstance(test_cat_list, list):
                         for p_test_obj in test_cat_list:
                             if isinstance(p_test_obj, dict):
-                                test_text = (p_test_obj.get("test_name", "") + " " + 
+                                test_text = (p_test_obj.get("test_name", "") + " " +
                                              p_test_obj.get("description", "")).lower()
                                 if any(rk in test_text for rk in reg_keywords):
                                     found_regression_keyword = True
@@ -657,7 +657,7 @@ class TestCritic:
                     issue_desc = f"Required keyword '{r_keyword_lower}' from risk assessment not found in any planned test's name, description, or code."
                     all_issues.append({"severity": "major", "description": issue_desc})
                     critique_results["risk_coverage_notes"].append(issue_desc)
-        
+
         #    - Suggested Libraries:
         suggested_libs_risk = required_test_characteristics.get("suggested_libraries", [])
         if suggested_libs_risk:
@@ -683,7 +683,7 @@ class TestCritic:
 
 
         critique_results["issues_found"] = all_issues
-        
+
         # Determine final verdict based on severity of issues
         current_verdict = TestVerdict.PASS
         if any(i["severity"] == "critical" for i in all_issues):
@@ -692,23 +692,23 @@ class TestCritic:
             current_verdict = TestVerdict.WARN
         elif all_issues: # Any minor issues
             current_verdict = TestVerdict.WARN
-        
+
         critique_results["verdict"] = current_verdict
         return critique_results
 
     def analyze_plan(self, plan: Dict[str, Any]) -> Dict[str, Any]:
         """
         Analyze a plan to ensure it includes all required test types.
-        
+
         Args:
             plan: Plan data (from planner module's JSON output, specifically the 'tests' key
                   as defined in planner_json_enforced.py)
-            
+
         Returns:
             Analysis results
         """
         results = {
-            "required_test_types": [TestType.UNIT, TestType.INTEGRATION, 
+            "required_test_types": [TestType.UNIT, TestType.INTEGRATION,
                                    TestType.APPROVAL, TestType.PROPERTY_BASED, TestType.ACCEPTANCE],
             "has_test_section": False, # This will be true if 'tests' key exists and is a dict
             "planned_test_types": [],  # This will be populated from plan["tests"]
@@ -716,13 +716,13 @@ class TestCritic:
             "issues": [],
             "verdict": TestVerdict.FAIL
         }
-        
+
         # The 'plan' argument is the full planner output. We look for the 'tests' key.
-        planner_tests_output = plan.get("tests") 
+        planner_tests_output = plan.get("tests")
 
         if planner_tests_output and isinstance(planner_tests_output, dict):
             results["has_test_section"] = True
-            
+
             # Extract planned test types based on the keys present in planner_tests_output
             # This aligns with the structure in planner_json_enforced.py
             # Map planner keys to TestType enum members
@@ -739,30 +739,30 @@ class TestCritic:
             for key, test_type_enum in key_to_test_type_map.items():
                 if planner_tests_output.get(key) and isinstance(planner_tests_output[key], list) and planner_tests_output[key]:
                     planned_test_type_enums.add(test_type_enum)
-            
+
             results["planned_test_types"] = sorted([t.value for t in planned_test_type_enums])
-        
+
         # Calculate test coverage based on required vs planned types
         required_count = len(results["required_test_types"])
         # Count how many of the required_test_types (enum members) are present in planned_test_type_enums
-        planned_and_required_count = sum(1 for req_type_enum in results["required_test_types"] 
+        planned_and_required_count = sum(1 for req_type_enum in results["required_test_types"]
                                          if req_type_enum in planned_test_type_enums) # type: ignore
-        
+
         if required_count > 0:
             results["test_coverage"] = planned_and_required_count / required_count
-        elif not results["required_test_types"] and results["planned_test_types"]: 
-            results["test_coverage"] = 1.0 
-        elif not results["required_test_types"] and not results["planned_test_types"]: 
+        elif not results["required_test_types"] and results["planned_test_types"]:
+            results["test_coverage"] = 1.0
+        elif not results["required_test_types"] and not results["planned_test_types"]:
              results["test_coverage"] = 1.0 # Or 0.0, depending on interpretation
 
         # Identify missing test types
         missing_tests_enums = [req_type for req_type in results["required_test_types"]
                                if req_type not in planned_test_type_enums] # type: ignore
-        
+
         if missing_tests_enums:
             missing_tests_values = [mt.value for mt in missing_tests_enums]
             results["issues"].append(f"Missing required test types in plan: {', '.join(missing_tests_values)}")
-        
+
         if not results["has_test_section"] and results["required_test_types"]:
             results["issues"].append("No 'tests' section found in plan, but test types are required.")
         elif results["has_test_section"] and not results["planned_test_types"] and results["required_test_types"]:
@@ -771,27 +771,27 @@ class TestCritic:
         # Determine verdict
         if results["test_coverage"] >= 1.0 and not results["issues"]:
             results["verdict"] = TestVerdict.PASS
-        elif results["test_coverage"] > 0.5 and not results["issues"]: 
+        elif results["test_coverage"] > 0.5 and not results["issues"]:
             results["verdict"] = TestVerdict.WARN
         else:
             results["verdict"] = TestVerdict.FAIL
-        
+
         return results
-    
-    def analyze_implementation(self, file_path: str, content: str, test_files: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
+
+    def analyze_implementation(self, file_path: str, content: str, test_files: List[Dict[str, Any]])
+         -> Dict[str, Any]:        """
         Analyze an implementation file and its associated test files.
-        
+
         Args:
             file_path: Path to the implementation file
             content: Content of the implementation file
             test_files: List of test file analysis results (from analyze_test_file)
-            
+
         Returns:
             Analysis results
         """
         language = "javascript" if file_path.endswith(('.js', '.jsx', '.ts', '.tsx')) else "python"
-        
+
         results = {
             "file_path": file_path,
             "language": language,
@@ -804,7 +804,7 @@ class TestCritic:
             "issues": [],
             "verdict": TestVerdict.FAIL
         }
-        
+
         # Collect test types from all test files
         all_test_types_found_enums: Set[TestType] = set()
         for test_file_analysis in test_files:
@@ -813,30 +813,30 @@ class TestCritic:
                 try:
                     all_test_types_found_enums.add(TestType(type_str))
                 except ValueError:
-                    logger.warning(f"Unknown test type string '{type_str}' found in test file analysis for {test_file_analysis.get('file_path')}")
+                    logger.warning("%s", Unknown test type string '{type_str}' found in test file analysis for {test_file_analysis.get('file_path)}")
             results["total_test_count"] += test_file_analysis.get("test_count", 0)
             results["total_assertion_count"] += test_file_analysis.get("assertion_count", 0)
-        
+
         results["test_types_covered"] = sorted([t.value for t in all_test_types_found_enums])
-        
+
         # Check which required test types are missing
         # Using a common set of "generally required" test types for implementation analysis
         generally_required_types = [TestType.UNIT, TestType.INTEGRATION, TestType.ACCEPTANCE] # Example set
         results["missing_test_types"] = sorted([
             t.value for t in generally_required_types if t not in all_test_types_found_enums
         ])
-        
+
         # Detect functions/classes in implementation file
         implementable_elements = self._extract_implementable_elements(content, language)
-        
+
         # Check if all elements are covered by tests
         if implementable_elements and results["total_test_count"] < len(implementable_elements):
             results["issues"].append(f"Potentially not all elements are tested: found {len(implementable_elements)} elements in implementation but only {results['total_test_count']} tests in associated test files.")
-        
+
         # Check if there are enough assertions per test (heuristic: at least 1 per test)
         if results["total_test_count"] > 0 and results["total_assertion_count"] < results["total_test_count"]:
             results["issues"].append(f"Low assertion count: only {results['total_assertion_count']} assertions for {results['total_test_count']} tests across associated test files.")
-        
+
         # Determine verdict
         if not results["missing_test_types"] and not results["issues"] and results["has_tests"]:
             results["verdict"] = TestVerdict.PASS
@@ -844,16 +844,16 @@ class TestCritic:
             results["verdict"] = TestVerdict.WARN
         else:
             results["verdict"] = TestVerdict.FAIL # Default or more significant issues
-        
+
         return results
-    
+
     def analyze_generated_code(self, files: Dict[str, str]) -> Dict[str, Any]:
         """
         Analyze generated code for test coverage and quality.
-        
+
         Args:
             files: Dictionary mapping file paths to content
-            
+
         Returns:
             Analysis results
         """
@@ -868,10 +868,10 @@ class TestCritic:
             "issues": [],
             "verdict": TestVerdict.FAIL
         }
-        
+
         implementation_files_dict: Dict[str, str] = {}
         test_files_dict: Dict[str, str] = {}
-        
+
         for file_path, content in files.items():
             if self._is_test_file(file_path, content):
                 test_files_dict[file_path] = content
@@ -879,11 +879,11 @@ class TestCritic:
             else:
                 implementation_files_dict[file_path] = content
                 results["implementation_files"].append(file_path)
-        
+
         # Calculate test/implementation ratio
         impl_count = len(implementation_files_dict)
         test_count = len(test_files_dict)
-        
+
         if impl_count > 0:
             results["test_implementation_ratio"] = test_count / impl_count
         elif test_count > 0 : # Only test files
@@ -891,7 +891,7 @@ class TestCritic:
         else: # No files or no impl files
             results["test_implementation_ratio"] = 0.0
 
-        
+
         # Analyze each test file to identify test types
         found_test_type_enums: Set[TestType] = set()
         for file_path, content in test_files_dict.items():
@@ -901,16 +901,16 @@ class TestCritic:
                 try:
                     found_test_type_enums.add(TestType(type_str))
                 except ValueError:
-                     logger.warning(f"Unknown test type string '{type_str}' from analyze_test_file for {file_path}")
+                     logger.warning("%s", Unknown test type string '{type_str}' from analyze_test_file for {file_path})
         results["test_types_found"] = found_test_type_enums # Store the Set of enum members
 
-        
+
         # Check for missing test types against a general set of expectations
         # Using a common set of "generally required" test types for generated code analysis
         generally_required_types = [TestType.UNIT, TestType.INTEGRATION, TestType.ACCEPTANCE]
         missing_type_enums = [t for t in generally_required_types if t not in found_test_type_enums]
         results["missing_test_types"] = sorted([t.value for t in missing_type_enums])
-        
+
         # Estimate coverage based on test files and types
         if impl_count > 0 or test_count > 0: # Calculate if there's anything to cover or any tests
             # Base coverage on test/implementation ratio and test types coverage
@@ -918,28 +918,28 @@ class TestCritic:
                 type_coverage_metric = (len(generally_required_types) - len(missing_type_enums)) / len(generally_required_types)
             else:
                 type_coverage_metric = 1.0 if found_test_type_enums else 0.0 # If no types are required, 100% if any found.
-            
+
             # Heuristic weighted formula
             ratio_weight = 0.6
             type_weight = 0.4
-            
+
             # Cap ratio at 1.0 for coverage calculation (e.g. if more test files than impl files)
             effective_ratio = min(1.0, results["test_implementation_ratio"]) if results["test_implementation_ratio"] != float('inf') else 1.0
-            
+
             coverage = (ratio_weight * effective_ratio) + (type_weight * type_coverage_metric)
             results["coverage_estimate"] = coverage
-        
+
         # Identify issues
         if test_count == 0 and impl_count > 0 : # If there are impl files but no test files
             results["issues"].append("No test files found for the implementation files.")
-        
+
         if results["missing_test_types"]:
             results["issues"].append(f"Missing generally expected test types: {', '.join(results['missing_test_types'])}")
-        
+
         # Test implementation ratio warning only if there are implementation files
         if impl_count > 0 and results["test_implementation_ratio"] < 0.5:
             results["issues"].append(f"Low test-to-implementation ratio: {results['test_implementation_ratio']:.2f}. Consider adding more tests.")
-        
+
         # Determine verdict
         if not results["issues"] and results["coverage_estimate"] >= 0.8:
             results["verdict"] = TestVerdict.PASS
@@ -947,16 +947,16 @@ class TestCritic:
             results["verdict"] = TestVerdict.WARN
         else:
             results["verdict"] = TestVerdict.FAIL # Default or more significant issues
-        
+
         # Convert set of TestType enums to list of strings for JSON serialization if needed by caller
         # results["test_types_found"] = sorted([t.value for t in found_test_type_enums]) # Already handled by missing_test_types for output
 
         return results
-    
+
     # =========================================================================
     # Helper Methods for Static Analysis
     # =========================================================================
-    
+
     def _count_tests(self, content: str, language: str) -> int:
         """Count the number of test cases in a file."""
         if language == "python":
@@ -972,20 +972,20 @@ class TestCritic:
                 r"it\s*\(",
                 r"describe\s*\(.*,\s*function\s*\(\s*\)\s*{[\s\S]*?(?:test|it)\s*\(", # Nested tests
             ]
-        
+
         count = 0
         for pattern in test_patterns:
             count += len(re.findall(pattern, content))
-        
+
         # A simple `describe` might not contain tests itself, but group them.
         # This basic count might overcount `describe` if not careful with regex.
         # The current JS regex tries to ensure `test` or `it` is within `describe`.
         return count
-    
+
     def _count_assertions(self, content: str, language: str) -> int:
         """Count the number of assertions in a file."""
         count = 0
-        
+
         # Use a combined list of assertion patterns for the given language
         lang_assertion_patterns = []
         if language == "python":
@@ -1000,9 +1000,9 @@ class TestCritic:
 
         for pattern in lang_assertion_patterns:
             count += len(re.findall(pattern, content))
-        
+
         return count
-    
+
     def _detect_test_type(self, content: str, test_type: TestType, language: str) -> bool:
         """Detect if a specific test type is present in the content."""
         # Ensure test_type is an enum member
@@ -1010,19 +1010,19 @@ class TestCritic:
             try:
                 test_type = TestType(str(test_type).lower())
             except ValueError:
-                logger.warning(f"Invalid test_type value '{test_type}' provided to _detect_test_type.")
+                logger.warning("%s", Invalid test_type value '{test_type}' provided to _detect_test_type.)
                 return False
 
         if test_type not in self.patterns or language not in self.patterns[test_type]:
             return False
-        
+
         patterns_for_type_lang = self.patterns[test_type][language]
         for pattern in patterns_for_type_lang:
             if re.search(pattern, content, re.IGNORECASE): # Add IGNORECASE for broader matching
                 return True
-        
+
         return False
-    
+
     def _detect_quality_issues(self, content: str) -> List[str]:
         """Detect test quality issues."""
         issues = []
@@ -1030,20 +1030,20 @@ class TestCritic:
             matches = re.findall(pattern, content, re.IGNORECASE) # Add IGNORECASE
             if matches:
                 issues.append(f"Found {len(matches)} instance(s) of '{pattern}' indicating incomplete or skipped tests.")
-        
+
         # Check for empty test functions (Python)
         # Regex to find 'def test_something(self): pass' or 'def test_something(): # optional comment then pass'
-        empty_py_tests = re.findall(r"def\s+test_\w+\s*\([^)]*\):\s*(?:#.*?\n\s*)?pass(?!\w)", content)
-        if empty_py_tests:
+        empty_py_tests = re.findall(r"def\s+test_\w+
+            \s*\([^)]*\):\s*(?:#.*?\n\s*)?pass(?!\w)", content)        if empty_py_tests:
             issues.append(f"Found {len(empty_py_tests)} empty Python test functions (ending in 'pass').")
-        
+
         # Check for empty test blocks (JavaScript) - e.g., it('should do something', () => {});
         empty_js_tests = re.findall(r"(?:it|test)\s*\((?:'[^']*'|\"[^\"]*\"|`[^`]*`)\s*,\s*\(\s*\)\s*=>\s*{\s*(?:/\*.*?\*/|//.*?\n\s*)?}\s*\);?", content)
         if empty_js_tests:
             issues.append(f"Found {len(empty_js_tests)} empty JavaScript test blocks.")
-        
+
         return issues
-    
+
     def _determine_static_verdict(self, results: Dict[str, Any]) -> TestVerdict:
         """Determine the verdict based on test analysis results."""
         # No tests or assertions - definite fail if assertions are expected for the identified test types
@@ -1062,11 +1062,11 @@ class TestCritic:
             if any("empty" in issue.lower() or "skip" in issue.lower() or "incomplete" in issue.lower() for issue in results["issues"]):
                 return TestVerdict.FAIL
             return TestVerdict.WARN
-        
+
         # At least one relevant test type detected and reasonable assertion ratio - pass
         if results.get("test_types") and results.get("test_count",0) > 0 and results.get("assertion_count", 0) >= results.get("test_count", 0):
             return TestVerdict.PASS
-        
+
         # If tests are present but assertions are low compared to test count
         if results.get("test_count",0) > 0 and results.get("assertion_count", 0) < results.get("test_count",0) and has_assertive_types:
             results["issues"].append("Low assertion count compared to the number of tests.")
@@ -1075,39 +1075,39 @@ class TestCritic:
         # Default to pass if no specific fail/warn conditions met but some tests are present
         if results.get("test_count",0) > 0:
             return TestVerdict.PASS
-            
+
         return TestVerdict.FAIL # Default to FAIL if no tests counted and no other positive indicators
-    
+
     def _extract_test_types_from_specs(self, test_specs: List[Dict[str, Any]]) -> List[TestType]:
         """Extract test types from test specifications in a plan."""
         test_types_found: Set[TestType] = set()
-        
+
         for spec in test_specs:
             # Unit tests are most common, always assume them if we have test specs
             test_types_found.add(TestType.UNIT)
-            
+
             framework = spec.get("framework", "").lower()
             scenarios = spec.get("scenarios", [])
             security_tests_spec = spec.get("security_tests", []) # Renamed to avoid conflict
             property_tests_spec = spec.get("property_tests", []) # Renamed
             approval_tests_spec = spec.get("approval_tests", []) # Renamed
-            
+
             # Check for integration tests by keyword in framework or scenarios
             if "integration" in framework:
                 test_types_found.add(TestType.INTEGRATION)
-            
+
             for scenario in scenarios:
                 function_name = scenario.get("function", "") # Renamed to avoid conflict
                 if "integration" in function_name.lower(): # Check function name as well
                     test_types_found.add(TestType.INTEGRATION)
-                
+
                 # Look for property-based testing patterns
                 cases = scenario.get("cases", [])
                 for case in cases:
                     description = case.get("description", "").lower()
                     if any(kw in description for kw in ["property", "invariant", "all inputs", "every input", "generated inputs"]):
                         test_types_found.add(TestType.PROPERTY_BASED)
-            
+
             # Look for approval testing patterns from approval_tests spec
             if approval_tests_spec:
                  test_types_found.add(TestType.APPROVAL)
@@ -1118,7 +1118,7 @@ class TestCritic:
                     description = case.get("description", "").lower()
                     if any(kw in description for kw in ["approval", "approved", "verify output", "snapshot"]):
                         test_types_found.add(TestType.APPROVAL) # Or TestType.ACCEPTANCE depending on context
-            
+
             # Property tests directly from spec
             if property_tests_spec:
                 test_types_found.add(TestType.PROPERTY_BASED)
@@ -1129,9 +1129,9 @@ class TestCritic:
                 # For now, let's add a generic "security" if TestType had it, or just log.
                 # Current TestType enum doesn't have a direct "SECURITY"
                 logger.info("Security tests specified in plan, consider specialized analysis or mapping.")
-        
+
         return sorted(list(test_types_found), key=lambda x: x.value)
-    
+
     def _is_test_file(self, file_path: str, content: str) -> bool:
         """Determine if a file is a test file based on path and content."""
         file_path_lower = file_path.lower()
@@ -1142,7 +1142,7 @@ class TestCritic:
            file_path_lower.startswith('test_') or \
            file_path_lower.endswith(('_test.py', '_spec.js', '_test.js')):
             return True
-        
+
         # Check content for test frameworks and patterns
         # Determine language first for more accurate pattern matching
         language = "javascript" if file_path.endswith(('.js', '.jsx', '.ts', '.tsx')) else "python"
@@ -1152,30 +1152,30 @@ class TestCritic:
                 for pattern in self.patterns[test_type_enum_member][language]:
                     if re.search(pattern, content, re.IGNORECASE):
                         return True
-        
+
         return False
-    
+
     def _extract_implementable_elements(self, content: str, language: str) -> List[str]:
         """Extract functions, methods and classes that should be tested."""
         elements = []
-        
+
         if language == "python":
             # Find functions (excluding private/magic methods unless explicitly for testing them)
             functions = re.findall(r"def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(", content)
             # Find classes
             classes = re.findall(r"class\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*[\(:]", content)
-            
+
             elements.extend(f for f in functions if not f.startswith('_')) # Exclude private conventionally
             elements.extend(c for c in classes if not c.startswith('_'))
         else:  # javascript/typescript
             # Find functions (named and assigned to const/let/var)
             functions = re.findall(r"function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(", content)
-            arrow_funcs_assigned = re.findall(r"(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\(.*\)\s*=>", content)
-            class_methods = re.findall(r"(?:async\s+)?([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\([^)]*\)\s*{", content) # More general, might catch non-methods
-            
+            arrow_funcs_assigned = re.findall(r"(?:const|let|var)\s+
+                ([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\(.*\)\s*=>", content)            class_methods = re.findall(r"(?:async\s+
+                                                        )?([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\([^)]*\)\s*{", content) # More general, might catch non-methods
             # Find classes
             classes = re.findall(r"class\s+([a-zA-Z_$][a-zA-Z0-9_$]*)", content)
-            
+
             elements.extend(f for f in functions if not f.startswith('_'))
             elements.extend(af for af in arrow_funcs_assigned if not af.startswith('_'))
             # Filtering class_methods needs more context to avoid non-method functions
@@ -1183,24 +1183,24 @@ class TestCritic:
             js_keywords = {"if", "for", "while", "switch", "catch", "function"}
             elements.extend(m for m in class_methods if not m.startswith('_') and m not in js_keywords)
             elements.extend(c for c in classes if not c.startswith('_'))
-        
+
         return list(set(elements)) # Unique elements
-    
+
     def perform_llm_analysis(self, content: str, prompt: str = None) -> Dict[str, Any]:
         """
         Perform a lightweight LLM analysis of test quality.
-        
+
         Args:
             content: Test file content
             prompt: Optional custom prompt
-            
+
         Returns:
             Analysis results
         """
         if not self.llm:
             logger.warning("LLM client not available in TestCritic for perform_llm_analysis.")
             return {"error": "No LLM available for analysis"}
-        
+
         # Default prompt for test analysis
         if not prompt:
             prompt = """
@@ -1210,7 +1210,7 @@ class TestCritic:
             2. Is there an attempt to cover both happy path and edge/error cases?
             3. Do the tests appear to isolate dependencies (e.g., using mocks if applicable)?
             4. Are there any obvious gaps where critical functionality seems untested by this code?
-            
+
             Provide your assessment in JSON format:
             {
               "has_assertions": true/false, // true if assertions are generally present
@@ -1220,11 +1220,11 @@ class TestCritic:
               "overall_quality_impression": "high"/"medium"/"low", // based on the above
               "suggestions_for_improvement": ["suggestion 1", "suggestion 2"]
             }
-            
+
             Test code:
             ```
             """ + content + "\n```"
-        
+
         # Use coordinator's LLM to analyze
         try:
             # Assuming self.coordinator.llm.generate exists and works like a typical LLM call
@@ -1245,7 +1245,7 @@ class TestCritic:
                 logger.error("LLM client in TestCritic does not have a recognized method for generation.")
                 return {"error": "LLM client misconfigured."}
 
-            
+
             # Try to extract JSON from response
             # Look for JSON block
             json_match = re.search(r'```json\n(.*?)\n```', response, re.DOTALL)
@@ -1257,15 +1257,15 @@ class TestCritic:
                 if json_match_direct:
                     json_str = json_match_direct.group(1)
                 else: # Assume the whole response is JSON if no specific markers
-                    json_str = response 
-            
+                    json_str = response
+
             try:
                 analysis = json.loads(json_str)
                 return analysis
             except json.JSONDecodeError as e:
-                logger.error(f"Could not parse LLM response as JSON for test analysis. Error: {e}. Response: {response[:500]}")
+                logger.error("%s", Could not parse LLM response as JSON for test analysis. Error: {e}. Response: {response[:500]})
                 return {"error": "Could not parse LLM response as JSON", "raw_response": response}
-                
+
         except Exception as e:
             logger.error(f"Error during LLM test analysis: {str(e)}", exc_info=True)
             return {"error": f"Error during LLM analysis: {str(e)}"}

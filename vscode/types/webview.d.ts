@@ -2,7 +2,7 @@
  * WebView API declarations for VS Code extensions
  */
 
-declare module 'vscode-webview' {
+declare module "vscode-webview" {
   /**
    * Post a message to the extension host
    */

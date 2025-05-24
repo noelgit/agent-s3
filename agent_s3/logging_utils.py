@@ -1,7 +1,4 @@
 """Logging utilities for sanitizing sensitive information."""
-
-from __future__ import annotations
-
 import re
 
 # Pre-compiled regex to find Authorization headers with tokens

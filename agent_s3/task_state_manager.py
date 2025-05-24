@@ -17,20 +17,20 @@ logger = logging.getLogger(__name__)
 
 class TaskState:
     """Base class for all task state objects."""
-    
+
     def __init__(self, task_id: str):
         """Initialize the task state with a unique task ID.
-        
+
         Args:
             task_id: Unique identifier for the task
         """
         self.task_id = task_id
         self.timestamp = datetime.now().isoformat()
         self.phase = "base"  # Will be overridden by subclasses
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert the state to a dictionary for serialization.
-        
+
         Returns:
             Dictionary representation of the state
         """
@@ -39,14 +39,14 @@ class TaskState:
             "timestamp": self.timestamp,
             "phase": self.phase
         }
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'TaskState':
         """Create a task state from a dictionary.
-        
+
         Args:
             data: Dictionary representation of the state
-            
+
         Returns:
             Instantiated task state object
         """
@@ -58,10 +58,10 @@ class TaskState:
 
 class PlanningState(TaskState):
     """State for the planning phase."""
-    
-    def __init__(self, task_id: str, request_text: str, code_context: Dict[str, Any], tech_stack: Dict[str, Any]):
-        """Initialize the planning state.
-        
+
+    def __init__(self, task_id: str, request_text: str, code_context: Dict[str, Any],
+         tech_stack: Dict[str, Any]):        """Initialize the planning state.
+
         Args:
             task_id: Unique identifier for the task
             request_text: The original user request
@@ -75,7 +75,7 @@ class PlanningState(TaskState):
         self.tech_stack = tech_stack
         self.plan: Dict[str, Any] = {}  # Will be populated during planning
         self.discussion: str = ""  # Will be populated during planning
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert the state to a dictionary for serialization."""
         data = super().to_dict()
@@ -87,7 +87,7 @@ class PlanningState(TaskState):
             "discussion": self.discussion
         })
         return data
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'PlanningState':
         """Create a planning state from a dictionary."""
@@ -105,10 +105,10 @@ class PlanningState(TaskState):
 
 class PromptApprovalState(TaskState):
     """State for the prompt approval phase."""
-    
+
     def __init__(self, task_id: str, plan: Dict[str, Any], discussion: str):
         """Initialize the prompt approval state.
-        
+
         Args:
             task_id: Unique identifier for the task
             plan: The plan generated during planning
@@ -120,7 +120,7 @@ class PromptApprovalState(TaskState):
         self.discussion = discussion
         self.is_approved = False
         self.user_modifications = ""
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert the state to a dictionary for serialization."""
         data = super().to_dict()
@@ -131,7 +131,7 @@ class PromptApprovalState(TaskState):
             "user_modifications": self.user_modifications
         })
         return data
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'PromptApprovalState':
         """Create a prompt approval state from a dictionary."""
@@ -148,10 +148,10 @@ class PromptApprovalState(TaskState):
 
 class IssueCreationState(TaskState):
     """State for the issue creation phase."""
-    
+
     def __init__(self, task_id: str, title: str, body: str):
         """Initialize the issue creation state.
-        
+
         Args:
             task_id: Unique identifier for the task
             title: Issue title
@@ -163,7 +163,7 @@ class IssueCreationState(TaskState):
         self.body = body
         self.issue_url = None
         self.is_created = False
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert the state to a dictionary for serialization."""
         data = super().to_dict()
@@ -174,7 +174,7 @@ class IssueCreationState(TaskState):
             "is_created": self.is_created
         })
         return data
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'IssueCreationState':
         """Create an issue creation state from a dictionary."""
@@ -191,11 +191,11 @@ class IssueCreationState(TaskState):
 
 class CodeGenerationState(TaskState):
     """State for the code generation phase."""
-    
-    def __init__(self, task_id: str, plan: Dict[str, Any], issue_url: Optional[str], 
+
+    def __init__(self, task_id: str, plan: Dict[str, Any], issue_url: Optional[str],
                  code_context: Dict[str, Any], tech_stack: Dict[str, Any]):
         """Initialize the code generation state.
-        
+
         Args:
             task_id: Unique identifier for the task
             plan: The plan to implement
@@ -211,7 +211,7 @@ class CodeGenerationState(TaskState):
         self.tech_stack = tech_stack
         self.generated_changes: List[Dict[str, Any]] = []
         self.current_iteration = 0
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert the state to a dictionary for serialization."""
         data = super().to_dict()
@@ -224,7 +224,7 @@ class CodeGenerationState(TaskState):
             "current_iteration": self.current_iteration
         })
         return data
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'CodeGenerationState':
         """Create a code generation state from a dictionary."""
@@ -243,10 +243,10 @@ class CodeGenerationState(TaskState):
 
 class ExecutionState(TaskState):
     """State for the execution phase."""
-    
-    def __init__(self, task_id: str, changes: List[Dict[str, Any]], iteration: int, test_results: Dict[str, Any]):
-        """Initialize the execution state.
-        
+
+    def __init__(self, task_id: str, changes: List[Dict[str, Any]], iteration: int,
+         test_results: Dict[str, Any]):        """Initialize the execution state.
+
         Args:
             task_id: Unique identifier for the task
             changes: List of code changes to apply
@@ -260,15 +260,15 @@ class ExecutionState(TaskState):
         self.test_results = test_results
         self.is_applied = False
         self.errors: List[Dict[str, Any]] = []
-        
+
         # Added sub-state for fine-grained resumption
         self.sub_state = "PREPARING"  # Possible values: PREPARING, APPLYING_CHANGES, RUNNING_TESTS, ANALYZING_RESULTS
-        
+
         # Added intermediate data for resumption
         self.raw_test_output: Optional[str] = None  # Store raw test output before parsing
         self.pending_changes: List[Dict[str, Any]] = []  # Track which changes still need to be applied
         self.applied_changes: List[Dict[str, Any]] = []  # Track which changes have been applied
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert the state to a dictionary for serialization."""
         data = super().to_dict()
@@ -284,7 +284,7 @@ class ExecutionState(TaskState):
             "applied_changes": self.applied_changes
         })
         return data
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'ExecutionState':
         """Create an execution state from a dictionary."""
@@ -297,22 +297,22 @@ class ExecutionState(TaskState):
         state.timestamp = data.get("timestamp", datetime.now().isoformat())
         state.is_applied = data.get("is_applied", False)
         state.errors = data.get("errors", [])
-        
+
         # Restore granular sub-state for resumption
         state.sub_state = data.get("sub_state", "PREPARING")
         state.raw_test_output = data.get("raw_test_output")
         state.pending_changes = data.get("pending_changes", [])
         state.applied_changes = data.get("applied_changes", [])
-        
+
         return state
 
 
 class PRCreationState(TaskState):
     """State for the pull request creation phase."""
-    
-    def __init__(self, task_id: str, branch_name: str, pr_title: str, pr_body: str, issue_url: Optional[str]):
-        """Initialize the PR creation state.
-        
+
+    def __init__(self, task_id: str, branch_name: str, pr_title: str, pr_body: str,
+         issue_url: Optional[str]):        """Initialize the PR creation state.
+
         Args:
             task_id: Unique identifier for the task
             branch_name: Git branch name for the PR
@@ -328,16 +328,16 @@ class PRCreationState(TaskState):
         self.issue_url = issue_url
         self.pr_url = None
         self.is_created = False
-        
+
         # Added sub-state for fine-grained resumption
         self.sub_state = "PREPARING"  # Possible values: PREPARING, CREATING_BRANCH, COMMITTING, PUSHING, CREATING_API_REQUEST
-        
+
         # Added intermediate data for resumption
         self.commit_sha = None  # Store commit SHA for atomic operations
         self.base_branch = "main"  # Default base branch
         self.draft = False  # Default PR type (not draft)
         self.api_response = None  # Store API response data
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert the state to a dictionary for serialization."""
         data = super().to_dict()
@@ -355,7 +355,7 @@ class PRCreationState(TaskState):
             "api_response": self.api_response
         })
         return data
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'PRCreationState':
         """Create a PR creation state from a dictionary."""
@@ -369,23 +369,23 @@ class PRCreationState(TaskState):
         state.timestamp = data.get("timestamp", datetime.now().isoformat())
         state.pr_url = data.get("pr_url")
         state.is_created = data.get("is_created", False)
-        
+
         # Restore granular sub-state for resumption
         state.sub_state = data.get("sub_state", "PREPARING")
         state.commit_sha = data.get("commit_sha")
         state.base_branch = data.get("base_branch", "main")
         state.draft = data.get("draft", False)
         state.api_response = data.get("api_response")
-        
+
         return state
 
 
 class TaskStateManager:
     """Manages task state snapshots for resumption."""
-    
+
     def __init__(self, base_dir: str):
         """Initialize the task state manager.
-        
+
         Args:
             base_dir: Base directory for storing task snapshots
         """
@@ -398,143 +398,143 @@ class TaskStateManager:
             "execution": ExecutionState,
             "pr_creation": PRCreationState
         }
-        
+
         # Create the base directory if it doesn't exist
         os.makedirs(self.base_dir, exist_ok=True)
-        
+
         # Clean up old task snapshots (>7 days old)
         self._cleanup_old_snapshots()
-    
+
     def create_new_task_id(self) -> str:
         """Create a new unique task ID.
-        
+
         Returns:
             A unique task ID string
         """
         return str(uuid.uuid4())
-    
+
     def get_task_dir(self, task_id: str) -> str:
         """Get the directory path for a task.
-        
+
         Args:
             task_id: Task ID
-            
+
         Returns:
             Path to the task directory
         """
         task_dir = os.path.join(self.base_dir, task_id)
         os.makedirs(task_dir, exist_ok=True)
         return task_dir
-    
+
     def save_task_snapshot(self, state: TaskState) -> bool:
         """Save a task state snapshot.
-        
+
         Args:
             state: Task state to save
-            
+
         Returns:
             True if saved successfully, False otherwise
         """
         task_dir = self.get_task_dir(state.task_id)
         snapshot_file = os.path.join(task_dir, f"{state.phase}.json")
-        
+
         try:
             # Convert state to dictionary
             state_dict = state.to_dict()
-            
+
             # Add metadata
             state_dict["_snapshot_timestamp"] = datetime.now().isoformat()
-            
+
             # Write to temporary file first for atomic operation
             temp_file = f"{snapshot_file}.tmp"
             with open(temp_file, "w") as f:
                 json.dump(state_dict, f, indent=2)
-            
+
             # Set secure permissions (read/write for owner only)
             os.chmod(temp_file, stat.S_IRUSR | stat.S_IWUSR)
-            
+
             # Atomic rename to the final file
             os.replace(temp_file, snapshot_file)
-            
-            logger.info(f"Saved task snapshot: {snapshot_file}")
+
+            logger.info("%s", Saved task snapshot: {snapshot_file})
             return True
         except Exception as e:
-            logger.error(f"Error saving task snapshot: {e}")
+            logger.error("%s", Error saving task snapshot: {e})
             return False
-    
+
     def load_task_snapshot(self, task_id: str, phase: str) -> Optional[TaskState]:
         """Load a task state snapshot.
-        
+
         Args:
             task_id: Task ID
             phase: Workflow phase
-            
+
         Returns:
             Task state or None if not found or error
         """
         task_dir = self.get_task_dir(task_id)
         snapshot_file = os.path.join(task_dir, f"{phase}.json")
-        
+
         if not os.path.exists(snapshot_file):
-            logger.warning(f"Task snapshot not found: {snapshot_file}")
+            logger.warning("%s", Task snapshot not found: {snapshot_file})
             return None
-        
+
         try:
             with open(snapshot_file, "r") as f:
                 state_dict = json.load(f)
-            
+
             if phase not in self.state_classes:
-                logger.warning(f"Unknown phase: {phase}")
+                logger.warning("%s", Unknown phase: {phase})
                 return None
-            
+
             # Create state object from dictionary
             state_class = self.state_classes[phase]
             state = cast(TaskState, state_class.from_dict(state_dict))
-            
-            logger.info(f"Loaded task snapshot: {snapshot_file}")
+
+            logger.info("%s", Loaded task snapshot: {snapshot_file})
             return state
         except json.JSONDecodeError:
-            logger.error(f"Invalid JSON in task snapshot: {snapshot_file}")
+            logger.error("%s", Invalid JSON in task snapshot: {snapshot_file})
             return None
         except Exception as e:
-            logger.error(f"Error loading task snapshot: {e}")
+            logger.error("%s", Error loading task snapshot: {e})
             return None
-    
+
     def get_active_tasks(self) -> List[Dict[str, Any]]:
         """Get a list of active tasks.
-        
+
         Returns:
             List of task metadata dictionaries
         """
         active_tasks = []
-        
+
         try:
             # List task directories
             if not os.path.exists(self.base_dir):
                 return []
-            
-            task_dirs = [d for d in os.listdir(self.base_dir) 
+
+            task_dirs = [d for d in os.listdir(self.base_dir)
                          if os.path.isdir(os.path.join(self.base_dir, d))]
-            
+
             for task_id in task_dirs:
                 task_dir = os.path.join(self.base_dir, task_id)
-                
+
                 # Check for valid task snapshots
-                snapshot_files = [f for f in os.listdir(task_dir) 
+                snapshot_files = [f for f in os.listdir(task_dir)
                                   if f.endswith(".json") and not f.endswith(".tmp")]
-                
+
                 if not snapshot_files:
                     continue
-                
+
                 # Get the latest snapshot
                 latest_file = max(snapshot_files, key=lambda f: os.path.getmtime(os.path.join(task_dir, f)))
                 latest_phase = latest_file.replace(".json", "")
-                
+
                 try:
                     # Load the snapshot to get task metadata
                     with open(os.path.join(task_dir, latest_file), "r") as f:
                         state_dict = json.load(f)
-                    
+
                     # Get basic task information
                     active_tasks.append({
                         "task_id": task_id,
@@ -545,113 +545,113 @@ class TaskStateManager:
                         "request_text": state_dict.get("request_text", "Unknown task")
                     })
                 except Exception as e:
-                    logger.warning(f"Error reading task snapshot: {e}")
-            
+                    logger.warning("%s", Error reading task snapshot: {e})
+
             # Sort by last updated time, newest first
             active_tasks.sort(key=lambda t: t.get("last_updated", ""), reverse=True)
-            
+
             return active_tasks
         except Exception as e:
-            logger.error(f"Error getting active tasks: {e}")
+            logger.error("%s", Error getting active tasks: {e})
             return []
-    
+
     def delete_task(self, task_id: str) -> bool:
         """Delete a task and all its snapshots.
-        
+
         Args:
             task_id: Task ID
-            
+
         Returns:
             True if deleted successfully, False otherwise
         """
         task_dir = self.get_task_dir(task_id)
-        
+
         if not os.path.exists(task_dir):
-            logger.warning(f"Task directory not found: {task_dir}")
+            logger.warning("%s", Task directory not found: {task_dir})
             return False
-        
+
         try:
             # Delete all files in the task directory
             for file in os.listdir(task_dir):
                 os.remove(os.path.join(task_dir, file))
-            
+
             # Delete the task directory
             os.rmdir(task_dir)
-            
-            logger.info(f"Deleted task: {task_id}")
+
+            logger.info("%s", Deleted task: {task_id})
             return True
         except Exception as e:
-            logger.error(f"Error deleting task: {e}")
+            logger.error("%s", Error deleting task: {e})
             return False
-            
+
     def clear_state(self, task_id: str) -> bool:
         """Clear a task's state after successful completion.
-        
-        This is an alias for delete_task() that provides a more semantically 
+
+        This is an alias for delete_task() that provides a more semantically
         appropriate name for clearing completed task state.
-        
+
         Args:
             task_id: Task ID
-            
+
         Returns:
             True if cleared successfully, False otherwise
         """
         return self.delete_task(task_id)
-    
+
     def _cleanup_old_snapshots(self, max_age_days: int = 7) -> None:
         """Clean up old task snapshots.
-        
+
         Args:
             max_age_days: Maximum age of snapshots in days
         """
         if not os.path.exists(self.base_dir):
             return
-        
+
         try:
             # Get current time
             now = time.time()
             max_age_seconds = max_age_days * 24 * 60 * 60
-            
+
             # List task directories
-            task_dirs = [d for d in os.listdir(self.base_dir) 
+            task_dirs = [d for d in os.listdir(self.base_dir)
                          if os.path.isdir(os.path.join(self.base_dir, d))]
-            
+
             for task_id in task_dirs:
                 task_dir = os.path.join(self.base_dir, task_id)
-                
+
                 # Check the modification time of the task directory
                 mtime = os.path.getmtime(task_dir)
                 age = now - mtime
-                
+
                 if age > max_age_seconds:
                     # Delete old tasks
-                    logger.info(f"Cleaning up old task: {task_id} (age: {age/86400:.1f} days)")
+                    logger.info("%s", Cleaning up old task: {task_id} (age: {age/86400:.1f} days))
                     self.delete_task(task_id)
         except Exception as e:
-            logger.error(f"Error cleaning up old snapshots: {e}")
-    
+            logger.error("%s", Error cleaning up old snapshots: {e})
+
     def recover_from_corrupted_snapshot(self, task_id: str, phase: str) -> Optional[TaskState]:
         """Attempt to recover from a corrupted snapshot.
-        
+
         Args:
             task_id: Task ID
             phase: Workflow phase
-            
+
         Returns:
             Recovered task state or None if recovery failed
         """
         task_dir = self.get_task_dir(task_id)
         snapshot_file = os.path.join(task_dir, f"{phase}.json")
-        
+
         if not os.path.exists(snapshot_file):
-            logger.warning(f"Snapshot file not found: {snapshot_file}")
+            logger.warning("%s", Snapshot file not found: {snapshot_file})
             return None
-        
+
         try:
             # Try to read the file as raw text
             with open(snapshot_file, "r") as f:
                 content = f.read()
-            
+
             # Look for valid JSON in the content
             valid_json = None
             for i in range(len(content)):
@@ -664,41 +664,41 @@ class TaskStateManager:
                         break
                 except json.JSONDecodeError:
                     continue
-            
+
             if valid_json:
                 # Create state object from recovered JSON
                 if phase in self.state_classes:
                     state_class = self.state_classes[phase]
                     state = cast(TaskState, state_class.from_dict(valid_json))
-                    
+
                     # Save the recovered state
                     self.save_task_snapshot(state)
-                    
-                    logger.info(f"Recovered task snapshot: {snapshot_file}")
+
+                    logger.info("%s", Recovered task snapshot: {snapshot_file})
                     return state
-            
+
             # If recovery failed, try to find an earlier version of the same phase
-            backup_files = [f for f in os.listdir(task_dir) 
+            backup_files = [f for f in os.listdir(task_dir)
                            if f.startswith(f"{phase}_") and f.endswith(".json")]
-            
+
             if backup_files:
                 # Get the latest backup
                 latest_backup = max(backup_files, key=lambda f: os.path.getmtime(os.path.join(task_dir, f)))
-                
+
                 with open(os.path.join(task_dir, latest_backup), "r") as f:
                     state_dict = json.load(f)
-                
+
                 # Create state object from backup
                 if phase in self.state_classes:
                     state_class = self.state_classes[phase]
                     state = cast(TaskState, state_class.from_dict(state_dict))
-                    
+
                     # Save the recovered state
                     self.save_task_snapshot(state)
-                    
-                    logger.info(f"Recovered task snapshot from backup: {latest_backup}")
+
+                    logger.info("%s", Recovered task snapshot from backup: {latest_backup})
                     return state
-            
+
             # Try to find the previous phase
             phase_order = ["planning", "prompt_approval", "issue_creation", "code_generation", "execution", "pr_creation"]
             if phase in phase_order:
@@ -706,13 +706,13 @@ class TaskStateManager:
                 if phase_idx > 0:
                     prev_phase = phase_order[phase_idx - 1]
                     prev_state = self.load_task_snapshot(task_id, prev_phase)
-                    
+
                     if prev_state:
-                        logger.info(f"Found previous phase snapshot: {prev_phase}")
+                        logger.info("%s", Found previous phase snapshot: {prev_phase})
                         return prev_state
-            
-            logger.error(f"Failed to recover task snapshot: {snapshot_file}")
+
+            logger.error("%s", Failed to recover task snapshot: {snapshot_file})
             return None
         except Exception as e:
-            logger.error(f"Error recovering task snapshot: {e}")
+            logger.error("%s", Error recovering task snapshot: {e})
             return None

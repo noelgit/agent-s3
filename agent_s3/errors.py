@@ -4,15 +4,20 @@ Centralized error handling module for Agent-S3.
 This module defines a consistent hierarchy of exceptions, error categorization,
 and utilities for error handling across the entire agent_s3 system.
 """
-
-import logging
-import re
-import traceback
-import sys
-from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional, Pattern, Tuple
+import logging
+import re
+import sys
+import traceback
+from typing import Any
+from typing import Dict
+from typing import Optional
+from typing import Pattern
+from typing import Tuple
+
+from dataclasses import dataclass
+from dataclasses import field
 
 logger = logging.getLogger(__name__)
 

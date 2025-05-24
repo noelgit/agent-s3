@@ -1,6 +1,5 @@
 from agent_s3.tools.file_tool import FileTool
 
-
 def test_prefix_path_rejected(tmp_path):
     allowed_dir = tmp_path / "tmp"
     allowed_dir.mkdir()

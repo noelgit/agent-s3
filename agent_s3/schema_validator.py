@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 def get_json_system_prompt() -> str:
     """
     Get the system prompt that enforces JSON output format.
-    
+
     Returns:
         Properly formatted system prompt string
     """
@@ -233,27 +233,27 @@ class FinalAgreement(BaseModel):
     consistency_checks: List[str] = Field(..., description="List of consistency checks")
 
 
-def validate_llm_response(response: str, model_class: Type[T], sanitize: bool = True) -> tuple[bool, Union[T, str]]:
-    """
+def validate_llm_response(response: str, model_class: Type[T], sanitize: bool = True) -> tuple[bool,
+     Union[T, str]]:    """
     Validate an LLM response against a Pydantic model schema.
-    
+
     Args:
         response: The raw LLM response string
         model_class: The Pydantic model class to validate against
         sanitize: Whether to sanitize the response before parsing
-        
+
     Returns:
         A tuple of (success, result), where result is either the validated model instance
         or an error message string if validation failed
     """
     if sanitize:
         response = sanitize_response(response)
-    
+
     # First, try to extract JSON if needed
     json_data = extract_json(response)
     if not json_data:
         return False, "Failed to extract valid JSON from LLM response"
-    
+
     # Then, try to validate against the model
     try:
         if hasattr(model_class, "model_validate"):
@@ -274,36 +274,36 @@ def validate_llm_response(response: str, model_class: Type[T], sanitize: bool = 
 def extract_json(text: str) -> Optional[Dict[str, Any]]:
     """
     Extract a JSON object from text that might contain other content.
-    
+
     Args:
         text: The text that might contain JSON
-        
+
     Returns:
         Parsed JSON object or None if extraction failed
     """
     # Try to extract JSON from markdown code blocks first
     json_block_pattern = r'```(?:json)?\n([\s\S]*?)\n```'
     json_matches = re.findall(json_block_pattern, text)
-    
+
     if json_matches:
         for json_str in json_matches:
             try:
                 return json.loads(json_str)
             except json.JSONDecodeError:
                 continue
-    
+
     # If no code blocks or they didn't contain valid JSON, try finding JSON with brackets
     try:
         # Look for {...} pattern that might be JSON
         brace_pattern = r'(\{[\s\S]*\})'
         brace_matches = re.findall(brace_pattern, text)
-        
+
         for potential_json in brace_matches:
             try:
                 return json.loads(potential_json)
             except json.JSONDecodeError:
                 continue
-        
+
         # As a last resort, try to parse the whole text as JSON
         return json.loads(text)
     except json.JSONDecodeError:
@@ -314,10 +314,10 @@ def extract_json(text: str) -> Optional[Dict[str, Any]]:
 def sanitize_response(text: str) -> str:
     """
     Sanitize an LLM response to remove potentially harmful content.
-    
+
     Args:
         text: The raw LLM response text
-        
+
     Returns:
         Sanitized text
     """
@@ -325,56 +325,56 @@ def sanitize_response(text: str) -> str:
     if text:
         # Remove script tags that might be used for XSS
         text = re.sub(r'<script[\s\S]*?</script>', '[REMOVED_SCRIPT]', text)
-        
+
         # Remove potential shell command injections
         text = re.sub(r'(?:^|\s)(rm|sudo|chmod)\s+-[rf]', '[REMOVED_COMMAND]', text)
-        
+
         # Remove exec or eval expressions
         text = re.sub(r'(?:exec|eval|system)\s*\(', '[REMOVED_EXEC](', text)
-    
+
     return text
 
 
-def parse_with_fallback(response: str, parser_func: Callable, fallback_value: Any, 
+def parse_with_fallback(response: str, parser_func: Callable, fallback_value: Any,
                        log_prefix: str = "") -> Any:
     """
     Parse an LLM response with a custom parser function and return a fallback value if parsing fails.
-    
+
     Args:
         response: The raw LLM response text
         parser_func: The parsing function to use
         fallback_value: The fallback value to return if parsing fails
         log_prefix: Prefix for log messages
-        
+
     Returns:
         Parsed value or fallback value
     """
     if not response:
-        logger.warning(f"{log_prefix} Empty response received")
+        logger.warning("%s", {log_prefix} Empty response received)
         return fallback_value
-    
+
     try:
         return parser_func(response)
     except Exception as e:
-        logger.error(f"{log_prefix} Error parsing response: {type(e).__name__}: {str(e)}")
-        logger.error(f"{log_prefix} Response snippet: {response[:100]}...")
+        logger.error("%s", {log_prefix} Error parsing response: {type(e).__name__}: {str(e)})
+        logger.error("%s", {log_prefix} Response snippet: {response[:100]}...)
         return fallback_value
 
 
 def extract_code_blocks(text: str) -> Dict[str, str]:
     """
     Extract code blocks from text with their filenames.
-    
+
     Args:
         text: The text containing code blocks
-        
+
     Returns:
         Dictionary mapping filenames to code content
     """
     # Pattern for code blocks with filename in language specifier
     pattern = r'```([^\n]+)\n(.*?)```'
     matches = re.findall(pattern, text, re.DOTALL)
-    
+
     code_files = {}
     for lang_spec, code in matches:
         # Extract filename from language specifier
@@ -389,97 +389,97 @@ def extract_code_blocks(text: str) -> Dict[str, str]:
             else:
                 # No filename found, use a generic name with the language
                 filename = f"generated_code.{lang_spec}"
-        
+
         code_files[filename] = sanitize_response(code)
-    
+
     return code_files
 
 
 class JsonValidator:
     """Ensures JSON output conforms to expected schema."""
-    
+
     def __init__(self, scratchpad=None, config=None):
         """
         Initialize the JSON validator.
-        
+
         Args:
             scratchpad: Optional scratchpad for logging
             config: Optional configuration dict
         """
         self.scratchpad = scratchpad
         self.config = config or {}
-        
+
     def validate_plan_json(self, plan: Dict[str, Any]) -> tuple[bool, Optional[str]]:
         """
         Validate that a plan conforms to the expected JSON structure.
-        
+
         Args:
             plan: The plan JSON to validate
-            
+
         Returns:
             Tuple of (is_valid, error_message)
         """
         if not isinstance(plan, dict):
             return False, "Plan must be a dictionary"
-            
+
         # Check for required top-level sections
         required_sections = ["functional_plan", "test_plan"]
         for section in required_sections:
             if section not in plan:
                 return False, f"Missing required section: {section}"
-                
+
         # Validate functional_plan section
         functional_plan = plan.get("functional_plan", {})
         if not isinstance(functional_plan, dict):
             return False, "functional_plan must be a dictionary"
-            
+
         func_required_fields = ["overview", "steps", "file_changes", "functions"]
         for field in func_required_fields:
             if field not in functional_plan:
                 return False, f"functional_plan missing required field: {field}"
-                
+
         # Validate steps and functions are lists
         if not isinstance(functional_plan.get("steps", []), list):
             return False, "functional_plan.steps must be a list"
-            
+
         if not isinstance(functional_plan.get("functions", []), list):
             return False, "functional_plan.functions must be a list"
-            
+
         if not isinstance(functional_plan.get("file_changes", []), list):
             return False, "functional_plan.file_changes must be a list"
-            
+
         # Validate test_plan section
         test_plan = plan.get("test_plan", {})
         if not isinstance(test_plan, dict):
             return False, "test_plan must be a dictionary"
-            
+
         test_required_fields = ["test_files", "test_scenarios", "test_cases"]
         for field in test_required_fields:
             if field not in test_plan:
                 return False, f"test_plan missing required field: {field}"
-                
+
         # Validate test arrays are lists
         if not isinstance(test_plan.get("test_files", []), list):
             return False, "test_plan.test_files must be a list"
-            
+
         if not isinstance(test_plan.get("test_scenarios", []), list):
             return False, "test_plan.test_scenarios must be a list"
-            
+
         if not isinstance(test_plan.get("test_cases", []), list):
             return False, "test_plan.test_cases must be a list"
-            
+
         # All validations passed
         return True, None
-        
-    def enforce_json_format(self, llm_client, response: str, retry_count: int = 3) -> Dict[str, Any]:
-        """
+
+    def enforce_json_format(self, llm_client, response: str, retry_count: int = 3) -> Dict[str,
+         Any]:        """
         Ensure response is valid JSON, retry with LLM if not.
-        
+
         Args:
             llm_client: The LLM client to use for retries
             response: The response text to validate
             retry_count: Number of retries allowed
-            
+
         Returns:
             Validated JSON object
         """
@@ -498,76 +498,76 @@ class JsonValidator:
         except Exception as e:
             if self.scratchpad:
                 self.scratchpad.log("JsonValidator", f"JSON parsing error: {str(e)}")
-                
+
         # JSON is invalid or missing required structure, try to fix with retries
         for attempt in range(retry_count):
             try:
                 if self.scratchpad:
-                    self.scratchpad.log("JsonValidator", f"Retry attempt {attempt+1}/{retry_count} to fix JSON format")
-                    
+                    self.scratchpad.log("JsonValidator", f"Retry attempt {attempt+
+                        1}/{retry_count} to fix JSON format")
                 # Create correction prompt
                 correction_prompt = self._create_correction_prompt(response)
-                
+
                 # Call LLM for correction
                 from agent_s3.llm_utils import cached_call_llm
-                
+
                 # Get config for LLM calls
                 llm_config = {}
                 if self.config:
                     llm_config = self.config
-                
+
                 # Add JSON parameters
                 json_params = {
                     "response_format": {"type": "json_object"},
                     "temperature": 0.1  # Lower temperature for more deterministic JSON generation
                 }
-                
+
                 # Merge JSON parameters with llm_config
                 for key, value in json_params.items():
                     llm_config[key] = value
-                
+
                 # Call LLM with retry prompt
                 result = cached_call_llm(correction_prompt, llm_client, **llm_config)
-                
+
                 if not result.get('success'):
                     if self.scratchpad:
                         self.scratchpad.log("JsonValidator", f"LLM retry failed: {result.get('error', 'Unknown error')}")
                     continue
-                
+
                 corrected_response = result.get('response', '')
-                
+
                 # Try to parse and validate the corrected response
                 json_data = extract_json(corrected_response)
                 if json_data:
                     is_valid, error_msg = self.validate_plan_json(json_data)
                     if is_valid:
                         if self.scratchpad:
-                            self.scratchpad.log("JsonValidator", f"Successfully corrected JSON format on attempt {attempt+1}")
-                        return json_data
+                            self.scratchpad.log("JsonValidator", f"Successfully corrected JSON format on attempt {attempt+
+                                                                                                1}")                        return json_data
                     else:
                         if self.scratchpad:
                             self.scratchpad.log("JsonValidator", f"Corrected JSON still has structure error: {error_msg}")
                 else:
                     if self.scratchpad:
                         self.scratchpad.log("JsonValidator", "Failed to extract valid JSON from corrected response")
-                        
+
             except Exception as e:
                 if self.scratchpad:
                     self.scratchpad.log("JsonValidator", f"Error during JSON correction: {str(e)}")
-                
+
         # All retries failed, create a minimal valid structure
         if self.scratchpad:
             self.scratchpad.log("JsonValidator", "All JSON correction attempts failed. Creating fallback structure.")
-            
+
         return self._create_fallback_json()
-        
+
     def _create_correction_prompt(self, response: str) -> str:
         """
         Create a prompt to correct JSON formatting issues.
-        
+
         Args:
             response: The invalid response
-            
+
         Returns:
             Correction prompt
         """
@@ -639,32 +639,32 @@ Please fix the JSON to match this structure, preserving as much of the original 
 Original response:
 ```
 """
-        
+
         # Truncate response if too long
         max_chars = 6000  # Reasonable token limit to leave room for output
         truncated_response = response
         if len(response) > max_chars:
             truncated_response = response[:max_chars] + "...[truncated]"
-            
+
         prompt += f"{truncated_response}\n```"
-        
+
         return prompt
-        
+
     def _create_fallback_json(self, prompt_moderator=None) -> Dict[str, Any]:
         """
         Raise an exception instead of creating a fallback JSON structure.
-        
+
         Args:
             prompt_moderator: Optional prompt moderator to notify the user
-            
+
         Raises:
             ValidationError: Always raises this exception to notify of validation failure
         """
         error_message = "JSON validation failed. Unable to generate valid JSON structure. The system cannot proceed with invalid JSON structure as it would propagate errors."
-        
+
         # Log the error
         logger.error(error_message)
-        
+
         # Explicitly notify user if prompt_moderator is available
         if prompt_moderator is not None:
             prompt_moderator.notify_user(error_message, level="error")
@@ -674,5 +674,5 @@ Original response:
         else:
             # Fallback to printing to console if no notification mechanism available
             print(f"\n❌ ERROR: {error_message}")
-            
+
         raise ValueError(error_message)

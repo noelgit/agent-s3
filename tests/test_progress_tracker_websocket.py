@@ -3,8 +3,9 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock
 
-from agent_s3.progress_tracker import ProgressTracker, Status
 from agent_s3.config import Config
+from agent_s3.progress_tracker import ProgressTracker
+from agent_s3.progress_tracker import Status
 
 class TestProgressTrackerWebSocket(unittest.TestCase):
     """Tests for progress streaming via WebSocket."""

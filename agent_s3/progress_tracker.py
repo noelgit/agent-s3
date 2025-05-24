@@ -45,7 +45,7 @@ class ProgressTracker:
         except (AttributeError, KeyError):
             # Default log filename if config is not properly structured
             log_filename = 'progress_log.jsonl'
-            
+
         self.log_file_path = os.path.join(os.getcwd(), log_filename)
         self.websocket_server = None
         self.loop = loop # Store the event loop if provided
@@ -54,8 +54,8 @@ class ProgressTracker:
         self.logger = logging.getLogger('ProgressTracker')
         self.logger.setLevel(logging.INFO)
         # Prevent propagation to root logger if it has handlers
-        self.logger.propagate = False 
-        
+        self.logger.propagate = False
+
         # Remove existing handlers to avoid duplication if re-initialized
         for handler in self.logger.handlers[:]:
             self.logger.removeHandler(handler)
@@ -71,7 +71,7 @@ class ProgressTracker:
         # Log only the message itself (which will be a JSON string)
         formatter = logging.Formatter('%(message)s')
         handler.setFormatter(formatter)
-        
+
         self.logger.addHandler(handler)
 
     def _stream_via_websocket(self, entry: "ProgressEntry") -> None:
@@ -117,10 +117,10 @@ class ProgressTracker:
 
             self.loop.call_soon_threadsafe(send_streaming_update)
         except Exception as e:  # pragma: no cover - best effort
-            self.logger.error(f"Failed to stream progress update via WebSocket: {e}")
+            self.logger.error("%s", Failed to stream progress update via WebSocket: {e})
 
-    def set_websocket_server(self, websocket_server, loop: Optional[asyncio.AbstractEventLoop] = None):
-        """Set the WebSocket server and optionally the event loop.
+    def set_websocket_server(self, websocket_server,
+         loop: Optional[asyncio.AbstractEventLoop] = None):        """Set the WebSocket server and optionally the event loop.
 
         Args:
             websocket_server: The WebSocketServer instance.
@@ -148,7 +148,7 @@ class ProgressTracker:
             # Validate and automatically add timestamp
             entry = ProgressEntry(**entry_data)
         except ValidationError as e:
-            self.logger.error(f"Invalid progress entry data: {e} - Data: {entry_data}")
+            self.logger.error("%s", Invalid progress entry data: {e} - Data: {entry_data})
             return # Don't log invalid entries
 
         # Log the validated entry as a JSON line
@@ -157,7 +157,7 @@ class ProgressTracker:
             self.logger.info(log_line)
         except Exception as e:
             # Log errors during the logging process itself
-            self.logger.error(f"Failed to write progress log: {e}")
+            self.logger.error("%s", Failed to write progress log: {e})
             # Avoid crashing the application if logging fails
 
         # Stream via WebSocket if configured
@@ -171,7 +171,7 @@ class ProgressTracker:
             # Ensure the file exists before trying to open
             if not os.path.exists(self.log_file_path):
                 return {}
-                
+
             with open(self.log_file_path, 'rb') as f: # Open in binary mode for seeking
                 # Seek to the end, then back up a bit to find the last line
                 try:
@@ -190,13 +190,13 @@ class ProgressTracker:
 
             return json.loads(last_line) # Parse the last line as JSON
         except FileNotFoundError:
-             self.logger.info(f"Progress log file not found: {self.log_file_path}")
+             self.logger.info("%s", Progress log file not found: {self.log_file_path})
              return {}
         except json.JSONDecodeError:
-            self.logger.error(f"Failed to decode JSON from last line of {self.log_file_path}")
+            self.logger.error("%s", Failed to decode JSON from last line of {self.log_file_path})
             return {}
         except Exception as e:
-            self.logger.error(f"Error reading latest progress: {e}")
+            self.logger.error("%s", Error reading latest progress: {e})
             return {}
 
     def get_all_progress(self) -> List[Dict[str, Any]]:
@@ -211,27 +211,27 @@ class ProgressTracker:
                         if line.strip(): # Avoid empty lines
                             entries.append(json.loads(line))
                     except json.JSONDecodeError:
-                        self.logger.warning(f"Skipping invalid JSON line in {self.log_file_path}: {line.strip()}")
+                        self.logger.warning("%s", Skipping invalid JSON line in {self.log_file_path}: {line.strip()})
             return entries
         except FileNotFoundError:
-            self.logger.info(f"Progress log file not found: {self.log_file_path}")
+            self.logger.info("%s", Progress log file not found: {self.log_file_path})
             return []
         except Exception as e:
-            self.logger.error(f"Error reading all progress entries: {e}")
+            self.logger.error("%s", Error reading all progress entries: {e})
             return [] # Return empty list on error
 
     def increment(self, metric: str, amount: int = 1) -> None:
         """Increment a named metric (e.g., cache hits) and log it."""
         try:
             # Log increment event
-            self.logger.info(f"Metric increment: {metric} by {amount}")
+            self.logger.info("%s", Metric increment: {metric} by {amount})
         except Exception as e:
-            self.logger.error(f"Failed to increment metric {metric}: {e}")
+            self.logger.error("%s", Failed to increment metric {metric}: {e})
 
     def register_semantic_validation_phase(self) -> None:
         """
         Register the semantic validation phase in the progress tracker.
-        
+
         This adds a semantic_validation phase to the tracked phases to provide visibility
         into the new validation step between planning phases.
         """
@@ -242,19 +242,19 @@ class ProgressTracker:
             "percentage": 0,
             "timestamp": datetime.now(timezone.utc).isoformat()
         }))
-        
+
     def get_planning_phases(self) -> List[str]:
         """
         Get a list of all planning phases tracked by the progress tracker.
-        
+
         Returns:
             List of planning phase names
         """
         return [
-            "pre_planning", 
-            "architecture_review", 
-            "test_refinement", 
-            "test_implementation", 
+            "pre_planning",
+            "architecture_review",
+            "test_refinement",
+            "test_implementation",
             "semantic_validation",  # New phase for validating consistency
             "implementation_planning",
             "code_generation"

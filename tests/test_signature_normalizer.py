@@ -1,9 +1,8 @@
-import importlib.util
-import types
-import sys
-from pathlib import Path
 import copy
-
+import importlib.util
+from pathlib import Path
+import sys
+import types
 
 def load_signature_normalizer(monkeypatch):
     """Load signature_normalizer module with stubbed dependencies."""

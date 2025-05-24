@@ -1,6 +1,8 @@
 import os
 import sys
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
+from unittest.mock import patch
+
 from agent_s3 import cli
 
 class MinimalCoordinator:

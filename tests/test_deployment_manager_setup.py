@@ -1,9 +1,11 @@
 import os
-import pytest
 from unittest.mock import MagicMock
 
-from agent_s3.deployment_manager import DeploymentManager, DeploymentConfig, DatabaseConfig
+import pytest
 
+from agent_s3.deployment_manager import DatabaseConfig
+from agent_s3.deployment_manager import DeploymentConfig
+from agent_s3.deployment_manager import DeploymentManager
 
 @pytest.fixture
 def manager():

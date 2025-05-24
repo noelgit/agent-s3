@@ -1,13 +1,16 @@
 """Simplified VS Code bridge used for unit tests."""
-from __future__ import annotations
-
 import logging
 import queue
 import threading
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Optional
 
-from .message_protocol import Message, MessageBus, MessageType
+from .message_protocol import Message
+from .message_protocol import MessageBus
+from .message_protocol import MessageType
 
 logger = logging.getLogger(__name__)
 

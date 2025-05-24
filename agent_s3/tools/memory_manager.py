@@ -41,10 +41,10 @@ DEFAULT_MODEL_NAME = "gpt-4"  # Default model for token counting if not specifie
 class MemoryManager:
     """Manages context history, summaries, and embeddings with progressive eviction strategy."""
 
-    def __init__(self, config: Dict[str, Any], embedding_client: Optional[EmbeddingClient] = None, 
+    def __init__(self, config: Dict[str, Any], embedding_client: Optional[EmbeddingClient] = None,
                  file_tool: Optional[FileTool] = None, llm_client: Optional[Any] = None):
         """Initialize the memory manager.
-        
+
         Args:
             config: Configuration dictionary
             embedding_client: Optional embedding client instance. If None, attempts to create one.
@@ -84,13 +84,13 @@ class MemoryManager:
         self.min_size_for_llm_summarization = config.get("MIN_SIZE_FOR_LLM_SUMMARIZATION", 1000)
         self.enable_llm_summarization = config.get("ENABLE_LLM_SUMMARIZATION", True)
         self.summary_cache_max_size = config.get("SUMMARY_CACHE_MAX_SIZE", 100)
-        
+
         # Initialize LRU cache for summaries
         from collections import OrderedDict
         self._summary_cache: OrderedDict[str, str] = OrderedDict()
         self._summary_cache_hits = 0
         self._summary_cache_misses = 0
-        
+
         # Initialize router agent for specialized LLM roles
         self.router_agent = None
         # We'll use the router_agent passed from Coordinator if provided
@@ -136,13 +136,13 @@ class MemoryManager:
                     state = json.load(f)
                 self.context_history = state.get('context_history', [])
                 self.summaries = state.get('summaries', {})
-                logger.info(f"Loaded memory state from {self.memory_state_path}")
+                logger.info("%s", Loaded memory state from {self.memory_state_path})
             except (json.JSONDecodeError, OSError) as e:
-                logger.error(f"Error loading memory state from {self.memory_state_path}: {e}. Initializing empty state.")
+                logger.error("%s", Error loading memory state from {self.memory_state_path}: {e}. Initializing empty state.)
                 self.context_history = []
                 self.summaries = {}
         else:
-            logger.info(f"Memory state file not found at {self.memory_state_path}. Initializing empty state.")
+            logger.info("%s", Memory state file not found at {self.memory_state_path}. Initializing empty state.)
             self.context_history = []
             self.summaries = {}
 
@@ -158,11 +158,11 @@ class MemoryManager:
             }
             try:
                 # Write compressed JSON atomically
-                temp_path = self.memory_state_path.with_suffix(self.memory_state_path.suffix + ".tmp")
-                with gzip.open(temp_path, 'wt', encoding='utf-8') as f:
+                temp_path = self.memory_state_path.with_suffix(self.memory_state_path.suffix +
+                     ".tmp")                with gzip.open(temp_path, 'wt', encoding='utf-8') as f:
                     json.dump(state, f, indent=2)
                 shutil.move(str(temp_path), str(self.memory_state_path))
-                logger.info(f"Saved memory state to {self.memory_state_path}")
+                logger.info("%s", Saved memory state to {self.memory_state_path})
                 # Create checkpoint after save
                 ts = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
                 cp_name = f'memory_state_{ts}.json.gz'
@@ -173,9 +173,9 @@ class MemoryManager:
                     for old in cps[:-3]:
                         old.unlink()
                 except Exception as e:
-                    logger.error(f"Error creating memory checkpoint: {e}")
+                    logger.error("%s", Error creating memory checkpoint: {e})
             except (OSError, TypeError) as e:
-                logger.error(f"Error saving memory state to {self.memory_state_path}: {e}")
+                logger.error("%s", Error saving memory state to {self.memory_state_path}: {e})
 
     def save_state(self) -> None:
         """Public wrapper to persist memory state to disk."""
@@ -187,9 +187,9 @@ class MemoryManager:
             try:
                 with open(self.access_log_path, 'r', encoding='utf-8') as f:
                     self.embedding_access_log = json.load(f)
-                    logger.info(f"Loaded embedding access log from {self.access_log_path}")
+                    logger.info("%s", Loaded embedding access log from {self.access_log_path})
             except (json.JSONDecodeError, OSError) as e:
-                logger.error(f"Error loading embedding access log: {e}. Initializing empty log.")
+                logger.error("%s", Error loading embedding access log: {e}. Initializing empty log.)
                 self.embedding_access_log = {}
         else:
             logger.info("Embedding access log not found. Initializing empty log.")
@@ -203,9 +203,9 @@ class MemoryManager:
                 with open(temp_path, 'w', encoding='utf-8') as f:
                     json.dump(self.embedding_access_log, f, indent=2)
                 shutil.move(str(temp_path), str(self.access_log_path))
-                logger.debug(f"Saved embedding access log to {self.access_log_path}")
+                logger.debug("%s", Saved embedding access log to {self.access_log_path})
             except (OSError, TypeError) as e:
-                logger.error(f"Error saving embedding access log: {e}")
+                logger.error("%s", Error saving embedding access log: {e})
 
     def _record_embedding_access(self, file_path: str):
         """Record access to an embedding for a specific file."""
@@ -240,16 +240,16 @@ class MemoryManager:
             if to_remove:
                 for file_path in to_remove:
                     del self.embedding_access_log[file_path]
-                logger.info(f"Removed {len(to_remove)} deleted files from embedding access log")
+                logger.info("%s", Removed {len(to_remove)} deleted files from embedding access log)
                 self._save_embedding_access_log()
 
     def apply_progressive_eviction(self, force=False):
         """
         Apply progressive embedding eviction strategy based on access patterns.
-        
+
         Args:
             force: If True, run eviction even if below threshold
-            
+
         Returns:
             Number of embeddings evicted
         """
@@ -262,7 +262,7 @@ class MemoryManager:
                     # Estimate if not available
                     current_count = len(self.embedding_access_log)
             except Exception as e:
-                logger.error(f"Error getting embedding count: {e}")
+                logger.error("%s", Error getting embedding count: {e})
                 current_count = 0
 
             # Clean up deleted files first
@@ -270,7 +270,7 @@ class MemoryManager:
 
             # Check if we need to evict
             if not force and current_count < self.max_embeddings:
-                logger.debug(f"No eviction needed: {current_count}/{self.max_embeddings} embeddings used")
+                logger.debug("%s", No eviction needed: {current_count}/{self.max_embeddings} embeddings used)
                 return 0
 
             logger.info(
@@ -325,14 +325,14 @@ class MemoryManager:
                         if self.remove_embedding(fp, record_removal=True):
                             evicted_count += 1
                     except Exception as e:  # pragma: no cover - ignore during tests
-                        logger.error(f"Error evicting embedding for {fp}: {e}")
+                        logger.error("%s", Error evicting embedding for {fp}: {e})
                 if evicted_count >= to_evict:
                     break
 
             if evicted_count > 0:
                 self.prefix_evictions += evicted_count
 
-            logger.info(f"Progressive eviction complete: {evicted_count} embeddings evicted")
+            logger.info("%s", Progressive eviction complete: {evicted_count} embeddings evicted)
             self._save_embedding_access_log()
             return evicted_count
 
@@ -369,11 +369,11 @@ class MemoryManager:
     def remove_embedding(self, file_path: str, record_removal: bool = False):
         """
         Remove the embedding for a specific file.
-        
+
         Args:
             file_path: Path to the file
             record_removal: Whether to record this as deliberate removal
-            
+
         Returns:
             True if embedding was removed, False otherwise
         """
@@ -381,24 +381,24 @@ class MemoryManager:
         try:
             removed_count = self.embedding_client.remove_embeddings_by_metadata({'file_path': abs_path_str})
             if removed_count > 0:
-                logger.info(f"Removed {removed_count} embedding(s) for file: {file_path}")
-                
+                logger.info("%s", Removed {removed_count} embedding(s) for file: {file_path})
+
                 # Also remove from access log if it was a deliberate removal
                 if record_removal and abs_path_str in self.embedding_access_log:
                     del self.embedding_access_log[abs_path_str]
-                
+
                 if abs_path_str in self.summaries:
                     del self.summaries[abs_path_str]
-                    logger.info(f"Removed summary for file: {file_path}")
+                    logger.info("%s", Removed summary for file: {file_path})
                     self._save_memory()
-                    
+
                 return True
             else:
-                logger.debug(f"No embedding found to remove for file: {file_path}")
+                logger.debug("%s", No embedding found to remove for file: {file_path})
                 return False
 
         except Exception as e:
-            logger.error(f"Error removing embedding for {file_path}: {e}")
+            logger.error("%s", Error removing embedding for {file_path}: {e})
             return False
 
     def _detect_language(self, file_path: Optional[str]) -> str:
@@ -443,10 +443,10 @@ class MemoryManager:
             try:
                 content = self.file_tool.read_file(file_path)
                 if content is None:
-                    logger.error(f"Cannot summarize, failed to read file: {file_path}")
+                    logger.error("%s", Cannot summarize, failed to read file: {file_path})
                     return
             except Exception as e:
-                logger.error(f"Error reading file for summarization {file_path}: {e}")
+                logger.error("%s", Error reading file for summarization {file_path}: {e})
                 return
         try:
             from agent_s3.ast_tools.python_units import extract_units
@@ -478,10 +478,10 @@ class MemoryManager:
             self.summaries[file_path] = merged_summary
             self._save_memory()
         except Exception as e:
-            logger.error(f"Error during summarization for {file_path}: {e}")
+            logger.error("%s", Error during summarization for {file_path}: {e})
 
-    def hierarchical_summarize(self, content: str, language: str = None, max_tokens: int = None, preserve_sections: bool = False):
-        """Summarize content with validation and refinement."""
+    def hierarchical_summarize(self, content: str, language: str = None, max_tokens: int = None,
+         preserve_sections: bool = False):        """Summarize content with validation and refinement."""
         if not content.strip():
             return {"summary": "", "was_summarized": False, "validation": None}
         validator = SummaryValidator()

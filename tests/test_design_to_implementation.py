@@ -2,14 +2,15 @@
 
 This module tests the flow from the design phase through to pre-planning and implementation.
 """
-
 import os
+from unittest.mock import MagicMock
+from unittest.mock import call
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import MagicMock, patch, call
 
-from agent_s3.design_manager import DesignManager
 from agent_s3.coordinator import Coordinator
-
+from agent_s3.design_manager import DesignManager
 
 @pytest.fixture
 def mock_config():
@@ -45,7 +46,7 @@ def test_design_manager_initialization():
     """Test that DesignManager can be initialized with a coordinator."""
     coordinator = MagicMock()
     design_manager = DesignManager(coordinator)
-    
+
     assert design_manager.coordinator == coordinator
     assert hasattr(design_manager, 'conversation_history')
     assert isinstance(design_manager.conversation_history, list)
@@ -98,17 +99,17 @@ def test_coordinator_run_task_from_design(coordinator):
             }
         ]
     }
-    
+
     # Call run_task with design input
     coordinator.run_task(
-        task="Create a TODO app", 
+        task="Create a TODO app",
         pre_planning_input=pre_planning_input,
         from_design=True
     )
-    
+
     # Assertions - only check that run_task was called with the right parameters
     coordinator.run_task.assert_called_once_with(
-        task="Create a TODO app", 
+        task="Create a TODO app",
         pre_planning_input=pre_planning_input,
         from_design=True
     )

@@ -1,11 +1,8 @@
 """Simple pre-emptive planning error detection utilities."""
-
-from __future__ import annotations
-
-from typing import Dict, List
+from typing import Dict
+from typing import List
 
 from agent_s3.tools.plan_validator import validate_pre_plan
-
 
 def detect_preemptive_errors(plan_data: Dict) -> List[str]:
     """Detect critical issues in planning data before implementation."""

@@ -18,7 +18,7 @@ from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager, LogL
 def workspace():
     """
     Create a temporary workspace for the system tests.
-    
+
     Returns:
         Path object for the workspace directory
     """
@@ -30,17 +30,17 @@ def workspace():
 def basic_project(workspace):
     """
     Set up a basic project with some sample files.
-    
+
     Args:
         workspace: The workspace fixture
-        
+
     Returns:
         Dictionary with project information
     """
     # Create project structure
     (workspace / "src").mkdir()
     (workspace / "tests").mkdir()
-    
+
     # Create a sample module file
     sample_module = workspace / "src" / "greetings.py"
     sample_module.write_text("""
@@ -52,7 +52,7 @@ def farewell(name):
     \"\"\"Return a farewell message.\"\"\"
     return f"Goodbye, {name}!"
 """)
-    
+
     # Create a test file
     test_file = workspace / "tests" / "test_greetings.py"
     test_file.write_text("""
@@ -62,15 +62,15 @@ from src.greetings import greet, farewell
 class TestGreetings(unittest.TestCase):
     def test_greet(self):
         self.assertEqual(greet("World"), "Hello, World!")
-        
+
     def test_farewell(self):
         self.assertEqual(farewell("World"), "Goodbye, World!")
 """)
-    
+
     # Create a requirements file
     req_file = workspace / "requirements.txt"
     req_file.write_text("pytest==7.3.1\n")
-    
+
     # Return project metadata
     return {
         "root": workspace,
@@ -83,10 +83,10 @@ class TestGreetings(unittest.TestCase):
 def test_config(workspace):
     """
     Create a test configuration.
-    
+
     Args:
         workspace: The workspace fixture
-        
+
     Returns:
         Config object
     """
@@ -99,12 +99,12 @@ def test_config(workspace):
         "cache_debounce_delay": 0.1,
         "llm_model": "gpt-3.5-turbo"
     }
-    
+
     # Write config file
     config_path = workspace / "config.json"
     with open(config_path, "w") as f:
         json.dump(config_data, f)
-    
+
     # Return config object
     return Config(str(config_path))
 
@@ -113,7 +113,7 @@ def test_config(workspace):
 def scratchpad():
     """
     Create a scratchpad for logging.
-    
+
     Returns:
         ScratchpadManager instance
     """
@@ -124,7 +124,7 @@ def scratchpad():
 def mock_llm_responses():
     """
     Provide standard mock responses for LLM calls.
-    
+
     Returns:
         Dictionary of mock responses
     """
@@ -174,15 +174,15 @@ def greet(name):
 def farewell(name):
     \"\"\"Return a farewell message.\"\"\"
     return f"Goodbye, {name}!"
-    
+
 def personalized_greeting(name, title=None):
     \"\"\"
     Return a personalized greeting with optional title.
-    
+
     Args:
         name: The name to greet
         title: Optional title (Mr., Mrs., Dr., etc.)
-        
+
     Returns:
         Personalized greeting message
     \"\"\"
@@ -193,7 +193,7 @@ def personalized_greeting(name, title=None):
 """
             }
         },
-        
+
         "bug_fix": {
             "plan": {
                 "discussion": "The greetings module has a bug that needs to be fixed.",

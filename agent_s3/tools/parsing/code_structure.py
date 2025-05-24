@@ -1,8 +1,13 @@
 """
 Standardized data structures for parser outputs (imports, functions, classes, etc.)
 """
-from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Optional
+
+from dataclasses import dataclass
+from dataclasses import field
 
 @dataclass
 class Import:

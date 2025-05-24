@@ -1,4 +1,4 @@
-declare module 'vscode' {
+declare module "vscode" {
   const x: any;
   export = x;
 }

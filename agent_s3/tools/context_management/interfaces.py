@@ -4,7 +4,13 @@ Context Provider Interfaces for Agent-S3 Context Management
 Defines the contracts for all context providers used by the ContextRegistry.
 """
 from abc import abstractmethod
-from typing import TypedDict, List, Optional, Literal, Any, Dict, Protocol
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Literal
+from typing import Optional
+from typing import Protocol
+from typing import TypedDict
 
 class ContextProvider(Protocol):
     """Base protocol for all context providers."""

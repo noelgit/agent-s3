@@ -45,20 +45,20 @@ class TestCodeGenerator(unittest.TestCase):
                 "evolutionary": 0.1
             }
         }
-        
+
         # Configure memory_manager.estimate_token_count to return the length of the input
         self.mock_coordinator.memory_manager.estimate_token_count.side_effect = lambda x: len(str(x).split())
-        
+
         # Configure memory_manager.summarize to return the input truncated
         self.mock_coordinator.memory_manager.summarize.side_effect = lambda x, target_tokens: ' '.join(str(x).split()[:target_tokens])
-        
+
         # Configure memory_manager.hierarchical_summarize to return the input truncated
         self.mock_coordinator.memory_manager.hierarchical_summarize.side_effect = lambda x, target_tokens: ' '.join(str(x).split()[:target_tokens])
 
         # Create temporary directory for file operations
         self.temp_dir = tempfile.TemporaryDirectory()
         self.temp_path = self.temp_dir.name
-        
+
         # Mock the StaticAnalyzer in code_analysis_tool
         self.mock_static_analyzer = MagicMock()
         self.mock_static_analyzer.fusion_weights = {
@@ -71,7 +71,7 @@ class TestCodeGenerator(unittest.TestCase):
         self.mock_static_analyzer.find_structurally_relevant_files.return_value = []
         self.mock_static_analyzer.analyze_file_interfaces.return_value = {}
         self.mock_static_analyzer._format_interface_as_string.return_value = "Mock interface"
-        
+
         # Attach static analyzer to code analysis tool
         self.mock_coordinator.code_analysis_tool.static_analyzer = self.mock_static_analyzer
 
@@ -96,21 +96,21 @@ class TestCodeGenerator(unittest.TestCase):
         # Test with a specific total budget for first attempt
         total_tokens = 4000
         budgets = self.code_generator._allocate_token_budget(total_tokens, attempt_num=1)
-        
+
         # Verify that budgets are reasonable
         self.assertIsInstance(budgets, dict)
         self.assertGreater(budgets.get('code_context', 0), 0)
         self.assertGreater(budgets.get('plan', 0), 0)
         self.assertGreater(budgets.get('task', 0), 0)
         self.assertGreater(budgets.get('tech_stack', 0), 0)
-        
+
         # Verify that budgets sum to the total
         self.assertEqual(sum(budgets.values()), total_tokens)
-        
+
         # Test that second attempt gives different allocations
         second_attempt = self.code_generator._allocate_token_budget(total_tokens, attempt_num=2)
         self.assertNotEqual(budgets['code_context'], second_attempt['code_context'])
-        
+
         # Test that third attempt gives even more context allocation
         third_attempt = self.code_generator._allocate_token_budget(total_tokens, attempt_num=3)
         self.assertGreater(third_attempt['code_context'], second_attempt['code_context'])
@@ -149,7 +149,7 @@ class TestCodeGenerator(unittest.TestCase):
         self.assertEqual(context["task"], task)
         self.assertIn("plan", context)
         self.assertIn(plan, context["plan"])
-    
+
     def test_gather_enhanced_context(self):
         """Test gathering full context for subsequent attempts."""
 

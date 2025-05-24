@@ -29,6 +29,7 @@ else:  # pragma: no cover - fallback when libcst is unavailable
         def __init__(self) -> None:
             self.units: List[Tuple[str, str, str]] = []
 
+
 def extract_units(code: str) -> List[Tuple[str, str, str]]:
     """Return top-level classes and functions within the provided code."""
     if libcst is None:

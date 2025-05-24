@@ -10,9 +10,9 @@ from typing import Tuple
 class WorkspaceInitializer:
     """Handles workspace initialization, validation, and essential file management."""
 
-    def __init__(self, config, file_tool=None, scratchpad=None, prompt_moderator=None, tech_stack=None):
-        """Initialize the workspace initializer.
-        
+    def __init__(self, config, file_tool=None, scratchpad=None, prompt_moderator=None,
+         tech_stack=None):        """Initialize the workspace initializer.
+
         Args:
             config: Configuration object
             file_tool: Optional FileTool instance
@@ -32,19 +32,19 @@ class WorkspaceInitializer:
         self.llm_json_file = self.workspace_path / "llm.json"
         self.is_workspace_valid = False
         self.validation_failure_reason = None
-    
+
     def initialize_workspace(self) -> bool:
         """Initialize the workspace by checking essential files and creating defaults if necessary.
-        
+
         Returns:
             Boolean indicating if workspace is valid
         """
         logging.info("Initializing workspace...")
         self._log("Initializing workspace...")
-        
+
         # Create required directories
         self.github_dir.mkdir(exist_ok=True)
-        
+
         # Validate README.md
         if not self.readme_file.exists():
             self.validation_failure_reason = "README.md not found"
@@ -71,7 +71,7 @@ class WorkspaceInitializer:
             else:
                 # If no validation method exists, consider workspace valid with README.md present
                 self.is_workspace_valid = True
-        
+
         # Create personas.md if it doesn't exist
         personas_path = self.workspace_path / "personas.md"
         if not personas_path.exists():
@@ -81,7 +81,7 @@ class WorkspaceInitializer:
                 self._log(personas_result)
             except Exception as e:
                 self._log(f"Error creating personas.md: {e}", level="error")
-        
+
         # Create copilot-instructions.md if it doesn't exist
         if not self.guidelines_file.exists():
             try:
@@ -90,7 +90,7 @@ class WorkspaceInitializer:
                 self._log(guidelines_result)
             except Exception as e:
                 self._log(f"Error creating copilot-instructions.md: {e}", level="error")
-        
+
         # Create llm.json if it doesn't exist
         if not self.llm_json_file.exists():
             try:
@@ -99,7 +99,7 @@ class WorkspaceInitializer:
                 self._log(llm_msg)
             except Exception as e:
                 self._log(f"Error creating llm.json: {e}", level="error")
-        
+
         # Log initialization status
         if self.is_workspace_valid:
             self._log("Core workspace initialization successful.")
@@ -107,18 +107,18 @@ class WorkspaceInitializer:
         else:
             self._log(f"Core workspace validation failed: {self.validation_failure_reason}", level="warning")
             logging.warning(f"Core workspace validation failed: {self.validation_failure_reason}")
-        
+
         return self.is_workspace_valid
-    
+
     def execute_personas_command(self) -> str:
         """Creates the personas.md file with default content.
-        
+
         Returns:
             A string indicating success or failure message
         """
         try:
             personas_path = Path(self.config.config.get("workspace_path", ".")) / "personas.md"
-            
+
             # Fallback to hardcoded default content
             content = """**Note:** These four personas will have a structured debate until they all agree on a final prompt for the AI coding agent. The prompt will contain a summary of the feature, a function-level step by step execution plan. It will ensure that unit and integration tests are created and executed after code generation. They should cover the happy path scenarios and corner cases. Logical consistency check fo the final feature is done.
 
@@ -188,25 +188,25 @@ Confirm the solution adheres to **best practices** and organizational guidelines
 - Verifies alignment with feature definitions and constraints in `README.md`, unless modifications are explicitly requested
 - Enforces security standards (OWASP Top 10), performance goals, and maintainability
 """
-            
+
             # Write the file using file_tool or direct file operation
             if self.file_tool:
                 self.file_tool.write_file(str(personas_path), content)
             else:
                 with open(personas_path, "w", encoding="utf-8") as f:
                     f.write(content)
-            
+
             self._log(f"Created personas.md at {personas_path}")
             return f"Successfully created personas.md at {personas_path}"
-        
+
         except Exception as e:
             error_msg = f"Error creating personas.md: {str(e)}"
             self._log(error_msg, level="error")
             return error_msg
-    
+
     def execute_guidelines_command(self) -> str:
         """Creates the copilot-instructions.md file with default content.
-        
+
         Returns:
             A string indicating success or failure message
         """
@@ -214,32 +214,32 @@ Confirm the solution adheres to **best practices** and organizational guidelines
             # Use existing functionality to get guidelines content
             guidelines_content = self._get_default_guidelines()
             guidelines_path = self.github_dir / "copilot-instructions.md"
-            
+
             # Analyze tech stack to enhance guidelines if available
             if self.tech_stack:
                 # Enhance default guidelines with tech stack-specific recommendations
                 enhanced_content = self._enhance_guidelines_with_tech_stack(guidelines_content)
                 if enhanced_content:
                     guidelines_content = enhanced_content
-            
+
             # Write the file using file_tool or direct file operation
             if self.file_tool:
                 self.file_tool.write_file(str(guidelines_path), guidelines_content)
             else:
                 with open(guidelines_path, "w", encoding="utf-8") as f:
                     f.write(guidelines_content)
-            
+
             self._log(f"Created copilot-instructions.md at {guidelines_path}")
             return f"Successfully created copilot-instructions.md at {guidelines_path}"
-        
+
         except Exception as e:
             error_msg = f"Error creating copilot-instructions.md: {str(e)}"
             self._log(error_msg, level="error")
             return error_msg
-    
+
     def _ensure_llm_config(self) -> Tuple[bool, str]:
         """Ensures the llm.json file exists with proper content.
-        
+
         Returns:
             Tuple of (success_status, message)
         """
@@ -247,20 +247,20 @@ Confirm the solution adheres to **best practices** and organizational guidelines
             if not self.llm_json_file.exists():
                 # Get default content
                 content = self._get_llm_json_content()
-                
+
                 # Write file
                 if self.file_tool:
                     self.file_tool.write_file(str(self.llm_json_file), content)
                 else:
                     with open(self.llm_json_file, "w", encoding="utf-8") as f:
                         f.write(content)
-                
+
                 return True, f"Created default LLM configuration at {self.llm_json_file}"
             else:
                 return True, f"LLM configuration already exists at {self.llm_json_file}"
         except Exception as e:
             return False, f"Error creating LLM configuration: {str(e)}"
-    
+
     def _get_default_guidelines(self) -> str:
         """Returns the default coding guidelines content."""
         return """# GitHub Copilot Instructions
@@ -272,7 +272,7 @@ You are an AI assistant for development projects. Help with code generation, ana
 The following criteria should be applied to both code generation and code analysis:
 
 ### Security
-- OWASP Top 10 vulnerabilities  
+- OWASP Top 10 vulnerabilities
 - Authentication/Authorization issues with proper session handling
 - Data protection and sensitive information exposure
 - Input validation and proper escaping using appropriate validation libraries
@@ -379,7 +379,7 @@ For troubleshooting, consider these common issues and solutions:
 - Asynchronous timing issues
 - Environment-specific behavior differences
 """
-    
+
     def _get_llm_json_content(self) -> str:
         """Get the llm.json content exactly as specified in instructions.md."""
         return """[
@@ -414,13 +414,13 @@ For troubleshooting, consider these common issues and solutions:
     "use_cases": ["Generate multi-file patches","Implement complex features","Write end-to-end tests","Refactor large modules","Translate code between languages"]
   }
 ]"""
-    
+
     def _enhance_guidelines_with_tech_stack(self, base_guidelines: str) -> str:
         """Enhances the default guidelines with tech stack-specific recommendations.
-        
+
         Args:
             base_guidelines: The base guidelines content to enhance
-            
+
         Returns:
             Enhanced guidelines with tech stack-specific recommendations
         """
@@ -428,18 +428,18 @@ For troubleshooting, consider these common issues and solutions:
             # Skip if tech stack info is not available
             if not self.tech_stack:
                 return base_guidelines
-                
+
             # Add tech stack specific sections based on detected technologies
             techs = []
             if 'languages' in self.tech_stack:
                 techs.extend(self.tech_stack['languages'])
             if 'frameworks' in self.tech_stack:
                 techs.extend(self.tech_stack['frameworks'])
-            
+
             # Don't modify if no technologies detected
             if not techs:
                 return base_guidelines
-                
+
             # Basic enhancement: Add tech stack section
             tech_section = "\n\n## Tech Stack Best Practices\n\n"
             for tech in techs:
@@ -449,16 +449,16 @@ For troubleshooting, consider these common issues and solutions:
                     tech_section += "- Follow best practices for this technology\n"
                     tech_section += "- Apply proper structure and patterns\n"
                     tech_section += "- Implement appropriate error handling\n\n"
-            
+
             # Append the tech section to the base guidelines
             return base_guidelines + tech_section
         except Exception as e:
             self._log(f"Error enhancing guidelines: {str(e)}", level="error")
             return base_guidelines
-    
+
     def _log(self, message: str, level: str = "info") -> None:
         """Log a message using the scratchpad or default logger.
-        
+
         Args:
             message: The message to log
             level: The log level (info, warning, error)
@@ -472,10 +472,10 @@ For troubleshooting, consider these common issues and solutions:
                 logging.warning(message)
             else:
                 logging.info(message)
-    
+
     def _notify_user(self, message: str, level: str = "info") -> None:
         """Notify the user through prompt_moderator if available, otherwise print.
-        
+
         Args:
             message: The message to notify the user with
             level: The notification level (info, warning, error)

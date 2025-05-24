@@ -1,6 +1,5 @@
 from agent_s3.tools.file_tool import FileTool
 
-
 def test_symlink_outside_workspace_rejected(tmp_path):
     workspace = tmp_path / "workspace"
     outside = tmp_path / "outside"

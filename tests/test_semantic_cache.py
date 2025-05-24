@@ -1,5 +1,7 @@
 import time
+
 import pytest
+
 from agent_s3.tools.semantic_cache import SemanticCache
 
 class DummyClient:

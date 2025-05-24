@@ -106,8 +106,8 @@ def compute_structural_coherence(source: str, summary: str, language: Optional[s
         return compute_detail_preservation(source, summary) * 0.8
     return 0.8
 
-def compute_overall_quality(source: str, summary: str, language: Optional[str]=None) -> Dict[str, float]:
-    """Compute all quality metrics and return combined score."""
+def compute_overall_quality(source: str, summary: str, language: Optional[str]=None) -> Dict[str,
+     float]:    """Compute all quality metrics and return combined score."""
     faithfulness = compute_faithfulness(source, summary)
     detail = compute_detail_preservation(source, summary, language)
     structure = compute_structural_coherence(source, summary, language)

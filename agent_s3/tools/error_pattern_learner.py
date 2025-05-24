@@ -5,14 +5,13 @@ error message patterns and predict their categories. Patterns are stored
 per-user under ``~/.agent_s3/error_patterns.json`` so they can be shared
 across projects.
 """
-
-from __future__ import annotations
-
+from collections import Counter
+from collections import defaultdict
 import json
-import os
 import math
-from collections import Counter, defaultdict
-from typing import Dict, List
+import os
+from typing import Dict
+from typing import List
 
 # Path to shared pattern database
 PATTERN_DB_PATH = os.path.expanduser("~/.agent_s3/error_patterns.json")

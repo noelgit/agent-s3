@@ -1,10 +1,9 @@
+import importlib.util
+from pathlib import Path
 import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
-import importlib.util
-from pathlib import Path
-
 
 def load_bash_tool():
     module_path = Path(__file__).resolve().parents[1] / "agent_s3" / "tools" / "bash_tool.py"

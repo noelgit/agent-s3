@@ -1,7 +1,7 @@
 import unittest
 
-from agent_s3.tools.static_analyzer import StaticAnalyzer
 from agent_s3.tools.phase_validator import validate_architecture_implementation
+from agent_s3.tools.static_analyzer import StaticAnalyzer
 
 class TestArchitecturalValidation(unittest.TestCase):
     """Test suite for architectural validation functions."""
@@ -9,7 +9,7 @@ class TestArchitecturalValidation(unittest.TestCase):
     def setUp(self):
         """Set up the test environment."""
         self.static_analyzer = StaticAnalyzer()
-        
+
         # Sample architecture review
         self.architecture = {
             "logical_gaps": [
@@ -39,7 +39,7 @@ class TestArchitecturalValidation(unittest.TestCase):
                 "Performance: Consider pagination for large datasets"
             ]
         }
-        
+
         # Implementation that addresses the concerns
         self.complete_implementation = {
             "src/services/api.js": [
@@ -94,7 +94,7 @@ class TestArchitecturalValidation(unittest.TestCase):
                 }
             ]
         }
-        
+
         # Implementation missing components
         self.incomplete_implementation = {
             "src/services/api.js": [
@@ -109,7 +109,7 @@ class TestArchitecturalValidation(unittest.TestCase):
                 }
             ]
         }
-        
+
         # Implementation with unaddressed concerns
         self.unaddressed_implementation = {
             "src/services/api.js": [
@@ -160,7 +160,7 @@ class TestArchitecturalValidation(unittest.TestCase):
         self.assertTrue(is_valid)
         self.assertEqual(len(details.get("unaddressed_gaps", [])), 0)
         self.assertEqual(len(details.get("unaddressed_optimizations", [])), 0)
-        
+
         # Test with incomplete implementation (missing components)
         is_valid, message, details = validate_architecture_implementation(
             self.architecture,
@@ -168,7 +168,7 @@ class TestArchitecturalValidation(unittest.TestCase):
         )
         self.assertFalse(is_valid)
         self.assertTrue("DataFetcher.js" in message or "dataProcessor.js" in message)
-        
+
         # Test with implementation that doesn't address concerns
         is_valid, message, details = validate_architecture_implementation(
             self.architecture,
@@ -176,7 +176,7 @@ class TestArchitecturalValidation(unittest.TestCase):
         )
         self.assertFalse(is_valid)
         self.assertTrue(
-            any("Error handling" in gap.get("description", "") 
+            any("Error handling" in gap.get("description", "")
                 for gap in details.get("unaddressed_gaps", []))
         )
 
@@ -188,14 +188,14 @@ class TestArchitecturalValidation(unittest.TestCase):
             self.complete_implementation
         )
         self.assertTrue(is_valid)
-        
+
         # Test with incomplete implementation
         is_valid, message, details = self.static_analyzer.validate_architecture_implementation(
             self.architecture,
             self.incomplete_implementation
         )
         self.assertFalse(is_valid)
-        
+
         # Test with implementation that doesn't address concerns
         is_valid, message, details = self.static_analyzer.validate_architecture_implementation(
             self.architecture,
@@ -216,7 +216,7 @@ class TestArchitecturalValidation(unittest.TestCase):
             "optimization_suggestions": [],
             "additional_considerations": []
         }
-        
+
         partial_impl = {
             "src/services/userService.js": [
                 {
@@ -225,13 +225,13 @@ class TestArchitecturalValidation(unittest.TestCase):
                 }
             ]
         }
-        
+
         is_valid, message, details = validate_architecture_implementation(
             partial_arch,
             partial_impl
         )
         self.assertTrue(is_valid)
-        
+
         # Test with non-matching components
         non_matching_arch = {
             "logical_gaps": [
@@ -243,7 +243,7 @@ class TestArchitecturalValidation(unittest.TestCase):
             "optimization_suggestions": [],
             "additional_considerations": []
         }
-        
+
         is_valid, message, details = validate_architecture_implementation(
             non_matching_arch,
             partial_impl
@@ -271,7 +271,7 @@ class TestArchitecturalValidation(unittest.TestCase):
             ],
             "additional_considerations": []
         }
-        
+
         complex_impl = {
             "component1": [{"function": "f1", "steps": ["Handle Gap 1"]}],
             "component2": [{"function": "f2", "steps": ["Handle Gap 1"]}],
@@ -281,13 +281,13 @@ class TestArchitecturalValidation(unittest.TestCase):
             "component6": [{"function": "f6", "steps": ["Apply Optimization 1"]}],
             "component7": [{"function": "f7", "steps": ["Apply Optimization 1"]}]
         }
-        
+
         is_valid, message, details = validate_architecture_implementation(
             complex_arch,
             complex_impl
         )
         self.assertTrue(is_valid)
-        
+
         # Test with incomplete complex implementation
         incomplete_complex_impl = {
             "component1": [{"function": "f1", "steps": ["Handle Gap 1"]}],
@@ -295,7 +295,7 @@ class TestArchitecturalValidation(unittest.TestCase):
             "component5": [{"function": "f5", "steps": ["Handle Gap 2"]}],
             "component7": [{"function": "f7", "steps": ["Apply Optimization 1"]}]
         }
-        
+
         is_valid, message, details = validate_architecture_implementation(
             complex_arch,
             incomplete_complex_impl

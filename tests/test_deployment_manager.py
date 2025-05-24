@@ -1,8 +1,8 @@
 import re
 from unittest.mock import MagicMock
 
-from agent_s3.deployment_manager import DeploymentManager, DeploymentConfig
-
+from agent_s3.deployment_manager import DeploymentConfig
+from agent_s3.deployment_manager import DeploymentManager
 
 def test_create_env_file_quotes_special_values(tmp_path):
     dm = DeploymentManager()

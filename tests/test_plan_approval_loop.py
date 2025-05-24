@@ -1,8 +1,10 @@
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
-from agent_s3.coordinator import Coordinator
+import pytest
+
 from agent_s3.config import Config
+from agent_s3.coordinator import Coordinator
 
 @pytest.fixture
 def coordinator():

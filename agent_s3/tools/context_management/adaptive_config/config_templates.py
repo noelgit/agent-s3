@@ -76,7 +76,7 @@ BASE_CONFIG_TEMPLATES = {
             },
             "search": {
                 "bm25": {
-                    "k1": 1.2, 
+                    "k1": 1.2,
                     "b": 0.75
                 },
             },
@@ -92,7 +92,7 @@ BASE_CONFIG_TEMPLATES = {
             }
         }
     },
-    
+
     # Small project template
     "small": {
         "context_management": {
@@ -105,7 +105,7 @@ BASE_CONFIG_TEMPLATES = {
             },
             "search": {
                 "bm25": {
-                    "k1": 1.1, 
+                    "k1": 1.1,
                     "b": 0.7
                 },
             },
@@ -121,7 +121,7 @@ BASE_CONFIG_TEMPLATES = {
             }
         }
     },
-    
+
     # Large project template
     "large": {
         "context_management": {
@@ -134,7 +134,7 @@ BASE_CONFIG_TEMPLATES = {
             },
             "search": {
                 "bm25": {
-                    "k1": 1.3, 
+                    "k1": 1.3,
                     "b": 0.8
                 },
             },
@@ -150,7 +150,7 @@ BASE_CONFIG_TEMPLATES = {
             }
         }
     },
-    
+
     # Project type specific templates
     "web_frontend": {
         "context_management": {
@@ -166,7 +166,7 @@ BASE_CONFIG_TEMPLATES = {
             }
         }
     },
-    
+
     "web_backend": {
         "context_management": {
             "embedding": {
@@ -185,7 +185,7 @@ BASE_CONFIG_TEMPLATES = {
             }
         }
     },
-    
+
     "data_science": {
         "context_management": {
             "embedding": {
@@ -198,7 +198,7 @@ BASE_CONFIG_TEMPLATES = {
             }
         }
     },
-    
+
     "cli_tool": {
         "context_management": {
             "embedding": {
@@ -211,7 +211,7 @@ BASE_CONFIG_TEMPLATES = {
             }
         }
     },
-    
+
     "library": {
         "context_management": {
             "embedding": {
@@ -225,7 +225,7 @@ BASE_CONFIG_TEMPLATES = {
             }
         }
     },
-    
+
     # Language specific templates
     "python": {
         "context_management": {
@@ -238,7 +238,7 @@ BASE_CONFIG_TEMPLATES = {
             }
         }
     },
-    
+
     "javascript": {
         "context_management": {
             "embedding": {
@@ -251,7 +251,7 @@ BASE_CONFIG_TEMPLATES = {
             }
         }
     },
-    
+
     "typescript": {
         "context_management": {
             "embedding": {
@@ -268,7 +268,7 @@ BASE_CONFIG_TEMPLATES = {
             }
         }
     },
-    
+
     "java": {
         "context_management": {
             "embedding": {
@@ -281,7 +281,7 @@ BASE_CONFIG_TEMPLATES = {
             }
         }
     },
-    
+
     "csharp": {
         "context_management": {
             "embedding": {
@@ -301,46 +301,46 @@ class ConfigTemplateManager:
     """
     Manages configuration templates and provides validation for configuration parameters.
     """
-    
+
     def __init__(self):
         """Initialize the configuration template manager."""
         self.templates = BASE_CONFIG_TEMPLATES
         self.schema = CONFIG_SCHEMA
-    
+
     def get_default_config(self) -> Dict[str, Any]:
         """
         Get the default configuration template.
-        
+
         Returns:
             Default configuration template
         """
         return self.templates["default"].copy()
-    
+
     def get_template(self, template_name: str) -> Dict[str, Any]:
         """
         Get a configuration template by name.
-        
+
         Args:
             template_name: Name of the template
-            
+
         Returns:
             Configuration template dictionary
-            
+
         Raises:
             ValueError: If template name is not found
         """
         if template_name not in self.templates:
             raise ValueError(f"Template {template_name} not found")
-            
+
         return self.templates[template_name].copy()
-    
+
     def validate_config(self, config: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """
         Validate a configuration against the schema.
-        
+
         Args:
             config: Configuration dictionary to validate
-            
+
         Returns:
             Tuple of (is_valid, error_messages)
         """
@@ -352,85 +352,85 @@ class ConfigTemplateManager:
             path = " -> ".join([str(p) for p in e.path])
             message = f"Validation error at {path}: {e.message}"
             return False, [message]
-    
+
     def merge_templates(self, templates: List[str]) -> Dict[str, Any]:
         """
         Merge multiple templates into a single configuration.
-        
+
         Templates are applied in order, with later templates overriding earlier ones.
         Always starts with the default template.
-        
+
         Args:
             templates: List of template names to merge
-            
+
         Returns:
             Merged configuration dictionary
-            
+
         Raises:
             ValueError: If any template name is not found
         """
         result = self.get_default_config()
-        
+
         for template_name in templates:
             if template_name not in self.templates:
                 raise ValueError(f"Template {template_name} not found")
-                
+
             template = self.templates[template_name]
             self._deep_merge(result, template)
-            
+
         return result
-    
+
     def create_config_for_project(
-        self, 
-        project_size: str, 
+        self,
+        project_size: str,
         project_type: str,
         primary_language: str
     ) -> Dict[str, Any]:
         """
         Create a configuration optimized for a specific project profile.
-        
+
         Args:
             project_size: Size category (small, medium, large)
             project_type: Type of project (web_frontend, web_backend, etc.)
             primary_language: Primary programming language
-            
+
         Returns:
             Optimized configuration dictionary
         """
         templates = ["default"]
-        
+
         # Add size template if valid
         if project_size in ["small", "large"]:
             templates.append(project_size)
-            
+
         # Add project type template if valid
         if project_type in self.templates:
             templates.append(project_type)
-            
+
         # Add language template if valid
         if primary_language in self.templates:
             templates.append(primary_language)
-            
+
         # Merge templates
         config = self.merge_templates(templates)
-        
+
         # Validate merged config
         is_valid, errors = self.validate_config(config)
         if not is_valid:
-            logger.warning(f"Generated configuration has validation errors: {errors}")
+            logger.warning("%s", Generated configuration has validation errors: {errors})
             # Fall back to default if invalid
             return self.get_default_config()
-            
+
         return config
-    
+
     def _deep_merge(self, target: Dict[str, Any], source: Dict[str, Any]) -> Dict[str, Any]:
         """
         Recursively merge source dictionary into target.
-        
+
         Args:
             target: Target dictionary to merge into
             source: Source dictionary to merge from
-            
+
         Returns:
             Merged dictionary (same reference as target)
         """
@@ -441,17 +441,17 @@ class ConfigTemplateManager:
             else:
                 # Override or add value
                 target[key] = value
-                
+
         return target
-    
+
     def register_template(self, name: str, template: Dict[str, Any]) -> None:
         """
         Register a new configuration template.
-        
+
         Args:
             name: Template name
             template: Template configuration dictionary
-            
+
         Raises:
             ValueError: If template is invalid
         """
@@ -459,20 +459,20 @@ class ConfigTemplateManager:
         is_valid, errors = self.validate_config(template)
         if not is_valid:
             raise ValueError(f"Invalid template: {errors}")
-            
+
         # Register template
         self.templates[name] = template
-        
+
     def load_templates_from_file(self, file_path: str) -> int:
         """
         Load templates from a JSON file.
-        
+
         Args:
             file_path: Path to JSON file with templates
-            
+
         Returns:
             Number of templates loaded
-            
+
         Raises:
             FileNotFoundError: If file doesn't exist
             ValueError: If file contains invalid JSON or templates
@@ -480,28 +480,28 @@ class ConfigTemplateManager:
         try:
             with open(file_path, 'r') as f:
                 templates = json.load(f)
-                
+
             if not isinstance(templates, dict):
                 raise ValueError("Templates file must contain a JSON object")
-                
+
             count = 0
             for name, template in templates.items():
                 self.register_template(name, template)
                 count += 1
-                
+
             return count
         except FileNotFoundError:
             raise FileNotFoundError(f"Templates file not found: {file_path}")
         except json.JSONDecodeError:
             raise ValueError(f"Invalid JSON in templates file: {file_path}")
-    
+
     def save_templates_to_file(self, file_path: str) -> None:
         """
         Save all templates to a JSON file.
-        
+
         Args:
             file_path: Path to save templates
-            
+
         Raises:
             IOError: If file cannot be written
         """
@@ -510,7 +510,7 @@ class ConfigTemplateManager:
                 json.dump(self.templates, f, indent=2)
         except IOError as e:
             raise IOError(f"Failed to save templates to {file_path}: {e}")
-            
+
     def create_new_template(
         self,
         name: str,
@@ -519,33 +519,33 @@ class ConfigTemplateManager:
     ) -> Dict[str, Any]:
         """
         Create a new template based on an existing one with overrides.
-        
+
         Args:
             name: Name for the new template
             base_template: Name of the template to base on
             overrides: Dictionary of values to override
-            
+
         Returns:
             The new template
-            
+
         Raises:
             ValueError: If base template doesn't exist or result is invalid
         """
         if base_template not in self.templates:
             raise ValueError(f"Base template {base_template} not found")
-            
+
         # Start with base template
         new_template = self.get_template(base_template)
-        
+
         # Apply overrides
         self._deep_merge(new_template, overrides)
-        
+
         # Validate new template
         is_valid, errors = self.validate_config(new_template)
         if not is_valid:
             raise ValueError(f"Invalid template after overrides: {errors}")
-            
+
         # Register new template
         self.templates[name] = new_template
-        
+
         return new_template

@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Test the PrePlanningValidator with more complex and error-prone data."""
-
 import unittest
+
 from agent_s3.pre_planning_validator import PrePlanningValidator
 
 class TestComplexValidation(unittest.TestCase):
     """Tests for complex validation scenarios."""
-    
+
     def setUp(self):
         """Set up the validator and sample data."""
         self.validator = PrePlanningValidator()
-        
+
     def test_security_validation(self):
         """Test security validation catches security issues."""
         data = {
@@ -29,12 +29,12 @@ class TestComplexValidation(unittest.TestCase):
                 }
             ]
         }
-        
+
         # Security validation should fail
         is_valid, errors = self.validator.validate_security(data)
         self.assertFalse(is_valid)
         self.assertGreater(len(errors), 0)
-        
+
     def test_semantic_coherence(self):
         """Test semantic coherence validation."""
         data = {
@@ -63,7 +63,7 @@ class TestComplexValidation(unittest.TestCase):
                 }
             ]
         }
-        
+
         # Semantic validation should fail due to duplicate names
         is_valid, errors = self.validator.validate_semantic_coherence(data)
         self.assertFalse(is_valid)

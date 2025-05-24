@@ -68,13 +68,13 @@ class Planner:
     """The Planner class is responsible for creating plans for tasks using an LLM."""
     def __init__(self, config: PlannerConfig):
         """Initialize the planner with configuration.
-        
+
         Args:
             config: PlannerConfig instance containing all necessary components
         """
         # Store config instance
         self._config = config
-        
+
         # Error tracking
         self.last_error = None
 
@@ -143,7 +143,7 @@ class Planner:
     def get_consolidated_plan_system_prompt(self) -> str:
         """
         Get the system prompt for consolidated planning with enforced JSON output.
-        
+
         Returns:
             Properly formatted system prompt string
         """
@@ -224,8 +224,8 @@ CRITICAL INSTRUCTION: You MUST respond in valid JSON format ONLY, conforming EXA
   "implementation_plan": { // Detailed file/function level plan, refining input 'system_design' based on architecture_review
     "file_path_1.py": [ // Key is the full path to the file to be modified or created
       {
-        "function": "def function_name(param1: type, param2: type) -> return_type:", // Full signature
-        "description": "Purpose of the function and how it contributes to the feature",
+        "function": "def function_name(param1: type, param2: type) -> return_type:",
+             // Full signature        "description": "Purpose of the function and how it contributes to the feature",
         "element_id": "string (Should match an element_id from system_design.code_elements)", // Link to code element for test alignment
         "steps": [
           {
@@ -283,15 +283,17 @@ IMPORTANT: You MUST perform the following two steps sequentially to generate the
    - The function signature in your output should match the input signature unless your architecture_review explicitly recommended a change to it.
    - Your main task here is to generate the detailed structured steps for implementation, not to redesign the interfaces unless your review identified specific issues with them.
    - For each function in the `implementation_plan`:
-       - The `function` field should be the full, typed signature (e.g., `def get_user_profile(user_id: int) -> Optional[UserProfile]:`).
-       - The `description` should explain its purpose.
-       - The `steps` array should contain structured step objects:
-           - `step_description`: A single, clear, actionable implementation step.
-           - `pseudo_code`: Optional. A brief pseudo-code snippet if the step is complex.
-           - `relevant_data_structures`: List data structures manipulated or accessed.
-           - `api_calls_made`: List external or internal API calls.
-           - `error_handling_notes`: Note specific error handling for this step.
-       - The `edge_cases` array should list specific edge cases to handle in this function's implementation.
+       - The `function` field should be the full, typed signature (e.g., \`def get_user_profile(
+           user_id: int) -> Optional[UserProfile]:\`).
+       - The \`description\` should explain its purpose.
+       - The \`element_id\` field should be the \`element_id\` from \`system_design.code_elements\` (e.g. "login_button_impl").
+       - The \`steps\` array should contain structured step objects:
+           - \`step_description\`: A single, clear, actionable implementation step.
+           - \`pseudo_code\`: Optional. A brief pseudo-code snippet if the step is complex.
+           - \`relevant_data_structures\`: List data structures manipulated or accessed.
+           - \`api_calls_made\`: List external or internal API calls.
+           - \`error_handling_notes\`: Note specific error handling for this step.
+       - The \`edge_cases\` array should list specific edge cases to handle in this function's implementation.
    - **CRITICAL:** The implementation resulting from these structured steps MUST satisfy the corresponding planned tests in the `tests` section. The use of element_id fields creates an explicit link between the test requirements, system design elements, and implementation plan steps, ensuring test congruence.
 
    **DISCUSSION (to populate the `discussion` field):**
@@ -309,15 +311,16 @@ IMPORTANT: You MUST perform the following two steps sequentially to generate the
 *   **The final generated implementation code derived from this plan MUST pass the tests generated within this same plan.**
 """
 
-    def get_consolidated_plan_user_prompt(self, feature_group: Dict[str, Any], task_description: str, context: Optional[Dict[str, Any]] = None) -> str:
+    def get_consolidated_plan_user_prompt(self, feature_group: Dict[str, Any], task_description: str, 
+                                        context: Optional[Dict[str, Any]] = None) -> str:
         """
         Get the user prompt for the consolidated planning LLM call.
-        
+
         Args:
             feature_group: The feature group data
             task_description: The original task description
             context: Optional context information
-            
+
         Returns:
             Properly formatted user prompt string
         """
@@ -350,7 +353,7 @@ Ensure your response strictly adheres to the JSON schema provided in the system 
             personas_path = Path("personas.md")
             if personas_path.exists():
                 return personas_path.read_text(encoding='utf-8')
-            
+
             logger.warning("personas.md file not found, using default personas")
             # Default personas
             return """
@@ -379,7 +382,7 @@ Ensure your response strictly adheres to the JSON schema provided in the system 
             guidelines_path = Path(".github/copilot-instructions.md")
             if guidelines_path.exists():
                 return guidelines_path.read_text(encoding='utf-8')
-            
+
             logger.warning("copilot-instructions.md file not found, using default guidelines")
             # Default guidelines
             return """
@@ -397,7 +400,7 @@ Ensure your response strictly adheres to the JSON schema provided in the system 
             logger.error("Error decoding coding guidelines: %s", str(e))
             return "Error loading coding guidelines. Using default standards."
 
-    
+
 
     def _call_llm_with_retry(
         self,
@@ -407,21 +410,21 @@ Ensure your response strictly adheres to the JSON schema provided in the system 
         retries: int = 2
     ) -> str:
         """Call LLM with retry logic.
-        
+
         Args:
             system_prompt: System prompt for LLM
             user_prompt: User prompt for LLM
             llm_params: Parameters for LLM call
             retries: Number of retries (default: 2)
-            
+
         Returns:
             LLM response text
-            
+
         Raises:
             PlanningError: If all retries fail
         """
         last_error = None
-        
+
         for attempt in range(retries + 1):
             try:
                 if isinstance(self.llm, dict):
@@ -442,12 +445,12 @@ Ensure your response strictly adheres to the JSON schema provided in the system 
                         config=llm_params,
                         scratchpad=self.scratchpad
                     )
-                    
+
                     if not response:
                         raise ValueError("LLM returned an empty response")
-                    
+
                     return response
-                    
+
             except (ValueError, IOError, ConnectionError) as e:
                 last_error = str(e)
                 logger.warning(
@@ -456,14 +459,14 @@ Ensure your response strictly adheres to the JSON schema provided in the system 
                     retries + 1,
                     str(e)
                 )
-                
+
                 if attempt < retries:
                     # Wait before retry with exponential backoff
                     import time
                     time.sleep(2 ** attempt)
                 else:
                     logger.error("All LLM call attempts failed: %s", str(e))
-        
+
         msg = f"LLM call failed after {retries + 1} attempts: {last_error}"
         raise PlanningError(msg) from last_error
 
@@ -487,10 +490,10 @@ Ensure your response strictly adheres to the JSON schema provided in the system 
             "Generating architecture review for feature group: %s",
             feature_group.get('group_name', 'Unknown')
         )
-        
+
         if not self.llm:
             raise PlanningError("No LLM client available")
-            
+
         # Extract system design from feature group
         system_design = {}
         for feature in feature_group.get("features", []):
@@ -505,7 +508,7 @@ Ensure your response strictly adheres to the JSON schema provided in the system 
                         isinstance(system_design[key], list)
                     ):
                         system_design[key].extend(value)
-        
+
         # Create system prompt for architecture review
         system_prompt = (
             "You are a senior software architect specializing in architecture "
@@ -589,25 +592,25 @@ Ensure your response strictly adheres to the JSON schema provided in the system 
                 user_prompt=user_prompt,
                 llm_params=llm_params
             )
-            
+
             # Extract and validate JSON
             json_text = extract_json_from_text(response)
             if not json_text:
                 raise PlanningError(
                     "Failed to extract JSON from architecture review response"
                 )
-                
+
             try:
                 review_data = json.loads(json_text)
             except json.JSONDecodeError as e:
                 raise PlanningError("Invalid JSON in architecture review") from e
-                
+
             # Validate required sections
             if "architecture_review" not in review_data:
                 raise PlanningError("Missing 'architecture_review' in response")
-                
+
             return review_data
-            
+
         except (IOError, ConnectionError) as e:
             logger.error("Error generating architecture review: %s", str(e))
             raise PlanningError("Failed to generate architecture review") from e
@@ -615,10 +618,10 @@ Ensure your response strictly adheres to the JSON schema provided in the system 
     def validate_pre_planning_for_planner(self, pre_plan_data: Dict[str, Any]) -> Tuple[bool, str]:
         """
         Validate that pre-planning output is compatible with the planning phase.
-        
+
         Args:
             pre_plan_data: Pre-planning data to validate
-            
+
         Returns:
             Tuple of (is_compatible, message):
             - is_compatible: True if the data is compatible, False otherwise

@@ -1,8 +1,7 @@
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 from agent_s3.planner_json_enforced import _call_llm_with_retry
-
 
 @patch('agent_s3.planner_json_enforced.TokenEstimator')
 def test_call_llm_with_retry_adjusts_max_tokens(MockEstimator):

@@ -32,11 +32,11 @@ def sample_python_function():
 def calculate_total(items: list, tax_rate: float = 0.1) -> float:
     \"\"\"
     Calculate the total price with tax for a list of items.
-    
+
     Args:
         items: List of items with their prices
         tax_rate: The tax rate to apply (default: 0.1)
-        
+
     Returns:
         The total price including tax
     \"\"\"
@@ -70,11 +70,11 @@ class ShoppingCart:
     \"\"\"
     A shopping cart that holds items and calculates totals.
     \"\"\"
-    
+
     def __init__(self, customer_id: str, tax_rate: float = 0.1):
         \"\"\"
         Initialize a shopping cart.
-        
+
         Args:
             customer_id: Unique identifier for the customer
             tax_rate: The tax rate to apply to the cart
@@ -82,11 +82,11 @@ class ShoppingCart:
         self.customer_id = customer_id
         self.items = []
         self.tax_rate = tax_rate
-    
+
     def add_item(self, item_id: str, name: str, price: float, quantity: int = 1) -> None:
         \"\"\"
         Add an item to the cart.
-        
+
         Args:
             item_id: Unique identifier for the item
             name: Name of the item
@@ -99,25 +99,25 @@ class ShoppingCart:
             'price': price,
             'quantity': quantity
         })
-        
+
     def remove_item(self, item_id: str) -> bool:
         \"\"\"
         Remove an item from the cart.
-        
+
         Args:
             item_id: ID of the item to remove
-            
+
         Returns:
             True if item was removed, False if not found
         \"\"\"
         initial_count = len(self.items)
         self.items = [item for item in self.items if item['id'] != item_id]
         return len(self.items) < initial_count
-        
+
     async def calculate_total(self) -> float:
         \"\"\"
         Calculate the total price of all items with tax.
-        
+
         Returns:
             The total price including tax
         \"\"\"
@@ -258,10 +258,10 @@ def test_regenerate_pre_planning_with_modifications(router_agent):
             }
         ]
     }
-    
+
     # Modification text
     modification_text = "Add subtraction feature"
-    
+
     # Mock router agent response
     router_agent.call_llm_by_role.return_value = """
     {
@@ -338,17 +338,17 @@ def test_regenerate_pre_planning_with_modifications(router_agent):
         ]
     }
     """
-    
+
     # Call function
     result = pre_planner.regenerate_pre_planning_with_modifications(
         router_agent, original_results, modification_text
     )
-    
+
     # Verify new feature was added
     assert isinstance(result, dict)
     assert "feature_groups" in result
     assert len(result["feature_groups"]) > 0
-    
+
     # Check if subtraction feature was added
     features = result["feature_groups"][0]["features"]
     feature_names = [f["name"] for f in features]
@@ -402,10 +402,10 @@ def test_process_response_with_valid_json():
         ]
     }
     """
-    
+
     # Call process_response
     success, result = pre_planner.process_response(response, "Create a calculator")
-    
+
     # Verify success
     assert success
     assert isinstance(result, dict)
@@ -428,10 +428,10 @@ def test_process_response_with_invalid_json():
                         "name": "Addition",
                         "description": "Add two numbers",
     """
-    
+
     # Call process_response
     success, result = pre_planner.process_response(response, "Create a calculator")
-    
+
     # Verify fallback was used
     assert success is False
     assert result is None
@@ -441,7 +441,7 @@ def test_create_fallback_json():
     """Test creation of fallback JSON."""
     # Call create_fallback_json
     fallback = pre_planner.create_fallback_json("Create a calculator")
-    
+
     # Verify fallback structure
     assert isinstance(fallback, dict)
     assert "original_request" in fallback

@@ -1,7 +1,10 @@
 """Common validation result data structure used across validators."""
-from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
+from typing import Dict
+from typing import List
 
+from dataclasses import dataclass
+from dataclasses import field
 
 @dataclass
 class ValidationResult:

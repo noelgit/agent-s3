@@ -62,7 +62,7 @@ def _load_llm_config():
     try:
         config_path = os.path.join(os.getcwd(), 'llm.json')
         if not os.path.exists(config_path):
-            logger.error(f"LLM configuration file not found: {config_path}")
+            logger.error("%s", LLM configuration file not found: {config_path})
             raise FileNotFoundError(f"LLM configuration file not found: {config_path}")
         with open(config_path, 'r') as f:
             llm_config = json.load(f)
@@ -81,12 +81,12 @@ def _load_llm_config():
             if isinstance(roles, list):
                 for role in roles:
                     if role in models_by_role:
-                        logger.warning(f"Duplicate role definition found for '{role}'. Using the last definition found in llm.json.")
+                        logger.warning("%s", Duplicate role definition found for '{role}'. Using the last definition found in llm.json.)
                     models_by_role[role] = model_info
             else:
-                logger.warning(f"Skipping model entry due to invalid or missing 'role': {model_info.get('model')}")
+                logger.warning("%s", Skipping model entry due to invalid or missing 'role': {model_info.get('model)}")
 
-        logger.info(f"Loaded LLM configuration for roles: {list(models_by_role.keys())}")
+        logger.info("%s", Loaded LLM configuration for roles: {list(models_by_role.keys())})
         return models_by_role
     except FileNotFoundError:
         raise
@@ -101,7 +101,7 @@ class RouterAgent:
 
     def __init__(self, config=None):
         """Initialize the router agent.
-        
+
         Args:
             config: Optional configuration object or dictionary.
         """
@@ -132,19 +132,19 @@ class RouterAgent:
                 "execute": "generator",
                 "continue": "generator"  # Default to generator for continuations
             }
-            
+
             # Override role based on command if a mapping exists
             if command_type in command_role_map:
                 original_role = metadata.get("role")
                 role = command_role_map[command_type]
-                logger.info(f"Command pattern '{command_type}' detected. Routing to role '{role}' instead of '{original_role}'")
+                logger.info("%s", Command pattern '{command_type}' detected. Routing to role '{role}' instead of '{original_role}')
                 # Update metadata with the new role
                 metadata["role"] = role
                 metadata["command_type"] = command_type
                 metadata["command_content"] = command_content
             else:
-                logger.warning(f"Command pattern '{command_type}' detected but no role mapping found.")
-        
+                logger.warning("%s", Command pattern '{command_type}' detected but no role mapping found.)
+
         role = metadata.get("role")
         if not role:
             logger.warning("No 'role' provided in metadata. Cannot determine appropriate LLM.")
@@ -157,19 +157,19 @@ class RouterAgent:
         model_info = _models_by_role.get(role)
 
         if not model_info:
-            logger.warning(f"No model configured for role: '{role}'. Available roles: {list(_models_by_role.keys())}")
+            logger.warning("%s", No model configured for role: '{role}'. Available roles: {list(_models_by_role.keys())})
             return None
 
         model_name = model_info.get("model")
         context_window = model_info.get("context_window")
 
         if not model_name:
-            logger.error(f"Configuration for role '{role}' is missing the 'model' name.")
+            logger.error("%s", Configuration for role '{role}' is missing the 'model' name.)
             return None
 
         try:
             estimated_tokens = len(query.split())  # Simplified token estimation
-            logger.info(f"Estimated tokens for query: {estimated_tokens} (using model context: {model_name})")
+            logger.info("%s", Estimated tokens for query: {estimated_tokens} (using model context: {model_name}))
 
             if context_window and estimated_tokens > context_window:
                 logger.warning(
@@ -178,9 +178,9 @@ class RouterAgent:
                     f"Input may be truncated by the LLM."
                 )
         except Exception as e:
-            logger.exception(f"Failed to estimate token count: {e}. Skipping context window check.")
+            logger.exception("%s", Failed to estimate token count: {e}. Skipping context window check.)
 
-        logger.info(f"Routing to model '{model_name}' for role '{role}'.")
+        logger.info("%s", Routing to model '{model_name}' for role '{role}'.)
         return model_name
 
     def run(self, prompt: Dict[str, Any], **config: Any) -> Optional[str]:
@@ -227,7 +227,7 @@ class RouterAgent:
         **kwargs: Any  # Additional parameters for the API call
     ) -> Optional[str]:
         """Calls the appropriate LLM based on role, handling retries and fallbacks.
-        
+
         Args:
             role: The role identifier used to select the appropriate model
             system_prompt: System prompt to set the LLM behavior
@@ -239,14 +239,14 @@ class RouterAgent:
             code_context: Optional code snippets relevant to the request
             metadata: Optional metadata including command type and content
             **kwargs: Additional parameters for the API call
-        
+
         Returns:
             The LLM response text or None if the call fails
         """
         # Initialize metadata if not provided
         if metadata is None:
             metadata = {}
-            
+
         model_info = _models_by_role.get(role)
         if not model_info:
             scratchpad.log("RouterAgent", f"Error: No model configured for role: '{role}'", level="error")
@@ -256,43 +256,43 @@ class RouterAgent:
         if not model_name:
             scratchpad.log("RouterAgent", f"Error: Configuration for role '{role}' is missing the 'model' name.", level="error")
             return None
-            
+
         # Enhance system prompt based on command metadata if present
         if "command_type" in metadata and "command_content" in metadata:
             command_type = metadata["command_type"]
             command_content = metadata["command_content"]
-            
+
             # Log the command processing
-            scratchpad.log("RouterAgent", 
+            scratchpad.log("RouterAgent",
                          f"Processing @agent {command_type.capitalize()} command: '{command_content}'")
-            
+
             # Command-specific system prompt enhancements
             command_instructions = {
                 "debug": "\nYou are in DEBUG mode. Focus on identifying and fixing errors in the code. "
                         "Analyze error messages carefully and provide detailed diagnostics.",
-                
+
                 "test": "\nYou are in TEST mode. Focus on creating or improving test coverage. "
                        "Write comprehensive tests that validate functionality and edge cases.",
-                
+
                 "plan": "\nYou are in PLAN mode. Create a clear, structured plan for implementation. "
                        "Break down complex tasks into manageable steps with consideration for dependencies.",
-                
+
                 "execute": "\nYou are in EXECUTE mode. Implement the requested feature or changes according "
                           "to best practices. Focus on producing working, well-structured code.",
-                
+
                 "continue": "\nYou are in CONTINUE mode. Pick up from your previous work and continue "
                            "implementation or analysis. Maintain consistency with the established approach."
             }
-            
+
             # Enhance system prompt with command-specific instructions
             if command_type in command_instructions:
                 system_prompt += command_instructions[command_type]
                 scratchpad.log("RouterAgent", f"Enhanced system prompt with {command_type} mode instructions")
-            
+
             # For continue command, append a special instruction about previous work
             if command_type == "continue":
-                system_prompt += "\nReview previous outputs and context carefully to ensure continuity."
-
+                system_prompt +
+                    = "\nReview previous outputs and context carefully to ensure continuity."
         max_retries = config.get('max_retries', 3)
         initial_backoff = config.get('initial_backoff', 1.0)
         backoff_multiplier = config.get('backoff_multiplier', 2.0)
@@ -333,14 +333,14 @@ class RouterAgent:
                 )
                 self._failure_counts[model_name] = 0  # Reset failure count on success
                 primary_failed = False
-                scratchpad.log("RouterAgent", f"Successfully called {model_name} (Role: {role}) on attempt {attempt + 1}")
-                break  # Success
+                scratchpad.log("RouterAgent", f"Successfully called {model_name} (Role: {role}) on attempt {attempt +
+                                                             1}")                break  # Success
             except Exception as e:
                 self._failure_counts[model_name] += 1
                 self._last_failure_time[model_name] = time.time()
-                scratchpad.log("RouterAgent", f"Attempt {attempt + 1}/{max_retries} failed for {model_name} (Role: {role}): {e}", level="warning")
-                if attempt + 1 == max_retries:
-                    primary_failed = True
+                scratchpad.log("RouterAgent", f"Attempt {attempt +
+                     1}/{max_retries} failed for {model_name} (Role: {role}): {e}", level="warning")                if attempt +
+                                                   1 == max_retries:                    primary_failed = True
                     scratchpad.log("RouterAgent", f"{model_name} (Role: {role}) failed after {max_retries} attempts.", level="error")
                 else:
                     sleep(backoff)
@@ -394,14 +394,14 @@ class RouterAgent:
         role: str,
         tech_stack: Optional[Dict[str, Any]] = None,  # Tech stack parameter
         code_context: Optional[Dict[str, str]] = None,  # Code context parameter
-        historical_context: Optional[Dict[str, Any]] = None,  # Historical context parameter 
+        historical_context: Optional[Dict[str, Any]] = None,  # Historical context parameter
         file_metadata: Optional[Dict[str, Any]] = None,  # File metadata parameter
         related_features: Optional[List[str]] = None,  # Related features parameter
         metadata: Optional[Dict[str, Any]] = None,  # Metadata parameter including command info
         **kwargs: Any
     ) -> Optional[str]:
         """Executes a single LLM API call.
-        
+
         Now supports enhanced context with tech stack, code snippets, command metadata,
         historical context, file metadata, and related features.
         """
@@ -410,29 +410,29 @@ class RouterAgent:
         api_details = model_info.get("api", {})
         endpoint_str = api_details.get("endpoint")
         auth_header_template = api_details.get("auth_header")
-        
+
         # Get the context window size for token management
         context_window = model_info.get("context_window", 8000)  # Default to 8K if not specified
-        
+
         # Initialize metadata if not provided
         if metadata is None:
             metadata = {}
-            
+
         # Apply role-specific system prompt enhancements
         allocation = self._get_role_specific_context_allocation(role, context_window)
         if "system_prompt_suffix" in allocation:
             # Enhance system prompt with test-side workaround prohibition
             system_prompt += allocation["system_prompt_suffix"]
             scratchpad.log("RouterAgent", "Added test-side workaround prohibition to system prompt")
-            
+
         # Enhanced prompt with tech stack, code context and command info if provided
         enhanced_user_prompt = user_prompt
-        
+
         # Add command-specific context to the user prompt if this is a command
         if "command_type" in metadata and "command_content" in metadata:
             command_type = metadata["command_type"]
             command_content = metadata["command_content"]
-            
+
             # Handle specific command types
             if command_type == "continue":
                 # For continue commands, replace the user prompt entirely with command content if it exists
@@ -440,7 +440,7 @@ class RouterAgent:
                     enhanced_user_prompt = f"CONTINUE TASK: {command_content}"
                 else:
                     enhanced_user_prompt = "Continue from where you left off with the previous task."
-                    
+
             elif command_content:  # For other commands with content
                 # Prefix the user prompt with the command info
                 command_prefixes = {
@@ -450,10 +450,10 @@ class RouterAgent:
                     "execute": "EXECUTION TASK: "
                 }
                 prefix = command_prefixes.get(command_type, f"{command_type.upper()} TASK: ")
-                
+
                 if command_content not in user_prompt:  # Only add if not already present
                     enhanced_user_prompt = f"{prefix}{command_content}\n\n{user_prompt}"
-        
+
         # Include tech stack information if available
         if tech_stack:
             tech_stack_sections = []
@@ -463,60 +463,60 @@ class RouterAgent:
                     items_list = list(items) if not isinstance(items, list) else items
                     if items_list:
                         tech_stack_sections.append(f"{category.title()}: {', '.join(items_list)}")
-            
+
             if tech_stack_sections:
                 tech_stack_str = "\n".join(tech_stack_sections)
                 enhanced_user_prompt = f"Detected Tech Stack:\n{tech_stack_str}\n\n{enhanced_user_prompt}"
                 scratchpad.log("RouterAgent", f"Added tech stack context for {role}: {tech_stack_str}")
-        
+
         # Get role-specific allocation settings
         allocation = self._get_role_specific_context_allocation(role, context_window)
-            
+
         # Include historical context if available and if role allocation requests it
         if historical_context and allocation.get("include_historical_context", False):
             historical_sections = []
-            
+
             # Process recent changes
             if "previous_changes" in historical_context and historical_context["previous_changes"]:
                 changes = historical_context["previous_changes"][:5]  # Limit to 5
-                changes_text = "Recent Changes:\n" + "\n".join([f"- {change}" for change in changes])
-                historical_sections.append(changes_text)
-            
+                changes_text = "Recent Changes:\n" +
+                     "\n".join([f"- {change}" for change in changes])                historical_sections.append(changes_text)
+
             # Process file change frequency
             if "file_change_frequency" in historical_context and historical_context["file_change_frequency"]:
                 freq_items = list(historical_context["file_change_frequency"].items())
                 top_files = sorted(freq_items, key=lambda x: x[1], reverse=True)[:5]  # Top 5
-                freq_text = "Frequently Modified Files:\n" + "\n".join([f"- {file}: {freq} changes" for file, freq in top_files])
-                historical_sections.append(freq_text)
-            
+                freq_text = "Frequently Modified Files:\n" +
+                     "\n".join([f"- {file}: {freq} changes" for file, freq in top_files])                historical_sections.append(freq_text)
+
             if historical_sections:
                 historical_text = "Historical Context:\n" + "\n\n".join(historical_sections)
                 enhanced_user_prompt = f"{historical_text}\n\n{enhanced_user_prompt}"
                 scratchpad.log("RouterAgent", f"Added historical context for {role} based on role allocation")
-        
+
         # Include file metadata if available and if role allocation requests it
         if file_metadata and allocation.get("include_file_metadata", False):
             metadata_text = "File Metadata:\n" + json.dumps(file_metadata, indent=2)
             enhanced_user_prompt = f"{metadata_text}\n\n{enhanced_user_prompt}"
             scratchpad.log("RouterAgent", f"Added file metadata for {role} based on role allocation")
-        
+
         # Include related features if available and if role allocation requests it
         if related_features and allocation.get("include_related_features", False):
-            features_text = "Related Past Features:\n" + "\n".join([f"- {feature}" for feature in related_features[:3]])
-            enhanced_user_prompt = f"{features_text}\n\n{enhanced_user_prompt}"
+            features_text = "Related Past Features:\n" +
+                 "\n".join([f"- {feature}" for feature in related_features[:3]])            enhanced_user_prompt = f"{features_text}\n\n{enhanced_user_prompt}"
             scratchpad.log("RouterAgent", f"Added related features for {role} based on role allocation")
-        
+
         # Include relevant code context if available
         if code_context:
             # Simple token estimation (can be refined)
             def estimate_tokens(text):
                 return len(text.split()) * 1.3  # Rough estimation: words * 1.3
-            
+
             # We already retrieved the allocation above, but reuse it to calculate max_context_tokens
             # allocation = self._get_role_specific_context_allocation(role, context_window)
-            max_context_tokens = min(allocation["max_abs_tokens"], 
+            max_context_tokens = min(allocation["max_abs_tokens"],
                                     int(context_window * allocation["max_context_pct"]))
-            
+
             code_context_str = ""
             current_tokens = 0
 
@@ -532,7 +532,7 @@ class RouterAgent:
                         guidelines_tokens = estimate_tokens(guidelines_block)
 
                         # Allocate a significant portion of the budget specifically for guidelines
-                        guideline_budget = max_context_tokens * 0.75 
+                        guideline_budget = max_context_tokens * 0.75
                         if guidelines_tokens <= guideline_budget:
                             code_context_str += guidelines_block
                             current_tokens += guidelines_tokens
@@ -540,8 +540,8 @@ class RouterAgent:
                         else:
                             # Truncate guidelines if too long (simple truncation)
                             max_guideline_chars = int(len(guidelines_content) * (guideline_budget / guidelines_tokens))
-                            truncated_content = guidelines_content[:max_guideline_chars] + "\n... (guidelines truncated)"
-                            truncated_block = f"{guidelines_header}{truncated_content}\n\n"
+                            truncated_content = guidelines_content[:max_guideline_chars] +
+                                 "\n... (guidelines truncated)"                            truncated_block = f"{guidelines_header}{truncated_content}\n\n"
                             truncated_tokens = estimate_tokens(truncated_block)
                             code_context_str += truncated_block
                             current_tokens += truncated_tokens
@@ -552,62 +552,62 @@ class RouterAgent:
                 else:
                     scratchpad.log("RouterAgent", f"Guidelines file not found at {guidelines_path} for guideline_expert.", level="WARNING")
             # <<< END NEW BLOCK >>>
-            
+
             # Log the new allocation settings
-            scratchpad.log("RouterAgent", 
+            scratchpad.log("RouterAgent",
                 f"Using role-specific context allocation for {role}: "
                 f"{allocation['max_context_pct']*100:.0f}% of context window, "
                 f"max {max_context_tokens} tokens (was 15%/1500 tokens)")
-            
+
             # Preserve original ordering - respect relevance ranking from code analysis tool
             # The code_context is assumed to already be ordered by relevance
             files_to_process = list(code_context.items()) # Convert to list to iterate
-            
+
             # If role needs to preserve structure, include brief metadata about all files first
             if allocation.get("preserve_structure", False) and len(files_to_process) > 5:
                 structure_summary = "Project Structure Overview:\n"
-                for path, content in files_to_process: 
+                for path, content in files_to_process:
                     line_count = content.count('\n') + 1
                     structure_summary += f"- {path}: {line_count} lines\n"
-                
+
                 structure_tokens = estimate_tokens(structure_summary)
                 # Use up to 15% of our context budget for structure overview
                 if structure_tokens <= max_context_tokens * 0.15:
                     code_context_str += structure_summary + "\n\n"
                     current_tokens += structure_tokens
-            
+
             for path, content in files_to_process:
                 context_header = f"--- {path} ---\n"
-                
+
                 # If we should prioritize comments for this role, extract and highlight them
                 if allocation.get("prioritize_comments", False) and "# " in content:
                     # Extract comments (simplistic approach - could be improved)
-                    comments = "\n".join([line for line in content.split("\n") 
-                                         if line.strip().startswith("# ") or 
+                    comments = "\n".join([line for line in content.split("\n")
+                                         if line.strip().startswith("# ") or
                                          line.strip().startswith('"""') or
                                          line.strip().startswith("'''") or
                                          "# " in line])
-                    
+
                     if len(comments) > 100:  # Only if we have meaningful comments
                         comment_block = f"{context_header}DOCUMENTATION COMMENTS:\n{comments}\n\n"
                         comment_tokens = estimate_tokens(comment_block)
-                        
+
                         # If we can fit comments, add them with higher priority
                         if current_tokens + comment_tokens <= max_context_tokens * 0.4:
                             code_context_str += comment_block
                             current_tokens += comment_tokens
-                            
+
                             # Reduce remaining content by removing processed comments
-                            content = "\n".join([line for line in content.split("\n") 
+                            content = "\n".join([line for line in content.split("\n")
                                               if not (line.strip().startswith("# ") or
                                                     "# " in line or
                                                     line.strip().startswith('"""') or
                                                     line.strip().startswith("'''"))])
-                
+
                 # Process the full content or remaining content after comment extraction
                 context_block = f"{context_header}{content}\n\n"
                 block_tokens = estimate_tokens(context_block)
-                
+
                 if current_tokens + block_tokens <= max_context_tokens:
                     code_context_str += context_block
                     current_tokens += block_tokens
@@ -616,16 +616,16 @@ class RouterAgent:
                     header_tokens = estimate_tokens(context_header)
                     truncation_msg = "... (content truncated)\n\n"
                     truncation_tokens = estimate_tokens(truncation_msg)
-                    
+
                     if current_tokens + header_tokens + truncation_tokens <= max_context_tokens:
                         code_context_str += context_header + truncation_msg
                         current_tokens += header_tokens + truncation_tokens
-                    
+
                     # For error_analyzer role, try to include error-relevant parts even if we need to truncate
                     if role.lower() == "error_analyzer" and "error" in content.lower():
-                        error_lines = [i for i, line in enumerate(content.split("\n")) 
+                        error_lines = [i for i, line in enumerate(content.split("\n"))
                                      if "error" in line.lower() or "exception" in line.lower()]
-                        
+
                         if error_lines:
                             line_context = allocation.get("error_context_lines", 10)
                             error_context = []
@@ -635,31 +635,31 @@ class RouterAgent:
                                 end = min(len(lines), error_line + line_context)
                                 error_snippet = "\n".join(lines[start:end])
                                 error_context.append(f"ERROR CONTEXT (lines {start}-{end}):\n{error_snippet}")
-                            
+
                             error_content = "\n\n".join(error_context)
                             error_tokens = estimate_tokens(error_content)
-                            
+
                             # If we can fit error context within remaining budget
                             remaining_tokens = max_context_tokens - current_tokens
                             if error_tokens <= remaining_tokens:
-                                code_context_str += f"{context_header}[ERROR CONTEXTS ONLY]\n{error_content}\n\n"
-                                current_tokens += error_tokens + header_tokens
-                    
+                                code_context_str +
+                                    = f"{context_header}[ERROR CONTEXTS ONLY]\n{error_content}\n\n"                                current_tokens +
+                                                                                = error_tokens + header_tokens
                     # No more space for additional files
                     code_context_str += "\n... (more files truncated due to token limits)"
                     break  # Stop adding more files once limit is hit
-            
+
             if code_context_str:
                 enhanced_user_prompt = f"Relevant Code Context:\n{code_context_str}\n\n{enhanced_user_prompt}"
-                scratchpad.log("RouterAgent", 
-                    f"Added code context for {role} (estimated {current_tokens:.0f} tokens, " 
+                scratchpad.log("RouterAgent",
+                    f"Added code context for {role} (estimated {current_tokens:.0f} tokens, "
                     f"{len(code_context)} files, limit {max_context_tokens:.0f})")
-                
+
         # Add reminder about test-side workarounds to the user prompt
         reminder = "\n\n⚠️ IMPORTANT: You must NEVER modify tests to make failing code pass. Always fix the implementation code itself, not the tests. Modifying tests to accommodate broken code is strictly prohibited. ⚠️"
         enhanced_user_prompt += reminder
         scratchpad.log("RouterAgent", "Added test integrity reminder to user prompt")
-        
+
         if not endpoint_str or not auth_header_template:
             raise ValueError(f"API endpoint or auth_header missing for model {model_name}")
 
@@ -716,7 +716,7 @@ class RouterAgent:
 
         total_tokens = estimate_tokens(system_prompt) + estimate_tokens(enhanced_user_prompt)
         if total_tokens > context_window * 0.9:  # Within 90% of limit
-            scratchpad.log("RouterAgent", 
+            scratchpad.log("RouterAgent",
                 f"WARNING: Estimated input tokens ({total_tokens:.0f}) approaching context window ({context_window}) "
                 f"for {model_name}. Content may be truncated.", level="warning")
 
@@ -793,10 +793,10 @@ class RouterAgent:
     def process_command_pattern(self, query: str) -> Tuple[Optional[str], Optional[str]]:
         """
         Process special command patterns to determine if this is a command query.
-        
+
         Args:
             query: The user query string
-            
+
         Returns:
             Tuple of (command_type, command_content) if a command is detected,
             otherwise (None, None)
@@ -807,10 +807,10 @@ class RouterAgent:
                 # Extract the command content (what comes after the command)
                 cmd_content = match.group(1).strip() if match.group(1) else ""
                 return cmd_type, cmd_content
-                
+
         # No command pattern matched
         return None, None
-    
+
     def _get_role_specific_context_allocation(
         self,
         role: str,
@@ -824,14 +824,14 @@ class RouterAgent:
                 "max_context_pct": 0.60,  # 60% of context window
                 "max_abs_tokens": min(100000, int(context_window * 0.6)),
                 "prioritize_comments": True,
-                "preserve_structure": True, 
+                "preserve_structure": True,
                 "preserve_relevance_order": True,
                 "include_historical_context": True,  # Include file history, changes, etc.
                 "include_file_metadata": True,       # Include file and directory structures
                 "include_related_features": True,    # Include related past tasks/features
                 "system_prompt_suffix": "\n\nEXTREMELY CRITICAL: Your task is to analyze and decompose requests into well-structured features. You MUST output valid JSON that strictly follows the provided schema. Focus on identifying the underlying user intent, breaking down features, and assessing risks. Respond with JSON ONLY - no extra text or explanations."
             },
-            
+
             # Update planner for better context allocation
             "planner": {
                 "max_context_pct": 0.60,  # 60% of context window

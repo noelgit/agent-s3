@@ -12,8 +12,9 @@ from agent_s3.tools.summarization.refinement_manager import SummaryRefinementMan
 prompt_factory = SummarizationPromptFactory()
 validator = SummaryValidator(SummaryValidationConfig())
 
-def summarise_unit(code_unit: Dict[str, Any], router_agent: Any, config: Dict[str, Any] | None = None) -> str:
-    """
+
+def summarise_unit(code_unit: Dict[str, Any], router_agent: Any, config: Dict[str,
+     Any] | None = None) -> str:    """
     Summarize a code unit with validation and refinement.
     """
     code_text = code_unit.get('text', '')
@@ -46,6 +47,7 @@ def summarise_unit(code_unit: Dict[str, Any], router_agent: Any, config: Dict[st
         )
         summary = refinement_result["summary"]
     return summary
+
 
 def merge_summaries(summaries: List[str], language: str, router_agent: Any) -> str:
     """

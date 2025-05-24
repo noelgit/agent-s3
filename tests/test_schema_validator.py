@@ -1,7 +1,7 @@
 import importlib.util
 from pathlib import Path
-from pydantic import BaseModel
 
+from pydantic import BaseModel
 
 module_path = Path(__file__).resolve().parents[1] / "agent_s3" / "schema_validator.py"
 spec = importlib.util.spec_from_file_location("schema_validator", module_path)

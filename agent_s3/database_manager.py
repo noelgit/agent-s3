@@ -1,9 +1,9 @@
 """High level database operations using DatabaseTool."""
-
-from typing import Optional, Dict, Any
+from typing import Any
+from typing import Dict
+from typing import Optional
 
 from agent_s3.tools.database_tool import DatabaseTool
-
 
 class DatabaseManager:
     """Wrapper around :class:`DatabaseTool` providing higher level operations."""

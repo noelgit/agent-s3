@@ -1,8 +1,9 @@
 import json
+
 import pytest
 
-from agent_s3.config import Config, ConfigModel
-
+from agent_s3.config import Config
+from agent_s3.config import ConfigModel
 
 def test_load_defaults(tmp_path, monkeypatch):
     # Ensure no external config files

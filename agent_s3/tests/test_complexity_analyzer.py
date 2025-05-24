@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Test for the ComplexityAnalyzer class."""
-
 import unittest
+
 from agent_s3.complexity_analyzer import ComplexityAnalyzer
 
 class TestComplexityAnalyzer(unittest.TestCase):
     """Tests for the ComplexityAnalyzer class."""
-    
+
     def setUp(self):
         """Set up the analyzer and sample data."""
         self.analyzer = ComplexityAnalyzer()
-        
+
         # Sample low-complexity data
         self.low_complexity_data = {
             "feature_groups": [
@@ -30,7 +30,7 @@ class TestComplexityAnalyzer(unittest.TestCase):
                 }
             ]
         }
-        
+
         # Sample high-complexity data
         self.high_complexity_data = {
             "feature_groups": [
@@ -65,30 +65,30 @@ class TestComplexityAnalyzer(unittest.TestCase):
                 }
             ]
         }
-    
+
     def test_low_complexity_assessment(self):
         """Test that low complexity tasks are assessed correctly."""
         result = self.analyzer.assess_complexity(self.low_complexity_data, "Update the button styling")
         self.assertLess(result["score"], 40)
         self.assertLessEqual(result["level"], 2)
         self.assertFalse(result["is_complex"])
-    
+
     def test_high_complexity_assessment(self):
         """Test that high complexity tasks are assessed correctly."""
         result = self.analyzer.assess_complexity(
-            self.high_complexity_data, 
+            self.high_complexity_data,
             "Implement secure authentication system with OAuth2 integration and database transaction support"
         )
         self.assertGreater(result["score"], 40)
         self.assertGreaterEqual(result["level"], 3)
         self.assertTrue(result["is_complex"])
-    
+
     def test_security_factor_detection(self):
         """Test that security terms are properly detected and increase complexity."""
         # Add security terms to description
         security_description = "Implement login system with password encryption and token authentication"
         result = self.analyzer.assess_complexity(self.low_complexity_data, security_description)
-        
+
         # Ensure security factor is present and non-zero
         self.assertIn("security_sensitivity", result["factors"])
         self.assertGreater(result["factors"]["security_sensitivity"], 0)

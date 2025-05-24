@@ -21,7 +21,7 @@ class PrePlanningError(AgentS3BaseError):
         self.message = message
         self.details = details or {}
         super().__init__(message)
-        
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert error to dictionary representation."""
         return {
@@ -32,7 +32,7 @@ class PrePlanningError(AgentS3BaseError):
 
 class ValidationError(PrePlanningError):
     """Error for validation failures during pre-planning."""
-    def __init__(self, message: str, errors: List[str], 
+    def __init__(self, message: str, errors: List[str],
                  validation_results: Optional[Dict[str, Any]] = None):
         details = {
             "errors": errors
@@ -53,7 +53,7 @@ class RepairError(PrePlanningError):
 
 class ComplexityError(PrePlanningError):
     """Error for task complexity issues."""
-    def __init__(self, message: str, complexity_score: float, 
+    def __init__(self, message: str, complexity_score: float,
                  complexity_factors: Dict[str, float]):
         super().__init__(message, {
             "complexity_score": complexity_score,
@@ -68,7 +68,7 @@ def handle_pre_planning_errors(func):
         try:
             return func(*args, **kwargs)
         except ValidationError as e:
-            logger.error(f"Validation error in {func.__name__}: {e.message}")
+            logger.error("Validation error in %s: %s", func.__name__, e.message)
             return {
                 "success": False,
                 "error_type": "validation",
@@ -76,7 +76,7 @@ def handle_pre_planning_errors(func):
                 "details": e.details
             }
         except SchemaError as e:
-            logger.error(f"Schema error in {func.__name__}: {e.message}")
+            logger.error("Schema error in %s: %s", func.__name__, e.message)
             return {
                 "success": False,
                 "error_type": "schema",
@@ -84,7 +84,7 @@ def handle_pre_planning_errors(func):
                 "details": e.details
             }
         except RepairError as e:
-            logger.error(f"Repair error in {func.__name__}: {e.message}")
+            logger.error("Repair error in %s: %s", func.__name__, e.message)
             return {
                 "success": False,
                 "error_type": "repair",
@@ -92,7 +92,7 @@ def handle_pre_planning_errors(func):
                 "details": e.details
             }
         except ComplexityError as e:
-            logger.error(f"Complexity error in {func.__name__}: {e.message}")
+            logger.error("Complexity error in %s: %s", func.__name__, e.message)
             return {
                 "success": False,
                 "error_type": "complexity",
@@ -100,7 +100,7 @@ def handle_pre_planning_errors(func):
                 "details": e.details
             }
         except PrePlanningError as e:
-            logger.error(f"Pre-planning error in {func.__name__}: {e.message}")
+            logger.error("Pre-planning error in %s: %s", func.__name__, e.message)
             return {
                 "success": False,
                 "error_type": "pre_planning",
@@ -108,7 +108,7 @@ def handle_pre_planning_errors(func):
                 "details": e.details
             }
         except Exception as e:
-            logger.exception(f"Unexpected error in {func.__name__}: {str(e)}")
+            logger.exception("Unexpected error in %s: %s", func.__name__, str(e))
             return {
                 "success": False,
                 "error_type": "unexpected",

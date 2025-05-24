@@ -1,6 +1,5 @@
 from agent_s3 import auth
 
-
 def test_token_redacted_on_exception(monkeypatch, capsys):
     token = "abc123"
 

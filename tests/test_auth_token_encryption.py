@@ -3,8 +3,9 @@ from typing import Any
 from cryptography.fernet import Fernet
 import pytest
 
-from agent_s3.auth import save_token, load_token, TOKEN_ENCRYPTION_KEY_ENV
-
+from agent_s3.auth import TOKEN_ENCRYPTION_KEY_ENV
+from agent_s3.auth import load_token
+from agent_s3.auth import save_token
 
 def test_load_token_encrypted(tmp_path, monkeypatch):
     token_data = {"access_token": "abc123"}

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Integration test for the ComplexityAnalyzer module."""
-
 import sys
+
 from agent_s3.complexity_analyzer import ComplexityAnalyzer
 
 def main():
@@ -58,14 +58,14 @@ def main():
             }
         ]
     }
-    
+
     # Initialize the analyzer
     analyzer = ComplexityAnalyzer()
-    
+
     # Run the complexity assessment
     task_description = "Implement secure API integration with OAuth2 and update the dashboard UI"
     result = analyzer.assess_complexity(test_data, task_description)
-    
+
     # Print the results
     print("===== Complexity Assessment Results =====")
     print(f"Overall Complexity Score: {result['score']:.1f}/100")
@@ -74,14 +74,14 @@ def main():
     print("\nContributing Factors:")
     for factor, score in result['factors'].items():
         print(f"  - {factor}: {score:.1f}")
-    
+
     print("\nJustification:")
     for reason in result['justification']:
         print(f"  - {reason}")
-    
+
     print("\nAdvice:")
     print(result['advice'])
-    
+
     return 0
 
 if __name__ == "__main__":

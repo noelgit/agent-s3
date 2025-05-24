@@ -7,6 +7,7 @@ from gptcache.embedding import OpenAIEmbedding
 import json
 import os
 
+
 def init_semantic_cache():
     # Read config flag from llm.json
     config_path = os.path.join(os.path.dirname(__file__), '../../llm.json')

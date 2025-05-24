@@ -3,12 +3,13 @@
 This module provides a minimal smoke test for the TestCritic class. The
 previous tests for the old ``TestCriticRunner`` have been removed.
 """
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
-from unittest.mock import MagicMock, patch
 import pytest
 
-from agent_s3.tools.test_critic.core import TestCritic, TestVerdict
-
+from agent_s3.tools.test_critic.core import TestCritic
+from agent_s3.tools.test_critic.core import TestVerdict
 
 @pytest.fixture
 def sample_workspace(tmp_path):

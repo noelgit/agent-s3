@@ -1,9 +1,9 @@
 import os
 import sys
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 from agent_s3 import cli
-
 
 def run_main_with_prompt(prompt, user_input):
     with patch.object(sys, 'argv', ['agent-s3', prompt]):

@@ -1,6 +1,6 @@
+import agent_s3.tools.summarization.summary_validator as summary_validator
 from agent_s3.tools.summarization.summary_validator import SummaryValidator
 from agent_s3.tools.summarization.validation_config import SummaryValidationConfig
-import agent_s3.tools.summarization.summary_validator as summary_validator
 
 def test_summary_validator_faithful(monkeypatch):
     def fake_metrics(*_args, **_kwargs):

@@ -1,12 +1,13 @@
-import pytest
-import time
-import numpy as np
-import tempfile
-import shutil
 from pathlib import Path
+import shutil
+import tempfile
+import time
 
-from agent_s3.tools.embedding_client import EmbeddingClient, CACHE_DIR_NAME
+import numpy as np
+import pytest
 
+from agent_s3.tools.embedding_client import CACHE_DIR_NAME
+from agent_s3.tools.embedding_client import EmbeddingClient
 
 @pytest.fixture
 def temp_workspace():
@@ -38,7 +39,7 @@ def test_embedding_client_initialization(embedding_client, temp_workspace):
     assert embedding_client.dim == 384
     assert embedding_client.cache_enabled is True
     assert embedding_client.max_embeddings == 50
-    
+
     # Check that cache directory was created
     cache_dir = Path(temp_workspace) / CACHE_DIR_NAME
     assert cache_dir.exists()
@@ -49,16 +50,16 @@ def test_update_access_patterns(embedding_client):
     # Add test embeddings
     embeddings = np.random.random((5, embedding_client.dim)).astype('float32')
     file_paths = [f"file_{i}.py" for i in range(5)]
-    
+
     for i, (embedding, file_path) in enumerate(zip(embeddings, file_paths)):
         embedding_client.add_embedding(
             embedding=embedding.reshape(1, -1),
             metadata={"file_path": file_path, "chunk_id": i, "content": f"Test content {i}"}
         )
-    
+
     # Update access patterns for specific files
     embedding_client.update_access_patterns([file_paths[0], file_paths[2]])
-    
+
     # Check that access counts were updated
     for id_str, metadata in embedding_client.id_map.items():
         path = metadata.get("file_path")
@@ -74,14 +75,14 @@ def test_progressive_eviction_strategy(embedding_client):
     num_embeddings = 45  # Above the threshold (0.8 * 50 = 40)
     embeddings = np.random.random((num_embeddings, embedding_client.dim)).astype('float32')
     file_paths = [f"file_{i}.py" for i in range(num_embeddings)]
-    
+
     # Add embeddings with different access patterns
     current_time = time.time()
     for i, (embedding, file_path) in enumerate(zip(embeddings, file_paths)):
         timestamp = current_time - (3600 * i % 10)  # Different ages
         metadata = {
-            "file_path": file_path, 
-            "chunk_id": i, 
+            "file_path": file_path,
+            "chunk_id": i,
             "content": f"Test content {i}",
             "timestamp": timestamp,
             "last_access": timestamp,
@@ -91,22 +92,22 @@ def test_progressive_eviction_strategy(embedding_client):
             embedding=embedding.reshape(1, -1),
             metadata=metadata
         )
-    
+
     # Verify we have the right number of embeddings
     assert embedding_client.index.ntotal == num_embeddings
-    
+
     # Update access patterns for some files to protect them
     frequently_accessed = [file_paths[i] for i in range(0, num_embeddings, 5)]
     embedding_client.update_access_patterns(frequently_accessed)
-    
+
     # Trigger eviction
     evicted = embedding_client.evict_embeddings()
-    
+
     # Should have evicted some embeddings
     assert evicted > 0
     # Should be below threshold now
     assert embedding_client.index.ntotal <= embedding_client.max_embeddings * embedding_client.eviction_threshold
-    
+
     # Check that frequently accessed files were not evicted
     for id_str, metadata in embedding_client.id_map.items():
         path = metadata.get("file_path")
@@ -119,19 +120,19 @@ def test_add_embedding_method(embedding_client):
     # Create a test embedding
     embedding = np.random.random((1, embedding_client.dim)).astype('float32')
     metadata = {
-        "file_path": "test_file.py", 
-        "chunk_id": 1, 
+        "file_path": "test_file.py",
+        "chunk_id": 1,
         "content": "Test content"
     }
-    
+
     # Add the embedding
     embedding_client.add_embedding(embedding=embedding, metadata=metadata)
-    
+
     # Check it was added correctly
     assert embedding_client.index is not None
     assert embedding_client.index.ntotal == 1
     assert len(embedding_client.id_map) == 1
-    
+
     # Verify metadata was stored
     first_id = list(embedding_client.id_map.keys())[0]
     stored_metadata = embedding_client.id_map[first_id]

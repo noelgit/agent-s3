@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def configure_logging(verbose: bool = False) -> None:
     """Configure the logging system.
-    
+
     Args:
         verbose: Whether to enable verbose logging
     """
@@ -84,8 +84,6 @@ Special Commands (can be used in prompt):
     print(help_text)
 
 
-
-
 def process_command(coordinator: Coordinator, command: str) -> None:
     """Process a special command by delegating to CommandProcessor.
 
@@ -137,7 +135,7 @@ def main() -> None:
     if not prompt:
         display_help()
         return
-        
+
     # Handle help command without initializing coordinator
     if prompt == "/help":
         display_help()
@@ -177,10 +175,16 @@ def main() -> None:
 You are the orchestrator for an AI coding agent. Your job is to classify the user's bare text input into one of the following routing categories. Respond with a JSON object containing "category", "rationale", and "confidence" (0-1).
 
 Categories:
-- planner: Single-concern feature or simple code change request. Example: "Add a logout button to the navbar." Route to the planner.
-- designer: Multi-concern or architectural/design requests. Example: "Redesign the authentication and notification systems." Route to the designer.
-- tool_user: Not a feature or design request. User wants to execute a command (e.g., run tests, list files, run a script). Example: "Run all tests" or "Show me the last 10 git commits." Route to the tool_user LLM.
-- general_qa: General question/answer, may or may not be about the codebase. Example: "What is the purpose of this project?" or "How does OAuth2 work?" Route to the general_qa LLM.
+- planner: Single-concern feature or simple code change request.
+  Example: "Add a logout button to the navbar." Route to the planner.
+- designer: Multi-concern or architectural/design requests.
+  Example: "Redesign the authentication and notification systems." Route to the designer.
+- tool_user: Not a feature or design request. User wants to execute a command
+  (e.g., run tests, list files, run a script).
+  Example: "Run all tests" or "Show me the last 10 git commits." Route to the tool_user LLM.
+- general_qa: General question/answer, may or may not be about the codebase.
+  Example: "What is the purpose of this project?" or "How does OAuth2 work?"
+  Route to the general_qa LLM.
 
 If you are not confident, set confidence below 0.7 and explain why in rationale.
 

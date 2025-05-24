@@ -1,11 +1,11 @@
 """Tests for handling exceptions in Coordinator.run_task."""
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import pytest
-from unittest.mock import MagicMock, patch
 
-from agent_s3.coordinator import Coordinator
 from agent_s3.config import Config
-
+from agent_s3.coordinator import Coordinator
 
 @pytest.fixture
 def mock_config():

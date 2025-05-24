@@ -4,12 +4,12 @@ Tests for the Coordinator plan validation functionality.
 This includes validation of pre-planning data, complexity warnings,
 and user confirmation flows.
 """
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import pytest
-from unittest.mock import MagicMock, patch
 
 from agent_s3.coordinator import Coordinator
-
 
 class TestCoordinatorPlanValidation:
     """Test the plan validation and complexity checks in Coordinator."""
@@ -36,9 +36,9 @@ class TestCoordinatorPlanValidation:
              patch('agent_s3.coordinator.BashTool'), \
              patch('agent_s3.coordinator.TaskResumer'), \
              patch('agent_s3.coordinator.DatabaseManager'):
-        
+
             coordinator = Coordinator(config=mock_config)
-            
+
             # Mock required components for tests
             coordinator.scratchpad = MagicMock()
             coordinator.progress_tracker = MagicMock()
@@ -47,7 +47,7 @@ class TestCoordinatorPlanValidation:
             coordinator.feature_group_processor = MagicMock()
             coordinator.task_state_manager = MagicMock()
             coordinator.debugging_manager = MagicMock()
-            
+
             yield coordinator
 
     def test_validate_pre_planning_data_valid(self, coordinator):
@@ -67,14 +67,14 @@ class TestCoordinatorPlanValidation:
                 }
             ]
         }
-        
+
         # Execute validation
         result = coordinator._validate_pre_planning_data(valid_data)
-        
+
         # Assert
         assert result is True
         coordinator.scratchpad.log.assert_any_call(
-            "Coordinator", 
+            "Coordinator",
             "Validating pre-planning data structure..."
         )
 
@@ -82,11 +82,11 @@ class TestCoordinatorPlanValidation:
         """Test validation of pre-planning data with invalid type."""
         # Create invalid pre-planning data (not a dictionary)
         invalid_data = ["This", "is", "not", "a", "dictionary"]
-        
+
         # Execute validation and verify exception is raised
         with pytest.raises(ValueError) as excinfo:
             coordinator._validate_pre_planning_data(invalid_data)
-        
+
         # Assert error message
         assert "Pre-planning data must be a dictionary" in str(excinfo.value)
 
@@ -97,11 +97,11 @@ class TestCoordinatorPlanValidation:
             "status": "completed",
             "complexity_score": 50
         }
-        
+
         # Execute validation and verify exception is raised
         with pytest.raises(ValueError) as excinfo:
             coordinator._validate_pre_planning_data(invalid_data)
-        
+
         # Assert error message
         assert "missing feature_groups" in str(excinfo.value)
 
@@ -111,11 +111,11 @@ class TestCoordinatorPlanValidation:
         invalid_data = {
             "feature_groups": []
         }
-        
+
         # Execute validation and verify exception is raised
         with pytest.raises(ValueError) as excinfo:
             coordinator._validate_pre_planning_data(invalid_data)
-        
+
         # Assert error message
         assert "feature_groups is empty" in str(excinfo.value)
 
@@ -134,29 +134,29 @@ class TestCoordinatorPlanValidation:
                 }
             ]
         }
-        
+
         # Configure mocks
         coordinator.prompt_moderator.ask_ternary_question.return_value = "yes"  # User proceeds
         coordinator._present_pre_planning_results_to_user.return_value = ("yes", None)
-        
+
         # Mock call_pre_planner_with_enforced_json
-        with patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json', 
+        with patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json',
                  return_value=(True, complex_task_data)):
-            
+
             # Execute run_task
             coordinator.run_task("Implement feature")
-        
+
         # Verify complexity warning was logged
         coordinator.scratchpad.log.assert_any_call(
             "Coordinator",
             "Task assessed as complex (Score: 5.0)"
         )
-        
+
         # Verify user was asked for confirmation
         coordinator.prompt_moderator.ask_ternary_question.assert_any_call(
             "How would you like to proceed?"
         )
-        
+
         # Verify feature group processing was called
         coordinator.feature_group_processor.process_pre_planning_output.assert_called_once()
 
@@ -175,29 +175,29 @@ class TestCoordinatorPlanValidation:
                 }
             ]
         }
-        
+
         # Configure mocks
         coordinator.prompt_moderator.ask_ternary_question.return_value = "yes"  # User proceeds
         coordinator._present_pre_planning_results_to_user.return_value = ("yes", None)
-        
+
         # Mock call_pre_planner_with_enforced_json
-        with patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json', 
+        with patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json',
                  return_value=(True, complex_task_data)):
-            
+
             # Execute run_task
             coordinator.run_task("Implement feature")
-        
+
         # Verify complexity warning was logged
         coordinator.scratchpad.log.assert_any_call(
             "Coordinator",
             "Task assessed as complex (Score: 8.5)"
         )
-        
+
         # Verify user was asked for confirmation
         coordinator.prompt_moderator.ask_ternary_question.assert_any_call(
             "How would you like to proceed?"
         )
-        
+
         # Verify feature group processing was called
         coordinator.feature_group_processor.process_pre_planning_output.assert_called_once()
 
@@ -216,34 +216,34 @@ class TestCoordinatorPlanValidation:
                 }
             ]
         }
-        
+
         # Configure mocks
         coordinator.prompt_moderator.ask_ternary_question.return_value = "modify"  # User chooses to modify
-        
+
         # Mock call_pre_planner_with_enforced_json
-        with patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json', 
+        with patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json',
                  return_value=(True, complex_task_data)):
-            
+
             # Execute run_task
             coordinator.run_task("Implement feature")
-        
+
         # Verify complexity warning was logged
         coordinator.scratchpad.log.assert_any_call(
             "Coordinator",
             "Task assessed as complex (Score: 9.0)"
         )
-        
+
         # Verify user was asked for confirmation
         coordinator.prompt_moderator.ask_ternary_question.assert_called_once_with(
             "How would you like to proceed?"
         )
-        
+
         # Verify user's decision to modify was logged
         coordinator.scratchpad.log.assert_any_call(
             "Coordinator",
             "User chose to refine the request."
         )
-        
+
         # Verify feature group processing was NOT called
         coordinator.feature_group_processor.process_pre_planning_output.assert_not_called()
 
@@ -262,34 +262,34 @@ class TestCoordinatorPlanValidation:
                 }
             ]
         }
-        
+
         # Configure mocks
         coordinator.prompt_moderator.ask_ternary_question.return_value = "no"  # User chooses to cancel
-        
+
         # Mock call_pre_planner_with_enforced_json
-        with patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json', 
+        with patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json',
                  return_value=(True, complex_task_data)):
-            
+
             # Execute run_task
             coordinator.run_task("Implement feature")
-        
+
         # Verify complexity warning was logged
         coordinator.scratchpad.log.assert_any_call(
             "Coordinator",
             "Task assessed as complex (Score: 9.5)"
         )
-        
+
         # Verify user was asked for confirmation
         coordinator.prompt_moderator.ask_ternary_question.assert_called_once_with(
             "How would you like to proceed?"
         )
-        
+
         # Verify user's decision to cancel was logged
         coordinator.scratchpad.log.assert_any_call(
             "Coordinator",
             "User cancelled the complex task."
         )
-        
+
         # Verify feature group processing was NOT called
         coordinator.feature_group_processor.process_pre_planning_output.assert_not_called()
 
@@ -308,20 +308,20 @@ class TestCoordinatorPlanValidation:
                 }
             ]
         }
-        
+
         # Configure mocks
         coordinator._present_pre_planning_results_to_user.return_value = ("yes", None)
-        
+
         # Mock call_pre_planner_with_enforced_json
-        with patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json', 
+        with patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json',
                  return_value=(True, simple_task_data)):
-            
+
             # Execute run_task
             coordinator.run_task("Implement simple feature")
-        
+
         # Verify no complexity confirmation was requested
         coordinator.prompt_moderator.ask_ternary_question.assert_not_called()
-        
+
         # Verify feature group processing was called
         coordinator.feature_group_processor.process_pre_planning_output.assert_called_once()
 
@@ -340,34 +340,34 @@ class TestCoordinatorPlanValidation:
                 }
             ]
         }
-        
+
         # Mock Plan Validator
         with patch('agent_s3.tools.plan_validator.validate_pre_plan', return_value=(True, [])):
             # Mock call_pre_planner_with_enforced_json
-            with patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json', 
+            with patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json',
                     return_value=(True, complex_task_data)):
-                
+
                 # Configure user to cancel
                 coordinator.prompt_moderator.ask_ternary_question.return_value = "no"  # User cancels
-                
+
                 # Execute run_task
                 coordinator.run_task("Implement complex feature to cancel early")
-                
+
                 # Verify complexity check happens before presenting results to user
                 complexity_log_call = None
                 present_results_call = None
-                
+
                 # Find relevant method call indices in the scratchpad.log mock calls
                 for i, call in enumerate(coordinator.scratchpad.log.mock_calls):
                     if "Task assessed as complex" in str(call):
                         complexity_log_call = i
                     if "Pre-planning complete" in str(call):
                         present_results_call = i
-                
+
                 # Assert that complexity check happened and happened before user handoff
                 assert complexity_log_call is not None
                 assert present_results_call is None or complexity_log_call < present_results_call
-                
+
                 # Verify feature group processing was NOT called
                 coordinator.feature_group_processor.process_pre_planning_output.assert_not_called()
 

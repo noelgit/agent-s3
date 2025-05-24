@@ -24,7 +24,7 @@ class TestGenerationError(Exception):
 def get_test_implementation_system_prompt() -> str:
     """
     Get the enhanced system prompt for test code generation with stricter JSON enforcement.
-    
+
     Returns:
         Properly formatted system prompt string
     """
@@ -53,8 +53,12 @@ Your task is to implement complete, runnable test code based on refined test spe
       //   "tested_functions": ["src/services/auth_service.py::AuthService.authenticate"],
       //   "target_element_ids": ["auth_service_authenticate_function"],
       //   "description": "Verify authentication fails and returns appropriate error when invalid credentials are provided",
-      //   "code": "def test_authenticate_fails_with_invalid_credentials():\n    # Arrange\n    auth_service = AuthService()\n    username = 'nonexistent_user'\n    password = 'any_password'\n\n    # Act\n    result = auth_service.authenticate(username, password)\n\n    # Assert\n    assert result.success is False\n    assert result.error_code == 'AUTH_INVALID_CREDENTIALS'",
-      //   "setup_requirements": "Mock UserRepository to return None for the nonexistent user",
+      //   "code": "def test_authenticate_fails_with_invalid_credentials()
+          :\n    # Arrange\n    auth_service = AuthService()
+          \n    username = 'nonexistent_user'\n    password = 'any_password'\n\n    # Act\n    result = auth_service.authenticate
+          (username, password)
+          \n\n    # Assert\n    assert result.success is False\n    assert result.error_code == 'AUTH_INVALID_CREDENTIALS'"
+          ,      //   "setup_requirements": "Mock UserRepository to return None for the nonexistent user",
       //   "architecture_issue_addressed": "Security concern regarding authentication validation"
       // }
     ],
@@ -76,8 +80,13 @@ Your task is to implement complete, runnable test code based on refined test spe
       //   "description": "Test that the login process correctly generates and stores an authentication token",
       //   "components_involved": ["AuthService", "TokenGenerator", "UserRepository", "SessionManager"],
       //   "target_element_ids": ["auth_service_login_function", "token_generator_create_token", "session_manager_store"],
-      //   "code": "def test_login_generates_and_stores_valid_token():\n    # Arrange\n    user = create_test_user()\n    auth_service = get_auth_service()\n    session = {}\n\n    # Act\n    login_result = auth_service.login(user.username, 'correct_password', session)\n\n    # Assert\n    assert login_result.success is True\n    assert 'token' in session\n    token = session['token']\n    decoded = jwt.decode(token, verify=False)\n    assert decoded['user_id'] == user.id\n    assert decoded['exp'] > time.time()",
-      //   "setup_requirements": "Database with test user, mock TokenGenerator for verification",
+      //   "code": "def test_login_generates_and_stores_valid_token()
+          :\n    # Arrange\n    user = create_test_user()\n    auth_service = get_auth_service()
+          \n    session = {}\n\n    # Act\n    login_result = auth_service.login(user.username,
+           'correct_password', session)
+          \n\n    # Assert\n    assert login_result.success is True\n    assert 'token' in session\n    token = session['token']\n    decoded = jwt.decode
+          (token, verify=False)
+          \n    assert decoded['user_id'] == user.id\n    assert decoded['exp'] > time.time()",      //   "setup_requirements": "Database with test user, mock TokenGenerator for verification",
       //   "architecture_issue_addressed": "Logical gap in token generation and session management interaction"
       // }
     ],
@@ -121,8 +130,15 @@ Your task is to implement complete, runnable test code based on refined test spe
       //   "test_name": "test_new_user_registration",
       //   "description": "Verify that new users can successfully register for an account",
       //   "target_element_ids": ["user_registration_controller", "user_service_create", "auth_service_login"],
-      //   "code": "def test_new_user_registration():\n    # Given\n    app = create_test_app()\n    client = app.test_client()\n    username = f'testuser_{int(time.time())}'\n    \n    # When\n    response = client.post('/register', json={\n        'username': username,\n        'email': f'{username}@example.com',\n        'password': 'SecurePass123!'\n    })\n    \n    # Then\n    assert response.status_code == 200\n    data = response.get_json()\n    assert data['success'] is True\n    assert 'user_id' in data\n    \n    # Verify user is in database\n    user_service = get_user_service()\n    user = user_service.get_by_username(username)\n    assert user is not None\n    assert user.email == f'{username}@example.com'",
-      //   "setup_requirements": "Flask test client, clean test database",
+      //   "code": "def test_new_user_registration():\n    # Given\n    app = create_test_app()
+          \n    client = app.test_client()\n    username = f'testuser_{int(time.time())
+          }'\n    \n    # When\n    response = client.post('/register',
+           json={\n        'username': username,\n        'email': f'{username}@example.com',
+          \n        'password': 'SecurePass123!'\n    })
+          \n    \n    # Then\n    assert response.status_code == 200\n    data = response.get_json()
+          \n    assert data['success'] is True\n    assert 'user_id' in data\n    \n    # Verify user is in database\n    user_service = get_user_service
+          ()\n    user = user_service.get_by_username(username)
+          \n    assert user is not None\n    assert user.email == f'{username}@example.com'",      //   "setup_requirements": "Flask test client, clean test database",
       //   "given": "A user is on the registration page and has not previously created an account",
       //   "when": "The user fills in valid registration information and submits the form",
       //   "then": "A new account should be created, the user should be logged in, and redirected to the dashboard",
@@ -256,7 +272,7 @@ Your test implementations will be used to validate the actual code implementatio
 
 
 def generate_test_implementations(
-    router_agent, 
+    router_agent,
     refined_test_specs: Dict[str, Any],
     system_design: Dict[str, Any],
     architecture_review: Dict[str, Any],
@@ -265,7 +281,7 @@ def generate_test_implementations(
 ) -> Dict[str, Any]:
     """
     Generate concrete test implementations based on refined test specifications.
-    
+
     Args:
         router_agent: The LLM router agent for making LLM calls
         refined_test_specs: The refined test specifications
@@ -273,12 +289,12 @@ def generate_test_implementations(
         architecture_review: The architecture review data including security concerns
         task_description: Original task description
         context: Optional additional context
-        
+
     Returns:
         Dictionary containing test implementations
     """
     logger.info("Generating test implementations from refined specifications")
-    
+
     # Create the enhanced user prompt
     user_prompt = f"""Please implement complete, runnable test code based on the refined test specifications.
 
@@ -320,7 +336,7 @@ Each test must include complete runnable code - not stubs or pseudocode.
     # Get LLM parameters
     llm_params = get_openrouter_json_params()
     llm_params["temperature"] = 0.2  # Lower temperature for more reliable code generation
-    
+
     # Call the LLM
     try:
         system_prompt = get_test_implementation_system_prompt()
@@ -330,7 +346,7 @@ Each test must include complete runnable code - not stubs or pseudocode.
             user_prompt=user_prompt,
             config=llm_params
         )
-        
+
         # Parse and validate the response
         try:
             # Extract JSON from the response
@@ -344,40 +360,40 @@ Each test must include complete runnable code - not stubs or pseudocode.
                     json_str = json_match.group(1)
                 else:
                     json_str = response_text
-            
+
             # Parse the JSON
             response_data = json.loads(json_str)
-            
+
             # Validate expected structure
             if "tests" not in response_data:
                 raise ValueError("Missing 'tests' in response")
-            
+
             # Perform validation and repair
             logger.info("Validating test implementations")
             from .tools.test_implementation_validator import (
-                validate_test_implementations, 
+                validate_test_implementations,
                 repair_test_implementations
             )
-            
+
             validated_data, validation_issues, needs_repair = validate_test_implementations(
                 response_data,
                 refined_test_specs,
                 system_design,
                 architecture_review
             )
-            
+
             # Log validation results
             issue_count = len(validation_issues)
             if issue_count > 0:
-                logger.warning(f"Found {issue_count} issues in test implementations")
+                logger.warning("%s", Found {issue_count} issues in test implementations)
                 critical_issues = sum(1 for issue in validation_issues if issue.get('severity') == 'critical')
                 high_issues = sum(1 for issue in validation_issues if issue.get('severity') == 'high')
                 other_issues = issue_count - critical_issues - high_issues
-                
-                logger.warning(f"Issues breakdown: {critical_issues} critical, {high_issues} high, {other_issues} medium/low")
+
+                logger.warning("%s", Issues breakdown: {critical_issues} critical, {high_issues} high, {other_issues} medium/low)
             else:
                 logger.info("No issues found in test implementations")
-            
+
             # Attempt repair if needed
             if needs_repair:
                 logger.info("Attempting to repair test implementation issues")
@@ -390,17 +406,17 @@ Each test must include complete runnable code - not stubs or pseudocode.
                 )
                 logger.info("Test implementations repaired")
                 return repaired_data
-            
+
             return validated_data
-            
+
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON response: {e}")
+            logger.error("%s", Failed to parse JSON response: {e})
             raise TestGenerationError(f"Invalid JSON response: {e}")
         except ValueError as e:
-            logger.error(f"Invalid response structure: {e}")
+            logger.error("%s", Invalid response structure: {e})
             raise TestGenerationError(f"Invalid response structure: {e}")
-    
+
     except Exception as e:
-        logger.error(f"Error generating test implementations: {e}")
+        logger.error("%s", Error generating test implementations: {e})
         logger.error(traceback.format_exc())
         raise TestGenerationError(f"Error generating test implementations: {e}")

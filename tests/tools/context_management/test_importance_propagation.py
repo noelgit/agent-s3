@@ -3,8 +3,9 @@ Test that ContextManager._optimize_context correctly propagates task-keyword-boo
 and that pruning decisions respect these scores (i.e., high-importance files are not pruned).
 """
 import pytest
-from agent_s3.tools.context_management.context_manager import ContextManager
+
 from agent_s3.tools.context_management.content_pruning_manager import ContentPruningManager
+from agent_s3.tools.context_management.context_manager import ContextManager
 from agent_s3.tools.context_management.token_budget import TokenBudgetAnalyzer
 
 class DummyEstimator:

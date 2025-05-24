@@ -21,18 +21,18 @@ logger = logging.getLogger(__name__)
 
 class ToolDefinitions:
     """Manages definitions and schemas for tools available to LLMs."""
-    
+
     @staticmethod
     def get_all(registry: Optional['ToolRegistry'] = None) -> str:
         """Get all tool definitions formatted as a string for LLM consumption.
-        
+
         Generates tool definitions dynamically from registry if provided, otherwise
         uses static definitions. This ensures LLMs have accurate and up-to-date
         information about available tools and their parameters.
-        
+
         Args:
             registry: Optional ToolRegistry to dynamically generate definitions
-            
+
         Returns:
             Formatted string containing all tool definitions
         """
@@ -41,12 +41,12 @@ class ToolDefinitions:
             tool_names = registry.get_tool_names()
             tool_descriptions = registry.get_tool_descriptions()
             tools = []
-            
+
             # Get parameter info from the actual tool instances
             for name in tool_names:
                 tool = registry.get_tool(name)
                 parameters = {}
-                
+
                 # Extract parameter info from tool methods if available
                 if hasattr(tool, 'get_parameter_schema'):
                     parameters = tool.get_parameter_schema()
@@ -79,7 +79,7 @@ class ToolDefinitions:
                         parameters = {
                             "action": "The action to perform (detect, get_info, etc.)"
                         }
-                
+
                 tools.append({
                     "name": name,
                     "description": tool_descriptions.get(name, f"Tool: {name}"),
@@ -131,7 +131,7 @@ class ToolDefinitions:
                     }
                 }
             ]
-        
+
         # Format tools as a string
         result = "# Available Tools\n\n"
         for tool in tools:
@@ -141,45 +141,45 @@ class ToolDefinitions:
             for param_name, param_desc in tool['parameters'].items():
                 result += f"- `{param_name}`: {param_desc}\n"
             result += "\n"
-            
+
         return result
 
 class ToolRegistry:
     """Registry for tools available to the agent.
-    
+
     Provides secure tool registration with proper validation, configuration checks,
     on-demand loading, and resource cleanup. Follows the principle of least privilege
     by validating all credentials and configuration before use.
     """
-    
+
     def __init__(self, config):
         """Initialize the tool registry with configuration.
-        
+
         Args:
             config: Configuration object containing tool settings
         """
         self.config = config
         self.tools: Dict[str, Any] = {}
         self._initialized = False
-    
+
     def initialize(self) -> None:
         """Initialize the tool registry and register basic tools.
-        
+
         Performs lazy initialization to improve startup performance.
         """
         if self._initialized:
             return
-            
+
         self.register_tools()
         self._initialized = True
-    
+
     def _validate_config(self, tool_name: str, required_params: List[str]) -> bool:
         """Validate required configuration parameters exist for a tool.
-        
+
         Args:
             tool_name: Name of the tool being configured
             required_params: List of required configuration parameters
-            
+
         Returns:
             True if configuration is valid, False otherwise
         """
@@ -190,68 +190,68 @@ class ToolRegistry:
                 parts = param.split(".")
                 config_section = self.config.config
                 valid = True
-                
+
                 for part in parts:
                     if isinstance(config_section, dict) and part in config_section:
                         config_section = config_section[part]
                     else:
                         valid = False
                         break
-                        
+
                 if not valid:
                     missing_params.append(param)
             elif param not in self.config.config:
                 missing_params.append(param)
-                
+
         if missing_params:
-            logger.warning(f"Missing required configuration for {tool_name}: {', '.join(missing_params)}")
+            logger.warning("%s", Missing required configuration for {tool_name}: {', '.join(missing_params)})
             return False
-            
+
         return True
-    
+
     def _validate_token(self, token: Optional[str]) -> bool:
         """Validate that a token is properly formatted and non-empty.
-        
+
         Provides basic validation for security credentials to prevent
         passing invalid tokens to external services.
-        
+
         Args:
             token: The token to validate
-            
+
         Returns:
             True if token appears valid, False otherwise
         """
         if not token:
             return False
-            
+
         # Basic validation - check it's a non-empty string with reasonable length
         if not isinstance(token, str) or len(token) < 8:
             return False
-            
+
         # Basic pattern checking for GitHub tokens (usually 40+ hex chars)
         # This is a simple check and not foolproof
         if token.startswith("github_") or all(c in "0123456789abcdefABCDEF" for c in token):
             return True
-            
+
         logger.warning("GitHub token format appears invalid")
         return False
-    
+
     def register_tool(self, tool_name: str) -> bool:
         """Register a specific tool by name.
-        
+
         Provides on-demand tool registration to avoid unnecessary resource
         allocation for tools that aren't used.
-        
+
         Args:
             tool_name: Name of the tool to register
-            
+
         Returns:
             True if registration successful, False otherwise
         """
         if tool_name in self.tools:
             # Already registered
             return True
-            
+
         try:
             if tool_name == "file_tool":
                 if self._validate_config("file_tool", ["allowed_dirs"]):
@@ -288,12 +288,12 @@ class ToolRegistry:
             elif tool_name == "git_tool":
                 # Validate GitHub token if present
                 token = self.config.config.get("github_token") or self.config.config.get("dev_github_token")
-                
+
                 # Ensure terminal_executor is registered
                 if "terminal_executor" not in self.tools:
                     self.register_tool("terminal_executor")
                 terminal_executor = self.tools["terminal_executor"]
-                
+
                 if self._validate_token(token):
                     self.tools["git_tool"] = GitTool(
                         token=token,
@@ -338,7 +338,7 @@ class ToolRegistry:
                     if "bash_tool" not in self.tools:
                         self.register_tool("bash_tool")
                     bash_tool = self.tools["bash_tool"]
-                    
+
                     self.tools["database_tool"] = DatabaseTool(
                         config=self.config,
                         bash_tool=bash_tool  # Pass the BashTool instance for fallback
@@ -349,18 +349,18 @@ class ToolRegistry:
                     logger.warning("Cannot register database_tool: No databases configured")
                     return False
             else:
-                logger.warning(f"Unknown tool: {tool_name}")
+                logger.warning("%s", Unknown tool: {tool_name})
                 return False
         except Exception as e:
-            logger.error(f"Error registering tool {tool_name}: {e}")
-            logger.error(f"Stack trace: {traceback.format_exc()}")
+            logger.error("%s", Error registering tool {tool_name}: {e})
+            logger.error("%s", Stack trace: {traceback.format_exc()})
             return False
-        
+
         return False  # Default if we reach here
-        
+
     def register_tools(self) -> None:
         """Register all available tools with validation.
-        
+
         Registers core tools first, then optional tools with proper dependency
         handling and configuration validation.
         """
@@ -370,68 +370,68 @@ class ToolRegistry:
             for tool_name in core_tools:
                 success = self.register_tool(tool_name)
                 if success:
-                    logger.debug(f"Successfully registered core tool: {tool_name}")
+                    logger.debug("%s", Successfully registered core tool: {tool_name})
                 else:
-                    logger.warning(f"Failed to register core tool: {tool_name}")
-            
+                    logger.warning("%s", Failed to register core tool: {tool_name})
+
             # Register optional tools
             optional_tools = ["embedding_client", "database_tool", "tech_stack_manager"]
             for tool_name in optional_tools:
                 success = self.register_tool(tool_name)
                 if success:
-                    logger.debug(f"Successfully registered optional tool: {tool_name}")
-            
-            logger.info(f"Successfully registered {len(self.tools)} tools")
+                    logger.debug("%s", Successfully registered optional tool: {tool_name})
+
+            logger.info("%s", Successfully registered {len(self.tools)} tools)
         except Exception as e:
-            logger.error(f"Error registering tools: {e}")
+            logger.error("%s", Error registering tools: {e})
             raise
-    
+
     def get_tool(self, tool_name: str) -> Optional[Any]:
         """Get a tool by name, registering it if needed.
-        
+
         Provides lazy loading of tools - only instantiates them when requested.
-        
+
         Args:
             tool_name: Name of the tool to retrieve
-            
+
         Returns:
             The requested tool instance or None if unavailable
         """
         if not self._initialized:
             self.initialize()
-            
+
         if tool_name in self.tools:
             return self.tools.get(tool_name)
-            
+
         # Try to register the tool
         if self.register_tool(tool_name):
             return self.tools.get(tool_name)
-            
+
         return None
-    
+
     def get_all_tools(self) -> Dict[str, Any]:
         """Get all registered tools.
-        
+
         Returns:
             Dictionary of all tools keyed by name
         """
         if not self._initialized:
             self.initialize()
         return self.tools
-        
+
     def get_tool_names(self) -> List[str]:
         """Get names of all registered tools.
-        
+
         Returns:
             List of tool names
         """
         if not self._initialized:
             self.initialize()
         return list(self.tools.keys())
-    
+
     def get_tool_descriptions(self) -> Dict[str, str]:
         """Get descriptions of all tools.
-        
+
         Returns:
             Dictionary mapping tool names to descriptions
         """
@@ -442,10 +442,10 @@ class ToolRegistry:
             doc = getattr(tool, "__doc__", "") or ""
             descriptions[name] = doc.strip().split('\n')[0] if doc else f"Tool: {name}"
         return descriptions
-    
+
     def cleanup(self) -> None:
         """Clean up resources used by tools.
-        
+
         Calls cleanup methods on tools that support it and releases resources.
         Should be called when the registry is no longer needed to prevent
         resource leaks.
@@ -455,19 +455,19 @@ class ToolRegistry:
                 # Call cleanup method if it exists
                 if hasattr(tool, 'cleanup') and callable(getattr(tool, 'cleanup')):
                     tool.cleanup()
-                    
+
                 # Special handling for specific tools
                 if name == "embedding_client" and hasattr(tool, 'close'):
                     tool.close()
             except Exception as e:
-                logger.error(f"Error cleaning up tool {name}: {e}")
-                
+                logger.error("%s", Error cleaning up tool {name}: {e})
+
         self.tools.clear()
         self._initialized = False
-    
+
     def __del__(self):
         """Destructor to ensure resources are cleaned up.
-        
+
         Prevents resource leaks by automatically cleaning up when the registry
         is garbage collected.
         """
@@ -475,7 +475,7 @@ class ToolRegistry:
             self.cleanup()
         except Exception as e:
             # Avoid crashing during interpreter shutdown
-            logger.error(f"Error in ToolRegistry destructor: {e}")
+            logger.error("%s", Error in ToolRegistry destructor: {e})
 
 
 def get_tools(config):

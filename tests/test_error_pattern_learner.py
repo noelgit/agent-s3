@@ -1,7 +1,7 @@
 import os
 import tempfile
-from agent_s3.tools import error_pattern_learner as epl
 
+from agent_s3.tools import error_pattern_learner as epl
 
 def test_error_pattern_learning_and_prediction(monkeypatch):
     # Use temporary file for pattern DB

@@ -1,6 +1,5 @@
 from agent_s3.tools.file_tool import FileTool
 
-
 def test_read_file_override_max_size(tmp_path):
     workspace = tmp_path / "workspace"
     workspace.mkdir()

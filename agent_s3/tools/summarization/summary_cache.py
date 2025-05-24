@@ -1,8 +1,8 @@
 """
 SummaryCache: LRU cache for validated summaries, with content-hash based invalidation.
 """
-import hashlib
 from collections import OrderedDict
+import hashlib
 
 class SummaryCache:
     def __init__(self, max_size=128):

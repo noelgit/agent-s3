@@ -1,6 +1,6 @@
 import numpy as np
-import agent_s3.tools.summarization.validation_metrics as vm
 
+import agent_s3.tools.summarization.validation_metrics as vm
 
 def test_compute_faithfulness_caching(monkeypatch):
     calls = []

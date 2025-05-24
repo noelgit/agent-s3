@@ -1,9 +1,9 @@
-declare module 'fs' {
+declare module "fs" {
   const x: any;
   export = x;
 }
 
-declare module 'path' {
+declare module "path" {
   const x: any;
   export = x;
 }

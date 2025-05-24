@@ -1,6 +1,5 @@
 from agent_s3.design_manager import DesignManager
 
-
 def test_detect_design_completion_case_insensitive():
     """Design completion detection should handle mixed-case indicators."""
     manager = DesignManager()
