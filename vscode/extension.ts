@@ -6,6 +6,7 @@ import { initializeWebSocketTester } from "./websocket-tester";
 import { registerPerformanceTestCommand } from "./websocket-performance-test";
 import { quote } from "./shellQuote";
 import { ChatHistoryEntry } from "./types/message";
+import { CHAT_HISTORY_KEY } from "./constants";
 
 /**
  * Extension activation point
@@ -200,7 +201,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Load persisted chat history from workspace state
     const rawHistory: any[] = context.workspaceState.get(
-      "agent-s3.chatHistory",
+      CHAT_HISTORY_KEY,
       [],
     );
 
@@ -228,7 +229,7 @@ export function activate(context: vscode.ExtensionContext) {
             : msg.timestamp,
       }));
       context.workspaceState.update(
-        "agent-s3.chatHistory",
+        CHAT_HISTORY_KEY,
         serializedHistory,
       );
       historyListener.dispose();
@@ -288,7 +289,7 @@ export function activate(context: vscode.ExtensionContext) {
                 : msg.timestamp,
           }));
           context.workspaceState.update(
-            "agent-s3.chatHistory",
+            CHAT_HISTORY_KEY,
             serializedHistory,
           );
 
