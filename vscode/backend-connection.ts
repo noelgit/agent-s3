@@ -7,6 +7,7 @@ import * as vscode from "vscode";
 import { WebSocketClient } from "./websocket-client";
 import { InteractiveWebviewManager } from "./webview-ui-loader";
 import { ChatHistoryEntry } from "./types/message";
+import { OFFLINE_QUEUE_KEY } from "./constants";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -40,7 +41,7 @@ export class BackendConnection implements vscode.Disposable {
     this.setupMessageHandlers();
 
     if (this.workspaceState) {
-      this.offlineQueue = this.workspaceState.get("agent-s3.offlineQueue", []);
+      this.offlineQueue = this.workspaceState.get(OFFLINE_QUEUE_KEY, []);
     }
   }
 
@@ -403,7 +404,7 @@ export class BackendConnection implements vscode.Disposable {
    */
   private persistOfflineQueue(): void {
     if (this.workspaceState) {
-      this.workspaceState.update("agent-s3.offlineQueue", this.offlineQueue);
+      this.workspaceState.update(OFFLINE_QUEUE_KEY, this.offlineQueue);
     }
   }
 
