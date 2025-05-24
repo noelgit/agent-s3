@@ -14,7 +14,7 @@ from urllib.parse import parse_qs, urlparse
 
 from cryptography.fernet import Fernet, InvalidToken
 
-from .logging_utils import strip_sensitive_headers
+from .logging_utils import redact_auth_headers
 
 # Define required dependencies - use proper requirements.txt for actual dependency management
 try:
@@ -95,7 +95,7 @@ def save_token(token_data: Dict[str, Any]) -> None:
         fernet = Fernet(key.encode() if isinstance(key, str) else key)
         encrypted = fernet.encrypt(token_json.encode("utf-8"))
     except Exception as e:  # pragma: no cover - unexpected failures
-        msg = strip_sensitive_headers(f"Failed to encrypt token: {e}")
+        msg = redact_auth_headers(f"Failed to encrypt token: {e}")
         print(msg)
         raise RuntimeError("Token encryption failed") from e
 
@@ -105,7 +105,7 @@ def save_token(token_data: Dict[str, Any]) -> None:
         if os.name == "posix":
             os.chmod(TOKEN_FILE, stat.S_IRUSR | stat.S_IWUSR)  # 0o600
     except IOError as e:
-        msg = strip_sensitive_headers(f"Failed to write token file: {e}")
+        msg = redact_auth_headers(f"Failed to write token file: {e}")
         print(msg)
         raise RuntimeError("Token storage failed") from e
 
@@ -129,7 +129,7 @@ def load_token() -> Optional[Dict[str, Any]]:
             with open(TOKEN_FILE, "rb") as f:
                 content = f.read()
         except IOError as io_err:
-            print(strip_sensitive_headers(f"Error reading token file: {io_err}"))
+            print(redact_auth_headers(f"Error reading token file: {io_err}"))
             return None
 
         try:
@@ -137,10 +137,10 @@ def load_token() -> Optional[Dict[str, Any]]:
             decrypted = fernet.decrypt(content)
             return json.loads(decrypted.decode("utf-8"))
         except (InvalidToken, ValueError) as e:
-            print(strip_sensitive_headers(f"Warning: Could not decrypt token: {e}"))
+            print(redact_auth_headers(f"Warning: Could not decrypt token: {e}"))
             return None
     except (IOError, ValueError, TypeError) as e:
-        print(strip_sensitive_headers(f"Warning: Could not load token: {e}"))
+        print(redact_auth_headers(f"Warning: Could not load token: {e}"))
         return None
 
 
@@ -306,7 +306,7 @@ def authenticate_user() -> Optional[str]:
             try:
                 save_token(token_data)
             except RuntimeError as e:
-                print(strip_sensitive_headers(f"Error saving token: {e}"))
+                print(redact_auth_headers(f"Error saving token: {e}"))
                 return None
             print("GitHub authentication successful")
             token = token_data.get("access_token")
@@ -338,7 +338,7 @@ def _is_member_of_allowed_orgs(token: str) -> bool:
             user_orgs = [org.get("login") for org in resp.json()]
             return any(org in user_orgs for org in allowed_orgs)
     except requests.RequestException as e:
-        print(strip_sensitive_headers(f"Error checking organization membership: {e}"))
+        print(redact_auth_headers(f"Error checking organization membership: {e}"))
     return False
 
 
@@ -394,10 +394,10 @@ def _validate_token_and_check_org(
 
         return False, None
     except requests.RequestException as e:
-        print(strip_sensitive_headers(f"Error in token validation: {e}"))
+        print(redact_auth_headers(f"Error in token validation: {e}"))
         return False, None
     except Exception as e:  # pragma: no cover - unexpected errors
-        print(strip_sensitive_headers(f"Unexpected error during token check: {e}"))
+        print(redact_auth_headers(f"Unexpected error during token check: {e}"))
         return False, None
 
 
