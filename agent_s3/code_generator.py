@@ -209,7 +209,7 @@ class CodeGenerator:
     def _prepare_file_context(
         self, file_path: str, implementation_details: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
-        """Prepare context for a file by reading related existing files."""
+        """Prepare context for a file by reading related existing files.
 
         Args:
             file_path: The path of the file being generated
@@ -324,8 +324,14 @@ class CodeGenerator:
 
         return prioritized_context
 
-    def generate_file(self, file_path: str, implementation_details: List[Dict[str, Any]],
-         tests: Dict[str, Any], context: Dict[str, Any]) -> str:        """Generates code for a single file with validation and test execution.
+    def generate_file(
+        self,
+        file_path: str,
+        implementation_details: List[Dict[str, Any]],
+        tests: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> str:
+        """Generate code for a single file with validation and test execution.
 
         Generation attempts for each file are tracked and capped by
         ``max_validation_attempts`` to prevent endless retries.
@@ -391,8 +397,10 @@ class CodeGenerator:
                 for test in unit_tests:
                     test_cases_str += f"- Test: {test.get('test_name', 'unnamed')}\n"
                     if 'tested_functions' in test:
-                        test_cases_str +
-                            = f"  Tests functions: {', '.join(test['tested_functions'])}\n"                    if 'code' in test:
+                        test_cases_str += (
+                            f"  Tests functions: {', '.join(test['tested_functions'])}\n"
+                        )
+                    if 'code' in test:
                         test_cases_str += f"  Code:\n```python\n{test['code']}\n```\n"
 
             if integration_tests:
@@ -400,8 +408,10 @@ class CodeGenerator:
                 for test in integration_tests:
                     test_cases_str += f"- Test: {test.get('test_name', 'unnamed')}\n"
                     if 'components_involved' in test:
-                        test_cases_str +
-                            = f"  Components: {', '.join(test['components_involved'])}\n"                    if 'code' in test:
+                        test_cases_str += (
+                            f"  Components: {', '.join(test['components_involved'])}\n"
+                        )
+                    if 'code' in test:
                         test_cases_str += f"  Code:\n```python\n{test['code']}\n```\n"
 
         # Include existing code if available
@@ -475,8 +485,10 @@ class CodeGenerator:
 
         # Validate and refine cycle
         for attempt in range(max_validation_attempts):
-            self.scratchpad.log("CodeGenerator", f"Validating generated code (attempt {attempt+
-                1}/{max_validation_attempts})")
+            self.scratchpad.log(
+                "CodeGenerator",
+                f"Validating generated code (attempt {attempt + 1}/{max_validation_attempts})",
+            )
             # Check for syntax and lint issues
             is_valid, issues = self._validate_generated_code(file_path, generated_code)
 
@@ -687,8 +699,10 @@ Please fix the code to address all these issues while maintaining security best 
 
         return refined_code
 
-    def _collect_debug_info(self, file_path: str, generated_code: str, issues: List[str])
-         -> Dict[str, Any]:        """Collects debug information for problematic code generation.
+    def _collect_debug_info(
+        self, file_path: str, generated_code: str, issues: List[str]
+    ) -> Dict[str, Any]:
+        """Collect debug information for problematic code generation.
 
         Args:
             file_path: Path to the file with issues
@@ -783,8 +797,10 @@ Please fix the code to address all these issues while maintaining security best 
                 return False
         return True
 
-    def _cache_context(self, file_path: str, context: Dict[str, Any], dependencies: List[str])
-         -> None:        """Cache prepared context for a file."""
+    def _cache_context(
+        self, file_path: str, context: Dict[str, Any], dependencies: List[str]
+    ) -> None:
+        """Cache prepared context for a file."""
         cache_key = self._get_context_cache_key(file_path, context.get("functions_to_implement", []))
 
         if len(self._context_cache) >= self._context_cache_max_size:
@@ -847,8 +863,10 @@ Please fix the code to address all these issues while maintaining security best 
 
         return prioritized
 
-    def _validate_generated_code(self, file_path: str, generated_code: str) -> Tuple[bool,
-         List[str]]:        """Validate generated code with syntax, linting and type checks."""
+    def _validate_generated_code(
+        self, file_path: str, generated_code: str
+    ) -> Tuple[bool, List[str]]:
+        """Validate generated code with syntax, linting and type checks."""
         issues: List[str] = []
 
         # Syntax check
@@ -961,12 +979,15 @@ Please fix the code to address all these issues while maintaining security best 
 
         return debug_info
 
-    def _refine_based_on_test_results(self, file_path: str, code: str, test_results: Dict[str, Any])
-         -> str:        """Refine generated code based on failing test results."""
+    def _refine_based_on_test_results(
+        self, file_path: str, code: str, test_results: Dict[str, Any]
+    ) -> str:
+        """Refine generated code based on failing test results."""
         failures = test_results.get("failure_info") or test_results.get("issues", [])
         details = json.dumps(failures, indent=2)
         system_prompt = "You are a developer fixing code to satisfy failing tests."
-        user_prompt = f"""The following code for '{file_path}' fails tests:
+        user_prompt = (
+            f"""The following code for '{file_path}' fails tests:
 ```python
 {code}
 ```
@@ -975,12 +996,13 @@ Test failures:
 {details}
 
 Please update the code so that the tests pass. Return only the fixed code."""
+        )
 
         response = self.coordinator.router_agent.call_llm_by_role(
-            role='generator',
+            role="generator",
             system_prompt=system_prompt,
             user_prompt=user_prompt,
-            config={'temperature': 0.1}
+            config={"temperature": 0.1},
         )
         refined = self._extract_code_from_response(response, file_path)
         return refined if refined else code

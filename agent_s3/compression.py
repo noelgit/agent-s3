@@ -5,7 +5,7 @@ Provides functions for compressing and decompressing data and files.
 
 import gzip
 import json
-from typing import Dict, Any, Union
+from typing import Any, Dict
 
 def compress_data(data: str) -> bytes:
     """

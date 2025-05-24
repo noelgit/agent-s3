@@ -310,12 +310,12 @@ def retry(
                             attempt=attempt,
                             max_attempts=max_attempts,
                         )
-                        logger.warning("%s", {log_message}: {exc})
+                        logger.warning("%s", f"{log_message}: {exc}")
                     else:
                         log_message = failure_message.format(
                             operation=operation, max_attempts=max_attempts
                         )
-                        logger.error("%s", {log_message}: {exc})
+                        logger.error("%s", f"{log_message}: {exc}")
 
             # Re-raise the last exception
             if last_exception:

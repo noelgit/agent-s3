@@ -605,7 +605,9 @@ class DebuggingManager:
                     if not variables:
                         variables = context.get("variables", {})
             except Exception as e:
-                self.logger.warning("%s", Error getting additional context: {e})
+                self.logger.warning(
+                    "Error getting additional context: %s", e
+                )
 
         # Create the error context
         context = ErrorContext(
@@ -1059,8 +1061,10 @@ class DebuggingManager:
         else:  # MODIFY_REQUEST
             return self._execute_request_modification(error_context)
 
-    def _determine_restart_strategy(self, error_context: ErrorContext) -> Tuple[RestartStrategy,
-         str]:        """Determine the most appropriate restart strategy for the error."""
+    def _determine_restart_strategy(
+        self, error_context: ErrorContext
+    ) -> Tuple[RestartStrategy, str]:
+        """Determine the most appropriate restart strategy for the error."""
         # Default strategy
         strategy = RestartStrategy.REGENERATE_CODE
 
@@ -1092,14 +1096,21 @@ class DebuggingManager:
             # These are likely implementation issues, favor code regeneration
             if strategy == RestartStrategy.MODIFY_REQUEST:
                 strategy = RestartStrategy.REDESIGN_PLAN
-                reasoning +
-                    = " However, the error type suggests an implementation issue rather than a fundamental request problem."        elif error_context.category in [ErrorCategory.PERMISSION, ErrorCategory.NETWORK,
+                reasoning += (
+                    " However, the error type suggests an implementation issue"
+                    " rather than a fundamental request problem."
+                )
+        elif error_context.category in [
+            ErrorCategory.PERMISSION,
+            ErrorCategory.NETWORK,
                                       ErrorCategory.DATABASE, ErrorCategory.MEMORY]:
             # These may be environmental/system issues, consider modifying request
             if strategy == RestartStrategy.REGENERATE_CODE:
                 strategy = RestartStrategy.REDESIGN_PLAN
-                reasoning +
-                    = " The error type suggests a potential architectural or environmental issue that may require plan changes."
+                reasoning += (
+                    " The error type suggests a potential architectural or environmental issue"
+                    " that may require plan changes."
+                )
         return strategy, reasoning
 
     def _execute_code_regeneration(self, error_context: ErrorContext) -> Dict[str, Any]:
@@ -1128,8 +1139,11 @@ class DebuggingManager:
             error_summary = f"Error ({error_context.category.name}): {error_context.message}"
 
             # Add to plan context
-            plan_with_error = self.coordinator.current_plan +
-                 f"\n\nPrevious implementation error:\n{error_summary}\n"            if error_context.traceback:
+            plan_with_error = (
+                self.coordinator.current_plan
+                + f"\n\nPrevious implementation error:\n{error_summary}\n"
+            )
+            if error_context.traceback:
                 plan_with_error += f"Traceback:\n{error_context.traceback}\n"
 
             # Generate new code
@@ -1563,8 +1577,10 @@ class DebuggingManager:
         test_failure_info = ""
         if "possible_test_issue" in error_context.metadata:
             # This is a potential test issue
-            test_failure_info +
-                = "\nNOTE: This error might be related to an issue in the test itself rather than the implementation code.\n"
+            test_failure_info += (
+                "\nNOTE: This error might be related to an issue in the test itself"
+                " rather than the implementation code.\n"
+            )
             # Add details about the failing test
             if "test_name" in error_context.metadata:
                 test_name = error_context.metadata.get("test_name", "Unknown")
@@ -1581,12 +1597,19 @@ class DebuggingManager:
             if "failure_category" in error_context.metadata:
                 failure_category = error_context.metadata.get("failure_category", "UNKNOWN")
                 if failure_category == "ATTRIBUTE_ERROR":
-                    test_failure_info +
-                        = "This might be a case where the test is expecting an attribute that doesn't exist or has a different name.\n"                elif failure_category == "VALUE_MISMATCH":
-                    test_failure_info +
-                        = "This might be a formatting issue or a case where the test has overly specific expectations.\n"                elif failure_category == "IMPORT_ERROR":
-                    test_failure_info +
-                        = "This might be a missing dependency or incorrectly specified import in the test.\n"
+                    test_failure_info += (
+                        "This might be a case where the test is expecting an attribute "
+                        "that doesn't exist or has a different name.\n"
+                    )
+                elif failure_category == "VALUE_MISMATCH":
+                    test_failure_info += (
+                        "This might be a formatting issue or a case where the test "
+                        "has overly specific expectations.\n"
+                    )
+                elif failure_category == "IMPORT_ERROR":
+                    test_failure_info += (
+                        "This might be a missing dependency or incorrectly specified import in the test.\n"
+                    )
         # Variables context if available
         variables_context = ""
         if error_context.variables:
@@ -1721,33 +1744,52 @@ class DebuggingManager:
                         test_failure_section += "Logical Gaps Identified:\n"
                         for gap in logical_gaps[:2]:  # Limit to avoid overloading
                             if isinstance(gap, dict):
-                                test_failure_section +
-                                    = f"- {gap.get('description', 'Not specified')}\n"                            else:
+                                test_failure_section += (
+                                    f"- {gap.get('description', 'Not specified')}\n"
+                                )
+                            else:
                                 test_failure_section += f"- {gap}\n"
 
                     if optimizations:
                         test_failure_section += "Optimization Suggestions:\n"
                         for opt in optimizations[:2]:  # Limit to avoid overloading
                             if isinstance(opt, dict):
-                                test_failure_section +
-                                    = f"- {opt.get('description', 'Not specified')}\n"                            else:
+                                test_failure_section += (
+                                    f"- {opt.get('description', 'Not specified')}\n"
+                                )
+                            else:
                                 test_failure_section += f"- {opt}\n"
 
             # Special guidance for test issues
-            if "possible_test_issue" in error_context.metadata and error_context.metadata["possible_test_issue"]:
+            if (
+                "possible_test_issue" in error_context.metadata
+                and error_context.metadata["possible_test_issue"]
+            ):
                 test_failure_section += "\n## Potential Test Issue Detected\n"
-                test_failure_section +
-                    = "This failure may indicate a problem with the test rather than the implementation.\n"
+                test_failure_section += (
+                    "This failure may indicate a problem with the test rather than the implementation.\n"
+                )
                 if failure_category == "ATTRIBUTE_ERROR":
-                    test_failure_section +
-                        = "- The test might be looking for an attribute that doesn't exist or has a different name\n"                    test_failure_section +
-                                                                                = "- Consider whether to adapt the implementation to match the test's expectations or fix the test\n"                elif failure_category == "VALUE_MISMATCH":
-                    test_failure_section +
-                        = "- The test may have overly rigid expectations about formatting or specific values\n"                    test_failure_section +
-                                                                                = "- Check if the actual and expected values are semantically equivalent despite textual differences\n"                elif failure_category == "IMPORT_ERROR":
-                    test_failure_section +
-                        = "- There might be a missing dependency or incorrect import in the test\n"                    test_failure_section +
-                                                                                = "- Verify that all required packages are available and imports have correct paths\n"
+                    test_failure_section += (
+                        "- The test might be looking for an attribute that doesn't exist or has a different name\n"
+                    )
+                    test_failure_section += (
+                        "- Consider whether to adapt the implementation to match the test's expectations or fix the test\n"
+                    )
+                elif failure_category == "VALUE_MISMATCH":
+                    test_failure_section += (
+                        "- The test may have overly rigid expectations about formatting or specific values\n"
+                    )
+                    test_failure_section += (
+                        "- Check if the actual and expected values are semantically equivalent despite textual differences\n"
+                    )
+                elif failure_category == "IMPORT_ERROR":
+                    test_failure_section += (
+                        "- There might be a missing dependency or incorrect import in the test\n"
+                    )
+                    test_failure_section += (
+                        "- Verify that all required packages are available and imports have correct paths\n"
+                    )
         # Create the prompt
         prompt = f"""
         You are an expert software debugger with deep knowledge of error patterns and fixes, specializing in test-driven development.
@@ -1882,7 +1924,7 @@ class DebuggingManager:
                             pass
 
         except Exception as e:
-            self.logger.warning("%s", Error getting related files: {e})
+            self.logger.warning("Error getting related files: %s", e)
 
         return related_files
 
