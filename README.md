@@ -39,6 +39,7 @@ Agent-S3 is not just a tool for automation; it is a partner in development that 
   - Fallback to file polling when WebSocket is unavailable
   - Authentication and secure message passing
   - 64&nbsp;KiB message size limit enforced server-side
+    (configurable via `WEBSOCKET_MAX_MESSAGE_SIZE`)
 - Advanced context management with:
   - Context registry with multiple providers that can be registered and queried
   - Framework-specific context adaptation for popular frameworks (React, Django, Flask, FastAPI, Express)
@@ -297,7 +298,8 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   - `MAX_CLARIFICATION_ROUNDS` (optional, defaults to `3`) limits pre-planning clarification exchanges
   - `MAX_PREPLANNING_ATTEMPTS` (optional, defaults to `2`) sets the maximum number of retries when generating pre-planning data
   - `pre_planning_mode` selects `off`, `json`, or `enforced_json` workflow. See `docs/pre_planning_workflow.md` for details.
-  - `WEBSOCKET_MAX_MESSAGE_SIZE` (optional, defaults to `65536`) limits incoming WebSocket payloads
+  - `WEBSOCKET_MAX_MESSAGE_SIZE` (optional, defaults to `65536` bytes)
+    limits incoming WebSocket payloads
 
   Example `.env`:
 

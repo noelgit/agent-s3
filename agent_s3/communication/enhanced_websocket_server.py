@@ -51,7 +51,10 @@ class EnhancedWebSocketServer:
         self.port = port
         self.auth_token = auth_token or str(uuid.uuid4())
         self.heartbeat_interval = heartbeat_interval
-        self.max_message_size = max_message_size
+        env_size = os.getenv("WEBSOCKET_MAX_MESSAGE_SIZE")
+        self.max_message_size = (
+            int(env_size) if env_size else max_message_size
+        )
 
         # Message bus and queue
         self.message_bus = message_bus or MessageBus()
@@ -208,7 +211,10 @@ class EnhancedWebSocketServer:
         request_id = content.get("request_id", "")
 
         # Log details about the approval request for monitoring
-        logger.info("%s", Interactive approval request '{title}' with {len(options)} options (ID: {request_id}))
+        logger.info(
+            "%s",
+            f"Interactive approval request '{title}' with {len(options)} options (ID: {request_id})",
+        )
 
         # Broadcast the message to all clients
         asyncio.create_task(self.broadcast_message(message))
@@ -232,9 +238,15 @@ class EnhancedWebSocketServer:
 
         # Log details about the progress for monitoring
         if steps:
-            logger.info("%s", Progress indicator: '{title}' at {percentage}% ({completion_ratio} steps completed))
+            logger.info(
+                "%s",
+                f"Progress indicator: '{title}' at {percentage}% ({completion_ratio} steps completed)",
+            )
         else:
-            logger.info("%s", Progress indicator: '{title}' at {percentage}%)
+            logger.info(
+                "%s",
+                f"Progress indicator: '{title}' at {percentage}%",
+            )
 
         # Broadcast the message to all clients
         asyncio.create_task(self.broadcast_message(message))
@@ -258,7 +270,10 @@ class EnhancedWebSocketServer:
         stream_id = content.get("stream_id", "")
         source = content.get("source", "agent")
 
-        logger.debug("%s", Agent thinking indicator received from {source} (stream: {stream_id}))
+        logger.debug(
+            "%s",
+            f"Agent thinking indicator received from {source} (stream: {stream_id})",
+        )
 
         # Broadcast the thinking indicator to all clients
         asyncio.create_task(self.broadcast_message(message))
@@ -274,7 +289,10 @@ class EnhancedWebSocketServer:
         stream_id = content.get("stream_id", "")
         source = content.get("source", "agent")
 
-        logger.debug("%s", Content stream started from {source} (stream: {stream_id}))
+        logger.debug(
+            "%s",
+            f"Content stream started from {source} (stream: {stream_id})",
+        )
 
         # Initialize tracking for this stream ID
         self._active_streams = getattr(self, "_active_streams", set())
@@ -298,7 +316,9 @@ class EnhancedWebSocketServer:
         # Ensure we're tracking this stream
         self._active_streams = getattr(self, "_active_streams", set())
         if stream_id not in self._active_streams:
-            logger.warning("%s", Received content for unknown stream: {stream_id})
+            logger.warning(
+                "%s", f"Received content for unknown stream: {stream_id}"
+            )
             self._active_streams.add(stream_id)
 
         # Broadcast the stream content to all clients
@@ -314,7 +334,7 @@ class EnhancedWebSocketServer:
         content = message.content
         stream_id = content.get("stream_id", "")
 
-        logger.debug("%s", Content stream ended (stream: {stream_id}))
+        logger.debug("%s", f"Content stream ended (stream: {stream_id})")
 
         # Remove from active streams tracking
         self._active_streams = getattr(self, "_active_streams", set())
@@ -367,7 +387,7 @@ class EnhancedWebSocketServer:
             "last_reset": time.time(),
             "batch": []
         }
-        logger.info("%s", New client connected: {client_id})
+        logger.info("%s", f"New client connected: {client_id}")
 
         try:
             # Send connection acknowledgment
@@ -411,12 +431,18 @@ class EnhancedWebSocketServer:
                                 type=MessageType.AUTHENTICATION_RESULT,
                                 content={"success": True}
                             ))
-                            logger.info("%s", Client {client_id} authenticated successfully)
+                            logger.info(
+                                "%s",
+                                f"Client {client_id} authenticated successfully",
+                            )
 
                             # Set up client preferences if provided
                             client_preferences = message_dict.get("content", {}).get("preferences", {})
                             if client_preferences:
-                                logger.info("%s", Setting preferences for client {client_id}: {client_preferences})
+                                logger.info(
+                                    "%s",
+                                    f"Setting preferences for client {client_id}: {client_preferences}",
+                                )
                         else:
                             await self.send_message(client_id, Message(
                                 type=MessageType.AUTHENTICATION_RESULT,
@@ -425,7 +451,9 @@ class EnhancedWebSocketServer:
                                     "error": "Invalid authentication token"
                                 }
                             ))
-                            logger.warning("%s", Client {client_id} failed authentication)
+                            logger.warning(
+                                "%s", f"Client {client_id} failed authentication"
+                            )
                         continue
 
                     # Handle reconnection
@@ -441,7 +469,10 @@ class EnhancedWebSocketServer:
                             # Transfer state
                             state_data = message_dict.get("content", {}).get("state", {})
                             if state_data:
-                                logger.info("%s", Received state data from reconnecting client {client_id})
+                                logger.info(
+                                    "%s",
+                                    f"Received state data from reconnecting client {client_id}",
+                                )
 
                             # Acknowledge reconnection
                             await self.send_message(client_id, Message(
@@ -453,7 +484,9 @@ class EnhancedWebSocketServer:
                                     "server_time": time.time()
                                 }
                             ))
-                            logger.info("%s", Client {client_id} reconnected as {previous_id})
+                            logger.info(
+                                "%s", f"Client {client_id} reconnected as {previous_id}"
+                            )
                         continue
 
                     # Check authentication for other messages
@@ -489,19 +522,21 @@ class EnhancedWebSocketServer:
                         self.message_bus.publish(message)
 
                 except json.JSONDecodeError:
-                    logger.error("%s", Invalid JSON from client {client_id})
+                    logger.error("%s", f"Invalid JSON from client {client_id}")
                     await self.send_message(client_id, Message(
                         type=MessageType.ERROR_NOTIFICATION,
                         content={"error": "Invalid JSON message"}
                     ))
                 except Exception as e:
-                    logger.error("%s", Error handling message from client {client_id}: {e})
+                    logger.error(
+                        "%s", f"Error handling message from client {client_id}: {e}"
+                    )
                     await self.send_message(client_id, Message(
                         type=MessageType.ERROR_NOTIFICATION,
                         content={"error": f"Error processing message: {str(e)}"}
                     ))
         except websockets.exceptions.ConnectionClosed:
-            logger.info("%s", Client {client_id} disconnected)
+            logger.info("%s", f"Client {client_id} disconnected")
         finally:
             # Keep authenticated status for reconnection
             if client_id in self.clients:
@@ -543,7 +578,9 @@ class EnhancedWebSocketServer:
 
         # Process preferences update
         # This is application-specific, but we'll acknowledge for example
-        logger.info("%s", Updated preferences for client {client_id}: {preferences})
+        logger.info(
+            "%s", f"Updated preferences for client {client_id}: {preferences}"
+        )
 
         await self.send_message(client_id, Message(
             type=MessageType.COMMAND_RESULT,
@@ -626,13 +663,13 @@ class EnhancedWebSocketServer:
                 await self.clients[client_id].send(payload)
                 return True
             except Exception as e:
-                logger.error("%s", Error sending to client {client_id}: {e})
+                logger.error("%s", f"Error sending to client {client_id}: {e}")
                 return await self._queue_message(client_id, message)
         elif client_id in self.authenticated_clients:
             # Queue for disconnected authenticated client
             return await self._queue_message(client_id, message)
         else:
-            logger.warning("%s", Client {client_id} not found)
+            logger.warning("%s", f"Client {client_id} not found")
             return False
 
     async def _delayed_batch_send(self, client_id: str):
@@ -682,7 +719,9 @@ class EnhancedWebSocketServer:
             await self.clients[client_id].send(json.dumps(batch_message))
             return True
         except Exception as e:
-            logger.error("%s", Error sending batch to client {client_id}: {e})
+            logger.error(
+                "%s", f"Error sending batch to client {client_id}: {e}"
+            )
 
             # Try to queue individual messages
             success = True
@@ -721,7 +760,7 @@ class EnhancedWebSocketServer:
             self.client_queues[client_id].append(message)
             return True
         else:
-            logger.warning("%s", Queue full for client {client_id})
+            logger.warning("%s", f"Queue full for client {client_id}")
             return False
 
     async def _send_queued_messages(self, old_id: str, new_id: str) -> int:
@@ -744,7 +783,7 @@ class EnhancedWebSocketServer:
 
         # Clear queue after sending
         self.client_queues[old_id] = []
-        logger.info("%s", Sent {count} queued messages to client {new_id})
+        logger.info("%s", f"Sent {count} queued messages to client {new_id}")
         return count
 
     async def _clean_expired_queues(self):
@@ -763,13 +802,16 @@ class EnhancedWebSocketServer:
                         queue_size = len(self.client_queues[client_id])
                         del self.client_queues[client_id]
                         del self.queue_last_access[client_id]
-                        logger.info("%s", Expired queue for client {client_id}, dropped {queue_size} messages)
+                        logger.info(
+                            "%s",
+                            f"Expired queue for client {client_id}, dropped {queue_size} messages",
+                        )
 
                 await asyncio.sleep(60)  # Check every minute
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error("%s", Error in queue cleaner: {e})
+                logger.error("%s", f"Error in queue cleaner: {e}")
                 await asyncio.sleep(60)
 
     async def _send_heartbeats(self):
@@ -784,7 +826,7 @@ class EnhancedWebSocketServer:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error("%s", Error sending heartbeats: {e})
+                logger.error("%s", f"Error sending heartbeats: {e}")
                 await asyncio.sleep(self.heartbeat_interval)
 
     async def _log_metrics(self):
@@ -811,13 +853,13 @@ class EnhancedWebSocketServer:
                 }
 
                 # Log metrics
-                logger.info("%s", WebSocket Server Metrics: {all_metrics})
+                logger.info("%s", f"WebSocket Server Metrics: {all_metrics}")
 
                 await asyncio.sleep(60)  # Log every minute
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error("%s", Error logging metrics: {e})
+                logger.error("%s", f"Error logging metrics: {e}")
                 await asyncio.sleep(60)
 
     async def _process_queue(self):
@@ -832,7 +874,7 @@ class EnhancedWebSocketServer:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error("%s", Error processing queue: {e})
+                logger.error("%s", f"Error processing queue: {e}")
                 await asyncio.sleep(1)
 
     async def start(self):
@@ -871,7 +913,9 @@ class EnhancedWebSocketServer:
         self.expiry_cleaner_task = asyncio.create_task(self._clean_expired_queues())
         self.metrics_logger_task = asyncio.create_task(self._log_metrics())
 
-        logger.info("%s", EnhancedWebSocketServer running on {self.host}:{self.port})
+        logger.info(
+            "%s", f"EnhancedWebSocketServer running on {self.host}:{self.port}"
+        )
 
     async def stop(self):
         """Stop the WebSocket server."""
@@ -909,7 +953,7 @@ class EnhancedWebSocketServer:
                 try:
                     os.remove(self.connection_file)
                 except Exception as e:
-                    logger.error("%s", Error removing connection file: {e})
+                    logger.error("%s", f"Error removing connection file: {e}")
 
             logger.info("EnhancedWebSocketServer stopped")
 
@@ -927,7 +971,7 @@ class EnhancedWebSocketServer:
                 loop.run_until_complete(self.start())
                 loop.run_forever()
             except Exception as e:
-                logger.error("%s", Error in WebSocket server thread: {e})
+                logger.error("%s", f"Error in WebSocket server thread: {e}")
             finally:
                 if not loop.is_closed():
                     loop.close()
