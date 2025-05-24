@@ -41,10 +41,10 @@ class DependencyAnalyzer:
         """
         try:
             installed = {pkg.key: pkg.version for pkg in pkg_resources.working_set}
-            logger.debug("%s", Found {len(installed)} installed packages)
+            logger.debug("Found %d installed packages", len(installed))
             return installed
         except Exception as e:
-            logger.error("%s", Error getting installed packages: {e})
+            logger.error("Error getting installed packages: %s", e)
             return {}
 
     def extract_dependencies(self, file_path: str, language: str = None):
@@ -60,10 +60,10 @@ class DependencyAnalyzer:
         try:
             content = self.file_tool.read_file(file_path)
             if content is None:
-                logger.warning("%s", Could not read content of file: {file_path})
+                logger.warning("Could not read content of file: %s", file_path)
                 return []
         except Exception as e:
-            logger.error(f"Error reading file {file_path}: {e}", exc_info=True)
+            logger.error("Error reading file %s: %s", file_path, e, exc_info=True)
             return []
         # Language detection
         if not language:
@@ -74,14 +74,19 @@ class DependencyAnalyzer:
         parser = self.parser_registry.get_parser(language_name=language, file_path=file_path)
         if parser:
             try:
-                logger.info("%s", Extracting dependencies from {file_path} with {type(parser).__name__} for language '{language}'.)
+                logger.info(
+                    "Extracting dependencies from %s with %s for language '%s'",
+                    file_path,
+                    type(parser).__name__,
+                    language,
+                )
                 structure = parser.parse_code(content, file_path)
                 return getattr(structure, 'dependencies', [])
             except Exception as e:
                 logger.error(f"Error extracting dependencies from {file_path} with {type(parser).__name__}: {e}", exc_info=True)
                 return []
         else:
-            logger.error("%s", No parser found for language '{language}' for file {file_path}.)
+            logger.error("No parser found for language '%s' for file %s", language, file_path)
             return []
 
     def check_missing_dependencies(self, imports: Set[str]) -> List[str]:
@@ -151,7 +156,7 @@ class DependencyAnalyzer:
                             pkg = parts[0].strip().split()[-1]
                             incompatible[pkg] = parts[1].strip()
         except Exception as e:
-            logger.error("%s", Error checking dependency compatibility: {e})
+            logger.error("Error checking dependency compatibility: %s", e)
         finally:
             # Clean up temporary file
             if os.path.exists(temp_req_file):
@@ -183,12 +188,16 @@ class DependencyAnalyzer:
                             versions[pkg] = version_match.group(1)
                             break
             except Exception as e:
-                logger.error("%s", Error getting version for {pkg}: {e})
+                logger.error("Error getting version for %s: %s", pkg, e)
 
         return versions
 
-    def analyze_code_changes(self, changes: List[Dict], language_map: Optional[Dict[str,
-         str]] = None) -> Dict:        """Analyze dependencies from a list of code changes.
+    def analyze_code_changes(
+        self,
+        changes: List[Dict],
+        language_map: Optional[Dict[str, str]] = None,
+    ) -> Dict:
+        """Analyze dependencies from a list of code changes.
 
         Args:
             changes: List of code change dictionaries (each with 'file_path' and 'content')
@@ -221,7 +230,7 @@ class DependencyAnalyzer:
             language = language_map.get(ext)
 
             if not language:
-                logger.debug("%s", Skipping dependency analysis for unsupported file type: {file_path})
+                logger.debug("Skipping dependency analysis for unsupported file type: %s", file_path)
                 continue
 
             imports = self.extract_dependencies(file_path, language)

@@ -63,13 +63,25 @@ class EmbeddingClient:
             try:
                 # Load FAISS index with memory-mapped file for large datasets
                 self.index = faiss.read_index(str(self.index_path), faiss.IO_FLAG_MMAP)
-                logger.info("%s", Loaded FAISS index with {self.index.ntotal} vectors from {self.index_path})
+                logger.info(
+                    "Loaded FAISS index with %d vectors from %s",
+                    self.index.ntotal,
+                    self.index_path,
+                )
             except Exception as e:
-                logger.error("%s", Error memory-mapping FAISS index from {self.index_path}: {e}. Falling back to load.)
+                logger.error(
+                    "Error memory-mapping FAISS index from %s: %s. Falling back to load.",
+                    self.index_path,
+                    e,
+                )
                 try:
                     self.index = faiss.read_index(str(self.index_path))
                 except Exception as e2:
-                    logger.error("%s", Error loading FAISS index from {self.index_path}: {e2}. Will create a new index.)
+                    logger.error(
+                        "Error loading FAISS index from %s: %s. Will create a new index.",
+                        self.index_path,
+                        e2,
+                    )
 
         if self.metadata_path.exists():
             try:
@@ -93,7 +105,11 @@ class EmbeddingClient:
                 self.id_map = metadata_state.get('id_map', {})
                 self.next_id = metadata_state.get('next_id', 0)
                 if self.id_map:
-                    logger.info("%s", Loaded metadata for {len(self.id_map)} vectors from {self.metadata_path})
+                    logger.info(
+                        "Loaded metadata for %d vectors from %s",
+                        len(self.id_map),
+                        self.metadata_path,
+                    )
                     # Update access timestamps for eviction strategy
                     current_time = time.time()
                     for key, meta in self.id_map.items():
@@ -102,7 +118,11 @@ class EmbeddingClient:
                         if "access_count" not in meta:
                             meta["access_count"] = 1
             except Exception as e:
-                logger.error("%s", Error loading metadata from {self.metadata_path}: {e}. Will create new metadata.)
+                logger.error(
+                    "Error loading metadata from %s: %s. Will create new metadata.",
+                    self.metadata_path,
+                    e,
+                )
                 self.id_map = {}
 
     def _save_state(self):
@@ -128,9 +148,17 @@ class EmbeddingClient:
             temp_index_path = self.index_path.with_suffix(self.index_path.suffix + ".tmp")
             faiss.write_index(self.index, str(temp_index_path))
             shutil.move(str(temp_index_path), str(self.index_path))
-            logger.info("%s", Saved FAISS index with {self.index.ntotal} vectors to {self.index_path})
+            logger.info(
+                "Saved FAISS index with %d vectors to %s",
+                self.index.ntotal,
+                self.index_path,
+            )
         except Exception as e:
-            logger.error("%s", Error saving FAISS index to {self.index_path}: {e})
+            logger.error(
+                "Error saving FAISS index to %s: %s",
+                self.index_path,
+                e,
+            )
 
         try:
             # Save metadata atomically with gzip compression
@@ -143,9 +171,17 @@ class EmbeddingClient:
             with gzip.open(temp_metadata_path, 'wt', encoding='utf-8') as f:
                 json.dump(metadata_state, f, indent=2)
             shutil.move(str(temp_metadata_path), str(self.metadata_path))
-            logger.info("%s", Saved metadata map with {len(self.id_map)} entries to {self.metadata_path})
+            logger.info(
+                "Saved metadata map with %d entries to %s",
+                len(self.id_map),
+                self.metadata_path,
+            )
         except (OSError, TypeError) as e:
-            logger.error("%s", Error saving metadata map to {self.metadata_path}: {e})
+            logger.error(
+                "Error saving metadata map to %s: %s",
+                self.metadata_path,
+                e,
+            )
 
     def save_state(self) -> None:
         """Public wrapper to persist embedding state to disk."""
@@ -174,10 +210,17 @@ class EmbeddingClient:
 
         # If we're not above the threshold, no need to evict
         if self.index.ntotal <= self.max_embeddings * self.eviction_threshold:
-            logger.debug("%s", Index size ({self.index.ntotal}) below threshold. No eviction needed.)
+            logger.debug(
+                "Index size (%d) below threshold. No eviction needed.",
+                self.index.ntotal,
+            )
             return 0
 
-        logger.info("%s", Starting embedding eviction. Current size: {self.index.ntotal}, target eviction: {eviction_count})
+        logger.info(
+            "Starting embedding eviction. Current size: %d, target eviction: %d",
+            self.index.ntotal,
+            eviction_count,
+        )
 
         # Scoring factors for eviction
         current_time = time.time()
@@ -238,11 +281,14 @@ class EmbeddingClient:
             # Save state after eviction
             self._save_state()
 
-            logger.info("%s", Successfully evicted {len(evict_ids)} embeddings.)
+            logger.info(
+                "Successfully evicted %d embeddings.",
+                len(evict_ids),
+            )
             return len(evict_ids)
 
         except Exception as e:
-            logger.error("%s", Error during embedding eviction: {e})
+            logger.error("Error during embedding eviction: %s", e)
             return 0
 
     def update_access_patterns(self, file_paths: List[str]):
@@ -269,7 +315,10 @@ class EmbeddingClient:
 
         # If we updated any metadata entries, save the state
         if updated_ids:
-            logger.debug("%s", Updated access patterns for {len(updated_ids)} embedding entries)
+            logger.debug(
+                "Updated access patterns for %d embedding entries",
+                len(updated_ids),
+            )
             self._save_state()
 
     def add_embedding(self, embedding: np.ndarray, metadata: Dict[str, Any]) -> None:
@@ -347,7 +396,11 @@ class EmbeddingClient:
         # Truncate long texts to prevent context window issues
         max_text_length = 8000  # Set a reasonable limit that most models can handle
         if len(text) > max_text_length:
-            logger.warning("%s", Text too long ({len(text)} chars), truncating to {max_text_length} chars)
+            logger.warning(
+                "Text too long (%d chars), truncating to %d chars",
+                len(text),
+                max_text_length,
+            )
             text = text[:max_text_length]
 
         # Use specialized embedder role if router agent is available
@@ -400,11 +453,11 @@ class EmbeddingClient:
                             break
                     except Exception as e:
                         if attempt < max_retries - 1:
-                            logger.warning(f"Embedding generation attempt {attempt+
-                                1} failed: {e}. Retrying in {retry_delay}s...")                            time.sleep(retry_delay)
+                            logger.warning("Embedding generation attempt %d failed: %s. Retrying in %.1fs...", attempt + 1, e, retry_delay)
+                            time.sleep(retry_delay)
                             retry_delay *= 2  # Exponential backoff
                         else:
-                            logger.error("%s", All embedding generation attempts failed. Last error: {e})
+                            logger.error("All embedding generation attempts failed. Last error: %s", e)
                             raise
 
                 if embedding_json:
@@ -441,7 +494,10 @@ class EmbeddingClient:
                                     embedding = embedding / norm
 
                                 duration = time.time() - start_time
-                                logger.info("%s", Successfully generated embedding using 'embedder' role in {duration:.2f}s)
+                                logger.info(
+                                    "Successfully generated embedding using 'embedder' role in %.2fs",
+                                    duration,
+                                )
 
                                 # Record metrics if available
                                 if hasattr(self, '_metrics') and hasattr(self._metrics, 'record_embedding'):
@@ -454,11 +510,17 @@ class EmbeddingClient:
 
                                 return embedding
                     except (json.JSONDecodeError, ValueError, TypeError) as e:
-                        logger.warning("%s", Failed to parse embedding from 'embedder' role response: {e})
+                        logger.warning(
+                            "Failed to parse embedding from 'embedder' role response: %s",
+                            e,
+                        )
 
                 logger.warning("'embedder' role did not return a valid embedding, falling back to default method")
             except Exception as e:
-                logger.warning("%s", Failed to use specialized embedder role: {e}. Falling back to default embedding method.)
+                logger.warning(
+                    "Failed to use specialized embedder role: %s. Falling back to default embedding method.",
+                    e,
+                )
 
         # Fall back to default embedding method
         try:
@@ -471,7 +533,10 @@ class EmbeddingClient:
 
             if embedding is not None:
                 duration = time.time() - start_time
-                logger.info("%s", Generated embedding using fallback method in {duration:.2f}s)
+                logger.info(
+                    "Generated embedding using fallback method in %.2fs",
+                    duration,
+                )
 
                 # Record metrics if available
                 if hasattr(self, '_metrics') and hasattr(self._metrics, 'record_embedding'):
@@ -486,7 +551,7 @@ class EmbeddingClient:
         except ImportError:
             logger.error("Fallback embedding method (get_embedding) not available")
         except Exception as e:
-            logger.error("%s", Fallback embedding generation failed: {e})
+            logger.error("Fallback embedding generation failed: %s", e)
 
         # If all methods failed
         logger.error("All embedding generation methods failed")
