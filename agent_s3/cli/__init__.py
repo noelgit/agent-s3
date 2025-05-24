@@ -8,6 +8,7 @@ import logging
 from agent_s3.config import Config
 from agent_s3.coordinator import Coordinator
 from agent_s3.router_agent import RouterAgent
+from .dispatcher import dispatch
 # Import authenticate_user only when needed to prevent circular imports
 # from agent_s3.auth import authenticate_user
 
@@ -99,17 +100,15 @@ def process_command(coordinator: Coordinator, command: str) -> None:
     # Handle help command at CLI level since it's display-specific
     if command == "/help":
         display_help()
-    else:
-        try:
-            # Delegate all other commands to CommandProcessor
-            result = coordinator.command_processor.process_command(command)
+        return
 
-            # Print result if it's non-empty
-            if result:
-                print(result)
-        except Exception as e:
-            print(f"Error processing command '{command}': {e}")
-            logger.error(f"Command processing error: {e}", exc_info=True)
+    try:
+        result = dispatch(coordinator.command_processor, command)
+        if result:
+            print(result)
+    except Exception as e:  # pragma: no cover - defensive
+        print(f"Error processing command '{command}': {e}")
+        logger.error(f"Command processing error: {e}", exc_info=True)
 
 
 def main() -> None:

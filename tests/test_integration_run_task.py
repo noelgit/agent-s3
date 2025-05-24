@@ -14,7 +14,7 @@ def test_run_task_simple(monkeypatch):
                     {
                         "name": "hello-world",
                         "description": "Add print statement",
-                        "files_affected": ["agent_s3/cli.py"],
+                        "files_affected": ["agent_s3/cli/__init__.py"],
                         "test_requirements": {
                             "unit_tests": [],
                             "integration_tests": [],
