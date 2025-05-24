@@ -14,7 +14,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import List, Optional
 
-from ..core import Adapter
+from .base import Adapter
 
 logger = logging.getLogger(__name__)
 
