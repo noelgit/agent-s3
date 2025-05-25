@@ -1,4 +1,9 @@
-"""Static analysis utilities for TestCritic."""
+"""Static analysis utilities for TestCritic.
+
+All generated code passed to this module should respect a maximum file
+size of 10MB. Files exceeding this limit will be ignored during
+analysis.
+"""
 
 from __future__ import annotations
 
@@ -6,9 +11,12 @@ import json
 import logging
 import re
 from pathlib import Path
+import os
 from typing import Any, Dict, List, Optional, Set
 
 from .core import TestType, TestVerdict  # type: ignore  # circular import
+
+MAX_ANALYSIS_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 logger = logging.getLogger(__name__)
 
@@ -561,8 +569,20 @@ class CriticStaticAnalyzer:
         Returns:
             Analysis results
         """
+        # Validate and sanitize provided files
+        sanitized: Dict[str, str] = {}
+        for path, content in files.items():
+            normalized = os.path.normpath(path)
+            if os.path.isabs(normalized) or ".." in normalized.split(os.sep):
+                logger.warning("Skipping invalid path: %s", path)
+                continue
+            if len(content.encode("utf-8")) > MAX_ANALYSIS_FILE_SIZE:
+                logger.warning("Skipping oversized file: %s", path)
+                continue
+            sanitized[normalized] = content
+
         results = {
-            "total_files": len(files),
+            "total_files": len(sanitized),
             "implementation_files": [],
             "test_files": [],
             "test_implementation_ratio": 0.0,
@@ -576,7 +596,7 @@ class CriticStaticAnalyzer:
         implementation_files_dict: Dict[str, str] = {}
         test_files_dict: Dict[str, str] = {}
 
-        for file_path, content in files.items():
+        for file_path, content in sanitized.items():
             if self._is_test_file(file_path, content):
                 test_files_dict[file_path] = content
                 results["test_files"].append(file_path)
