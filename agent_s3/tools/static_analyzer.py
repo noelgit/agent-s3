@@ -16,7 +16,8 @@ class StaticAnalyzer:
     """
 
     def __init__(self, file_tool: FileTool = None, project_root=None,
-         parser_registry: ParserRegistry = None):        self.file_tool = file_tool
+                 parser_registry: ParserRegistry = None):
+        self.file_tool = file_tool
         self.project_root = project_root or self._get_project_root()
         self.parser_registry = parser_registry or ParserRegistry()
         self.php_parser = None  # Deprecated
@@ -193,7 +194,12 @@ class StaticAnalyzer:
                         resolved = True
                     else:
                         # Multiple candidates across files - log warning
-                        logger.warning("%s", Ambiguous resolution for '{target}' from {edge['source']}. Candidates: {all_candidates})
+                        logger.warning(
+                            "Ambiguous resolution for '%s' from %s. Candidates: %s",
+                            target,
+                            edge['source'],
+                            all_candidates,
+                        )
                         edge['resolved'] = False
                 else:
                     # Check if import is from external package or standard library
@@ -239,9 +245,13 @@ class StaticAnalyzer:
 
         return resolved_edges
 
-    def analyze_file(self, file_path: str, tech_stack: Optional[Dict[str, Any]] = None) -> Dict[str,
-         Any]:        """
-        Analyze a single file for dependency graph nodes and edges.
+    def analyze_file(
+        self,
+        file_path: str,
+        tech_stack: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Analyze a single file for dependency graph nodes and edges.
+
         Uses the pluggable parsing framework for Python, JS/TS, and PHP files.
         Returns a dict with 'nodes' and 'edges' lists.
         """
@@ -251,7 +261,10 @@ class StaticAnalyzer:
                 return {"nodes": [], "edges": []}
             parser = self.parser_registry.get_parser(file_path=file_path)
             if not parser:
-                logger.debug("%s", Unsupported file extension for analysis: {file_path})
+                logger.debug(
+                    "Unsupported file extension for analysis: %s",
+                    file_path,
+                )
                 return {"nodes": [], "edges": []}
             result = parser.analyze(content, file_path, tech_stack)
             nodes = result.get('nodes', [])
@@ -260,15 +273,17 @@ class StaticAnalyzer:
             nodes = self._detect_framework_roles(nodes, resolved_edges)
             return {'nodes': nodes, 'edges': resolved_edges}
         except FileNotFoundError:
-            logger.error("%s", File not found: {file_path})
+            logger.error("File not found: %s", file_path)
             return {"nodes": [], "edges": []}
         except Exception as e:
             logger.error(f"Error analyzing file {file_path}: {e}", exc_info=True)
             return {"nodes": [], "edges": []}
         return {"nodes": [], "edges": []} # Default return
 
-    def _detect_framework_roles(self, nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]])
-         -> List[Dict[str, Any]]:        """Identify framework-specific roles based on dependency edges"""
+    def _detect_framework_roles(
+        self, nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """Identify framework-specific roles based on dependency edges."""
         # Detect Django views from route handlers
         for edge in edges:
             if edge.get('type') == 'route_handler' and edge.get('resolved'):
@@ -305,7 +320,10 @@ class StaticAnalyzer:
             if is_valid:
                 logger.info("Architecture-implementation validation passed")
             else:
-                logger.warning("%s", Architecture-implementation validation failed: {error_message})
+                logger.warning(
+                    "Architecture-implementation validation failed: %s",
+                    error_message,
+                )
 
             return is_valid, error_message, validation_details
 
@@ -360,7 +378,10 @@ class StaticAnalyzer:
             if is_valid:
                 logger.info("Test coverage validation passed")
             else:
-                logger.warning("%s", Test coverage validation failed: {error_message})
+                logger.warning(
+                    "Test coverage validation failed: %s",
+                    error_message,
+                )
 
             return is_valid, error_message, validation_details
 
@@ -445,7 +466,7 @@ class StaticAnalyzer:
                 if php_packages:
                     external_deps['php'] = [pkg.split('/')[1] if '/' in pkg else pkg for pkg in php_packages]
             except Exception as e:
-                logger.warning("%s", Error getting external dependencies: {e})
+                logger.warning("Error getting external dependencies: %s", e)
 
         # Analyze files
         for dirpath, _, filenames in os.walk(root_path):
@@ -466,8 +487,10 @@ class StaticAnalyzer:
 
         return {'nodes': all_nodes, 'edges': all_edges}
 
-    def enhance_search_results(self, semantic_results: List[Dict[str, Any]], query_files: List[str])
-         -> List[Dict[str, Any]]:        """Augment semantic search results with structural relevance."""
+    def enhance_search_results(
+        self, semantic_results: List[Dict[str, Any]], query_files: List[str]
+    ) -> List[Dict[str, Any]]:
+        """Augment semantic search results with structural relevance."""
         if not semantic_results or not query_files:
             return semantic_results
 
@@ -488,7 +511,9 @@ class StaticAnalyzer:
 
         return sorted(semantic_results, key=lambda r: r.get('structural_score', 0), reverse=True)
 
-    def find_structurally_relevant_files(self, query_files: List[str]) -> List[Dict[str, Any]]:
+    def find_structurally_relevant_files(
+        self, query_files: List[str]
+    ) -> List[Dict[str, Any]]:
         """Return files structurally related to the query files."""
         from collections import defaultdict
 
