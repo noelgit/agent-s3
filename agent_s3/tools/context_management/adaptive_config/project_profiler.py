@@ -261,8 +261,9 @@ class ProjectProfiler:
             language = EXTENSION_TO_LANGUAGE.get(ext, "unknown")
             if language != "unknown":
                 language_counts[language] += count
-                language_sizes[language] +
-                    = self.file_stats["avg_size_by_extension"].get(ext, 0) * count
+                language_sizes[language] += (
+                    self.file_stats["avg_size_by_extension"].get(ext, 0) * count
+                )
         # Calculate language percentages by file count
         total_files = sum(language_counts.values())
         language_percentages = {
