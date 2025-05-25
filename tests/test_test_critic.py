@@ -42,7 +42,7 @@ def test_run_analysis_returns_pass(sample_workspace):
     """Test that ``run_analysis`` aggregates results correctly."""
     with patch(
         "agent_s3.tools.test_critic.core.select_adapter", return_value=DummyAdapter()
-    ), patch("agent_s3.tools.test_critic.core.Reporter") as mock_reporter:
+    ), patch("agent_s3.tools.test_critic.reporter.Reporter") as mock_reporter:
         mock_reporter.return_value.write = MagicMock()
         critic = TestCritic()
         result = critic.run_analysis(sample_workspace)
@@ -72,3 +72,24 @@ def test_example():
     assert "unit" in result["test_types"]
     assert result["test_count"] == 1
     assert result["assertion_count"] >= 1
+
+
+def test_analyze_plan_without_tests_section_fails():
+    """Plan analysis should fail with critical severity when no tests section."""
+    critic = TestCritic()
+    plan = {"plan": {}}
+
+    result = critic.analyze_plan(plan["plan"])
+
+    assert result["verdict"] == TestVerdict.FAIL
+    assert any(i["severity"] == "critical" for i in result["issues"])
+
+
+def test_analyze_plan_missing_required_types_marks_major():
+    """Missing required test types should be reported as major severity."""
+    critic = TestCritic()
+    plan = {"tests": {"unit_tests": ["dummy"]}}
+
+    result = critic.analyze_plan(plan)
+
+    assert any(i["severity"] == "major" for i in result["issues"])

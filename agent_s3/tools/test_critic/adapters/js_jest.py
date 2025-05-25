@@ -74,7 +74,7 @@ class JsJestAdapter(Adapter):
             test_files.extend(list(workspace.glob(f"**/__tests__/**/*{ext}")))
 
         if test_files:
-            logger.info("%s", Found {len(test_files)} Jest-style test files)
+            logger.info("Found %d Jest-style test files", len(test_files))
             return True
 
         return False
@@ -113,7 +113,7 @@ class JsJestAdapter(Adapter):
             return []
 
         except Exception as e:
-            logger.error("%s", Error listing Jest tests: {str(e)})
+            logger.error("Error listing Jest tests: %s", str(e))
             return [f"Error listing Jest tests: {str(e)}"]
 
         finally:
@@ -143,7 +143,7 @@ class JsJestAdapter(Adapter):
             return result.returncode == 0
 
         except Exception as e:
-            logger.error("%s", Error running Jest smoke tests: {str(e)})
+            logger.error("Error running Jest smoke tests: %s", str(e))
             return False
 
         finally:
@@ -217,7 +217,7 @@ class JsJestAdapter(Adapter):
             return None
 
         except Exception as e:
-            logger.error("%s", Error running Jest coverage analysis: {str(e)})
+            logger.error("Error running Jest coverage analysis: %s", str(e))
             return None
 
         finally:
@@ -303,7 +303,7 @@ class JsJestAdapter(Adapter):
             return None
 
         except Exception as e:
-            logger.error("%s", Error running Stryker mutation testing: {str(e)})
+            logger.error("Error running Stryker mutation testing: %s", str(e))
             return None
 
         finally:

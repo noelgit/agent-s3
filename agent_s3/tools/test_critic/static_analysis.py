@@ -210,8 +210,12 @@ class CriticStaticAnalyzer:
 
         return results
 
-    def critique_tests(self, tests_plan: Dict[str, Any], risk_assessment: Dict[str, Any])
-         -> Dict[str, Any]:        """
+    def critique_tests(
+        self,
+        tests_plan: Dict[str, Any],
+        risk_assessment: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
         Critiques the planned test implementations against the risk assessment.
         This method is called by FeatureGroupProcessor on the *planned* tests.
 
@@ -262,7 +266,11 @@ class CriticStaticAnalyzer:
         # 2. Analyze the content of each planned test
         for test_category_key, planned_tests_list in tests_plan.items():
             if not isinstance(planned_tests_list, list):
-                logger.warning("%s", Unexpected format for planned tests in category '{test_category_key}'. Expected list, got {type(planned_tests_list)})
+                logger.warning(
+                    "Unexpected format for planned tests in category '%s'. Expected list, got %s",
+                    test_category_key,
+                    type(planned_tests_list),
+                )
                 continue
 
             critique_results["planned_test_analysis"][test_category_key] = []
@@ -412,18 +420,24 @@ class CriticStaticAnalyzer:
             Analysis results
         """
         results = {
-            "required_test_types": [TestType.UNIT, TestType.INTEGRATION,
-                                   TestType.APPROVAL, TestType.PROPERTY_BASED, TestType.ACCEPTANCE],
-            "has_test_section": False, # This will be true if 'tests' key exists and is a dict
-            "planned_test_types": [],  # This will be populated from plan["tests"]
+            "required_test_types": [
+                TestType.UNIT,
+                TestType.INTEGRATION,
+                TestType.APPROVAL,
+                TestType.PROPERTY_BASED,
+                TestType.ACCEPTANCE,
+            ],
+            "has_test_section": False,  # True if 'tests' key exists and is a dict
+            "planned_test_types": [],
             "test_coverage": 0.0,
-            "issues": [],
-            "verdict": TestVerdict.FAIL
+            "issues": [],  # List[Dict[str, str]] with severity and description
+            "verdict": TestVerdict.FAIL,
         }
 
         # The 'plan' argument is the full planner output. We look for the 'tests' key.
         planner_tests_output = plan.get("tests")
 
+        planned_test_type_enums: Set[TestType] = set()
         if planner_tests_output and isinstance(planner_tests_output, dict):
             results["has_test_section"] = True
 
@@ -439,7 +453,6 @@ class CriticStaticAnalyzer:
                 # For now, TestType.APPROVAL is in required_test_types but not directly mapped from a key.
             }
 
-            planned_test_type_enums: Set[TestType] = set()
             for key, test_type_enum in key_to_test_type_map.items():
                 if planner_tests_output.get(key) and isinstance(planner_tests_output[key], list) and planner_tests_output[key]:
                     planned_test_type_enums.add(test_type_enum)
@@ -460,30 +473,73 @@ class CriticStaticAnalyzer:
              results["test_coverage"] = 1.0 # Or 0.0, depending on interpretation
 
         # Identify missing test types
-        missing_tests_enums = [req_type for req_type in results["required_test_types"]
-                               if req_type not in planned_test_type_enums] # type: ignore
+        missing_tests_enums = [
+            req_type for req_type in results["required_test_types"]
+            if req_type not in planned_test_type_enums
+        ]
+
+        issues: List[Dict[str, str]] = []
 
         if missing_tests_enums:
             missing_tests_values = [mt.value for mt in missing_tests_enums]
-            results["issues"].append(f"Missing required test types in plan: {', '.join(missing_tests_values)}")
+            issues.append(
+                {
+                    "severity": "major",
+                    "description": (
+                        f"Missing required test types in plan: {', '.join(missing_tests_values)}"
+                    ),
+                }
+            )
 
         if not results["has_test_section"] and results["required_test_types"]:
-            results["issues"].append("No 'tests' section found in plan, but test types are required.")
+            issues.append(
+                {
+                    "severity": "critical",
+                    "description": (
+                        "No 'tests' section found in plan, but test types are required."
+                    ),
+                }
+            )
         elif results["has_test_section"] and not results["planned_test_types"] and results["required_test_types"]:
-            results["issues"].append("The 'tests' section in the plan is empty or does not map to known test types, but test types are required.")
+            issues.append(
+                {
+                    "severity": "major",
+                    "description": (
+                        "The 'tests' section in the plan is empty or does not map to known test types, but test types are required."
+                    ),
+                }
+            )
+
+        results["issues"] = issues
 
         # Determine verdict
-        if results["test_coverage"] >= 1.0 and not results["issues"]:
-            results["verdict"] = TestVerdict.PASS
-        elif results["test_coverage"] > 0.5 and not results["issues"]:
-            results["verdict"] = TestVerdict.WARN
-        else:
+        coverage_verdict = TestVerdict.FAIL
+        if results["test_coverage"] >= 1.0:
+            coverage_verdict = TestVerdict.PASS
+        elif results["test_coverage"] > 0.5:
+            coverage_verdict = TestVerdict.WARN
+
+        if any(i["severity"] == "critical" for i in results["issues"]):
             results["verdict"] = TestVerdict.FAIL
+        elif results["issues"]:
+            # Non-critical issues downgrade pass to warn
+            results["verdict"] = (
+                TestVerdict.WARN
+                if coverage_verdict == TestVerdict.PASS
+                else coverage_verdict
+            )
+        else:
+            results["verdict"] = coverage_verdict
 
         return results
 
-    def analyze_implementation(self, file_path: str, content: str, test_files: List[Dict[str, Any]])
-         -> Dict[str, Any]:        """
+    def analyze_implementation(
+        self,
+        file_path: str,
+        content: str,
+        test_files: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """
         Analyze an implementation file and its associated test files.
 
         Args:
@@ -517,7 +573,11 @@ class CriticStaticAnalyzer:
                 try:
                     all_test_types_found_enums.add(TestType(type_str))
                 except ValueError:
-                    logger.warning("%s", Unknown test type string '{type_str}' found in test file analysis for {test_file_analysis.get('file_path)}")
+                    logger.warning(
+                        "Unknown test type string '%s' found in test file analysis for %s",
+                        type_str,
+                        test_file_analysis.get("file_path"),
+                    )
             results["total_test_count"] += test_file_analysis.get("test_count", 0)
             results["total_assertion_count"] += test_file_analysis.get("assertion_count", 0)
 
@@ -605,7 +665,11 @@ class CriticStaticAnalyzer:
                 try:
                     found_test_type_enums.add(TestType(type_str))
                 except ValueError:
-                     logger.warning("%s", Unknown test type string '{type_str}' from analyze_test_file for {file_path})
+                    logger.warning(
+                        "Unknown test type string '%s' from analyze_test_file for %s",
+                        type_str,
+                        file_path,
+                    )
         results["test_types_found"] = found_test_type_enums # Store the Set of enum members
 
 
@@ -714,7 +778,10 @@ class CriticStaticAnalyzer:
             try:
                 test_type = TestType(str(test_type).lower())
             except ValueError:
-                logger.warning("%s", Invalid test_type value '{test_type}' provided to _detect_test_type.)
+                logger.warning(
+                    "Invalid test_type value '%s' provided to _detect_test_type.",
+                    test_type,
+                )
                 return False
 
         if test_type not in self.patterns or language not in self.patterns[test_type]:
@@ -737,9 +804,14 @@ class CriticStaticAnalyzer:
 
         # Check for empty test functions (Python)
         # Regex to find 'def test_something(self): pass' or 'def test_something(): # optional comment then pass'
-        empty_py_tests = re.findall(r"def\s+test_\w+
-            \s*\([^)]*\):\s*(?:#.*?\n\s*)?pass(?!\w)", content)        if empty_py_tests:
-            issues.append(f"Found {len(empty_py_tests)} empty Python test functions (ending in 'pass').")
+        empty_py_tests = re.findall(
+            r"def\s+test_\w+\s*\([^)]*\):\s*(?:#.*?\n\s*)?pass(?!\w)",
+            content,
+        )
+        if empty_py_tests:
+            issues.append(
+                f"Found {len(empty_py_tests)} empty Python test functions (ending in 'pass')."
+            )
 
         # Check for empty test blocks (JavaScript) - e.g., it('should do something', () => {});
         empty_js_tests = re.findall(r"(?:it|test)\s*\((?:'[^']*'|\"[^\"]*\"|`[^`]*`)\s*,\s*\(\s*\)\s*=>\s*{\s*(?:/\*.*?\*/|//.*?\n\s*)?}\s*\);?", content)
@@ -872,11 +944,15 @@ class CriticStaticAnalyzer:
             elements.extend(f for f in functions if not f.startswith('_')) # Exclude private conventionally
             elements.extend(c for c in classes if not c.startswith('_'))
         else:  # javascript/typescript
-            # Find functions (named and assigned to const/let/var)
             functions = re.findall(r"function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(", content)
-            arrow_funcs_assigned = re.findall(r"(?:const|let|var)\s+
-                ([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\(.*\)\s*=>", content)            class_methods = re.findall(r"(?:async\s+
-                                                        )?([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\([^)]*\)\s*{", content) # More general, might catch non-methods
+            arrow_funcs_assigned = re.findall(
+                r"(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\(.*\)\s*=>",
+                content,
+            )
+            class_methods = re.findall(
+                r"(?:async\s+)?([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\([^)]*\)\s*{",
+                content,
+            )  # More general, might catch non-methods
             # Find classes
             classes = re.findall(r"class\s+([a-zA-Z_$][a-zA-Z0-9_$]*)", content)
 
@@ -967,7 +1043,11 @@ class CriticStaticAnalyzer:
                 analysis = json.loads(json_str)
                 return analysis
             except json.JSONDecodeError as e:
-                logger.error("%s", Could not parse LLM response as JSON for test analysis. Error: {e}. Response: {response[:500]})
+                logger.error(
+                    "Could not parse LLM response as JSON for test analysis. Error: %s. Response: %s",
+                    e,
+                    response[:500],
+                )
                 return {"error": "Could not parse LLM response as JSON", "raw_response": response}
 
         except Exception as e:
