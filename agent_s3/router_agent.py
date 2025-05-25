@@ -341,15 +341,26 @@ class RouterAgent:
                 )
                 self._failure_counts[model_name] = 0  # Reset failure count on success
                 primary_failed = False
-                scratchpad.log("RouterAgent", f"Successfully called {model_name} (Role: {role}) on attempt {attempt +
-                                                             1}")                break  # Success
+                scratchpad.log(
+                    "RouterAgent",
+                    f"Successfully called {model_name} (Role: {role}) on attempt {attempt + 1}"
+                )
+                break  # Success
             except Exception as e:
                 self._failure_counts[model_name] += 1
                 self._last_failure_time[model_name] = time.time()
-                scratchpad.log("RouterAgent", f"Attempt {attempt +
-                     1}/{max_retries} failed for {model_name} (Role: {role}): {e}", level="warning")                if attempt +
-                                                   1 == max_retries:                    primary_failed = True
-                    scratchpad.log("RouterAgent", f"{model_name} (Role: {role}) failed after {max_retries} attempts.", level="error")
+                scratchpad.log(
+                    "RouterAgent",
+                    f"Attempt {attempt + 1}/{max_retries} failed for {model_name} (Role: {role}): {e}",
+                    level="warning",
+                )
+                if attempt + 1 == max_retries:
+                    primary_failed = True
+                    scratchpad.log(
+                        "RouterAgent",
+                        f"{model_name} (Role: {role}) failed after {max_retries} attempts.",
+                        level="error",
+                    )
                 else:
                     sleep(backoff)
                     backoff *= backoff_multiplier
