@@ -55,7 +55,6 @@ class MetricsCollector:
             os.makedirs(self.storage_path, exist_ok=True)
         except OSError as e:
             logger.error(
-                "%s",
                 "Failed to create metrics storage directory: %s",
                 e,
             )
@@ -253,12 +252,12 @@ class MetricsCollector:
             with open(filename, 'w') as f:
                 json.dump(self.current_metrics, f)
 
-            logger.debug("%s", Saved metrics to {filename})
+            logger.debug("Saved metrics to %s", filename)
 
             # Clean up old metrics files
             self._cleanup_old_metrics()
         except Exception as e:
-            logger.error("%s", Failed to save metrics: {e})
+            logger.error("Failed to save metrics: %s", e)
 
     def _cleanup_old_metrics(self) -> None:
         """Clean up old metrics files."""
@@ -275,9 +274,9 @@ class MetricsCollector:
                 file_path = os.path.join(self.storage_path, filename)
                 if os.path.getmtime(file_path) < cutoff_time:
                     os.remove(file_path)
-                    logger.debug("%s", Removed old metrics file: {filename})
+                    logger.debug("Removed old metrics file: %s", filename)
         except Exception as e:
-            logger.error("%s", Error cleaning up old metrics files: {e})
+            logger.error("Error cleaning up old metrics files: %s", e)
 
     def get_recent_metrics(self, metric_type: str, count: int = 10) -> List[Dict[str, Any]]:
         """
@@ -593,7 +592,7 @@ class MetricsCollector:
 
             return dict(historical)
         except Exception as e:
-            logger.error("%s", Failed to load historical metrics: {e})
+            logger.error("Failed to load historical metrics: %s", e)
             return {}
 
     def calculate_trend(self, metric_type: str, value_field: str) -> Dict[str, Any]:
