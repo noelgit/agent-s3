@@ -107,7 +107,7 @@ class GitTool:
 
                 # Some errors should be retried
                 if error_category == 'network' and retries < max_retries:
-                    self.logger.warning("%s", Network error detected in Git command. Retrying in {current_delay}s: {output})
+                    self.logger.warning("Network error detected in Git command. Retrying in %ss: %s", current_delay, output)
                     time.sleep(current_delay)
                     retries += 1
                     current_delay *= 2  # Exponential backoff
@@ -121,7 +121,7 @@ class GitTool:
                 self.logger.error(error_msg)
 
                 if retries < max_retries:
-                    self.logger.warning("%s", Retrying Git command in {current_delay}s after error)
+                    self.logger.warning("Retrying Git command in %ss after error", current_delay)
                     time.sleep(current_delay)
                     retries += 1
                     current_delay *= 2  # Exponential backoff
@@ -236,7 +236,7 @@ class GitTool:
                             wait_time = max(1, reset_time - time.time())
 
                         if retries < max_retries:
-                            self.logger.warning("%s", Rate limit hit. Waiting {wait_time:.1f}s and retrying...)
+                            self.logger.warning("Rate limit hit. Waiting %.1fs and retrying...", wait_time)
                             time.sleep(min(wait_time, 60))  # Wait at most 60 seconds
                             retries += 1
                             retry_delay *= 2
@@ -252,7 +252,7 @@ class GitTool:
                 elif response.status_code >= 500:
                     # Server error, may be transient
                     if retries < max_retries:
-                        self.logger.warning("%s", GitHub server error {response.status_code}. Retrying in {retry_delay}s...)
+                        self.logger.warning("GitHub server error %d. Retrying in %ds...", response.status_code, retry_delay)
                         time.sleep(retry_delay)
                         retries += 1
                         retry_delay *= 2  # Exponential backoff
@@ -266,7 +266,7 @@ class GitTool:
 
                     # Only retry certain types of errors
                     if retries < max_retries and response.status_code in (408, 429, 502, 503, 504):
-                        self.logger.warning("%s", GitHub API error {response.status_code}. Retrying in {retry_delay}s...)
+                        self.logger.warning("GitHub API error %d. Retrying in %ds...", response.status_code, retry_delay)
                         time.sleep(retry_delay)
                         retries += 1
                         retry_delay *= 2  # Exponential backoff
@@ -276,7 +276,7 @@ class GitTool:
 
             except requests.exceptions.Timeout:
                 if retries < max_retries:
-                    self.logger.warning("%s", GitHub API request timed out. Retrying in {retry_delay}s...)
+                    self.logger.warning("GitHub API request timed out. Retrying in %ds...", retry_delay)
                     time.sleep(retry_delay)
                     retries += 1
                     retry_delay *= 2  # Exponential backoff
@@ -284,7 +284,7 @@ class GitTool:
                 return False, "GitHub API request timed out after multiple retries."
             except requests.exceptions.ConnectionError:
                 if retries < max_retries:
-                    self.logger.warning("%s", GitHub API connection error. Retrying in {retry_delay}s...)
+                    self.logger.warning("GitHub API connection error. Retrying in %ds...", retry_delay)
                     time.sleep(retry_delay)
                     retries += 1
                     retry_delay *= 2  # Exponential backoff
@@ -295,7 +295,7 @@ class GitTool:
                 self.logger.error(error_message)
 
                 if retries < max_retries:
-                    self.logger.warning("%s", Unexpected error. Retrying in {retry_delay}s...)
+                    self.logger.warning("Unexpected error. Retrying in %ds...", retry_delay)
                     time.sleep(retry_delay)
                     retries += 1
                     retry_delay *= 2  # Exponential backoff
@@ -346,8 +346,8 @@ class GitTool:
             "details": details
         }
 
-    def create_branch(self, branch_name: str, source_branch: Optional[str] = None) -> Dict[str,
-         Any]:        """Create a new Git branch with improved error handling.
+    def create_branch(self, branch_name: str, source_branch: Optional[str] = None) -> Dict[str, Any]:
+        """Create a new Git branch with improved error handling.
 
         Args:
             branch_name: Name for the new branch
@@ -359,7 +359,7 @@ class GitTool:
         # Check if branch already exists
         branch_exists, output = self.branch_exists(branch_name)
         if branch_exists:
-            self.logger.warning("%s", Branch {branch_name} already exists. Attempting to check it out.)
+            self.logger.warning("Branch %s already exists. Attempting to check it out.", branch_name)
             checkout_code, checkout_output = self.run_git_command(f"checkout {branch_name}")
             if checkout_code == 0:
                 return {"success": True, "message": f"Branch {branch_name} already exists and was checked out"}
@@ -372,7 +372,7 @@ class GitTool:
             code, output = self.run_git_command(f"checkout {source_branch}")
             if code != 0:
                 # Try to fetch the source branch if it doesn't exist locally
-                self.logger.warning("%s", Source branch {source_branch} not found locally. Attempting to fetch.)
+                self.logger.warning("Source branch %s not found locally. Attempting to fetch.", source_branch)
                 fetch_code, fetch_output = self.run_git_command(f"fetch origin {source_branch}:{source_branch}")
 
                 if fetch_code != 0:
@@ -392,11 +392,11 @@ class GitTool:
         if code != 0:
             error_category = self._categorize_git_error(output)
             if error_category == 'network':
-                self.logger.warning("%s", Network issue during pull. Continuing without latest changes: {output})
+                self.logger.warning("Network issue during pull. Continuing without latest changes: %s", output)
             elif 'no tracking information' in output.lower() or 'no upstream branch' in output.lower():
                 self.logger.warning("Current branch has no tracking information. Continuing without pulling.")
             else:
-                self.logger.warning("%s", Git pull failed: {output})
+                self.logger.warning("Git pull failed: %s", output)
 
         # Create the new branch
         code, output = self.run_git_command(f"checkout -b {branch_name}")
@@ -422,7 +422,7 @@ class GitTool:
         # Check remote branches
         code, output = self.run_git_command("fetch --all")
         if code != 0:
-            self.logger.warning("%s", Failed to fetch branches: {output})
+            self.logger.warning("Failed to fetch branches: %s", output)
 
         code, output = self.run_git_command(f"branch -r --list origin/{branch_name}")
         if code == 0 and f"origin/{branch_name}" in output:
@@ -430,8 +430,8 @@ class GitTool:
 
         return False, "Branch does not exist"
 
-    def commit_changes(self, commit_message: str, add_all: bool = False,
-         files: Optional[List[str]] = None) -> Dict[str, Any]:        """Commit changes to the repository with improved error handling.
+    def commit_changes(self, commit_message: str, add_all: bool = False, files: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Commit changes to the repository with improved error handling.
 
         Args:
             commit_message: The commit message
@@ -483,8 +483,8 @@ class GitTool:
 
         return {"success": True, "message": output}  # Return the actual commit message which may contain the commit hash
 
-    def push_changes(self, branch: Optional[str] = None, force: bool = False,
-         set_upstream: bool = True) -> Dict[str, Any]:        """Push changes to the remote repository with improved error handling.
+    def push_changes(self, branch: Optional[str] = None, force: bool = False, set_upstream: bool = True) -> Dict[str, Any]:
+        """Push changes to the remote repository with improved error handling.
 
         Args:
             branch: Branch name to push (defaults to current branch)
@@ -571,7 +571,7 @@ class GitTool:
         # Get remote URL
         code, output = self.run_git_command("remote get-url origin")
         if code != 0:
-            self.logger.warning("%s", Failed to get remote URL: {output})
+            self.logger.warning("Failed to get remote URL: %s", output)
             return result
 
         remote_url = output.strip()
@@ -596,7 +596,7 @@ class GitTool:
             self._repo_info_cache_time = time.time()
             return result
 
-        self.logger.warning("%s", Failed to parse owner and repo from remote URL: {remote_url})
+        self.logger.warning("Failed to parse owner and repo from remote URL: %s", remote_url)
         return result
 
     def _get_current_branch(self) -> Optional[str]:
@@ -607,7 +607,7 @@ class GitTool:
         """
         code, output = self.run_git_command("branch --show-current")
         if code != 0:
-            self.logger.warning("%s", Failed to get current branch: {output})
+            self.logger.warning("Failed to get current branch: %s", output)
             return None
 
         branch = output.strip()
@@ -617,8 +617,8 @@ class GitTool:
 
         return branch
 
-    def create_github_issue(self, title: str, body: str, labels: Optional[List[str]] = None)
-         -> Optional[str]:        """Create a GitHub issue in the current repository.
+    def create_github_issue(self, title: str, body: str, labels: Optional[List[str]] = None) -> Optional[str]:
+        """Create a GitHub issue in the current repository.
 
         Args:
             title: Issue title
@@ -650,11 +650,11 @@ class GitTool:
 
         if success and isinstance(response, dict):
             issue_url = response.get("html_url")
-            self.logger.info("%s", Successfully created issue: {issue_url})
+            self.logger.info("Successfully created issue: %s", issue_url)
             return issue_url
         else:
             error_msg = response if isinstance(response, str) else "Unknown error"
-            self.logger.error("%s", Failed to create issue: {error_msg})
+            self.logger.error("Failed to create issue: %s", error_msg)
             return None
 
     def create_pull_request(self, title: str, body: str, head_branch: Optional[str] = None,
@@ -700,11 +700,11 @@ class GitTool:
 
         if success and isinstance(response, dict):
             pr_url = response.get("html_url")
-            self.logger.info("%s", Successfully created pull request: {pr_url})
+            self.logger.info("Successfully created pull request: %s", pr_url)
             return pr_url
         else:
             error_msg = response if isinstance(response, str) else "Unknown error"
-            self.logger.error("%s", Failed to create pull request: {error_msg})
+            self.logger.error("Failed to create pull request: %s", error_msg)
             return None
 
     def _check_rate_limit(self) -> bool:
@@ -717,7 +717,7 @@ class GitTool:
         if self.rate_limit_remaining <= 0 and time.time() < self.rate_limit_reset:
             wait_time = self.rate_limit_reset - time.time()
             if wait_time > 0:
-                self.logger.warning("%s", GitHub API rate limit exceeded. Reset in {wait_time:.1f} seconds.)
+                self.logger.warning("GitHub API rate limit exceeded. Reset in %.1f seconds.", wait_time)
                 return False
 
         # Default to allowing the request if we don't have rate limit info yet

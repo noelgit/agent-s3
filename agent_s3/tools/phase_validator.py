@@ -15,8 +15,8 @@ import re
 logger = logging.getLogger(__name__)
 
 
-def validate_phase_transition(pre_plan_data: Dict[str, Any], feature_group: Dict[str, Any])
-     -> Tuple[bool, str]:    """Validate the transition from pre-planning to planning phase.
+def validate_phase_transition(pre_plan_data: Dict[str, Any], feature_group: Dict[str, Any]) -> Tuple[bool, str]:
+    """Validate the transition from pre-planning to planning phase.
 
     Checks if feature group is consistent with pre-planning constraints.
 
@@ -78,8 +78,8 @@ def validate_phase_transition(pre_plan_data: Dict[str, Any], feature_group: Dict
     return is_valid, "; ".join(error_messages) if error_messages else "Valid"
 
 
-def validate_user_modifications(modification_text: str, plan: Optional[Dict[str, Any]] = None)
-     -> Tuple[bool, str]:    """Validate user modifications to ensure they don't invalidate the existing plan.
+def validate_user_modifications(modification_text: str, plan: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
+    """Validate user modifications to ensure they don't invalidate the existing plan.
 
     Args:
         modification_text: The user's modification text
@@ -127,7 +127,8 @@ def validate_user_modifications(modification_text: str, plan: Optional[Dict[str,
 
 
 def validate_architecture_implementation(architecture_review: Dict[str, Any],
-     implementation_plan: Dict[str, Any]) -> Tuple[bool, str, Dict[str, Any]]:    """Validate that implementation components align with architecture design.
+                                        implementation_plan: Dict[str, Any]) -> Tuple[bool, str, Dict[str, Any]]:
+    """Validate that implementation components align with architecture design.
 
     Args:
         architecture_review: The architecture review data
@@ -227,8 +228,8 @@ def validate_architecture_implementation(architecture_review: Dict[str, Any],
     return is_valid, "; ".join(error_messages) if error_messages else "Valid", validation_details
 
 
-def validate_test_coverage_against_risk(tests: Dict[str, Any], risk_assessment: Dict[str, Any])
-     -> Tuple[bool, str, Dict[str, Any]]:    """Validate that tests provide adequate coverage for identified risks.
+def validate_test_coverage_against_risk(tests: Dict[str, Any], risk_assessment: Dict[str, Any]) -> Tuple[bool, str, Dict[str, Any]]:
+    """Validate that tests provide adequate coverage for identified risks.
 
     Args:
         tests: The test plan data
@@ -432,8 +433,8 @@ def validate_test_coverage_against_risk(tests: Dict[str, Any], risk_assessment: 
     return is_valid, "; ".join(error_messages) if error_messages else "Valid", validation_details
 
 
-def validate_security_concerns(architecture_review: Dict[str, Any]) -> Tuple[bool, str, Dict[str,
-     Any]]:    """Validate that security concerns in architecture review are properly addressed.
+def validate_security_concerns(architecture_review: Dict[str, Any]) -> Tuple[bool, str, Dict[str, Any]]:
+    """Validate that security concerns in architecture review are properly addressed.
 
     Args:
         architecture_review: The architecture review data

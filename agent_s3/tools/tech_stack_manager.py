@@ -153,8 +153,8 @@ class TechStackManager:
                         line = line.strip()
                         if line and not line.startswith("#"):
                             # Extract package name and version if available
-                            package_info = re.match(r'^([a-zA-Z0-9_.-]+)(?:[=<>!]+([0-9a-zA-Z.-]+
-                                ))?', line)                            if package_info:
+                            package_info = re.match(r'^([a-zA-Z0-9_.-]+)(?:[=<>!]+([0-9a-zA-Z.-]+))?', line)
+                            if package_info:
                                 package, version = package_info.groups()
                                 if package:
                                     if self._is_library(package):
@@ -389,8 +389,8 @@ class TechStackManager:
             js_practices = [
                 "Use const and let instead of var",
                 "Implement error handling with try/catch blocks",
-                "Use modern ES6+
-                     features like arrow functions, destructuring, and spread operators",                "Avoid callback hell with Promises or async/await",
+                "Use modern ES6+ features like arrow functions, destructuring, and spread operators",
+                "Avoid callback hell with Promises or async/await",
                 "Use modules for code organization"
             ]
 

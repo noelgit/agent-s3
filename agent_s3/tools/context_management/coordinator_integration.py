@@ -136,12 +136,11 @@ class CoordinatorContextIntegration:
             self.config_explainer = ConfigExplainer(self.adaptive_config_manager)
 
             logger.info(
-                "%s",
                 "Initialized adaptive configuration system in %s",
-                config_dir,
+                config_dir
             )
         except Exception as e:
-            logger.error("%s", "Failed to set up adaptive configuration: %s", e)
+            logger.error("Failed to set up adaptive configuration: %s", e)
             logger.debug(traceback.format_exc())
 
     def integrate(self) -> bool:
@@ -194,7 +193,7 @@ class CoordinatorContextIntegration:
             return True
 
         except Exception as e:
-            logger.error("%s", Failed to integrate context management with Coordinator: {e})
+            logger.error("Failed to integrate context management with Coordinator: %s", e)
             logger.debug(traceback.format_exc())
             return False
 
@@ -439,7 +438,7 @@ class CoordinatorContextIntegration:
                         # Nothing to do here, metrics are saved automatically by the metrics collector
                         pass
                     except Exception as e:
-                        logger.error("%s", Error finalizing adaptive configuration: {e})
+                        logger.error("Error finalizing adaptive configuration: %s", e)
 
             # Call original shutdown
             return original_shutdown()
@@ -493,7 +492,7 @@ class CoordinatorContextIntegration:
                         self.adaptive_config_manager.optimize_configuration()
 
                 except Exception as e:
-                    logger.error("%s", Error logging adaptive configuration metrics: {e})
+                    logger.error("Error logging adaptive configuration metrics: %s", e)
 
                 return response
 
@@ -585,7 +584,7 @@ def setup_context_management(coordinator):
 
     except Exception as e:
         # Log error
-        logger.error("%s", Failed to set up context management: {e})
+        logger.error("Failed to set up context management: %s", e)
         logger.debug(traceback.format_exc())
 
         if hasattr(coordinator, 'scratchpad'):
@@ -613,7 +612,7 @@ def get_configuration_report(coordinator):
     try:
         return coordinator.config_explainer.get_human_readable_report()
     except Exception as e:
-        logger.error("%s", Failed to get configuration report: {e})
+        logger.error("Failed to get configuration report: %s", e)
         return f"Error generating configuration report: {e}"
 
 def optimize_configuration(coordinator, reason: str = "Manual optimization"):
@@ -639,7 +638,7 @@ def optimize_configuration(coordinator, reason: str = "Manual optimization"):
         else:
             return False, "No changes made to configuration"
     except Exception as e:
-        logger.error("%s", Failed to optimize configuration: {e})
+        logger.error("Failed to optimize configuration: %s", e)
         return False, f"Error optimizing configuration: {e}"
 
 def reset_configuration(coordinator):
@@ -663,7 +662,7 @@ def reset_configuration(coordinator):
         else:
             return False, "Failed to reset configuration"
     except Exception as e:
-        logger.error("%s", Failed to reset configuration: {e})
+        logger.error("Failed to reset configuration: %s", e)
         return False, f"Error resetting configuration: {e}"
 
 def analyze_repository_profile(coordinator):
@@ -698,5 +697,5 @@ def analyze_repository_profile(coordinator):
         profiler = ProjectProfiler(repo_path)
         return profiler.analyze_repository()
     except Exception as e:
-        logger.error("%s", Failed to analyze repository profile: {e})
+        logger.error("Failed to analyze repository profile: %s", e)
         return {"error": str(e)}

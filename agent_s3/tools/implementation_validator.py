@@ -300,7 +300,8 @@ def repair_implementation_plan(
         repaired_plan = repair_incomplete_implementations(
             repaired_plan,
             issues_by_type.get("incomplete_implementation", []) +
-                 issues_by_type.get("missing_steps", []),            system_design,
+            issues_by_type.get("missing_steps", []),
+            system_design,
             test_implementations
         )
 
@@ -321,8 +322,8 @@ def repair_implementation_plan(
 
     # Fix missing canonical paths
     if "missing_canonical_path" in issues_by_type or "missing_canonical_paths_section" in issues_by_type:
-        missing_path_issues = issues_by_type.get("missing_canonical_path", []) +
-             issues_by_type.get("missing_canonical_paths_section", [])        repaired_plan = repair_missing_canonical_paths(
+        missing_path_issues = issues_by_type.get("missing_canonical_path", []) + issues_by_type.get("missing_canonical_paths_section", [])
+        repaired_plan = repair_missing_canonical_paths(
             repaired_plan,
             missing_path_issues
         )
@@ -398,8 +399,8 @@ def _extract_architecture_issues(architecture_review: Dict[str, Any]) -> List[Di
     return issues
 
 
-def _extract_test_requirements(test_implementations: Dict[str, Any]) -> Dict[str, List[Dict[str,
-     Any]]]:    """Extract test requirements from test implementations."""
+def _extract_test_requirements(test_implementations: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
+    """Extract test requirements from test implementations."""
     requirements = defaultdict(list)
 
     if not isinstance(test_implementations, dict) or "tests" not in test_implementations:
@@ -718,8 +719,8 @@ def _calculate_implementation_metrics(
     # Edge case coverage (average number of edge cases per function, capped at 1.0)
     if total_functions > 0:
         avg_edge_cases = total_edge_cases / total_functions
-        metrics["edge_case_coverage_score"] = min(avg_edge_cases / 3.0, 1.0)  # Assuming 3+
-             edge cases is comprehensive    else:
+        metrics["edge_case_coverage_score"] = min(avg_edge_cases / 3.0, 1.0)  # Assuming 3+ edge cases is comprehensive
+    else:
         metrics["edge_case_coverage_score"] = 0.0
 
     # Calculate coherence metrics
@@ -1400,8 +1401,7 @@ def _validate_implementation_security(
                         edge_cases_text += edge_case.lower() + " "
 
             # Combined text for security analysis
-            combined_text = function_name + " " + description + " " + steps_text + " " +
-                 edge_cases_text
+            combined_text = function_name + " " + description + " " + steps_text + " " + edge_cases_text
             # Check security best practices implementation
             for category, details in security_best_practices.items():
                 # Check if this function needs this security category based on its nature

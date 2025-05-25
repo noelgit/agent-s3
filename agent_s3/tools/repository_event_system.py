@@ -256,10 +256,10 @@ class RepositoryEventSystem:
             self.handlers[watch_id] = handler
             self.watched_paths[watch_id] = repo_path
 
-            logger.info("%s", Started watching repository: {repo_path} (ID: {watch_id}))
+            logger.info("Started watching repository: %s (ID: %s)", repo_path, watch_id)
             return watch_id
         except Exception as e:
-            logger.error("%s", Error setting up repository watcher: {e})
+            logger.error("Error setting up repository watcher: %s", e)
             return ""
 
     def stop_watching(self, watch_id: str) -> bool:
@@ -306,7 +306,7 @@ class RepositoryEventSystem:
             self.observers = new_observers
             return True
         except Exception as e:
-            logger.error("%s", Error stopping repository watcher: {e})
+            logger.error("Error stopping repository watcher: %s", e)
             return False
 
     def stop_all(self) -> None:
@@ -316,7 +316,7 @@ class RepositoryEventSystem:
                 observer.stop()
                 observer.join()
             except Exception as e:
-                logger.error("%s", Error stopping observer: {e})
+                logger.error("Error stopping observer: %s", e)
 
         # Clear references
         self.observers = []

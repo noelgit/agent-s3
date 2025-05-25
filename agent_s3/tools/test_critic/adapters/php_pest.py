@@ -81,8 +81,7 @@ class PhpPestAdapter(Adapter):
             return True
 
         # Check for PHP files with test patterns
-        test_files = list(workspace.glob("**/tests/**/*.php")) +
-             list(workspace.glob("**/test/**/*.php"))
+        test_files = list(workspace.glob("**/tests/**/*.php")) + list(workspace.glob("**/test/**/*.php"))
         if test_files:
             # Sample some test files to see if they use Pest or PHPUnit style
             for test_file in test_files[:5]:  # Check up to 5 files

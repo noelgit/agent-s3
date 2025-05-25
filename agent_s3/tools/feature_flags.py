@@ -47,7 +47,7 @@ class FeatureFlagManager:
 
                 # Create default config if it doesn't exist
                 if not config_file.exists():
-                    logger.info("%s", Feature flag configuration not found at {self.config_path}. Creating default.)
+                    logger.info("Feature flag configuration not found at %s. Creating default.", self.config_path)
                     self._features = {
                         "features": {},
                         "environments": ["development", "staging", "production"],
@@ -61,10 +61,10 @@ class FeatureFlagManager:
                 with open(self.config_path, 'r') as f:
                     self._features = json.load(f)
 
-                logger.debug("%s", Loaded {len(self._features.get('features', {}))} feature flags)
+                logger.debug("Loaded %d feature flags", len(self._features.get('features', {})))
                 return True
             except Exception as e:
-                logger.error("%s", Error loading feature flag configuration: {e})
+                logger.error("Error loading feature flag configuration: %s", e)
 
                 # Initialize with empty defaults
                 if not self._features:
@@ -86,10 +86,10 @@ class FeatureFlagManager:
                 with open(self.config_path, 'w') as f:
                     json.dump(self._features, f, indent=2)
                 self._last_modified = os.path.getmtime(self.config_path)
-                logger.debug("%s", Saved feature flag configuration with {len(self._features.get('features', {}))} flags)
+                logger.debug("Saved feature flag configuration with %d flags", len(self._features.get('features', {})))
                 return True
             except Exception as e:
-                logger.error("%s", Error saving feature flag configuration: {e})
+                logger.error("Error saving feature flag configuration: %s", e)
                 return False
 
     def start_watching(self) -> bool:
@@ -126,7 +126,7 @@ class FeatureFlagManager:
                         logger.info("Feature flag configuration file modified, reloading")
                         self.load_configuration()
             except Exception as e:
-                logger.error("%s", Error checking feature flag configuration file: {e})
+                logger.error("Error checking feature flag configuration file: %s", e)
 
             self._stop_watching.wait(self._watch_interval)
 

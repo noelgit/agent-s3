@@ -78,7 +78,7 @@ class IndexPartition:
                 with open(metadata_path, 'r') as f:
                     self.metadata = json.load(f)
             except Exception as e:
-                logger.error("%s", "Error loading partition metadata: %s", e)
+                logger.error("Error loading partition metadata: %s", e)
 
         # Load file metadata
         file_metadata_path = os.path.join(self.storage_path, "file_metadata.json")
@@ -87,7 +87,7 @@ class IndexPartition:
                 with open(file_metadata_path, 'r') as f:
                     self.file_metadata = json.load(f)
             except Exception as e:
-                logger.error("%s", Error loading file metadata: {e})
+                logger.error("Error loading file metadata: %s", e)
 
         # Load embeddings
         embeddings_path = os.path.join(self.storage_path, "embeddings.json")
@@ -106,7 +106,7 @@ class IndexPartition:
                             decoded_embeddings[real_path] = v
                         self.file_embeddings = decoded_embeddings
             except Exception as e:
-                logger.error("%s", Error loading file embeddings: {e})
+                logger.error("Error loading file embeddings: %s", e)
 
     def _save_data(self) -> None:
         """Save partition data to disk."""
@@ -142,9 +142,9 @@ class IndexPartition:
                 json.dump(encoded_embeddings, f)
             os.replace(temp_path, embeddings_path)
 
-            logger.debug("%s", Saved partition {self.partition_id} with {len(self.file_metadata)} files)
+            logger.debug("Saved partition %s with %d files", self.partition_id, len(self.file_metadata))
         except Exception as e:
-            logger.error("%s", Error saving partition data: {e})
+            logger.error("Error saving partition data: %s", e)
 
     def add_file(
         self,
@@ -174,7 +174,7 @@ class IndexPartition:
 
             return True
         except Exception as e:
-            logger.error("%s", Error adding file to partition: {e})
+            logger.error("Error adding file to partition: %s", e)
             return False
 
     def remove_file(self, file_path: str) -> bool:
@@ -199,7 +199,7 @@ class IndexPartition:
 
             return True
         except Exception as e:
-            logger.error("%s", Error removing file from partition: {e})
+            logger.error("Error removing file from partition: %s", e)
             return False
 
     def update_file(
@@ -231,7 +231,7 @@ class IndexPartition:
             self.file_metadata[file_path] = metadata
             return True
         except Exception as e:
-            logger.error("%s", Error updating file in partition: {e})
+            logger.error("Error updating file in partition: %s", e)
             return False
 
     def contains_file(self, file_path: str) -> bool:
@@ -330,7 +330,7 @@ class IndexPartition:
 
             return results
         except Exception as e:
-            logger.error("%s", Error searching partition: {e})
+            logger.error("Error searching partition: %s", e)
             return []
 
     def _file_matches_criteria(self, file_path: str, metadata: Dict[str, Any]) -> bool:
@@ -381,7 +381,7 @@ class IndexPartition:
             self._save_data()
             return True
         except Exception as e:
-            logger.error("%s", Error committing partition data: {e})
+            logger.error("Error committing partition data: %s", e)
             return False
 
 
@@ -436,7 +436,7 @@ class IndexPartitionManager:
                 with open(metadata_path, 'r') as f:
                     self.metadata = json.load(f)
             except Exception as e:
-                logger.error("%s", Error loading partition manager metadata: {e})
+                logger.error("Error loading partition manager metadata: %s", e)
 
         # Find partition directories
         try:
@@ -470,12 +470,12 @@ class IndexPartitionManager:
                                 for file_path in partition.get_all_files():
                                     self.file_to_partition[file_path] = partition_id
                             except Exception as e:
-                                logger.error("%s", Error loading partition {partition_id}: {e})
+                                logger.error("Error loading partition %s: %s", partition_id, e)
 
             logger.info(f"Loaded {len(self.partitions)} partitions with "
                         f"{sum(p.get_file_count() for p in self.partitions.values())} files")
         except Exception as e:
-            logger.error("%s", Error loading partitions: {e})
+            logger.error("Error loading partitions: %s", e)
 
     def _save_metadata(self) -> None:
         """Save manager metadata to disk."""
@@ -493,7 +493,7 @@ class IndexPartitionManager:
                 json.dump(self.metadata, f)
             os.replace(temp_path, metadata_path)
         except Exception as e:
-            logger.error("%s", Error saving partition manager metadata: {e})
+            logger.error("Error saving partition manager metadata: %s", e)
 
     def create_partition(
         self,
@@ -535,10 +535,10 @@ class IndexPartitionManager:
             # Save metadata
             self._save_metadata()
 
-            logger.info("%s", Created new partition: {partition_id})
+            logger.info("Created new partition: %s", partition_id)
             return partition_id
         except Exception as e:
-            logger.error("%s", Error creating partition: {e})
+            logger.error("Error creating partition: %s", e)
             return ""
 
     def get_partition_for_file(
@@ -623,7 +623,7 @@ class IndexPartitionManager:
 
             return result
         except Exception as e:
-            logger.error("%s", Error adding/updating file: {e})
+            logger.error("Error adding/updating file: %s", e)
             return False
 
     def remove_file(self, file_path: str) -> bool:
@@ -661,7 +661,7 @@ class IndexPartitionManager:
 
             return result
         except Exception as e:
-            logger.error("%s", Error removing file: {e})
+            logger.error("Error removing file: %s", e)
             return False
 
     def search_all_partitions(
@@ -707,7 +707,7 @@ class IndexPartitionManager:
             # Return top-k overall results
             return all_results[:top_k]
         except Exception as e:
-            logger.error("%s", Error searching partitions: {e})
+            logger.error("Error searching partitions: %s", e)
             return []
 
     def select_partitions_for_query(self, query: str) -> List[str]:
@@ -819,7 +819,7 @@ class IndexPartitionManager:
 
             return True
         except Exception as e:
-            logger.error("%s", Error clearing partitions: {e})
+            logger.error("Error clearing partitions: %s", e)
             return False
 
     def optimize_partitions(self, max_files_per_partition: int = 1000) -> bool:
@@ -880,7 +880,7 @@ class IndexPartitionManager:
 
             return True
         except Exception as e:
-            logger.error("%s", Error optimizing partitions: {e})
+            logger.error("Error optimizing partitions: %s", e)
             return False
 
     def prune_unused_entries(self, valid_files: Set[str]) -> int:
@@ -898,7 +898,7 @@ class IndexPartitionManager:
             if removed:
                 self._save_metadata()
         except Exception as e:
-            logger.error("%s", Error pruning unused entries: {e})
+            logger.error("Error pruning unused entries: %s", e)
 
         return removed
 
@@ -927,5 +927,5 @@ class IndexPartitionManager:
             self._save_metadata()
             return True
         except Exception as e:
-            logger.error("%s", Error merging partitions from {other_path}: {e})
+            logger.error("Error merging partitions from %s: %s", other_path, e)
             return False

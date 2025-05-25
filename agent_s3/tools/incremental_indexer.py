@@ -129,7 +129,7 @@ class IncrementalIndexer:
                             from agent_s3.tools.tech_stack_manager import TechStackManager
                             tech_stack = TechStackManager(repo_path).detect_tech_stack()
                         except Exception as e:
-                            logger.error("%s", Error detecting tech stack: {e})
+                            logger.error("Error detecting tech stack: %s", e)
 
                     # Only update dependency graph if this is a full reindex or it doesn't exist
                     if force_full or not hasattr(self.dependency_analyzer, 'forward_deps') or not self.dependency_analyzer.forward_deps:
@@ -139,7 +139,7 @@ class IncrementalIndexer:
                         dependency_graph_updated = True
                         self._report_progress("Dependency analysis complete", 1, 1)
                 except Exception as e:
-                    logger.error("%s", Error analyzing dependencies: {e})
+                    logger.error("Error analyzing dependencies: %s", e)
 
             # Find files to index
             if force_full:
@@ -190,7 +190,7 @@ class IncrementalIndexer:
                     else:
                         files_skipped += 1
                 except Exception as e:
-                    logger.error("%s", Error indexing file {file_path}: {e})
+                    logger.error("Error indexing file %s: %s", file_path, e)
                     files_skipped += 1
 
             # Save all changes
@@ -223,7 +223,6 @@ class IncrementalIndexer:
             }
 
             logger.info(
-                "%s",
                 "Indexed %d files (%d skipped) in %.2f seconds",
                 files_indexed,
                 files_skipped,
@@ -232,7 +231,7 @@ class IncrementalIndexer:
 
             return stats
         except Exception as e:
-            logger.error("%s", Error indexing repository: {e})
+            logger.error("Error indexing repository: %s", e)
             return {
                 "status": "error",
                 "message": str(e),
@@ -297,7 +296,7 @@ class IncrementalIndexer:
                     else:
                         files_skipped += 1
                 except Exception as e:
-                    logger.error("%s", Error indexing file {file_path}: {e})
+                    logger.error("Error indexing file %s: %s", file_path, e)
                     files_skipped += 1
 
             # Save all changes
@@ -317,11 +316,11 @@ class IncrementalIndexer:
                 "timestamp": end_time
             }
 
-            logger.info("%s", Indexed {files_indexed} files ({files_skipped} skipped) in {duration:.2f} seconds)
+            logger.info("Indexed %d files (%d skipped) in %.2f seconds", files_indexed, files_skipped, duration)
 
             return stats
         except Exception as e:
-            logger.error("%s", Error updating files: {e})
+            logger.error("Error updating files: %s", e)
             return {
                 "status": "error",
                 "message": str(e),
@@ -363,7 +362,7 @@ class IncrementalIndexer:
                     if success:
                         files_removed += 1
                 except Exception as e:
-                    logger.error("%s", Error removing file {file_path}: {e})
+                    logger.error("Error removing file %s: %s", file_path, e)
 
             # Save all changes
             self.partition_manager.commit_all()
@@ -379,7 +378,7 @@ class IncrementalIndexer:
                 "total_files": len(file_paths)
             }
         except Exception as e:
-            logger.error("%s", Error removing files: {e})
+            logger.error("Error removing files: %s", e)
             return {
                 "status": "error",
                 "message": str(e),
@@ -437,7 +436,7 @@ class IncrementalIndexer:
 
             return success
         except Exception as e:
-            logger.error("%s", Error indexing file {file_path}: {e})
+            logger.error("Error indexing file %s: %s", file_path, e)
             return False
 
     def _extract_file_metadata(self, file_path: str, content: str) -> Dict[str, Any]:
@@ -502,7 +501,7 @@ class IncrementalIndexer:
 
                     metadata['symbols'] = symbols
             except Exception as e:
-                logger.error("%s", Error extracting metadata from static analyzer: {e})
+                logger.error("Error extracting metadata from static analyzer: %s", e)
 
         return metadata
 
@@ -568,7 +567,7 @@ class IncrementalIndexer:
 
             return all_files
         except Exception as e:
-            logger.error("%s", Error getting files: {e})
+            logger.error("Error getting files: %s", e)
             return []
 
     def _match_pattern(self, file_path: str, pattern: str) -> bool:
@@ -612,7 +611,7 @@ class IncrementalIndexer:
 
                 self.progress_callback(progress)
             except Exception as e:
-                logger.error("%s", Error in progress callback: {e})
+                logger.error("Error in progress callback: %s", e)
 
     def start_background_indexing(
         self,
@@ -647,7 +646,7 @@ class IncrementalIndexer:
         self.indexing_thread = thread
 
         job_id = f"index_{int(time.time())}"
-        logger.info("%s", Started background indexing job: {job_id})
+        logger.info("Started background indexing job: %s", job_id)
 
         return job_id
 
@@ -680,7 +679,7 @@ class IncrementalIndexer:
 
             return stats
         except Exception as e:
-            logger.error("%s", Error getting index stats: {e})
+            logger.error("Error getting index stats: %s", e)
             return {
                 "error": str(e)
             }

@@ -532,7 +532,7 @@ class TokenBudgetAnalyzer:
                         custom_score = scorer_fn(file_path, content, task_type)
                         score *= custom_score
                     except Exception as e:
-                        logger.warning("%s", Error in custom scorer {scorer_name}: {e})
+                        logger.warning("Error in custom scorer %s: %s", scorer_name, e)
 
                 # Task-specific scoring
                 if task_type:

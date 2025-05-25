@@ -110,9 +110,9 @@ class DependencyImpactAnalyzer:
                     # Reverse dependency: target is depended on by source
                     self.reverse_deps[target_file].add(source_file)
 
-            logger.info("%s", Built dependency impact analyzer with {len(self.file_metadata)} files)
+            logger.info("Built dependency impact analyzer with %d files", len(self.file_metadata))
         except Exception as e:
-            logger.error("%s", Error building dependency impact analyzer: {e})
+            logger.error("Error building dependency impact analyzer: %s", e)
 
     def get_dependent_files(self, file_path: str, max_depth: int = 3) -> List[str]:
         """
@@ -167,8 +167,8 @@ class DependencyImpactAnalyzer:
 
         return result
 
-    def calculate_impact_scope(self, changed_files: List[str], max_depth: int = 3) -> Dict[str,
-         Any]:        """
+    def calculate_impact_scope(self, changed_files: List[str], max_depth: int = 3) -> Dict[str, Any]:
+        """
         Calculate the full impact scope of changes to multiple files.
 
         Args:

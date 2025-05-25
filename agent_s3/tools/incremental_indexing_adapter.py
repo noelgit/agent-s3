@@ -74,7 +74,7 @@ class IncrementalIndexingAdapter:
                 if cache_dir:
                     return os.path.join(cache_dir, "incremental_index")
         except Exception as e:
-            logger.error("%s", "Error accessing cache directory: %s", e)
+            logger.error("Error accessing cache directory: %s", e)
 
         # Default to a hidden directory in the user's home
         home = os.path.expanduser("~")
@@ -111,7 +111,7 @@ class IncrementalIndexingAdapter:
             logger.info("Successfully initialized incremental indexing adapter")
             return True
         except Exception as e:
-            logger.error("%s", Error initializing incremental indexing adapter: {e})
+            logger.error("Error initializing incremental indexing adapter: %s", e)
             return False
 
     def enable_watch_mode(self, repo_path: str) -> str:
@@ -140,7 +140,7 @@ class IncrementalIndexingAdapter:
                     if ext not in extensions:
                         return
 
-                    logger.debug("%s", Repository event: {event_type} - {file_path})
+                    logger.debug("Repository event: %s - %s", event_type, file_path)
 
                     # Only update on create or modify events
                     if event_type in ['create', 'modify']:
@@ -153,7 +153,7 @@ class IncrementalIndexingAdapter:
                         thread.daemon = True
                         thread.start()
                 except Exception as e:
-                    logger.error("%s", Error in repository event callback: {e})
+                    logger.error("Error in repository event callback: %s", e)
 
             # Start watching
             extensions = ['.py', '.js', '.jsx', '.ts', '.tsx', '.html', '.css', '.java', '.go', '.php']
@@ -166,13 +166,13 @@ class IncrementalIndexingAdapter:
 
             if watch_id:
                 self._watch_id = watch_id
-                logger.info("%s", Started watching repository: {repo_path})
+                logger.info("Started watching repository: %s", repo_path)
                 return watch_id
             else:
-                logger.error("%s", Failed to start watching repository: {repo_path})
+                logger.error("Failed to start watching repository: %s", repo_path)
                 return ""
         except Exception as e:
-            logger.error("%s", Error enabling watch mode: {e})
+            logger.error("Error enabling watch mode: %s", e)
             return ""
 
     def disable_watch_mode(self) -> bool:
@@ -192,7 +192,7 @@ class IncrementalIndexingAdapter:
                 logger.info("Stopped watching repository")
             return result
         except Exception as e:
-            logger.error("%s", Error disabling watch mode: {e})
+            logger.error("Error disabling watch mode: %s", e)
             return False
 
     def update_index(
@@ -222,7 +222,7 @@ class IncrementalIndexingAdapter:
 
             # If specific files are provided
             if file_paths and not force_full:
-                logger.info("%s", Updating index for {len(file_paths)} specific files)
+                logger.info("Updating index for %d specific files", len(file_paths))
 
                 # If dependency analysis is enabled and static analyzer is available
                 if analyze_dependencies and self.static_analyzer:
@@ -239,7 +239,7 @@ class IncrementalIndexingAdapter:
                     # Combined list of files to update (changed + impacted)
                     combined_files = list(set(file_paths + impacted_files))
 
-                    logger.info("%s", Updating {len(file_paths)} changed files and {len(impacted_files)} impacted files)
+                    logger.info("Updating %d changed files and %d impacted files", len(file_paths), len(impacted_files))
 
                     # Update files
                     return self.indexer.update_files(combined_files, progress_callback)
@@ -248,7 +248,7 @@ class IncrementalIndexingAdapter:
                     return self.indexer.update_files(file_paths, progress_callback)
             else:
                 # Full index update
-                logger.info("%s", Performing {'full' if force_full else 'incremental'} index update)
+                logger.info("Performing %s index update", 'full' if force_full else 'incremental')
 
                 if workspace_root:
                     return self.indexer.index_repository(
@@ -264,7 +264,7 @@ class IncrementalIndexingAdapter:
                         "files_indexed": 0
                     }
         except Exception as e:
-            logger.error("%s", Error updating index: {e})
+            logger.error("Error updating index: %s", e)
             return {
                 "status": "error",
                 "message": str(e),
@@ -295,7 +295,7 @@ class IncrementalIndexingAdapter:
 
             # If we have a query embedding, search using incremental index
             if query_embedding and self.indexer.partition_manager:
-                logger.debug("%s", Searching incremental index for: {query})
+                logger.debug("Searching incremental index for: %s", query)
 
                 # Search across all partitions
                 results = self.indexer.partition_manager.search_all_partitions(
@@ -353,7 +353,7 @@ class IncrementalIndexingAdapter:
                 logger.error("Original search_code method not available")
                 return []
         except Exception as e:
-            logger.error("%s", Error in search_code_wrapper: {e})
+            logger.error("Error in search_code_wrapper: %s", e)
 
             # Fall back to original search_code
             if self._original_search_code:
@@ -378,7 +378,7 @@ class IncrementalIndexingAdapter:
 
             return stats
         except Exception as e:
-            logger.error("%s", Error getting index stats: {e})
+            logger.error("Error getting index stats: %s", e)
             return {
                 "error": str(e)
             }
@@ -401,12 +401,12 @@ class IncrementalIndexingAdapter:
             logger.info("Successfully torn down incremental indexing adapter")
             return True
         except Exception as e:
-            logger.error("%s", Error tearing down incremental indexing adapter: {e})
+            logger.error("Error tearing down incremental indexing adapter: %s", e)
             return False
 
 
-def install_incremental_indexing(code_analysis_tool, static_analyzer=None, config=None)
-     -> IncrementalIndexingAdapter:    """
+def install_incremental_indexing(code_analysis_tool, static_analyzer=None, config=None) -> IncrementalIndexingAdapter:
+    """
     Install incremental indexing into an existing CodeAnalysisTool instance.
 
     Args:

@@ -394,7 +394,7 @@ class CodeAnalysisTool:
                     query[:50],
                 )
             except Exception as e:
-                logger.error("%s", Error enhancing search results with structural analysis: {e})
+                logger.error("Error enhancing search results with structural analysis: %s", e)
 
         # Update access patterns for progressive eviction
         if hasattr(self.embedding_client, 'update_access_patterns'):
@@ -430,11 +430,12 @@ class CodeAnalysisTool:
             # Return top k results
             return results[:k]
         except Exception as e:
-            logger.error("%s", Error finding structurally relevant files: {e})
+            logger.error("Error finding structurally relevant files: %s", e)
             return []
 
     def compute_multi_signal_relevance(self, file_path: str, query: str = None,
-         target_files: List[str] = None) -> Dict[str, float]:        """
+                                       target_files: List[str] = None) -> Dict[str, float]:
+        """
         Compute relevance using multiple signals (fusion strategy).
 
         Args:
@@ -463,7 +464,7 @@ class CodeAnalysisTool:
                 target_files=target_files,
             )
         except Exception as e:
-            logger.error("%s", Error computing multi-signal relevance: {e})
+            logger.error("Error computing multi-signal relevance: %s", e)
             return {
                 'semantic': 0.0,
                 'structural': 0.0,
@@ -485,7 +486,7 @@ class CodeAnalysisTool:
             if hasattr(self.embedding_client, 'evict_embeddings'):
                 evicted = self.embedding_client.evict_embeddings()
                 if evicted > 0:
-                    logger.info("%s", Evicted {evicted} embeddings during code analysis operation)
+                    logger.info("Evicted %s embeddings during code analysis operation", evicted)
 
             # Also clean up the local query cache if it's too large
             self._clean_query_cache()
@@ -500,14 +501,15 @@ class CodeAnalysisTool:
                 themes_to_invalidate.append(theme_id)
 
         if themes_to_invalidate:
-            logger.info("%s", Invalidating cache themes {themes_to_invalidate} due to change in {abs_file_path})
+            logger.info("Invalidating cache themes %s due to change in %s", themes_to_invalidate, abs_file_path)
             for theme_id in themes_to_invalidate:
                 self._remove_theme_from_cache(theme_id)
         else:
-            logger.debug("%s", No cache themes found containing {abs_file_path} to invalidate.)
+            logger.debug("No cache themes found containing %s to invalidate.", abs_file_path)
 
     def _add_query_to_cache(self, theme_id: str, query_embedding: List[float],
-         results: List[Dict[str, Any]], timestamp: int) -> None:        """
+                            results: List[Dict[str, Any]], timestamp: int) -> None:
+        """
         Add a query and its results to the theme cache with TTL.
 
         Args:
@@ -920,7 +922,7 @@ class CodeAnalysisTool:
         try:
             content = self.file_tool.read_file(file_path)
             if content is None:
-                logger.warning("%s", Could not read content of file: {file_path})
+                logger.warning("Could not read content of file: %s", file_path)
                 return {'error': 'Could not read file', 'file_path': file_path, 'elements': [], 'status': 'error'}
         except Exception as e:
             logger.error(f"Error reading file {file_path}: {e}", exc_info=True)
@@ -934,7 +936,7 @@ class CodeAnalysisTool:
         parser = self.parser_registry.get_parser(language_name=language, file_path=file_path)
         if parser:
             try:
-                logger.info("%s", Analyzing {file_path} with {type(parser).__name__} for language '{language}'.)
+                logger.info("Analyzing %s with %s for language '%s'.", file_path, type(parser).__name__, language)
                 structure = parser.parse_code(content, file_path)
                 return {
                     'file_path': file_path,
@@ -947,7 +949,7 @@ class CodeAnalysisTool:
                 logger.error(f"Error during analysis of {file_path} with {type(parser).__name__}: {e}", exc_info=True)
                 return {'error': f'Analysis error with {type(parser).__name__}: {str(e)}', 'file_path': file_path, 'language': language, 'elements': [], 'status': 'analysis_error'}
         else:
-            logger.error("%s", No parser found for language '{language}' for file {file_path}.)
+            logger.error("No parser found for language '%s' for file %s.", language, file_path)
             return {
                 'file_path': file_path,
                 'language': language,

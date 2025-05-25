@@ -13,8 +13,8 @@ class PythonNativeParser(LanguageParser):
     def get_supported_extensions(self) -> List[str]:
         return ['.py', '.pyw']
 
-    def analyze(self, code_str: str, file_path: str, tech_stack: Optional[Dict[str, Any]] = None)
-         -> Dict[str, Any]:        nodes = []
+    def analyze(self, code_str: str, file_path: str, tech_stack: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        nodes = []
         edges = []
         try:
             tree = ast.parse(code_str, filename=file_path)

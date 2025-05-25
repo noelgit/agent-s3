@@ -7,7 +7,8 @@ from .base_extractor import FrameworkExtractor
 
 class LaravelExtractor(FrameworkExtractor):
     def extract(self, root_node: Any, file_path: str, content: str, language: str,
-         tech_stack: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:        nodes = []
+                tech_stack: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        nodes = []
         edges = []
         if root_node is None:
             return []
@@ -41,8 +42,8 @@ class LaravelExtractor(FrameworkExtractor):
             pass
         return nodes + edges
 
-    def is_relevant_framework(self, tech_stack: Dict[str, Any], file_path: str, content: str)
-         -> bool:        # Heuristic: .php extension and 'laravel' in tech_stack or use of Laravel classes
+    def is_relevant_framework(self, tech_stack: Dict[str, Any], file_path: str, content: str) -> bool:
+        # Heuristic: .php extension and 'laravel' in tech_stack or use of Laravel classes
         if file_path.endswith('.php'):
             if tech_stack and 'laravel' in (tech_stack.get('frameworks') or []):
                 return True

@@ -56,9 +56,9 @@ class FileChangeTracker:
                     data = json.load(f)
                     self._file_state = data.get('file_state', {})
                     self._file_hashes = data.get('file_hashes', {})
-                logger.info("%s", Loaded tracking information for {len(self._file_state)} files)
+                logger.info("Loaded tracking information for %d files", len(self._file_state))
             except Exception as e:
-                logger.error("%s", Error loading file state information: {e})
+                logger.error("Error loading file state information: %s", e)
                 # Reset state if corrupted
                 self._file_state = {}
                 self._file_hashes = {}
@@ -81,9 +81,9 @@ class FileChangeTracker:
 
             # Atomic replacement
             os.replace(temp_path, state_path)
-            logger.debug("%s", Saved tracking information for {len(self._file_state)} files)
+            logger.debug("Saved tracking information for %d files", len(self._file_state))
         except Exception as e:
-            logger.error("%s", Error saving file state information: {e})
+            logger.error("Error saving file state information: %s", e)
 
     def compute_file_hash(self, file_path: str, content: Optional[str] = None) -> str:
         """
@@ -106,7 +106,7 @@ class FileChangeTracker:
             # Use a fast hash function (murmurhash would be ideal, but hashlib is standard)
             return hashlib.sha256(content).hexdigest()
         except Exception as e:
-            logger.error("%s", Error computing hash for {file_path}: {e})
+            logger.error("Error computing hash for %s: %s", file_path, e)
             # Return a timestamp-based hash as fallback
             return f"err-{int(time.time())}"
 
@@ -150,7 +150,7 @@ class FileChangeTracker:
 
             return True
         except Exception as e:
-            logger.error("%s", Error tracking file {file_path}: {e})
+            logger.error("Error tracking file %s: %s", file_path, e)
             return False
 
     def is_file_changed(self, file_path: str, content: Optional[str] = None) -> bool:
@@ -192,7 +192,7 @@ class FileChangeTracker:
             # File hasn't changed
             return False
         except Exception as e:
-            logger.error("%s", Error checking if file changed {file_path}: {e})
+            logger.error("Error checking if file changed %s: %s", file_path, e)
             # Assume changed if error occurs
             return True
 
@@ -223,7 +223,7 @@ class FileChangeTracker:
                     if self.is_file_changed(file_path):
                         changed_files.append(file_path)
         except Exception as e:
-            logger.error("%s", Error getting changed files in {directory}: {e})
+            logger.error("Error getting changed files in %s: %s", directory, e)
 
         return changed_files
 
@@ -257,7 +257,7 @@ class FileChangeTracker:
             # Save state after tracking a directory
             self._save_state()
         except Exception as e:
-            logger.error("%s", Error tracking directory {directory}: {e})
+            logger.error("Error tracking directory %s: %s", directory, e)
 
         return count
 

@@ -67,7 +67,6 @@ class FileTool:
             if not allowed:
                 if self.logger:
                     self.logger.warning(
-                        "%s",
                         "Attempted access to restricted path: %s",
                         norm_path,
                     )
@@ -78,13 +77,13 @@ class FileTool:
                 file_ext = os.path.splitext(file_path)[1].lower()
                 if file_ext not in self.allowed_extensions:
                     if self.logger:
-                        self.logger.warning("%s", Attempted access to file with disallowed extension: {file_ext})
+                        self.logger.warning("Attempted access to file with disallowed extension: %s", file_ext)
                     return False, f"File extension not allowed: {file_ext}"
 
             return True, ""
         except Exception as e:
             if self.logger:
-                self.logger.error("%s", Error in path validation: {e})
+                self.logger.error("Error in path validation: %s", e)
             return False, f"Error validating path: {e}"
 
     def _check_file_size(self, file_path: str, max_size: Optional[int] = None) -> Tuple[bool, str]:
@@ -166,7 +165,7 @@ class FileTool:
                 return False, f"Error reading file: {e}"
         except Exception as e:
             if self.logger:
-                self.logger.error("%s", Error reading file {file_path}: {e})
+                self.logger.error("Error reading file %s: %s", file_path, e)
             return False, f"Error reading file: {e}"
 
     def write_file(self, file_path: str, content: str, overwrite: bool = True) -> Tuple[bool, str]:
@@ -188,14 +187,14 @@ class FileTool:
         # Check if file exists and handle overwrite setting
         if os.path.exists(file_path) and not overwrite:
             if self.logger:
-                self.logger.warning("%s", Attempted to overwrite file without permission: {file_path})
+                self.logger.warning("Attempted to overwrite file without permission: %s", file_path)
             return False, f"File already exists and overwrite is not allowed: {file_path}"
 
         # Check content size
         content_size = len(content.encode('utf-8'))
         if content_size > self.max_file_size:
             if self.logger:
-                self.logger.warning("%s", Content size exceeds maximum limit: {content_size} > {self.max_file_size})
+                self.logger.warning("Content size exceeds maximum limit: %s > %s", content_size, self.max_file_size)
             return False, f"Content size ({content_size} bytes) exceeds maximum allowed size ({self.max_file_size} bytes)"
 
         try:
@@ -213,11 +212,11 @@ class FileTool:
                 f.write(content)
 
             if self.logger:
-                self.logger.info("%s", Successfully wrote to {file_path})
+                self.logger.info("Successfully wrote to %s", file_path)
             return True, f"Successfully wrote to {file_path}"
         except Exception as e:
             if self.logger:
-                self.logger.error("%s", Error writing to file {file_path}: {e})
+                self.logger.error("Error writing to file %s: %s", file_path, e)
             return False, f"Error writing file: {e}"
 
     def append_to_file(self, file_path: str, content: str) -> Tuple[bool, str]:
@@ -262,7 +261,7 @@ class FileTool:
             return True, f"Successfully appended to {file_path}"
         except Exception as e:
             if self.logger:
-                self.logger.error("%s", Error appending to file {file_path}: {e})
+                self.logger.error("Error appending to file %s: %s", file_path, e)
             return False, f"Error appending to file: {e}"
 
     def list_files(self, directory: str, pattern: Optional[str] = None) -> Tuple[bool, List[str]]:
@@ -300,7 +299,7 @@ class FileTool:
             return True, files
         except Exception as e:
             if self.logger:
-                self.logger.error("%s", Error listing files in {directory}: {e})
+                self.logger.error("Error listing files in %s: %s", directory, e)
             return False, [f"Error listing files: {e}"]
 
     def file_exists(self, file_path: str) -> Tuple[bool, bool]:
@@ -358,11 +357,11 @@ class FileTool:
 
             os.remove(file_path)
             if self.logger:
-                self.logger.info("%s", Successfully deleted {file_path})
+                self.logger.info("Successfully deleted %s", file_path)
             return True, f"Successfully deleted {file_path}"
         except Exception as e:
             if self.logger:
-                self.logger.error("%s", Error deleting file {file_path}: {e})
+                self.logger.error("Error deleting file %s: %s", file_path, e)
             return False, f"Error deleting file: {e}"
 
     def create_directory(self, directory: str) -> Tuple[bool, str]:
@@ -384,5 +383,5 @@ class FileTool:
             return True, f"Successfully created directory {directory}"
         except Exception as e:
             if self.logger:
-                self.logger.error("%s", Error creating directory {directory}: {e})
+                self.logger.error("Error creating directory %s: %s", directory, e)
             return False, f"Error creating directory: {e}"

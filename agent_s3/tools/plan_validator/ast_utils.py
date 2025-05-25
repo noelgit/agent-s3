@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from agent_s3.ast_tools.parser import parse_js
-from .parsing.parser_registry import ParserRegistry
+from agent_s3.tools.parsing.parser_registry import ParserRegistry
 
 logger = logging.getLogger(__name__)
 

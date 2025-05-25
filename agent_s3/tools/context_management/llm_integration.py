@@ -129,14 +129,14 @@ def integrate_with_llm_utils():
             import agent_s3.llm_utils as llm_utils
             from agent_s3.config import get_config, ConfigModel
         except ImportError as e:
-            logger.warning("%s", Could not import llm_utils: {e})
+            logger.warning("Could not import llm_utils: %s", e)
             return False
 
         # Create context manager with config
         try:
             config = get_config()
         except Exception as e:
-            logger.warning("%s", Error loading config, using defaults: {e})
+            logger.warning("Error loading config, using defaults: %s", e)
             config = ConfigModel()
 
         cm_cfg = getattr(config, "context_management", {})
@@ -196,7 +196,7 @@ def integrate_with_llm_utils():
 
             except Exception as e:
                 # Log the error but fall back to original behavior
-                logger.error("%s", Error in context optimization: {e})
+                logger.error("Error in context optimization: %s", e)
                 logger.debug(traceback.format_exc())
                 # Fall back to original function without optimization
                 return original_cached_call_llm(prompt, llm, return_kv, **kwargs)
@@ -209,13 +209,13 @@ def integrate_with_llm_utils():
             if config.get("context_management", {}).get("background_enabled", True):
                 context_manager._start_background_optimization()
         except Exception as e:
-            logger.warning("%s", Failed to start background optimization: {e})
+            logger.warning("Failed to start background optimization: %s", e)
             # Continue anyway
 
         logger.info("Successfully integrated context management with LLM utilities")
         return True
 
     except Exception as e:
-        logger.error("%s", Failed to integrate context management with LLM utilities: {e})
+        logger.error("Failed to integrate context management with LLM utilities: %s", e)
         logger.debug(traceback.format_exc())
         return False

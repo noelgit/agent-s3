@@ -29,8 +29,8 @@ class ParserRegistry:
         for name in language_names:
             self.parsers_by_lang_name[name.lower()] = parser_instance
 
-    def get_parser(self, file_path: Optional[str] = None, language_name: Optional[str] = None)
-         -> Optional[LanguageParser]:        if file_path:
+    def get_parser(self, file_path: Optional[str] = None, language_name: Optional[str] = None) -> Optional[LanguageParser]:
+        if file_path:
             ext = os.path.splitext(file_path)[1].lower()
             if ext in self.parsers_by_ext:
                 return self.parsers_by_ext[ext]

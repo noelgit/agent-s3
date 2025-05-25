@@ -7,7 +7,8 @@ from .base_extractor import FrameworkExtractor
 
 class ReactExtractor(FrameworkExtractor):
     def extract(self, root_node: Any, file_path: str, content: str, language: str,
-         tech_stack: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:        nodes = []
+                tech_stack: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        nodes = []
         edges = []
         if root_node is None:
             return []
@@ -37,8 +38,8 @@ class ReactExtractor(FrameworkExtractor):
             pass
         return nodes + edges
 
-    def is_relevant_framework(self, tech_stack: Dict[str, Any], file_path: str, content: str)
-         -> bool:        # Heuristic: .jsx/.tsx extension or 'react' in tech_stack or import
+    def is_relevant_framework(self, tech_stack: Dict[str, Any], file_path: str, content: str) -> bool:
+        # Heuristic: .jsx/.tsx extension or 'react' in tech_stack or import
         if file_path.endswith(('.jsx', '.tsx')):
             return True
         if tech_stack and 'react' in (tech_stack.get('frameworks') or []):

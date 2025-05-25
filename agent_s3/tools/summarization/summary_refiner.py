@@ -19,8 +19,8 @@ class SummaryRefiner:
                 return last_summary, validation["metrics"]
             # Generate refinement instructions
             feedback = self._generate_feedback(validation["metrics"])
-            prompt = self.prompt_factory.get_prompt(language, source, task) +
-                 f"\n\nRefinement instructions: {feedback}"            # Here, call the LLM with the new prompt (stubbed)
+            prompt = self.prompt_factory.get_prompt(language, source, task) + f"\n\nRefinement instructions: {feedback}"
+            # Here, call the LLM with the new prompt (stubbed)
             last_summary = self._call_llm(prompt)
             attempts += 1
             time.sleep(2 ** attempts)  # Exponential backoff

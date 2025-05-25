@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import logging
+import os
+import re
+from collections import defaultdict
 from typing import Any, Dict, List
 
 from .ast_utils import CodeAnalyzer
 from .config import JS_KEYWORDS, PHP_KEYWORDS, PYTHON_KEYWORDS, RESERVED_ENV_VARS
+
+logger = logging.getLogger(__name__)
 
 
 def validate_schema(data: Dict[str, Any]) -> List[str]:
@@ -202,7 +208,6 @@ def validate_schema(data: Dict[str, Any]) -> List[str]:
 
 
 def validate_identifier_hygiene(data: Dict[str, Any]) -> List[str]:
-def validate_identifier_hygiene(data: Dict[str, Any]) -> List[str]:
     """
     Validate identifier hygiene (naming conventions, keywords) in system_design.code_elements.
     This version iterates through the structured code_elements.
@@ -212,12 +217,12 @@ def validate_identifier_hygiene(data: Dict[str, Any]) -> List[str]:
     for group_idx, group_data in enumerate(data.get("feature_groups", [])):
         if not isinstance(group_data, dict):
             # This case should ideally be caught by schema validation first
-            logger.warning("%s", Skipping feature group at index {group_idx} due to unexpected type: {type(group_data)})
+            logger.warning("Skipping feature group at index %d due to unexpected type: %s", group_idx, type(group_data))
             continue
         group_name = group_data.get("group_name", f"Group {group_idx}")
         for feature_idx, feature_data in enumerate(group_data.get("features", [])):
             if not isinstance(feature_data, dict):
-                logger.warning("%s", Skipping feature at index {feature_idx} in group '{group_name}' due to unexpected type: {type(feature_data)})
+                logger.warning("Skipping feature at index %d in group '%s' due to unexpected type: %s", feature_idx, group_name, type(feature_data))
                 continue
             current_feature_name = feature_data.get("name", f"Feature {feature_idx}")
             feature_location_log_prefix = f"Feature '{current_feature_name}' in group '{group_name}'"
@@ -225,19 +230,19 @@ def validate_identifier_hygiene(data: Dict[str, Any]) -> List[str]:
             system_design = feature_data.get("system_design")
             if not isinstance(system_design, dict):
                 errors.append(f"{feature_location_log_prefix}: 'system_design' is missing or not a dictionary.")
-                logger.debug("%s", {feature_location_log_prefix}: system_design is type {type(system_design)}, expected dict.)
+                logger.debug("%s: system_design is type %s, expected dict.", feature_location_log_prefix, type(system_design))
                 continue
 
             code_elements = system_design.get("code_elements")
             if not isinstance(code_elements, list):
                 errors.append(f"{feature_location_log_prefix}: 'system_design.code_elements' is missing or not a list.")
-                logger.debug("%s", {feature_location_log_prefix}: system_design.code_elements is type {type(code_elements)}, expected list.)
+                logger.debug("%s: system_design.code_elements is type %s, expected list.", feature_location_log_prefix, type(code_elements))
                 continue
 
             for el_idx, element in enumerate(code_elements):
                 if not isinstance(element, dict):
                     errors.append(f"{feature_location_log_prefix}: code_elements[{el_idx}] is not a dictionary.")
-                    logger.debug("%s", {feature_location_log_prefix}: code_elements[{el_idx}] is type {type(element)}, expected dict.)
+                    logger.debug("%s: code_elements[%d] is type %s, expected dict.", feature_location_log_prefix, el_idx, type(element))
                     continue
 
                 identifier = element.get("name")
@@ -247,7 +252,7 @@ def validate_identifier_hygiene(data: Dict[str, Any]) -> List[str]:
 
                 target_file = element.get("target_file", "")
                 if not isinstance(target_file, str): # Ensure target_file is a string for path operations
-                    logger.warning("%s", {feature_location_log_prefix}: code_elements[{el_idx}] has non-string 'target_file' (type: {type(target_file)}). Using empty string as fallback.)
+                    logger.warning("%s: code_elements[%d] has non-string 'target_file' (type: %s). Using empty string as fallback.", feature_location_log_prefix, el_idx, type(target_file))
                     target_file = ""
 
                 lang_keywords = PYTHON_KEYWORDS # Default
@@ -521,10 +526,10 @@ def validate_reserved_prefixes(data: Dict[str, Any]) -> List[str]:
 
                         analysis_result = analyzer.analyze_code(content_to_analyze, lang=lang_for_analysis)
                         if analysis_result.get("env_vars"):
-                            logger.debug("%s", {feature_log_prefix}, element '{element_name}': Found env_vars {analysis_result['env_vars']} in signature.)
+                            logger.debug("%s, element '%s': Found env_vars %s in signature.", feature_log_prefix, element_name, analysis_result['env_vars'])
                             env_vars_found_globally.update(analysis_result["env_vars"])
                     except Exception as e:
-                        logger.debug("%s", Could not analyze signature of element '{element_name}' for env vars: {e})
+                        logger.debug("Could not analyze signature of element '%s' for env vars: %s", element_name, e)
 
                 # Analyze description for env var usage (if descriptions can contain code)
                 if isinstance(description_str, str) and "os.getenv" in description_str or "process.env" in description_str: # Quick check
@@ -532,10 +537,10 @@ def validate_reserved_prefixes(data: Dict[str, Any]) -> List[str]:
                         # Descriptions are less likely to have a clear language, default to python or try to detect
                         analysis_result = analyzer.analyze_code(description_str) # Auto-detect lang
                         if analysis_result.get("env_vars"):
-                            logger.debug("%s", {feature_log_prefix}, element '{element_name}': Found env_vars {analysis_result['env_vars']} in description.)
+                            logger.debug("%s, element '%s': Found env_vars %s in description.", feature_log_prefix, element_name, analysis_result['env_vars'])
                             env_vars_found_globally.update(analysis_result["env_vars"])
                     except Exception as e:
-                        logger.debug("%s", Could not analyze description of element '{element_name}' for env vars: {e})
+                        logger.debug("Could not analyze description of element '%s' for env vars: %s", element_name, e)
 
     # Check collected environment variables
     for env_var in env_vars_found_globally:
@@ -572,7 +577,7 @@ def validate_stub_test_coherence(data: Dict[str, Any], *, error_limit: int | Non
 
     for group_idx, group_data in enumerate(data.get("feature_groups", [])):
         if not isinstance(group_data, dict):
-            logger.warning("%s", Skipping feature group at index {group_idx} in stub/test coherence check due to unexpected type: {type(group_data)})
+            logger.warning("Skipping feature group at index %d in stub/test coherence check due to unexpected type: %s", group_idx, type(group_data))
             continue
         group_name = group_data.get("group_name", f"Group {group_idx}")
         for feature_idx, feature_data in enumerate(group_data.get("features", [])):
@@ -746,16 +751,16 @@ def validate_stub_test_coherence(data: Dict[str, Any], *, error_limit: int | Non
 
                                     error_msg = f"{feature_log_prefix}: {display_name}[{tc_idx}].tested_functions[{tf_idx}] ('{tested_func_str}') does not match any (file_path, element_name) pair derived from the implementation_plan. "
                                     if not implemented_code_signatures:
-                                        error_msg +
-                                            = "No elements found in implementation_plan steps."                                    else:
+                                        error_msg += "No elements found in implementation_plan steps."
+                                    else:
                                         if found_by_name_only and tf_path not in [p for p, _ in implemented_code_signatures if _ == tf_name]:
-                                            error_msg +
-                                                = f"Element name '{tf_name}' exists in implementation_plan but under different file path(s): {list(set(found_by_name_only))[:3]}. "                                        elif found_by_path_only and tf_name not in [s_name for p, s_name in implemented_code_signatures if p == tf_path]:
-                                            error_msg +
-                                                = f"File path '{tf_path}' exists in implementation_plan but does not contain element '{tf_name}'. Elements in this file: {list(set(found_by_path_only))[:3]}. "                                        else: # General mismatch
+                                            error_msg += f"Element name '{tf_name}' exists in implementation_plan but under different file path(s): {list(set(found_by_name_only))[:3]}. "
+                                        elif found_by_path_only and tf_name not in [s_name for p, s_name in implemented_code_signatures if p == tf_path]:
+                                            error_msg += f"File path '{tf_path}' exists in implementation_plan but does not contain element '{tf_name}'. Elements in this file: {list(set(found_by_path_only))[:3]}. "
+                                        else: # General mismatch
                                             preview_impl_sigs = list(implemented_code_signatures)[:3]
-                                            error_msg +
-                                                = f"Available in implementation_plan: {preview_impl_sigs}"                                            if len(implemented_code_signatures) > 3:
+                                            error_msg += f"Available in implementation_plan: {preview_impl_sigs}"
+                                            if len(implemented_code_signatures) > 3:
                                                 error_msg += "..."
                                     if _record_error(error_msg):
                                         return errors
