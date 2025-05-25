@@ -26,8 +26,12 @@ def get_checkpoints_dir() -> str:
     os.makedirs(checkpoints_dir, exist_ok=True)
     return checkpoints_dir
 
-def save_checkpoint(checkpoint_type: str, data: Dict[str, Any], metadata: Optional[Dict[str,
-     Any]] = None) -> str:    """Save a checkpoint of the current workflow state.
+def save_checkpoint(
+    checkpoint_type: str,
+    data: Dict[str, Any],
+    metadata: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Save a checkpoint of the current workflow state.
 
     Args:
         checkpoint_type: Type of checkpoint (pre_planning, planning, implementation, etc.)
@@ -63,7 +67,7 @@ def save_checkpoint(checkpoint_type: str, data: Dict[str, Any], metadata: Option
     with open(os.path.join(checkpoint_dir, "metadata.json"), "w") as f:
         json.dump(checkpoint_metadata, f, indent=2)
 
-    logger.info("%s", Saved {checkpoint_type} checkpoint: {checkpoint_id})
+    logger.info("Saved %s checkpoint: %s", checkpoint_type, checkpoint_id)
     return checkpoint_id
 
 def load_checkpoint(checkpoint_id: str, include_metadata: bool = False) -> Any:
@@ -133,7 +137,11 @@ def list_checkpoints(checkpoint_type: Optional[str] = None) -> List[Dict[str, An
 
             result.append(metadata)
         except Exception as e:
-            logger.warning("%s", Error loading checkpoint metadata {checkpoint_id}: {e})
+            logger.warning(
+                "Error loading checkpoint metadata %s: %s",
+                checkpoint_id,
+                e,
+            )
 
     # Sort by timestamp (newest first)
     result.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
@@ -192,8 +200,11 @@ def get_checkpoint_diff(checkpoint_id1: str, checkpoint_id2: str) -> Dict[str, A
         "modified": modified
     }
 
-def ensure_checkpoint_consistency(base_checkpoint_id: str, new_data: Dict[str, Any]) -> Tuple[bool,
-     str]:    """Ensure consistency between a base checkpoint and new data.
+def ensure_checkpoint_consistency(
+    base_checkpoint_id: str,
+    new_data: Dict[str, Any],
+) -> Tuple[bool, str]:
+    """Ensure consistency between a base checkpoint and new data.
 
     This function checks that the new data does not remove features from the base checkpoint.
     It's used to prevent accidental removal of features between phases.
@@ -479,8 +490,12 @@ class CheckpointManager:
             return self.create_checkpoint(context)
         return None
 
-    def diff_checkpoints(self, checkpoint_id1: str, checkpoint_id2: str) -> Optional[Dict[str,
-         Any]]:        cp1 = self.get_checkpoint(checkpoint_id1)
+    def diff_checkpoints(
+        self,
+        checkpoint_id1: str,
+        checkpoint_id2: str,
+    ) -> Optional[Dict[str, Any]]:
+        cp1 = self.get_checkpoint(checkpoint_id1)
         cp2 = self.get_checkpoint(checkpoint_id2)
         if not cp1 or not cp2:
             return None
