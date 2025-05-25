@@ -59,8 +59,14 @@ class TaskState:
 class PlanningState(TaskState):
     """State for the planning phase."""
 
-    def __init__(self, task_id: str, request_text: str, code_context: Dict[str, Any],
-         tech_stack: Dict[str, Any]):        """Initialize the planning state.
+    def __init__(
+        self,
+        task_id: str,
+        request_text: str,
+        code_context: Dict[str, Any],
+        tech_stack: Dict[str, Any],
+    ) -> None:
+        """Initialize the planning state.
 
         Args:
             task_id: Unique identifier for the task
@@ -244,8 +250,14 @@ class CodeGenerationState(TaskState):
 class ExecutionState(TaskState):
     """State for the execution phase."""
 
-    def __init__(self, task_id: str, changes: List[Dict[str, Any]], iteration: int,
-         test_results: Dict[str, Any]):        """Initialize the execution state.
+    def __init__(
+        self,
+        task_id: str,
+        changes: List[Dict[str, Any]],
+        iteration: int,
+        test_results: Dict[str, Any],
+    ) -> None:
+        """Initialize the execution state.
 
         Args:
             task_id: Unique identifier for the task
@@ -310,8 +322,15 @@ class ExecutionState(TaskState):
 class PRCreationState(TaskState):
     """State for the pull request creation phase."""
 
-    def __init__(self, task_id: str, branch_name: str, pr_title: str, pr_body: str,
-         issue_url: Optional[str]):        """Initialize the PR creation state.
+    def __init__(
+        self,
+        task_id: str,
+        branch_name: str,
+        pr_title: str,
+        pr_body: str,
+        issue_url: Optional[str],
+    ) -> None:
+        """Initialize the PR creation state.
 
         Args:
             task_id: Unique identifier for the task
@@ -456,10 +475,10 @@ class TaskStateManager:
             # Atomic rename to the final file
             os.replace(temp_file, snapshot_file)
 
-            logger.info("%s", Saved task snapshot: {snapshot_file})
+            logger.info("Saved task snapshot: %s", snapshot_file)
             return True
         except Exception as e:
-            logger.error("%s", Error saving task snapshot: {e})
+            logger.error("Error saving task snapshot: %s", e)
             return False
 
     def load_task_snapshot(self, task_id: str, phase: str) -> Optional[TaskState]:
@@ -476,7 +495,7 @@ class TaskStateManager:
         snapshot_file = os.path.join(task_dir, f"{phase}.json")
 
         if not os.path.exists(snapshot_file):
-            logger.warning("%s", Task snapshot not found: {snapshot_file})
+            logger.warning("Task snapshot not found: %s", snapshot_file)
             return None
 
         try:
@@ -484,20 +503,20 @@ class TaskStateManager:
                 state_dict = json.load(f)
 
             if phase not in self.state_classes:
-                logger.warning("%s", Unknown phase: {phase})
+                logger.warning("Unknown phase: %s", phase)
                 return None
 
             # Create state object from dictionary
             state_class = self.state_classes[phase]
             state = cast(TaskState, state_class.from_dict(state_dict))
 
-            logger.info("%s", Loaded task snapshot: {snapshot_file})
+            logger.info("Loaded task snapshot: %s", snapshot_file)
             return state
         except json.JSONDecodeError:
-            logger.error("%s", Invalid JSON in task snapshot: {snapshot_file})
+            logger.error("Invalid JSON in task snapshot: %s", snapshot_file)
             return None
         except Exception as e:
-            logger.error("%s", Error loading task snapshot: {e})
+            logger.error("Error loading task snapshot: %s", e)
             return None
 
     def get_active_tasks(self) -> List[Dict[str, Any]]:
@@ -545,14 +564,14 @@ class TaskStateManager:
                         "request_text": state_dict.get("request_text", "Unknown task")
                     })
                 except Exception as e:
-                    logger.warning("%s", Error reading task snapshot: {e})
+                    logger.warning("Error reading task snapshot: %s", e)
 
             # Sort by last updated time, newest first
             active_tasks.sort(key=lambda t: t.get("last_updated", ""), reverse=True)
 
             return active_tasks
         except Exception as e:
-            logger.error("%s", Error getting active tasks: {e})
+            logger.error("Error getting active tasks: %s", e)
             return []
 
     def delete_task(self, task_id: str) -> bool:
@@ -567,7 +586,7 @@ class TaskStateManager:
         task_dir = self.get_task_dir(task_id)
 
         if not os.path.exists(task_dir):
-            logger.warning("%s", Task directory not found: {task_dir})
+            logger.warning("Task directory not found: %s", task_dir)
             return False
 
         try:
@@ -578,10 +597,10 @@ class TaskStateManager:
             # Delete the task directory
             os.rmdir(task_dir)
 
-            logger.info("%s", Deleted task: {task_id})
+            logger.info("Deleted task: %s", task_id)
             return True
         except Exception as e:
-            logger.error("%s", Error deleting task: {e})
+            logger.error("Error deleting task: %s", e)
             return False
 
     def clear_state(self, task_id: str) -> bool:
@@ -625,10 +644,14 @@ class TaskStateManager:
 
                 if age > max_age_seconds:
                     # Delete old tasks
-                    logger.info("%s", Cleaning up old task: {task_id} (age: {age/86400:.1f} days))
+                    logger.info(
+                        "Cleaning up old task: %s (age: %.1f days)",
+                        task_id,
+                        age / 86400,
+                    )
                     self.delete_task(task_id)
         except Exception as e:
-            logger.error("%s", Error cleaning up old snapshots: {e})
+            logger.error("Error cleaning up old snapshots: %s", e)
 
     def recover_from_corrupted_snapshot(self, task_id: str, phase: str) -> Optional[TaskState]:
         """Attempt to recover from a corrupted snapshot.
@@ -644,7 +667,7 @@ class TaskStateManager:
         snapshot_file = os.path.join(task_dir, f"{phase}.json")
 
         if not os.path.exists(snapshot_file):
-            logger.warning("%s", Snapshot file not found: {snapshot_file})
+            logger.warning("Snapshot file not found: %s", snapshot_file)
             return None
 
         try:
@@ -674,7 +697,7 @@ class TaskStateManager:
                     # Save the recovered state
                     self.save_task_snapshot(state)
 
-                    logger.info("%s", Recovered task snapshot: {snapshot_file})
+                    logger.info("Recovered task snapshot: %s", snapshot_file)
                     return state
 
             # If recovery failed, try to find an earlier version of the same phase
@@ -696,7 +719,9 @@ class TaskStateManager:
                     # Save the recovered state
                     self.save_task_snapshot(state)
 
-                    logger.info("%s", Recovered task snapshot from backup: {latest_backup})
+                    logger.info(
+                        "Recovered task snapshot from backup: %s", latest_backup
+                    )
                     return state
 
             # Try to find the previous phase
@@ -708,11 +733,15 @@ class TaskStateManager:
                     prev_state = self.load_task_snapshot(task_id, prev_phase)
 
                     if prev_state:
-                        logger.info("%s", Found previous phase snapshot: {prev_phase})
+                        logger.info(
+                            "Found previous phase snapshot: %s", prev_phase
+                        )
                         return prev_state
 
-            logger.error("%s", Failed to recover task snapshot: {snapshot_file})
+            logger.error(
+                "Failed to recover task snapshot: %s", snapshot_file
+            )
             return None
         except Exception as e:
-            logger.error("%s", Error recovering task snapshot: {e})
+            logger.error("Error recovering task snapshot: %s", e)
             return None
