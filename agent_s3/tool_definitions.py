@@ -357,8 +357,12 @@ class ToolRegistry:
                 logger.warning("Unknown tool: %s", tool_name)
                 return False
         except Exception as e:
-            logger.error("%s", Error registering tool {tool_name}: {e})
-            logger.error("%s", Stack trace: {traceback.format_exc()})
+            logger.error("Error registering tool %s: %s", tool_name, e)
+            logger.error(
+                "Stack trace registering tool %s: %s",
+                tool_name,
+                traceback.format_exc(),
+            )
             return False
 
         return False  # Default if we reach here
