@@ -1,0 +1,278 @@
+/* Progress Indicator Component Styles */
+
+.progress-indicator {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin: 1rem 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.progress-title {
+  color: var(--text-color);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 1rem 0;
+}
+
+.progress-bar-container {
+  position: relative;
+  width: 100%;
+  height: 24px;
+  background-color: var(--vscode-progressBar-background, #333);
+  border-radius: var(--radius-sm);
+  margin: 0.5rem 0;
+  overflow: hidden;
+  transition: opacity 0.3s ease;
+}
+
+.progress-bar-container.paused {
+  opacity: 0.7;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--vscode-progressBar-foreground, #0078d4) 0%,
+    var(--vscode-progressBar-foreground, #106ebe) 100%
+  );
+  transition: width 0.3s ease;
+  border-radius: var(--radius-sm);
+}
+
+.progress-bar-container.paused .progress-bar {
+  background: linear-gradient(
+    90deg,
+    var(--warning-color) 0%,
+    #cc7a00 100%
+  );
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+.progress-percentage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.pause-indicator {
+  animation: blink 1.5s infinite;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.3; }
+}
+
+.estimated-time {
+  color: var(--text-color);
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+  opacity: 0.8;
+}
+
+.progress-steps {
+  margin: 1rem 0;
+}
+
+.progress-step {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  margin: 0.25rem 0;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.progress-step:hover {
+  background-color: var(--vscode-list-hoverBackground);
+  border-color: var(--vscode-list-focusHighlightForeground);
+}
+
+.progress-step.expanded {
+  background-color: var(--vscode-list-activeSelectionBackground);
+}
+
+.step-header {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+  gap: 0.75rem;
+}
+
+.step-status-icon {
+  font-size: 1rem;
+  width: 1.5rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.progress-step.completed .step-status-icon {
+  color: var(--success-color);
+}
+
+.progress-step.failed .step-status-icon {
+  color: var(--danger-color);
+}
+
+.progress-step.in_progress .step-status-icon {
+  color: var(--vscode-progressBar-foreground, #0078d4);
+  animation: rotate 1s linear infinite;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.progress-step.pending .step-status-icon {
+  color: var(--text-color);
+  opacity: 0.6;
+}
+
+.step-name {
+  flex: 1;
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+.step-percentage {
+  color: var(--text-color);
+  font-size: 0.8rem;
+  opacity: 0.8;
+  min-width: 3rem;
+  text-align: right;
+}
+
+.step-description {
+  padding: 0 0.75rem 0.75rem 3rem;
+  color: var(--text-color);
+  opacity: 0.8;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  border-top: 1px solid var(--border-color);
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+.progress-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.progress-actions button {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 80px;
+  justify-content: center;
+}
+
+.progress-actions button:hover {
+  background: var(--vscode-button-hoverBackground);
+  border-color: var(--vscode-button-foreground);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.progress-actions button:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.button-icon {
+  font-size: 0.9rem;
+  display: inline-block;
+}
+
+/* Specific button styling */
+.pause-task {
+  background: var(--warning-color) !important;
+  border-color: var(--warning-color) !important;
+  color: white !important;
+}
+
+.pause-task:hover {
+  background: #e67700 !important;
+  border-color: #e67700 !important;
+}
+
+.resume-task {
+  background: var(--success-color) !important;
+  border-color: var(--success-color) !important;
+  color: white !important;
+}
+
+.resume-task:hover {
+  background: #0e6e0e !important;
+  border-color: #0e6e0e !important;
+}
+
+.stop-task {
+  background: var(--danger-color) !important;
+  border-color: var(--danger-color) !important;
+  color: white !important;
+}
+
+.stop-task:hover {
+  background: #b02a2e !important;
+  border-color: #b02a2e !important;
+}
+
+.cancel-task {
+  background: var(--vscode-button-secondaryBackground) !important;
+  border-color: var(--vscode-button-secondaryForeground) !important;
+  color: var(--vscode-button-secondaryForeground) !important;
+}
+
+.cancel-task:hover {
+  background: var(--vscode-button-secondaryHoverBackground) !important;
+  border-color: var(--vscode-button-secondaryForeground) !important;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .progress-actions {
+    flex-direction: column;
+  }
+  
+  .progress-actions button {
+    width: 100%;
+  }
+  
+  .step-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .step-percentage {
+    width: 100%;
+    text-align: left;
+    margin-top: 0.25rem;
+  }
+}
