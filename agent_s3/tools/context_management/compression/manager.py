@@ -148,7 +148,11 @@ class CompressionManager:
                         best_compression = compressed
                         best_ratio = ratio
             except Exception as e:
-                logger.warning("%s", Compression strategy {strategy.__class__.__name__} failed: {e})
+                logger.warning(
+                    "Compression strategy %s failed: %s",
+                    strategy.__class__.__name__,
+                    e,
+                )
 
         # Return the best compression if it meets the minimum ratio or if compression is forced
         if best_compression and (force_compression or best_ratio <= self.min_compression_ratio):
@@ -197,7 +201,11 @@ class CompressionManager:
 
                 return compressed
             except Exception as e:
-                logger.warning("%s", Forced compression with {strategy.__class__.__name__} failed: {e})
+                logger.warning(
+                    "Forced compression with %s failed: %s",
+                    strategy.__class__.__name__,
+                    e,
+                )
                 # If direct compression fails, create minimal metadata
                 compressed = context.copy()
                 if "compression_metadata" not in compressed:

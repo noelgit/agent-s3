@@ -710,7 +710,7 @@ class ConfigExplainer:
             }
 
         except Exception as e:
-            logger.error("%s", Error getting version changes: {e})
+            logger.exception("Error getting version changes: %s", e)
             return {"error": str(e)}
 
     def _get_chunk_size_impact(self, chunk_size: int) -> str:

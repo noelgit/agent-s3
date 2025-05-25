@@ -109,7 +109,9 @@ class AdaptiveConfigManager:
             # Validate configuration
             is_valid, errors = self.template_manager.validate_config(config)
             if not is_valid:
-                logger.warning("%s", Generated configuration has validation errors: {errors})
+                logger.warning(
+                    "Generated configuration has validation errors: %s", errors
+                )
                 logger.info("Falling back to default configuration")
                 config = self.template_manager.get_default_config()
 
@@ -122,13 +124,12 @@ class AdaptiveConfigManager:
             self._save_configuration()
 
             logger.info(
-                "%s",
                 "Created initial configuration for %s project",
                 repo_metrics.get("project_type"),
             )
 
         except Exception as e:
-            logger.error("%s", "Error creating initial configuration: %s", e)
+            logger.exception("Error creating initial configuration: %s", e)
             logger.info("Falling back to default configuration")
 
             # Fall back to default configuration
@@ -170,7 +171,7 @@ class AdaptiveConfigManager:
         # Validate new configuration
         is_valid, errors = self.template_manager.validate_config(new_config)
         if not is_valid:
-            logger.error("%s", Invalid configuration: {errors})
+            logger.error("Invalid configuration: %s", errors)
             return False
 
         # Apply update
@@ -181,7 +182,9 @@ class AdaptiveConfigManager:
         # Save configuration
         self._save_configuration(reason)
 
-        logger.info("%s", Updated configuration (v{self.config_version}): {reason})
+        logger.info(
+            "Updated configuration (v%s): %s", self.config_version, reason
+        )
 
         return True
 
@@ -221,7 +224,7 @@ class AdaptiveConfigManager:
             self._cleanup_old_configs()
 
         except Exception as e:
-            logger.error("%s", Error saving configuration: {e})
+            logger.exception("Error saving configuration: %s", e)
 
     def _cleanup_old_configs(self) -> None:
         """Clean up old versioned configurations."""
@@ -243,7 +246,9 @@ class AdaptiveConfigManager:
                     os.remove(file_path)
 
         except Exception as e:
-            logger.error("%s", Error cleaning up old configurations: {e})
+            logger.exception(
+                "Error cleaning up old configurations: %s", e
+            )
 
     def check_optimization_needed(self) -> bool:
         """
@@ -315,14 +320,17 @@ class AdaptiveConfigManager:
             if applied_changes:
                 reason = f"Automatic optimization with {len(applied_changes)} improvements"
                 if self.update_configuration(new_config, reason):
-                    logger.info("%s", Applied {len(applied_changes)} configuration improvements)
+                    logger.info(
+                        "Applied %s configuration improvements",
+                        len(applied_changes),
+                    )
                     self.last_optimization_time = time.time()
                     return True
 
             return False
 
         except Exception as e:
-            logger.error("%s", Error optimizing configuration: {e})
+            logger.exception("Error optimizing configuration: %s", e)
             return False
 
         finally:
@@ -368,7 +376,7 @@ class AdaptiveConfigManager:
                 config_used=self.get_current_config()
             )
         except Exception as e:
-            logger.error("%s", Error logging context performance: {e})
+            logger.exception("Error logging context performance: %s", e)
 
     def log_token_usage(
         self,
@@ -397,7 +405,7 @@ class AdaptiveConfigManager:
                 threading.Thread(target=self.optimize_configuration).start()
 
         except Exception as e:
-            logger.error("%s", Error logging token usage: {e})
+            logger.exception("Error logging token usage: %s", e)
 
     def get_config_history(self) -> List[Dict[str, Any]]:
         """
@@ -427,7 +435,7 @@ class AdaptiveConfigManager:
             history.sort(key=lambda x: x.get("version", 0), reverse=True)
 
         except Exception as e:
-            logger.error("%s", Error getting configuration history: {e})
+            logger.exception("Error getting configuration history: %s", e)
 
         return history
 
@@ -453,7 +461,7 @@ class AdaptiveConfigManager:
 
             return summary
         except Exception as e:
-            logger.error("%s", Error getting performance summary: {e})
+            logger.exception("Error getting performance summary: %s", e)
             return {"error": str(e)}
 
     def reset_to_version(self, version: int) -> bool:
@@ -475,7 +483,7 @@ class AdaptiveConfigManager:
                     break
 
             if not target_file:
-                logger.error("%s", Configuration version {version} not found)
+                logger.error("Configuration version %s not found", version)
                 return False
 
             # Load the configuration
@@ -483,7 +491,9 @@ class AdaptiveConfigManager:
                 config_data = json.load(f)
 
             if "config" not in config_data:
-                logger.error("%s", Invalid configuration data in {target_file})
+                logger.error(
+                    "Invalid configuration data in %s", target_file
+                )
                 return False
 
             # Update configuration
@@ -491,7 +501,9 @@ class AdaptiveConfigManager:
             return self.update_configuration(config_data["config"], reason)
 
         except Exception as e:
-            logger.error("%s", Error resetting configuration to version {version}: {e})
+            logger.exception(
+                "Error resetting configuration to version %s: %s", version, e
+            )
             return False
 
     def reset_to_default(self) -> bool:
@@ -512,5 +524,5 @@ class AdaptiveConfigManager:
             return self.update_configuration(config, reason)
 
         except Exception as e:
-            logger.error("%s", Error resetting to default configuration: {e})
+            logger.exception("Error resetting to default configuration: %s", e)
             return False

@@ -242,9 +242,11 @@ class ToolRegistry:
             if hasattr(tool, method_name) and callable(getattr(tool, method_name)):
                 try:
                     getattr(tool, method_name)()
-                    logger.debug("%s", Successfully shutdown tool: {tool_name})
+                    logger.debug("Successfully shutdown tool: %s", tool_name)
                 except Exception as e:
-                    logger.error("%s", Error shutting down tool {tool_name}: {e})
+                    logger.exception(
+                        "Error shutting down tool %s: %s", tool_name, e
+                    )
 
 
 class _BackgroundTask:
@@ -297,7 +299,10 @@ class ContextManager:
                 config_dir = adaptive_config.get("config_dir")
                 metrics_dir = adaptive_config.get("metrics_dir")
 
-                logger.info("%s", Initializing adaptive configuration for repository: {repo_path})
+                logger.info(
+                    "Initializing adaptive configuration for repository: %s",
+                    repo_path,
+                )
                 self.adaptive_config_manager = AdaptiveConfigManager(
                     repo_path=repo_path,
                     config_dir=config_dir,
@@ -305,13 +310,20 @@ class ContextManager:
                 )
 
                 # Get the optimized configuration
-                adaptive_settings = self.adaptive_config_manager.get_current_config()
+                adaptive_settings = (
+                    self.adaptive_config_manager.get_current_config()
+                )
                 if adaptive_settings and "context_management" in adaptive_settings:
-                    logger.info("%s", Using adaptive configuration (version {self.adaptive_config_manager.get_config_version()}))
+                    logger.info(
+                        "Using adaptive configuration (version %s)",
+                        self.adaptive_config_manager.get_config_version(),
+                    )
                     # Update our configuration with the adaptive settings
-                    self.config["context_management"] = adaptive_settings["context_management"]
+                    self.config["context_management"] = adaptive_settings[
+                        "context_management"
+                    ]
             except Exception as e:
-                logger.error("%s", Error initializing adaptive configuration: {e})
+                logger.exception("Error initializing adaptive configuration: %s", e)
                 logger.info("Falling back to default configuration")
 
         # Initialize basic components
@@ -471,9 +483,10 @@ class ContextManager:
         return file_paths
 
 
-    def get_nested_value(self, source_dict: Dict[str, Any], key_path: Union[str, List[str]],
-         default: Any = None) -> Any:        """
-        Get a value from a nested dictionary at any depth using a dot-notation key path or list of keys.
+    def get_nested_value(
+        self, source_dict: Dict[str, Any], key_path: Union[str, List[str]], default: Any = None
+    ) -> Any:
+        """Get a value from a nested dictionary at any depth using a dot-notation key path or list of keys.
 
         Args:
             source_dict: The dictionary to retrieve from
@@ -500,9 +513,10 @@ class ContextManager:
 
         return current
 
-    def _update_nested_dict(self, target_dict: Dict[str, Any], key_path: Union[str, List[str]],
-         new_value: Any) -> None:        """
-        Update a nested dictionary at any depth using a dot-notation key path or list of keys.
+    def _update_nested_dict(
+        self, target_dict: Dict[str, Any], key_path: Union[str, List[str]], new_value: Any
+    ) -> None:
+        """Update a nested dictionary at any depth using a dot-notation key path or list of keys.
 
         Args:
             target_dict: The dictionary to update
@@ -600,7 +614,10 @@ class ContextManager:
             )
 
         # Log the initialized tools
-        logger.info("%s", Context Manager initialized with {len(self._tool_registry._tools)} tools)
+        logger.info(
+            "Context Manager initialized with %s tools",
+            len(self._tool_registry._tools),
+        )
 
     def _start_background_optimization(self) -> None:
         """Start the background optimization thread."""
@@ -644,9 +661,13 @@ class ContextManager:
         if not self.optimization_running and self.background_enabled:
             self._start_background_optimization()
 
-    def _refine_current_context(self, files: List[str], max_tokens: int = None,
-         task_keywords: Optional[List[str]] = None) -> None:        """
-        Refine the current context based on the given files, token budget, and task keywords.
+    def _refine_current_context(
+        self,
+        files: List[str],
+        max_tokens: int | None = None,
+        task_keywords: Optional[List[str]] = None,
+    ) -> None:
+        """Refine the current context based on the given files, token budget, and task keywords.
 
         Args:
             files: List of primary file paths to focus on.
@@ -684,7 +705,9 @@ class ContextManager:
 
                 # Skip extremely large files or truncate them
                 if content_tokens > (max_tokens * 0.4):  # Skip if file would use >40% of budget
-                    logger.info("%s", Skipping large file {file_path} ({content_tokens} tokens))
+                    logger.info(
+                        "Skipping large file %s (%s tokens)", file_path, content_tokens
+                    )
                     continue
 
                 if tokens_used + content_tokens <= max_tokens:
@@ -699,7 +722,7 @@ class ContextManager:
                         context_files[file_path] = truncated
                         tokens_used = max_tokens  # Consider budget fully used
             except Exception as e:
-                logger.error("%s", Error reading file {file_path}: {e})
+                logger.exception("Error reading file %s: %s", file_path, e)
 
         # Update the context with the refined file contents
         with self._context_lock:
@@ -752,7 +775,9 @@ class ContextManager:
         if not isinstance(strategy, DynamicAllocationStrategy): # Make sure DynamicAllocationStrategy is imported or defined
             raise ValueError("Strategy must be an instance of DynamicAllocationStrategy")
 
-        logger.info("%s", Setting new allocation strategy: {strategy.__class__.__name__})
+        logger.info(
+            "Setting new allocation strategy: %s", strategy.__class__.__name__
+        )
         self.allocation_strategy = strategy
 
     def set_adaptive_config_manager(self, adaptive_config_manager: 'AdaptiveConfigManager') -> None:
@@ -781,19 +806,23 @@ class ContextManager:
                     embedding_model = embedding_config.get("embedding_model")
 
                     if chunk_size:
-                        logger.debug("%s", Using adaptive chunk size: {chunk_size})
+                        logger.debug("Using adaptive chunk size: %s", chunk_size)
                         self.config["embedding_chunk_size"] = chunk_size
 
                     if chunk_overlap:
-                        logger.debug("%s", Using adaptive chunk overlap: {chunk_overlap})
+                        logger.debug(
+                            "Using adaptive chunk overlap: %s", chunk_overlap
+                        )
                         self.config["embedding_chunk_overlap"] = chunk_overlap
 
                     if max_chunks:
-                        logger.debug("%s", Using adaptive max chunks: {max_chunks})
+                        logger.debug("Using adaptive max chunks: %s", max_chunks)
                         self.config["embedding_max_chunks"] = max_chunks
 
                     if embedding_model:
-                        logger.debug("%s", Using adaptive embedding model: {embedding_model})
+                        logger.debug(
+                            "Using adaptive embedding model: %s", embedding_model
+                        )
                         self.config["embedding_model"] = embedding_model
 
                 # Update search settings - BM25
