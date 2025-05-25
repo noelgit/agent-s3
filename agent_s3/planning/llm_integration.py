@@ -5,11 +5,10 @@ This module contains functions for calling LLMs with retry logic and parsing res
 
 import json
 import logging
+import re
 import time
 import random
 from typing import Dict, Any
-
-from ..json_utils import extract_json_from_text
 from ..tools.context_management.token_budget import TokenEstimator
 from .json_validation import validate_json_schema, repair_json_structure
 
@@ -92,7 +91,7 @@ def parse_and_validate_json(
     
     # Extract JSON from response
     try:
-        parsed_json = extract_json_from_text(response_text)
+        parsed_json = _extract_json_from_response_text(response_text)
         if not parsed_json:
             raise ValueError("No valid JSON found in response")
             
@@ -181,6 +180,47 @@ def retry_with_backoff(
                 
     # Re-raise the last exception
     raise last_exception
+
+
+def _extract_json_from_response_text(text: str) -> Dict[str, Any]:
+    """
+    Extract JSON from response text.
+    
+    Args:
+        text: Response text that may contain JSON
+        
+    Returns:
+        Parsed JSON dictionary
+        
+    Raises:
+        ValueError: If no valid JSON is found
+    """
+    # Try to find JSON block with triple backticks
+    json_pattern = r'```(?:json)?\s*\n?(.*?)\n?```'
+    match = re.search(json_pattern, text, re.DOTALL)
+    
+    if match:
+        json_text = match.group(1).strip()
+        try:
+            return json.loads(json_text)
+        except json.JSONDecodeError:
+            pass
+    
+    # Try to find JSON object directly
+    json_pattern = r'\{[^{}]*\}'
+    matches = re.findall(json_pattern, text, re.DOTALL)
+    
+    for match in matches:
+        try:
+            return json.loads(match)
+        except json.JSONDecodeError:
+            continue
+    
+    # Try to parse the entire text as JSON
+    try:
+        return json.loads(text.strip())
+    except json.JSONDecodeError:
+        raise ValueError("No valid JSON found in response")
 
 
 def get_openrouter_params() -> Dict[str, Any]:

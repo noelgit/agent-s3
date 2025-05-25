@@ -375,11 +375,11 @@ def get_openrouter_json_params() -> Dict[str, Any]:
 
 
 try:
-    from agent_s3.planner_json_enforced import validate_json_schema
+    from agent_s3.planning import validate_json_schema
 except ImportError:
 
     def validate_json_schema(data: Dict[str, Any]) -> None:
-        """Fallback stub when planner_json_enforced.validate_json_schema is unavailable."""
+        """Fallback stub when planning.validate_json_schema is unavailable."""
         raise ImportError(
-            "validate_json_schema could not be imported from planner_json_enforced"
+            "validate_json_schema could not be imported from planning module"
         )

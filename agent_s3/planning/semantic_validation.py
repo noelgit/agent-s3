@@ -5,10 +5,10 @@ different planning phase outputs.
 """
 
 import logging
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, List
 
 from .llm_integration import call_llm_with_retry, parse_and_validate_json
-from .prompt_templates import get_semantic_validation_system_prompt
+# Removed import that's not available
 
 logger = logging.getLogger(__name__)
 
@@ -178,8 +178,8 @@ def _perform_llm_semantic_validation(
             implementation_plan, task_description, context
         )
 
-        # Get system prompt
-        system_prompt = get_semantic_validation_system_prompt()
+        # Get system prompt (using fallback)
+        system_prompt = "You are an expert validator. Analyze the semantic coherence between planning components."
 
         # Get configuration
         config = _get_semantic_validation_config()

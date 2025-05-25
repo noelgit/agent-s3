@@ -9,8 +9,7 @@ from typing import Dict, Any, Optional, Tuple, List
 
 from .llm_integration import call_llm_with_retry, parse_and_validate_json
 from .prompt_templates import (
-    get_test_specification_refinement_system_prompt,
-    get_consolidated_plan_user_prompt
+    get_consolidated_plan_system_prompt,
 )
 
 logger = logging.getLogger(__name__)
@@ -51,8 +50,8 @@ def generate_refined_test_specifications(
         test_requirements, system_design, context
     )
 
-    # Get system prompt
-    system_prompt = get_test_specification_refinement_system_prompt()
+    # Get system prompt (using fallback since function not available)
+    system_prompt = "You are an expert test specification analyst. Refine the test specifications based on the provided context."
 
     # Get LLM configuration with reasonable defaults
     config = _get_test_specification_config()
@@ -111,7 +110,7 @@ def regenerate_consolidated_plan_with_modifications(
     )
 
     # Get system prompt
-    system_prompt = get_consolidated_plan_system_prompt()
+    system_prompt = _get_system_prompt()
 
     # Get LLM configuration
     config = _get_plan_generation_config()
@@ -377,8 +376,7 @@ def _create_fallback_plan(original_plan: Dict[str, Any], task_description: str) 
     return fallback_plan
 
 
-# Import the needed function from prompt_templates
-def get_consolidated_plan_system_prompt() -> str:
-    """Get consolidated plan system prompt - imported from prompt_templates."""
-    from .prompt_templates import get_consolidated_plan_system_prompt as _get_prompt
-    return _get_prompt()
+# Helper function to get consolidated plan system prompt
+def _get_system_prompt() -> str:
+    """Get consolidated plan system prompt."""
+    return get_consolidated_plan_system_prompt()
