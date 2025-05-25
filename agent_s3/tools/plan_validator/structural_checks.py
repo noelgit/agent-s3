@@ -552,7 +552,7 @@ def validate_reserved_prefixes(data: Dict[str, Any]) -> List[str]:
 
 
 
-def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
+def validate_stub_test_coherence(data: Dict[str, Any], *, error_limit: int | None = None) -> List[str]:
     """
     Validate coherence between system_design.code_elements, implementation_plan, and test_requirements.
     Ensures:
@@ -563,6 +563,11 @@ def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
     4. Implemented elements from implementation_plan are targeted by at least one relevant test (via tested_functions).
     """
     errors = []
+
+    def _record_error(message: str) -> bool:
+        """Record an error and return True if the limit is exceeded."""
+        errors.append(message)
+        return error_limit is not None and len(errors) >= error_limit
     analyzer = CodeAnalyzer() # Instantiate CodeAnalyzer
 
     for group_idx, group_data in enumerate(data.get("feature_groups", [])):
@@ -586,33 +591,52 @@ def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
 
             # Validate presence of system_design and test_requirements (core for any coherence)
             if not isinstance(system_design, dict):
-                errors.append(f"{feature_log_prefix}: 'system_design' is missing or not a dictionary. Cannot validate stub/test coherence.")
+                if _record_error(
+                    f"{feature_log_prefix}: 'system_design' is missing or not a dictionary. Cannot validate stub/test coherence."
+                ):
+                    return errors
                 continue
             if not isinstance(test_requirements, dict):
-                errors.append(f"{feature_log_prefix}: 'test_requirements' is missing or not a dictionary. Cannot validate stub/test coherence.")
+                if _record_error(
+                    f"{feature_log_prefix}: 'test_requirements' is missing or not a dictionary. Cannot validate stub/test coherence."
+                ):
+                    return errors
                 continue
 
             code_elements_from_design = system_design.get("code_elements")
             if not isinstance(code_elements_from_design, list):
-                errors.append(f"{feature_log_prefix}: 'system_design.code_elements' is missing or not a list. Cannot validate stub/test coherence.")
+                if _record_error(
+                    f"{feature_log_prefix}: 'system_design.code_elements' is missing or not a list. Cannot validate stub/test coherence."
+                ):
+                    return errors
                 # Continue to next feature if core design elements are missing
                 continue
 
             # 1. Collect defined element names from system_design
             defined_element_names_in_design = set()
             element_types_map_from_design = {}
+            design_signature_type_map = {}
             for el_idx, element in enumerate(code_elements_from_design):
                 if isinstance(element, dict):
                     element_name = element.get("name")
                     element_type = element.get("element_type")
+                    target_file = element.get("target_file")
                     if isinstance(element_name, str) and element_name:
                         defined_element_names_in_design.add(element_name)
                         if isinstance(element_type, str) and element_type:
                              element_types_map_from_design[element_name] = element_type
+                        if isinstance(target_file, str) and target_file:
+                            design_signature_type_map[(target_file, element_name)] = element_type
                     else:
-                        errors.append(f"{feature_log_prefix}: system_design.code_elements[{el_idx}] has an invalid or missing 'name'.")
+                        if _record_error(
+                            f"{feature_log_prefix}: system_design.code_elements[{el_idx}] has an invalid or missing 'name'."
+                        ):
+                            return errors
                 else:
-                    errors.append(f"{feature_log_prefix}: system_design.code_elements[{el_idx}] is not a dictionary.")
+                    if _record_error(
+                        f"{feature_log_prefix}: system_design.code_elements[{el_idx}] is not a dictionary."
+                    ):
+                        return errors
 
             # 2. Collect implemented code signatures from implementation_plan
             implemented_code_signatures = set()  # Stores (file_path, element_name)
@@ -646,7 +670,10 @@ def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
                                 # el_data is CodeElement(name, element_type, params, ...)
                                 implemented_code_signatures.add((step_file_path, el_data.name))
                         except Exception as e:
-                            errors.append(f"{feature_log_prefix}: Error analyzing code_block in implementation_plan.steps[{step_idx}] for '{step_file_path}': {str(e)[:100]}")
+                            if _record_error(
+                                f"{feature_log_prefix}: Error analyzing code_block in implementation_plan.steps[{step_idx}] for '{step_file_path}': {str(e)[:100]}"
+                            ):
+                                return errors
 
             # 3. Process tests: check target_element (design coherence) and tested_functions (implementation coherence)
             all_test_targets_from_design_link = set() # Names targeted via 'target_element'
@@ -668,7 +695,10 @@ def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
 
                 for tc_idx, test_case in enumerate(test_list):
                     if not isinstance(test_case, dict):
-                        errors.append(f"{feature_log_prefix}: {display_name}[{tc_idx}] is not a dictionary.")
+                        if _record_error(
+                            f"{feature_log_prefix}: {display_name}[{tc_idx}] is not a dictionary."
+                        ):
+                            return errors
                         continue
 
                     # Check 'target_element' (link to system_design)
@@ -682,19 +712,26 @@ def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
                                 preview_str += "..."
                             elif not defined_element_names_in_design:
                                 preview_str = "None defined in system_design"
-                            errors.append(
+                            if _record_error(
                                 f"{feature_log_prefix}: {display_name}[{tc_idx}].target_element '{target_design_el}' "
                                 f"does not match any 'name' in system_design.code_elements. Available: {preview_str}."
-                            )
+                            ):
+                                return errors
                     elif "target_element" in test_case and not (isinstance(target_design_el, str) and target_design_el) : # Key exists but invalid
-                         errors.append(f"{feature_log_prefix}: {display_name}[{tc_idx}] has an invalid 'target_element'.")
+                         if _record_error(
+                             f"{feature_log_prefix}: {display_name}[{tc_idx}] has an invalid 'target_element'."
+                         ):
+                             return errors
 
                     # Check 'tested_functions' (link to implementation_plan)
                     tested_functions_list = test_case.get("tested_functions")
                     if isinstance(tested_functions_list, list):
                         for tf_idx, tested_func_str in enumerate(tested_functions_list):
                             if not isinstance(tested_func_str, str) or "::" not in tested_func_str:
-                                errors.append(f"{feature_log_prefix}: {display_name}[{tc_idx}].tested_functions[{tf_idx}] ('{tested_func_str}') is invalid. Expected format 'file_path::element_name'.")
+                                if _record_error(
+                                    f"{feature_log_prefix}: {display_name}[{tc_idx}].tested_functions[{tf_idx}] ('{tested_func_str}') is invalid. Expected format 'file_path::element_name'."
+                                ):
+                                    return errors
                                 continue
 
                             try:
@@ -720,11 +757,18 @@ def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
                                             error_msg +
                                                 = f"Available in implementation_plan: {preview_impl_sigs}"                                            if len(implemented_code_signatures) > 3:
                                                 error_msg += "..."
-                                    errors.append(error_msg)
+                                    if _record_error(error_msg):
+                                        return errors
                             except ValueError:
-                                errors.append(f"{feature_log_prefix}: {display_name}[{tc_idx}].tested_functions[{tf_idx}] ('{tested_func_str}') is malformed. Expected 'file_path::element_name'.")
+                                if _record_error(
+                                    f"{feature_log_prefix}: {display_name}[{tc_idx}].tested_functions[{tf_idx}] ('{tested_func_str}') is malformed. Expected 'file_path::element_name'."
+                                ):
+                                    return errors
                     elif "tested_functions" in test_case: # Key exists but not a list
-                         errors.append(f"{feature_log_prefix}: {display_name}[{tc_idx}].tested_functions should be a list of strings.")
+                         if _record_error(
+                             f"{feature_log_prefix}: {display_name}[{tc_idx}].tested_functions should be a list of strings."
+                         ):
+                             return errors
 
             # 4. Check for untested elements from system_design
             testable_element_types = {"function", "class", "struct", "method", "module"} # As per original
@@ -738,27 +782,23 @@ def validate_stub_test_coherence(data: Dict[str, Any]) -> List[str]:
             if untested_design_elements:
                 for symbol_name in untested_design_elements:
                     el_type_str = element_types_map_from_design.get(symbol_name, 'N/A')
-                    errors.append(
+                    if _record_error(
                         f"{feature_log_prefix}: Testable element '{symbol_name}' (type: {el_type_str}) "
                         f"from system_design.code_elements is not targeted by any 'target_element' in tests for this feature."
-                    )
+                    ):
+                        return errors
 
             # 5. Check for untested implemented elements from implementation_plan
             if implementation_plan: # Only if plan exists
                 untested_implemented_elements = implemented_code_signatures - all_tested_signatures_from_impl_link
                 if untested_implemented_elements:
                     for impl_path, impl_name in untested_implemented_elements:
-                        # Try to find its type from system_design if it was also defined there
-                        # This link is indirect and might not always be present or accurate
-                        original_design_type = "N/A"
-                        for el_design in code_elements_from_design:
-                            if isinstance(el_design, dict) and el_design.get("name") == impl_name and el_design.get("target_file") == impl_path:
-                                original_design_type = el_design.get("element_type", "N/A")
-                                break
-                        errors.append(
+                        original_design_type = design_signature_type_map.get((impl_path, impl_name), "N/A")
+                        if _record_error(
                             f"{feature_log_prefix}: Implemented element '{impl_path}::{impl_name}' (original design type: {original_design_type}) "
                             f"from implementation_plan is not targeted by any 'tested_functions' entry in tests for this feature."
-                        )
+                        ):
+                            return errors
     return errors
 
 
