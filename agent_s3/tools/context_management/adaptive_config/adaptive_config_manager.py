@@ -89,7 +89,7 @@ class AdaptiveConfigManager:
             self._create_initial_configuration()
 
         except Exception as e:
-            logger.error("%s", Error initializing configuration: {e})
+            logger.error("Error initializing configuration: %s", e)
             logger.info("Falling back to default configuration")
 
             # Fall back to default configuration
