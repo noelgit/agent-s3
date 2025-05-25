@@ -130,7 +130,7 @@ class TestCritic:
         try:
             self.adapter = select_adapter(self.workspace)
         except Exception as e:
-            logger.warning("%s", Could not select test adapter: {str(e)})
+            logger.warning("Could not select test adapter: %s", str(e))
             self.adapter = None
 
 
@@ -154,7 +154,7 @@ class TestCritic:
             try:
                 self.adapter = select_adapter(workspace)
             except Exception as e:
-                logger.warning("%s", Could not select test adapter: {str(e)})
+                logger.warning("Could not select test adapter: %s", str(e))
                 return {
                     "verdict": TestVerdict.FAIL,
                     "details": {
@@ -171,7 +171,7 @@ class TestCritic:
             try:
                 self.adapter = select_adapter(self.workspace)
             except Exception as e:
-                logger.warning("%s", Could not select test adapter: {str(e)})
+                logger.warning("Could not select test adapter: %s", str(e))
                 return {
                     "verdict": TestVerdict.FAIL,
                     "details": {
@@ -185,7 +185,7 @@ class TestCritic:
 
         # Run the tests and evaluate results
         try:
-            logger.info("%s", Running test critic with {self.adapter.name} adapter)
+            logger.info("Running test critic with %s adapter", self.adapter.name)
 
             # Run each test step
             results = {
@@ -203,7 +203,7 @@ class TestCritic:
             return self._evaluate_results(results)
 
         except Exception as e:
-            logger.error("%s", Error running test critic: {str(e)})
+            logger.error("Error running test critic: %s", str(e))
             # Return a result object indicating failure
             return {
                 "verdict": TestVerdict.FAIL,

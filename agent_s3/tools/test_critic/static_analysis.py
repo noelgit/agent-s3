@@ -210,8 +210,10 @@ class CriticStaticAnalyzer:
 
         return results
 
-    def critique_tests(self, tests_plan: Dict[str, Any], risk_assessment: Dict[str, Any])
-         -> Dict[str, Any]:        """
+    def critique_tests(
+        self, tests_plan: Dict[str, Any], risk_assessment: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
         Critiques the planned test implementations against the risk assessment.
         This method is called by FeatureGroupProcessor on the *planned* tests.
 
@@ -262,7 +264,11 @@ class CriticStaticAnalyzer:
         # 2. Analyze the content of each planned test
         for test_category_key, planned_tests_list in tests_plan.items():
             if not isinstance(planned_tests_list, list):
-                logger.warning("%s", Unexpected format for planned tests in category '{test_category_key}'. Expected list, got {type(planned_tests_list)})
+                logger.warning(
+                    "Unexpected format for planned tests in category '%s'. Expected list, got %s",
+                    test_category_key,
+                    type(planned_tests_list),
+                )
                 continue
 
             critique_results["planned_test_analysis"][test_category_key] = []
@@ -482,8 +488,10 @@ class CriticStaticAnalyzer:
 
         return results
 
-    def analyze_implementation(self, file_path: str, content: str, test_files: List[Dict[str, Any]])
-         -> Dict[str, Any]:        """
+    def analyze_implementation(
+        self, file_path: str, content: str, test_files: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
         Analyze an implementation file and its associated test files.
 
         Args:
@@ -517,7 +525,11 @@ class CriticStaticAnalyzer:
                 try:
                     all_test_types_found_enums.add(TestType(type_str))
                 except ValueError:
-                    logger.warning("%s", Unknown test type string '{type_str}' found in test file analysis for {test_file_analysis.get('file_path)}")
+                    logger.warning(
+                        "Unknown test type string '%s' found in test file analysis for %s",
+                        type_str,
+                        test_file_analysis.get("file_path"),
+                    )
             results["total_test_count"] += test_file_analysis.get("test_count", 0)
             results["total_assertion_count"] += test_file_analysis.get("assertion_count", 0)
 
@@ -605,7 +617,11 @@ class CriticStaticAnalyzer:
                 try:
                     found_test_type_enums.add(TestType(type_str))
                 except ValueError:
-                     logger.warning("%s", Unknown test type string '{type_str}' from analyze_test_file for {file_path})
+                     logger.warning(
+                        "Unknown test type string '%s' from analyze_test_file for %s",
+                        type_str,
+                        file_path,
+                    )
         results["test_types_found"] = found_test_type_enums # Store the Set of enum members
 
 
@@ -714,7 +730,7 @@ class CriticStaticAnalyzer:
             try:
                 test_type = TestType(str(test_type).lower())
             except ValueError:
-                logger.warning("%s", Invalid test_type value '{test_type}' provided to _detect_test_type.)
+                logger.warning("Invalid test_type value '%s' provided to _detect_test_type.", test_type)
                 return False
 
         if test_type not in self.patterns or language not in self.patterns[test_type]:
