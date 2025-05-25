@@ -2,11 +2,9 @@
 Simplified compression module test for Agent-S3.
 Tests the functionality of data compression and decompression directly.
 """
-import os
 import gzip
 import json
 import pytest
-from unittest.mock import MagicMock, patch, mock_open
 
 
 # Define compression helper functions
