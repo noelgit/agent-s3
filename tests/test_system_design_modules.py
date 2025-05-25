@@ -4,7 +4,9 @@ from agent_s3.tools.system_design import (
     is_valid_signature,
     find_circular_dependencies,
     extract_patterns,
+    validate_design_patterns,
 )
+from agent_s3.config import get_config
 
 
 def test_is_valid_signature():
@@ -36,3 +38,15 @@ def test_validate_and_repair():
     assert needs_repair
     repaired = sdv.repair_system_design(validated, issues, reqs)
     assert "code_elements" in repaired
+
+
+def test_validate_design_patterns_limit():
+    config = get_config()
+    old = config.max_design_patterns
+    config.max_design_patterns = 2
+    design = {"overview": "mvc repository factory", "code_elements": []}
+    try:
+        issues = validate_design_patterns(design)
+        assert any(i["issue_type"] == "too_many_patterns" for i in issues)
+    finally:
+        config.max_design_patterns = old

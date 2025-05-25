@@ -90,6 +90,8 @@ EMBEDDER_ROLE_NAME       = os.getenv('EMBEDDER_ROLE_NAME',     'embedder')
 SUMMARIZER_ROLE_NAME     = os.getenv('SUMMARIZER_ROLE_NAME',   'summarizer')
 SUMMARIZER_MAX_CHUNK_SIZE = int(os.getenv('SUMMARIZER_MAX_CHUNK_SIZE', '2048'))
 SUMMARIZER_TIMEOUT       = float(os.getenv('SUMMARIZER_TIMEOUT',      '45.0'))
+# System design pattern validation
+MAX_DESIGN_PATTERNS      = int(os.getenv('MAX_DESIGN_PATTERNS', '3'))
 
 # Supabase configuration
 SUPABASE_URL               = os.getenv('SUPABASE_URL', '')
@@ -205,6 +207,7 @@ class ConfigModel(BaseModel):
     summarizer_role_name: str = SUMMARIZER_ROLE_NAME
     summarizer_max_chunk_size: int = SUMMARIZER_MAX_CHUNK_SIZE
     summarizer_timeout: float = SUMMARIZER_TIMEOUT
+    max_design_patterns: int = MAX_DESIGN_PATTERNS
     adaptive_config_enabled: bool = ADAPTIVE_CONFIG_ENABLED
     adaptive_config_repo_path: str = ADAPTIVE_CONFIG_REPO_PATH
     adaptive_config_dir: str = ADAPTIVE_CONFIG_DIR

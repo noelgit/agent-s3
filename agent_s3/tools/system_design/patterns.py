@@ -6,13 +6,19 @@ import json
 from typing import Any, Dict, List, Set
 
 from .constants import ErrorMessages, logger
+from ...config import get_config
 
 
 def validate_design_patterns(system_design: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Ensure appropriate architectural patterns are used."""
+    """Ensure appropriate architectural patterns are used.
+
+    Uses ``config.max_design_patterns`` to enforce a limit on the number of
+    architectural patterns allowed in ``system_design``.
+    """
     issues: List[Dict[str, Any]] = []
     patterns = extract_patterns(system_design)
-    if len(patterns) > 3:
+    max_allowed = get_config().max_design_patterns
+    if len(patterns) > max_allowed:
         issues.append(
             {
                 "issue_type": "too_many_patterns",
