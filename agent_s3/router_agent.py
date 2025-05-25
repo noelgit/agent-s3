@@ -5,6 +5,7 @@ import json
 import logging
 import time
 import re  # Add import for regex pattern matching
+from .pattern_constants import ERROR_PATTERN, EXCEPTION_PATTERN
 from time import sleep
 import requests
 import traceback  # Added import
@@ -630,9 +631,12 @@ class RouterAgent:
                         current_tokens += header_tokens + truncation_tokens
 
                     # For error_analyzer role, try to include error-relevant parts even if we need to truncate
-                    if role.lower() == "error_analyzer" and "error" in content.lower():
-                        error_lines = [i for i, line in enumerate(content.split("\n"))
-                                     if "error" in line.lower() or "exception" in line.lower()]
+                    if role.lower() == "error_analyzer" and ERROR_PATTERN.search(content):
+                        error_lines = [
+                            i
+                            for i, line in enumerate(content.split("\n"))
+                            if ERROR_PATTERN.search(line) or EXCEPTION_PATTERN.search(line)
+                        ]
 
                         if error_lines:
                             line_context = allocation.get("error_context_lines", 10)

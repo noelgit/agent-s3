@@ -7,6 +7,7 @@ It uses tiktoken for accurate token counting with support for multiple models.
 """
 
 import re
+from ...pattern_constants import ERROR_PATTERN, EXCEPTION_PATTERN
 import logging
 import tiktoken
 import os
@@ -541,7 +542,7 @@ class TokenBudgetAnalyzer:
                     if task_type == "debugging":
                         if "test" in file_path or "spec" in file_path:
                             score *= 1.3
-                        if "error" in file_path or "exception" in file_path:
+                        if ERROR_PATTERN.search(file_path) or EXCEPTION_PATTERN.search(file_path):
                             score *= 1.4
 
                     # For feature implementation tasks, prioritize related components

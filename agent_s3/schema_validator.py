@@ -1,6 +1,7 @@
 import logging
 import json
 import re
+from .pattern_constants import LANG_SPEC_EXTENSION_PATTERN
 from typing import Dict, List, Any, Optional, Union, TypeVar, Type, Callable
 from pydantic import BaseModel, Field, ValidationError
 
@@ -386,7 +387,7 @@ def extract_code_blocks(text: str) -> Dict[str, str]:
     code_files = {}
     for lang_spec, code in matches:
         # Extract filename from language specifier
-        if '.' in lang_spec:
+        if LANG_SPEC_EXTENSION_PATTERN.search(lang_spec):
             # Assume the language specifier is or contains the filename
             filename = lang_spec.strip()
         else:

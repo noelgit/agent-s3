@@ -7,6 +7,7 @@ and recovery across all components of the agent_s3 system.
 
 import functools
 import logging
+from .pattern_constants import DONT_RETRY_PATTERN
 from contextlib import contextmanager
 from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union, cast
 
@@ -297,7 +298,7 @@ def retry(
                         try_again = True
 
                     # Also stop retrying on explicit don't retry messages
-                    if not try_again or "don't retry" in str(exc).lower():
+                    if not try_again or DONT_RETRY_PATTERN.search(str(exc)):
                         logger.warning(
                             f"Not retrying {operation} after attempt {attempt} due to exception: {exc}"
                         )

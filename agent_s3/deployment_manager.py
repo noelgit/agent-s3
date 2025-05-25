@@ -9,6 +9,7 @@ import os
 import logging
 import json
 import re
+from .pattern_constants import DEV_MODE_PATTERN, START_DEPLOYMENT_PATTERN
 import secrets
 import string
 from typing import Dict, Any, List, Optional, Tuple
@@ -299,7 +300,7 @@ class DeploymentManager:
             Tuple of (LLM response, is_deployment_ready)
         """
         # Check for explicit deployment trigger
-        if "/start-deployment" in user_message.lower():
+        if START_DEPLOYMENT_PATTERN.search(user_message):
             return self._prepare_deployment_from_conversation(), True
 
         # Load existing conversation
@@ -1425,9 +1426,8 @@ if __name__ == '__main__':
                 response,
                 re.IGNORECASE,
             )
-            debug_mode = (
-                (debug_match and "dev" in debug_match.group(1).lower())
-                or (debug_match and "development" in debug_match.group(1).lower())
+            debug_mode = bool(
+                debug_match and DEV_MODE_PATTERN.search(debug_match.group(1))
             )
             # Extract database configuration if present
             db_type = None
