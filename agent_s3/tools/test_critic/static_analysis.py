@@ -22,6 +22,9 @@ MAX_ANALYSIS_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 logger = logging.getLogger(__name__)
 
+# Maximum number of characters from LLM responses to include in log messages
+MAX_LOG_LEN = 500
+
 
 class CriticStaticAnalyzer:
     """Encapsulates static analysis logic used by :class:`TestCritic`."""
@@ -1073,7 +1076,7 @@ class CriticStaticAnalyzer:
                 logger.error(
                     "Could not parse LLM response as JSON for test analysis. Error: %s. Response: %s",
                     e,
-                    response[:500],
+                    response[:MAX_LOG_LEN],
                 )
                 return {"error": "Could not parse LLM response as JSON", "raw_response": response}
 

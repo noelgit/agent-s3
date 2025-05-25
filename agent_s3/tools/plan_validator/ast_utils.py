@@ -205,22 +205,19 @@ def validate_code_syntax(data: Dict[str, Any]) -> List[Dict[str, Any]]:
                     elif lang in ["javascript", "typescript"]:
                         # Attempt to make it a parsable snippet for tree-sitter
                         if element_type == "function":
-                            # Handle arrow functions like `(a: type) => type:` or `name = (a:type): type =>`
+                            # Handle arrow functions or regular functions
                             if "=>" in signature_str:
                                 if not signature_str.strip().endswith(";") and not signature_str.strip().endswith("}"):
-                                     # Try to wrap in a const assignment if it looks like an arrow func expression
-                                     if not re.match(r"^\s*(const|let|var)\s+\w+
-                                         \s*=", signature_str):                                         parse_content = f"const tempFunc = {signature_str};"
-                                     elif not signature_str.strip().endswith(";"):
-                                         parse_content = f"{signature_str};"
-
-                            elif '(' in signature_str and ')' in signature_str and not signature_str.strip().endswith(";") and not signature_str.strip().endswith("}"):
-                                parse_content = f"{signature_str} {{}}" # For `function name(args): type`
+                                    if not re.match(r"^\s*(const|let|var)\s+\w+\s*=", signature_str):
+                                        parse_content = f"const tempFunc = {signature_str};"
+                                    elif not signature_str.strip().endswith(";"):
+                                        parse_content = f"{signature_str};"
+                            elif "(" in signature_str and ")" in signature_str and not signature_str.strip().endswith(";") and not signature_str.strip().endswith("}"):
+                                parse_content = f"{signature_str} {{}}"
                         elif element_type == "class" and not signature_str.strip().endswith("}"):
-                             parse_content = f"{signature_str} {{}}"
+                            parse_content = f"{signature_str} {{}}"
                         elif element_type == "interface" and not signature_str.strip().endswith("}"):
-                             parse_content = f"{signature_str} {{}}"
-
+                            parse_content = f"{signature_str} {{}}"
                         # Use the appropriate parser from agent_s3.ast_tools
                         if lang == "javascript":
                             parse_js(bytes(parse_content, "utf8"))

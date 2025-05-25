@@ -7,6 +7,9 @@ from pydantic import BaseModel, Field, ValidationError
 
 logger = logging.getLogger(__name__)
 
+# Maximum number of characters from LLM responses to include in log messages
+MAX_LOG_LEN = 100
+
 
 def get_json_system_prompt() -> str:
     """
@@ -366,7 +369,11 @@ def parse_with_fallback(response: str, parser_func: Callable, fallback_value: An
             type(e).__name__,
             str(e),
         )
-        logger.error("%s Response snippet: %s...", log_prefix, response[:100])
+        logger.error(
+            "%s Response snippet: %s...",
+            log_prefix,
+            response[:MAX_LOG_LEN],
+        )
         return fallback_value
 
 
