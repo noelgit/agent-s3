@@ -7,6 +7,10 @@ It validates structure, semantic coherence, and security aspects of pre-planning
 
 from typing import Any, Dict, List, Tuple
 import logging
+from .pattern_constants import (
+    SECURITY_CONCERN_PATTERN,
+    SECURITY_KEYWORD_PATTERNS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -202,10 +206,7 @@ class PrePlanningValidator:
         errors = []
 
         # Security keywords that should trigger additional scrutiny
-        security_keywords = [
-            "auth", "login", "password", "credential", "token", "jwt", "encrypt", "decrypt",
-            "permission", "role", "admin", "sensitive", "personal", "verify", "validate"
-        ]
+        security_keywords = SECURITY_KEYWORD_PATTERNS
 
         # Check for security-related features without proper risk assessment
         for i, group in enumerate(data.get("feature_groups", [])):
@@ -214,7 +215,10 @@ class PrePlanningValidator:
                 desc = feature.get("description", "").lower()
 
                 # Check if this is security-related feature
-                is_security_feature = any(keyword in name or keyword in desc for keyword in security_keywords)
+                is_security_feature = any(
+                    pattern.search(name) or pattern.search(desc)
+                    for pattern in security_keywords
+                )
 
                 if is_security_feature:
                     risk = feature.get("risk_assessment", {})
@@ -227,7 +231,9 @@ class PrePlanningValidator:
 
                     # Security features should have specific security concerns
                     concerns = risk.get("concerns", [])
-                    has_security_concern = any("security" in str(c).lower() for c in concerns)
+                    has_security_concern = any(
+                        SECURITY_CONCERN_PATTERN.search(str(c)) for c in concerns
+                    )
                     if not has_security_concern:
                         errors.append(f"Security-related feature '{feature.get('name')}' has no explicit security concerns in risk assessment")
 
