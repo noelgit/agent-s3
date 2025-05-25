@@ -47,31 +47,7 @@ from agent_s3.planning import (
     _calculate_syntax_validation_percentage,
     _calculate_traceability_coverage,
 )
-# Define functions previously imported from json_utils
-def validate_json_schema(data: Dict[str, Any]) -> Tuple[bool, str, List[int]]:
-    """
-    Validate JSON data against the required schema.
-
-    Args:
-        data: The JSON data to validate
-
-    Returns:
-        Tuple of (is_valid, error_message, valid_indices)
-    """
-    # Check for required top-level keys
-    if not isinstance(data, dict):
-        return False, "Data must be a dictionary", []
-
-    # Check for feature_groups array
-    if "feature_groups" not in data:
-        return False, "Missing 'feature_groups' key", []
-
-    feature_groups = data.get("feature_groups", [])
-    if not isinstance(feature_groups, list):
-        return False, "'feature_groups' must be an array", []
-
-    if not feature_groups:
-        return False, "'feature_groups' array is empty", []
+# Extracted functions are now imported from the planning module
 
     # Track which feature groups are valid
     valid_indices = []
