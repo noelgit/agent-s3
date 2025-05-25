@@ -281,7 +281,11 @@ class ContextAdapter:
                 # Just store as text for other file types
                 self.config_cache[filename] = content
         except Exception as e:
-            logger.warning("%s", Failed to cache config file {file_path}: {e})
+            logger.warning(
+                "Failed to cache config file %s: %s",
+                file_path,
+                e,
+            )
 
     def _process_historical_context(self, historical: Dict[str, Any]) -> Dict[str, Any]:
         """
