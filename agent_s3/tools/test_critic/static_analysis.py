@@ -2,28 +2,32 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import logging
 import re
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Set
 
 from .core import TestType, TestVerdict  # type: ignore  # circular import
 
 logger = logging.getLogger(__name__)
 
 
+DEFAULT_MAX_FILE_SIZE_KB = 200
+
+
 class CriticStaticAnalyzer:
     """Encapsulates static analysis logic used by :class:`TestCritic`."""
 
-    def __init__(self, llm=None, coordinator=None) -> None:
+    def __init__(self, llm=None, coordinator=None, max_file_size_kb: int = DEFAULT_MAX_FILE_SIZE_KB) -> None:
         self.llm = llm
         self.coordinator = coordinator
+        self.max_file_size_kb = max_file_size_kb
         self._init_test_patterns()
 
     def _init_test_patterns(self):
         """Initialize regex patterns for identifying test types."""
-        self.patterns = {
+        raw_patterns = {
             TestType.UNIT: {
                 "python": [
                     r"def\s+test_\w+",
@@ -134,24 +138,54 @@ class CriticStaticAnalyzer:
             }
         }
 
+        self.patterns = {
+            t: {lang: [re.compile(p, re.IGNORECASE) for p in pats] for lang, pats in langs.items()}
+            for t, langs in raw_patterns.items()
+        }
+
         # Framework-specific patterns for test assertions
         self.assertion_patterns = {
-            "pytest": [r"assert\s+", r"pytest\.raises"],
-            "unittest": [r"self\.assert\w+", r"self\.fail"],
-            "jest": [r"expect\s*\(.*\)\.to", r"assert\."],
-            "mocha": [r"assert\.", r"expect\s*\("],
+            key: [re.compile(p) for p in patterns]
+            for key, patterns in {
+                "pytest": [r"assert\s+", r"pytest\.raises"],
+                "unittest": [r"self\.assert\w+", r"self\.fail"],
+                "jest": [r"expect\s*\(.*\)\.to", r"assert\."],
+                "mocha": [r"assert\.", r"expect\s*\("],
+            }.items()
         }
 
         # Patterns that indicate test quality issues
         self.quality_issue_patterns = [
-            r"# TODO",
-            r"# FIXME",
-            r"pass  # No test implementation",
-            r"//\s*TODO",
-            r"//\s*FIXME",
-            r"test\.skip",
-            r"@pytest\.mark\.skip",
-            r"@unittest\.skip"
+            re.compile(p, re.IGNORECASE)
+            for p in [
+                r"# TODO",
+                r"# FIXME",
+                r"pass  # No test implementation",
+                r"//\s*TODO",
+                r"//\s*FIXME",
+                r"test\.skip",
+                r"@pytest\.mark\.skip",
+                r"@unittest\.skip",
+            ]
+        ]
+
+        # Precompile patterns used for counting tests
+        self.test_count_patterns = {
+            "python": [
+                re.compile(r"def\s+test_\w+"),
+                re.compile(r"@pytest\.mark\.parametrize.*\ndef\s+test_"),
+                re.compile(r"class\s+Test\w+[\s\S]*?def\s+\w+\s*\(self"),
+            ],
+            "javascript": [
+                re.compile(r"test\s*\("),
+                re.compile(r"it\s*\("),
+                re.compile(r"describe\s*\(.*,\s*function\s*\(\s*\)\s*{[\s\S]*?(?:test|it)\s*\("),
+            ],
+        }
+
+        self.test_path_patterns = [
+            re.compile(r'(^|[/_\.-])test[s]?([/_\.-]|$)', re.IGNORECASE),
+            re.compile(r'\.spec\.([tj]sx?|py)$', re.IGNORECASE),
         ]
 
     # =========================================================================
@@ -171,6 +205,24 @@ class CriticStaticAnalyzer:
         """
         # Determine language from file extension
         language = "javascript" if file_path.endswith(('.js', '.jsx', '.ts', '.tsx')) else "python"
+
+        content_size_kb = len(content.encode("utf-8")) / 1024
+        if content_size_kb > self.max_file_size_kb:
+            logger.info(
+                "Skipping static analysis for %s; size %.2fKB exceeds limit %dKB",
+                file_path,
+                content_size_kb,
+                self.max_file_size_kb,
+            )
+            return {
+                "file_path": file_path,
+                "language": language,
+                "test_types": [],
+                "test_count": 0,
+                "assertion_count": 0,
+                "issues": [f"File exceeds {self.max_file_size_kb}KB; analysis skipped"],
+                "verdict": TestVerdict.WARN,
+            }
 
         # Initialize results
         results = {
@@ -210,8 +262,10 @@ class CriticStaticAnalyzer:
 
         return results
 
-    def critique_tests(self, tests_plan: Dict[str, Any], risk_assessment: Dict[str, Any])
-         -> Dict[str, Any]:        """
+    def critique_tests(
+        self, tests_plan: Dict[str, Any], risk_assessment: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
         Critiques the planned test implementations against the risk assessment.
         This method is called by FeatureGroupProcessor on the *planned* tests.
 
@@ -262,7 +316,10 @@ class CriticStaticAnalyzer:
         # 2. Analyze the content of each planned test
         for test_category_key, planned_tests_list in tests_plan.items():
             if not isinstance(planned_tests_list, list):
-                logger.warning("%s", Unexpected format for planned tests in category '{test_category_key}'. Expected list, got {type(planned_tests_list)})
+                logger.warning(
+                    "%s",
+                    f"Unexpected format for planned tests in category '{test_category_key}'. Expected list, got {type(planned_tests_list)}",
+                )
                 continue
 
             critique_results["planned_test_analysis"][test_category_key] = []
@@ -482,8 +539,10 @@ class CriticStaticAnalyzer:
 
         return results
 
-    def analyze_implementation(self, file_path: str, content: str, test_files: List[Dict[str, Any]])
-         -> Dict[str, Any]:        """
+    def analyze_implementation(
+        self, file_path: str, content: str, test_files: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
         Analyze an implementation file and its associated test files.
 
         Args:
@@ -517,7 +576,10 @@ class CriticStaticAnalyzer:
                 try:
                     all_test_types_found_enums.add(TestType(type_str))
                 except ValueError:
-                    logger.warning("%s", Unknown test type string '{type_str}' found in test file analysis for {test_file_analysis.get('file_path)}")
+                    logger.warning(
+                        "%s",
+                        f"Unknown test type string '{type_str}' found in test file analysis for {test_file_analysis.get('file_path')}",
+                    )
             results["total_test_count"] += test_file_analysis.get("test_count", 0)
             results["total_assertion_count"] += test_file_analysis.get("assertion_count", 0)
 
@@ -605,7 +667,10 @@ class CriticStaticAnalyzer:
                 try:
                     found_test_type_enums.add(TestType(type_str))
                 except ValueError:
-                     logger.warning("%s", Unknown test type string '{type_str}' from analyze_test_file for {file_path})
+                    logger.warning(
+                        "%s",
+                        f"Unknown test type string '{type_str}' from analyze_test_file for {file_path}",
+                    )
         results["test_types_found"] = found_test_type_enums # Store the Set of enum members
 
 
@@ -664,22 +729,11 @@ class CriticStaticAnalyzer:
     def _count_tests(self, content: str, language: str) -> int:
         """Count the number of test cases in a file."""
         if language == "python":
-            # Count test functions and methods
-            test_patterns = [
-                r"def\s+test_\w+",
-                r"@pytest\.mark\.parametrize.*\ndef\s+test_", # More specific for parametrized tests
-                r"class\s+Test\w+[\s\S]*?def\s+\w+\s*\(self", # Methods in unittest-style classes
-            ]
-        else:  # javascript/typescript
-            test_patterns = [
-                r"test\s*\(",
-                r"it\s*\(",
-                r"describe\s*\(.*,\s*function\s*\(\s*\)\s*{[\s\S]*?(?:test|it)\s*\(", # Nested tests
-            ]
+            return self._count_tests_ast_python(content)
 
         count = 0
-        for pattern in test_patterns:
-            count += len(re.findall(pattern, content))
+        for pattern in self.test_count_patterns.get(language, []):
+            count += len(pattern.findall(content))
 
         # A simple `describe` might not contain tests itself, but group them.
         # This basic count might overcount `describe` if not careful with regex.
@@ -688,6 +742,9 @@ class CriticStaticAnalyzer:
 
     def _count_assertions(self, content: str, language: str) -> int:
         """Count the number of assertions in a file."""
+        if language == "python":
+            return self._count_assertions_ast_python(content)
+
         count = 0
 
         # Use a combined list of assertion patterns for the given language
@@ -698,13 +755,47 @@ class CriticStaticAnalyzer:
         elif language == "javascript":
             lang_assertion_patterns.extend(self.assertion_patterns.get("jest", []))
             lang_assertion_patterns.extend(self.assertion_patterns.get("mocha", []))
-            # Add generic JS assert
-            lang_assertion_patterns.append(r"assert\(")
-
+            lang_assertion_patterns.append(re.compile(r"assert\("))
 
         for pattern in lang_assertion_patterns:
-            count += len(re.findall(pattern, content))
+            count += len(pattern.findall(content))
 
+        return count
+
+    # ------------------------------------------------------------------
+    # AST-based analysis helpers
+    # ------------------------------------------------------------------
+    def _count_tests_ast_python(self, content: str) -> int:
+        """Count test cases in Python code using the ``ast`` module."""
+        try:
+            tree = ast.parse(content)
+        except SyntaxError:
+            return 0
+
+        count = 0
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name.startswith("test_"):
+                count += 1
+            elif isinstance(node, ast.ClassDef) and node.name.startswith("Test"):
+                for child in node.body:
+                    if isinstance(child, ast.FunctionDef):
+                        count += 1
+        return count
+
+    def _count_assertions_ast_python(self, content: str) -> int:
+        """Count assertions in Python code using AST parsing."""
+        try:
+            tree = ast.parse(content)
+        except SyntaxError:
+            return 0
+
+        count = 0
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assert):
+                count += 1
+            elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                if node.func.attr.startswith("assert"):
+                    count += 1
         return count
 
     def _detect_test_type(self, content: str, test_type: TestType, language: str) -> bool:
@@ -714,7 +805,10 @@ class CriticStaticAnalyzer:
             try:
                 test_type = TestType(str(test_type).lower())
             except ValueError:
-                logger.warning("%s", Invalid test_type value '{test_type}' provided to _detect_test_type.)
+                logger.warning(
+                    "%s",
+                    f"Invalid test_type value '{test_type}' provided to _detect_test_type.",
+                )
                 return False
 
         if test_type not in self.patterns or language not in self.patterns[test_type]:
@@ -722,7 +816,7 @@ class CriticStaticAnalyzer:
 
         patterns_for_type_lang = self.patterns[test_type][language]
         for pattern in patterns_for_type_lang:
-            if re.search(pattern, content, re.IGNORECASE): # Add IGNORECASE for broader matching
+            if pattern.search(content):
                 return True
 
         return False
@@ -731,15 +825,22 @@ class CriticStaticAnalyzer:
         """Detect test quality issues."""
         issues = []
         for pattern in self.quality_issue_patterns:
-            matches = re.findall(pattern, content, re.IGNORECASE) # Add IGNORECASE
+            matches = pattern.findall(content)
             if matches:
-                issues.append(f"Found {len(matches)} instance(s) of '{pattern}' indicating incomplete or skipped tests.")
+                issues.append(
+                    f"Found {len(matches)} instance(s) of '{pattern.pattern}' indicating incomplete or skipped tests."
+                )
 
         # Check for empty test functions (Python)
         # Regex to find 'def test_something(self): pass' or 'def test_something(): # optional comment then pass'
-        empty_py_tests = re.findall(r"def\s+test_\w+
-            \s*\([^)]*\):\s*(?:#.*?\n\s*)?pass(?!\w)", content)        if empty_py_tests:
-            issues.append(f"Found {len(empty_py_tests)} empty Python test functions (ending in 'pass').")
+        empty_py_tests = re.findall(
+            r"def\s+test_\w+\s*\([^)]*\):\s*(?:#.*?\n\s*)?pass(?!\w)",
+            content,
+        )
+        if empty_py_tests:
+            issues.append(
+                f"Found {len(empty_py_tests)} empty Python test functions (ending in 'pass')."
+            )
 
         # Check for empty test blocks (JavaScript) - e.g., it('should do something', () => {});
         empty_js_tests = re.findall(r"(?:it|test)\s*\((?:'[^']*'|\"[^\"]*\"|`[^`]*`)\s*,\s*\(\s*\)\s*=>\s*{\s*(?:/\*.*?\*/|//.*?\n\s*)?}\s*\);?", content)
@@ -841,10 +942,9 @@ class CriticStaticAnalyzer:
         file_path_lower = file_path.lower()
         # Check path patterns
         # More specific patterns first
-        if re.search(r'(^|[/_\.-])test[s]?([/_\.-]|$)', file_path_lower) or \
-           re.search(r'\.spec\.([tj]sx?|py)$', file_path_lower) or \
+        if any(p.search(file_path_lower) for p in self.test_path_patterns) or \
            file_path_lower.startswith('test_') or \
-           file_path_lower.endswith(('_test.py', '_spec.js', '_test.js')):
+            file_path_lower.endswith(('_test.py', '_spec.js', '_test.js')):
             return True
 
         # Check content for test frameworks and patterns
@@ -854,7 +954,7 @@ class CriticStaticAnalyzer:
         for test_type_enum_member in [TestType.UNIT, TestType.INTEGRATION, TestType.ACCEPTANCE]: # Common types indicating a test file
             if language in self.patterns[test_type_enum_member]:
                 for pattern in self.patterns[test_type_enum_member][language]:
-                    if re.search(pattern, content, re.IGNORECASE):
+                    if pattern.search(content):
                         return True
 
         return False
@@ -874,9 +974,14 @@ class CriticStaticAnalyzer:
         else:  # javascript/typescript
             # Find functions (named and assigned to const/let/var)
             functions = re.findall(r"function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(", content)
-            arrow_funcs_assigned = re.findall(r"(?:const|let|var)\s+
-                ([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\(.*\)\s*=>", content)            class_methods = re.findall(r"(?:async\s+
-                                                        )?([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\([^)]*\)\s*{", content) # More general, might catch non-methods
+            arrow_funcs_assigned = re.findall(
+                r"(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\(.*\)\s*=>",
+                content,
+            )
+            class_methods = re.findall(
+                r"(?:async\s*)?([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\([^)]*\)\s*{",
+                content,
+            )  # More general, might catch non-methods
             # Find classes
             classes = re.findall(r"class\s+([a-zA-Z_$][a-zA-Z0-9_$]*)", content)
 
@@ -888,7 +993,7 @@ class CriticStaticAnalyzer:
             elements.extend(m for m in class_methods if not m.startswith('_') and m not in js_keywords)
             elements.extend(c for c in classes if not c.startswith('_'))
 
-        return list(set(elements)) # Unique elements
+        return list(set(elements))  # Unique elements
 
     def perform_llm_analysis(self, content: str, prompt: str = None) -> Dict[str, Any]:
         """
@@ -967,7 +1072,10 @@ class CriticStaticAnalyzer:
                 analysis = json.loads(json_str)
                 return analysis
             except json.JSONDecodeError as e:
-                logger.error("%s", Could not parse LLM response as JSON for test analysis. Error: {e}. Response: {response[:500]})
+                logger.error(
+                    "%s",
+                    f"Could not parse LLM response as JSON for test analysis. Error: {e}. Response: {response[:500]}",
+                )
                 return {"error": "Could not parse LLM response as JSON", "raw_response": response}
 
         except Exception as e:
