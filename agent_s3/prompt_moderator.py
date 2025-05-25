@@ -1186,8 +1186,13 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
             self.scratchpad.log("Moderator", f"[{status}] {message}")
 
     # Fix missing placeholder f-string issue
-    def show_file_content(self, file_path: str, content: str,
-         highlight_lines: Optional[Set[int]] = None) -> None:        """Show file content with optional line highlighting.
+    def show_file_content(
+        self,
+        file_path: str,
+        content: str,
+        highlight_lines: Optional[Set[int]] = None,
+    ) -> None:
+        """Show file content with optional line highlighting.
 
         Args:
             file_path: Path to the file
