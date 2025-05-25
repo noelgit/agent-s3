@@ -1,5 +1,3 @@
-import pytest
-
 from agent_s3.tools.implementation_repairs import repair_architecture_issue_coverage
 
 
@@ -40,4 +38,27 @@ def test_architecture_issues_addressed_unique():
         for func in funcs:
             ai_list = func.get("architecture_issues_addressed", [])
             assert len(ai_list) == len(set(ai_list))
+
+
+def test_non_list_target_element_ids_handled():
+    plan = {
+        "file.py": [
+            {"element_id": "E1", "architecture_issues_addressed": []},
+        ]
+    }
+    issues = [{"issue_type": "unaddressed_critical_issue", "arch_issue_id": "A1"}]
+    architecture_review = {
+        "logical_gaps": [
+            {
+                "id": "A1",
+                "description": "",
+                "severity": "critical",
+                "target_element_ids": "E1",
+            }
+        ]
+    }
+
+    repaired = repair_architecture_issue_coverage(plan, issues, architecture_review)
+
+    assert repaired["file.py"][0]["architecture_issues_addressed"] == ["A1"]
 

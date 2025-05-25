@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from collections import defaultdict
 from typing import Any, Dict, List, Set
 
 from .utils import find_best_match
@@ -290,7 +289,13 @@ def repair_architecture_issue_coverage(
                     break
             if not arch_issue:
                 continue
-            target_elements = arch_issue.get("target_element_ids", [])
+            raw_target_elements = arch_issue.get("target_element_ids", [])
+            if isinstance(raw_target_elements, list):
+                target_elements = [te for te in raw_target_elements if te]
+            elif raw_target_elements:
+                target_elements = [raw_target_elements]
+            else:
+                target_elements = []
             if not target_elements:
                 description = arch_issue.get("description", "")
                 for element_id in element_map.keys():
