@@ -15,6 +15,9 @@ import jsonschema
 
 logger = logging.getLogger(__name__)
 
+# Maximum number of characters from LLM responses to include in log messages
+MAX_LOG_LEN = 500
+
 # Initialize models_by_role at module level to avoid undefined global variable
 _models_by_role = {}
 
@@ -807,13 +810,19 @@ class RouterAgent:
             duration = time.time() - start
             self.metrics.record(role, model_name, duration, False, 0)
             response_text = e.response.text if e.response else "No response body"
-            error_msg = f"API call to {model_name} failed: {e}. Response: {response_text[:500]}"
+            error_msg = (
+                f"API call to {model_name} failed: {e}. Response: "
+                f"{response_text[:MAX_LOG_LEN]}"
+            )
             scratchpad.log("RouterAgent", error_msg, level="error")
             raise ConnectionError(error_msg)
         except (json.JSONDecodeError, KeyError, IndexError, AttributeError, ValueError) as e:
             duration = time.time() - start
             self.metrics.record(role, model_name, duration, False, 0)
-            error_msg = f"Failed to process response from {model_name}: {e}. Response data: {response.text[:500]}"
+            error_msg = (
+                f"Failed to process response from {model_name}: {e}. Response data: "
+                f"{response.text[:MAX_LOG_LEN]}"
+            )
             scratchpad.log("RouterAgent", error_msg, level="error")
             raise ValueError(error_msg)
         except Exception as e:

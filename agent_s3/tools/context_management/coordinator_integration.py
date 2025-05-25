@@ -18,6 +18,9 @@ from agent_s3.tools.context_management.adaptive_config import (
 
 logger = logging.getLogger(__name__)
 
+# Maximum number of characters from log messages to include in context updates
+MAX_LOG_LEN = 500
+
 class CoordinatorContextIntegration:
     """
     Integration layer between Coordinator and Context Management.
@@ -397,7 +400,7 @@ class CoordinatorContextIntegration:
                     self.context_manager.update_context({
                         "recent_logs": {
                             "role": role,
-                            "message": message[:500] if message else "",  # Truncate long messages
+                            "message": message[:MAX_LOG_LEN] if message else "",
                             "level": level,
                             "section": section,
                             "metadata": metadata or {}
