@@ -8,6 +8,8 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
+from agent_s3.security_utils import sanitize_prompt_text
+
 from .core import TestType, TestVerdict  # type: ignore  # circular import
 
 logger = logging.getLogger(__name__)
@@ -894,6 +896,9 @@ class CriticStaticAnalyzer:
         """
         Perform a lightweight LLM analysis of test quality.
 
+        The supplied test content is sanitized to remove prompt-breaking tokens
+        before being embedded in the LLM prompt.
+
         Args:
             content: Test file content
             prompt: Optional custom prompt
@@ -904,6 +909,8 @@ class CriticStaticAnalyzer:
         if not self.llm:
             logger.warning("LLM client not available in TestCritic for perform_llm_analysis.")
             return {"error": "No LLM available for analysis"}
+
+        sanitized_content = sanitize_prompt_text(content)
 
         # Default prompt for test analysis
         if not prompt:
@@ -927,7 +934,7 @@ class CriticStaticAnalyzer:
 
             Test code:
             ```
-            """ + content + "\n```"
+            """ + sanitized_content + "\n```"
 
         # Use coordinator's LLM to analyze
         try:
@@ -939,7 +946,7 @@ class CriticStaticAnalyzer:
                 response = self.coordinator.router_agent.call_llm_by_role(
                     role='test_analyzer', # Assuming such a role is configured or a default one is used
                     system_prompt="You are a test quality critic.", # Part of the prompt is now system
-                    user_prompt=f"Analyze the following test code focusing on assertions, edge cases, dependency isolation, and gaps. Test code:\n```\n{content}\n```\nRespond ONLY in the specified JSON format.",
+                    user_prompt=f"Analyze the following test code focusing on assertions, edge cases, dependency isolation, and gaps. Test code:\n```\n{sanitized_content}\n```\nRespond ONLY in the specified JSON format.",
                     config={"response_format": {"type": "json_object"}}, # Enforce JSON output if API supports
                     scratchpad=getattr(self.coordinator, 'scratchpad', None)
                 )
