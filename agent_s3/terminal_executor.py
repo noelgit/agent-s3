@@ -175,7 +175,7 @@ class TerminalExecutor:
         except Exception as e:
             # Log error and return
             if self.logger:
-                self.logger.error("%s", f"Error executing command: {e}")
+                self.logger.error("Error executing command: %s", e)
 
             self.failure_count += 1
             self.last_failure_time = current_time
@@ -238,7 +238,7 @@ class TerminalExecutor:
 
         except Exception as e:
             if self.logger:
-                self.logger.error("%s", f"Error starting background command: {e}")
+                self.logger.error("Error starting background command: %s", e)
             return f"ERROR: Failed to start background process: {e}"
 
     def run_command_stream(self, command: str, env: Optional[Dict[str, str]] = None,
