@@ -429,8 +429,14 @@ class TaskResumer:
                 else:
                     print("Unable to create PR: _create_pr method not found")
 
-    def _update_development_status(self, status: str, message: str, phase: Optional[str] = None,
-         request: Optional[str] = None) -> None:        """Update development status in progress tracker.
+    def _update_development_status(
+        self,
+        status: str,
+        message: str,
+        phase: Optional[str] = None,
+        request: Optional[str] = None,
+    ) -> None:
+        """Update development status in progress tracker.
 
         Args:
             status: Status string (e.g., "resumed", "completed", "failed")
