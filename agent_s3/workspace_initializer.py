@@ -11,7 +11,8 @@ class WorkspaceInitializer:
     """Handles workspace initialization, validation, and essential file management."""
 
     def __init__(self, config, file_tool=None, scratchpad=None, prompt_moderator=None,
-         tech_stack=None):        """Initialize the workspace initializer.
+                 tech_stack=None):
+        """Initialize the workspace initializer.
 
         Args:
             config: Configuration object

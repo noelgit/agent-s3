@@ -308,8 +308,8 @@ def _validate_single_test(
     return issues
 
 
-def _validate_test_code(test: Dict[str, Any], category: str, test_index: int) -> List[Dict[str,
-     Any]]:    """Validate test code for syntax and structure."""
+def _validate_test_code(test: Dict[str, Any], category: str, test_index: int) -> List[Dict[str, Any]]:
+    """Validate test code for syntax and structure."""
     issues = []
     code = test.get("code", "")
 
@@ -345,8 +345,8 @@ def _validate_test_code(test: Dict[str, Any], category: str, test_index: int) ->
         structure_issues.append("missing assertions")
 
     # Check for proper setup
-    if category in ["unit_tests", "integration_tests"] and not re.search(r'def\s+setUp|def\s+
-        setup|@fixture|@pytest\.fixture', code):        structure_issues.append("missing setup")
+    if category in ["unit_tests", "integration_tests"] and not re.search(r'def\s+setUp|def\s+setup|@fixture|@pytest\.fixture', code):
+        structure_issues.append("missing setup")
 
     if structure_issues:
         issues.append({
@@ -536,8 +536,8 @@ def _repair_test_structure(
                 # Add basic setup if missing
                 if "missing setup" in structure_issues and "def test_" in code:
                     if "unittest" in code:
-                        setup = "\n    def setUp(self)
-                            :\n        # Auto-added setup\n        pass\n\n"                        # Insert after the class definition
+                        setup = "\n    def setUp(self):\n        # Auto-added setup\n        pass\n\n"
+                        # Insert after the class definition
                         class_match = re.search(r'class\s+\w+\(.*\):\s*', code)
                         if class_match:
                             insert_pos = class_match.end()

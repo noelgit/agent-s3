@@ -23,8 +23,8 @@ class StaticPlanChecker:
         """
         self.context_registry = context_registry
 
-    def validate_plan(self, plan: Dict[str, Any], original_plan: Optional[Dict[str, Any]] = None)
-         -> Tuple[bool, Dict[str, Any]]:        """Validate a plan after modifications.
+    def validate_plan(self, plan: Dict[str, Any], original_plan: Optional[Dict[str, Any]] = None) -> Tuple[bool, Dict[str, Any]]:
+        """Validate a plan after modifications.
 
         This method runs all validation rules on the updated plan and specifically
         verifies consistency between components if the plan was modified.
@@ -56,8 +56,8 @@ class StaticPlanChecker:
 
         return is_valid, validation_results
 
-    def _validate_consistency(self, plan: Dict[str, Any], original_plan: Dict[str, Any]) -> Dict[str
-        , List[Any]]:        """Validate consistency between modified plan and original plan.
+    def _validate_consistency(self, plan: Dict[str, Any], original_plan: Dict[str, Any]) -> Dict[str, List[Any]]:
+        """Validate consistency between modified plan and original plan.
 
         This method checks for orphaned references, inconsistent naming,
         and other issues that might arise from modifications.
@@ -174,8 +174,8 @@ class StaticPlanChecker:
 
         return element_ids
 
-    def _find_renamed_elements(self, original_plan: Dict[str, Any], modified_plan: Dict[str, Any])
-         -> List[Dict[str, Any]]:        """Find elements that have been renamed between original and modified plans.
+    def _find_renamed_elements(self, original_plan: Dict[str, Any], modified_plan: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Find elements that have been renamed between original and modified plans.
 
         Args:
             original_plan: The original plan
@@ -206,8 +206,8 @@ class StaticPlanChecker:
 
         return renamed_elements
 
-    def _find_orphaned_references(self, plan: Dict[str, Any], element_ids: Dict[str, List[Dict[str,
-         Any]]], renamed_elements: List[Dict[str, Any]]) -> List[Dict[str, Any]]:        """Find orphaned references in a plan.
+    def _find_orphaned_references(self, plan: Dict[str, Any], element_ids: Dict[str, List[Dict[str, Any]]], renamed_elements: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Find orphaned references in a plan.
 
         Args:
             plan: The plan to check

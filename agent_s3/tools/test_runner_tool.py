@@ -30,7 +30,8 @@ class TestRunnerTool:
         return "pytest"  # Default
 
     def run_tests(self, test_command: str = None, test_path: str = None, test_file: str = None,
-         timeout: int = 300) -> Dict[str, Any]:        """Run tests for the project and provide structured failure information.
+                  timeout: int = 300) -> Dict[str, Any]:
+        """Run tests for the project and provide structured failure information.
 
         Args:
             test_command: Optional specific test command to run
@@ -174,44 +175,44 @@ class TestRunnerTool:
                 test_name = test_path_parts[-1] if test_path_parts else None
 
                 # Extract traceback section
-                traceback_match = re.search(r'(?:.*?E\s+)([^\n]+(?:\n\s+[^\n]+
-                    )*)', section, re.DOTALL)                traceback_text = traceback_match.group(1).strip() if traceback_match else None
+                traceback_match = re.search(r'(?:.*?E\s+)([^\n]+(?:\n\s+[^\n]+)*)', section, re.DOTALL)
+                traceback_text = traceback_match.group(1).strip() if traceback_match else None
 
                 # Try to extract line number
                 line_match = re.search(r'(?:.*?):(\d+)(?:\:|\s|$)', section)
                 line_number = int(line_match.group(1)) if line_match else None
 
                 # Try to extract assertion details
-                assertion_match = re.search(r'(?:AssertionError|assert)\s+
-                    (.*?)(?:\n|$)', section, re.MULTILINE)                assertion_text = assertion_match.group(1).strip() if assertion_match else None
+                assertion_match = re.search(r'(?:AssertionError|assert)\s+(.*?)(?:\n|$)', section, re.MULTILINE)
+                assertion_text = assertion_match.group(1).strip() if assertion_match else None
 
                 # Try to parse expected vs actual in different formats
                 expected = None
                 actual = None
 
                 # Format: E   assert X == Y
-                eq_match = re.search(r'assert\s+(.+?)\s*==\s*(.+?)(?:\n|$|\s+
-                    #)', section, re.MULTILINE)                if eq_match:
+                eq_match = re.search(r'assert\s+(.+?)\s*==\s*(.+?)(?:\n|$|\s+#)', section, re.MULTILINE)
+                if eq_match:
                     actual = eq_match.group(1).strip()
                     expected = eq_match.group(2).strip()
 
                 # Format: E   assert X > Y
-                gt_match = re.search(r'assert\s+(.+?)\s*>\s*(.+?)(?:\n|$|\s+
-                    #)', section, re.MULTILINE)                if gt_match and not expected and not actual:
+                gt_match = re.search(r'assert\s+(.+?)\s*>\s*(.+?)(?:\n|$|\s+#)', section, re.MULTILINE)
+                if gt_match and not expected and not actual:
                     actual = gt_match.group(1).strip()
                     compared_to = gt_match.group(2).strip()
                     expected = f"{actual} > {compared_to}"
 
                 # Format: AssertionError: Expected X, got Y
-                human_match = re.search(r'Expected\s+(.*?),\s+got\s+(.*?)(?:\n|$|\s+
-                    #)', section, re.IGNORECASE)                if human_match and not expected and not actual:
+                human_match = re.search(r'Expected\s+(.*?),\s+got\s+(.*?)(?:\n|$|\s+#)', section, re.IGNORECASE)
+                if human_match and not expected and not actual:
                     expected = human_match.group(1).strip()
                     actual = human_match.group(2).strip()
 
                 # Extract context variables and their values
                 variable_values = {}
-                locals_match = re.search(r'(?:-+ locals -+\n)(.*?)(?:\n\n|\n-+
-                    |$)', section, re.DOTALL)                if locals_match:
+                locals_match = re.search(r'(?:-+ locals -+\n)(.*?)(?:\n\n|\n-+|$)', section, re.DOTALL)
+                if locals_match:
                     locals_section = locals_match.group(1)
                     var_matches = re.findall(r'(\w+)\s+=\s+(.+?)(?:\n|$)', locals_section)
                     for var_name, var_value in var_matches:
@@ -262,8 +263,8 @@ class TestRunnerTool:
                         failure_info["line_number"] = int(file_match.group(2))
 
                     # Try to extract expected vs actual values
-                    expected_match = re.search(r'E\s+assert\s+(.+?)\s*==\s*(.+
-                        ?)$', block, re.MULTILINE)                    if expected_match:
+                    expected_match = re.search(r'E\s+assert\s+(.+?)\s*==\s*(.+?)$', block, re.MULTILINE)
+                    if expected_match:
                         failure_info["expected"] = expected_match.group(2).strip()
                         failure_info["actual"] = expected_match.group(1).strip()
 
@@ -272,8 +273,8 @@ class TestRunnerTool:
         # If no pytest failures found, try unittest patterns
         elif 'FAIL:' in output:
             # Look for unittest failure patterns
-            unittest_failures = re.findall(r'FAIL: (\w+) \(([\w\.]+
-                )\)\n(.*?)(?=\n\n)', output, re.DOTALL)            for i, (test_name, test_class, details) in enumerate(unittest_failures):
+            unittest_failures = re.findall(r'FAIL: (\w+) \(([\w\.]+)\)\n(.*?)(?=\n\n)', output, re.DOTALL)
+            for i, (test_name, test_class, details) in enumerate(unittest_failures):
                 # Try to extract file and line number
                 file_match = re.search(r'File "([^"]+)", line (\d+)', details)
                 file_path = file_match.group(1) if file_match else None
@@ -297,8 +298,8 @@ class TestRunnerTool:
                     failure_info["assertion"] = assertion_text
 
                     # Check for expected/actual in the assertion text
-                    expected_actual_match = re.search(r'Expected\s+(.*?),\s+got\s+
-                        (.*?)(?:\n|$)', assertion_text, re.IGNORECASE)                    if expected_actual_match:
+                    expected_actual_match = re.search(r'Expected\s+(.*?),\s+got\s+(.*?)(?:\n|$)', assertion_text, re.IGNORECASE)
+                    if expected_actual_match:
                         failure_info["expected"] = expected_actual_match.group(1).strip()
                         failure_info["actual"] = expected_actual_match.group(2).strip()
 
@@ -442,8 +443,8 @@ class TestRunnerTool:
 
         return regression_failures
 
-    def validate_test_integrity(self, test_code: str, implementation_plan: Dict[str, Any])
-         -> Dict[str, Any]:        """Perform heuristic check if test is valid against implementation plan.
+    def validate_test_integrity(self, test_code: str, implementation_plan: Dict[str, Any]) -> Dict[str, Any]:
+        """Perform heuristic check if test is valid against implementation plan.
 
         Args:
             test_code: The test code to validate

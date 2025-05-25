@@ -536,15 +536,17 @@ class RouterAgent:
             # Process recent changes
             if "previous_changes" in historical_context and historical_context["previous_changes"]:
                 changes = historical_context["previous_changes"][:5]  # Limit to 5
-                changes_text = "Recent Changes:\n" +
-                     "\n".join([f"- {change}" for change in changes])                historical_sections.append(changes_text)
+                changes_text = "Recent Changes:\n" + \
+                     "\n".join([f"- {change}" for change in changes])
+                historical_sections.append(changes_text)
 
             # Process file change frequency
             if "file_change_frequency" in historical_context and historical_context["file_change_frequency"]:
                 freq_items = list(historical_context["file_change_frequency"].items())
                 top_files = sorted(freq_items, key=lambda x: x[1], reverse=True)[:5]  # Top 5
-                freq_text = "Frequently Modified Files:\n" +
-                     "\n".join([f"- {file}: {freq} changes" for file, freq in top_files])                historical_sections.append(freq_text)
+                freq_text = "Frequently Modified Files:\n" + \
+                     "\n".join([f"- {file}: {freq} changes" for file, freq in top_files])
+                historical_sections.append(freq_text)
 
             if historical_sections:
                 historical_text = "Historical Context:\n" + "\n\n".join(historical_sections)
@@ -559,8 +561,9 @@ class RouterAgent:
 
         # Include related features if available and if role allocation requests it
         if related_features and allocation.get("include_related_features", False):
-            features_text = "Related Past Features:\n" +
-                 "\n".join([f"- {feature}" for feature in related_features[:3]])            enhanced_user_prompt = f"{features_text}\n\n{enhanced_user_prompt}"
+            features_text = "Related Past Features:\n" + \
+                 "\n".join([f"- {feature}" for feature in related_features[:3]])
+            enhanced_user_prompt = f"{features_text}\n\n{enhanced_user_prompt}"
             scratchpad.log("RouterAgent", f"Added related features for {role} based on role allocation")
 
         # Include relevant code context if available
@@ -597,8 +600,9 @@ class RouterAgent:
                         else:
                             # Truncate guidelines if too long (simple truncation)
                             max_guideline_chars = int(len(guidelines_content) * (guideline_budget / guidelines_tokens))
-                            truncated_content = guidelines_content[:max_guideline_chars] +
-                                 "\n... (guidelines truncated)"                            truncated_block = f"{guidelines_header}{truncated_content}\n\n"
+                            truncated_content = guidelines_content[:max_guideline_chars] + \
+                                 "\n... (guidelines truncated)"
+                            truncated_block = f"{guidelines_header}{truncated_content}\n\n"
                             truncated_tokens = estimate_tokens(truncated_block)
                             code_context_str += truncated_block
                             current_tokens += truncated_tokens
@@ -702,9 +706,8 @@ class RouterAgent:
                             # If we can fit error context within remaining budget
                             remaining_tokens = max_context_tokens - current_tokens
                             if error_tokens <= remaining_tokens:
-                                code_context_str +
-                                    = f"{context_header}[ERROR CONTEXTS ONLY]\n{error_content}\n\n"                                current_tokens +
-                                                                                = error_tokens + header_tokens
+                                code_context_str += f"{context_header}[ERROR CONTEXTS ONLY]\n{error_content}\n\n"
+                                current_tokens += error_tokens + header_tokens
                     # No more space for additional files
                     code_context_str += "\n... (more files truncated due to token limits)"
                     break  # Stop adding more files once limit is hit
