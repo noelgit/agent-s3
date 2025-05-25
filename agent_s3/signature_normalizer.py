@@ -301,8 +301,14 @@ class SignatureNormalizer:
 
         return signature
 
-    def _normalize_js_ts_signature(self, signature: str, name: str, element_type: str, language: str
-        ) -> str:        """Normalize JavaScript/TypeScript signatures."""
+    def _normalize_js_ts_signature(
+        self,
+        signature: str,
+        name: str,
+        element_type: str,
+        language: str,
+    ) -> str:
+        """Normalize JavaScript/TypeScript signatures."""
         # Ensure semicolon termination for appropriate declarations
         if element_type != "class" and not signature.rstrip().endswith('{') and not signature.rstrip().endswith(';'):
             signature = signature.rstrip() + ';'
@@ -400,9 +406,12 @@ class SignatureNormalizer:
                         test["target_element_id"] = element_name_to_id[target_name]
                     # If no direct match, could try more complex matching but for now skip
 
-def normalize_pre_plan(pre_plan_data: Dict[str, Any], cwd: str, context_registry=None) -> Dict[str,
-     Any]:    """
-    Convenience function to normalize a pre-plan.
+def normalize_pre_plan(
+    pre_plan_data: Dict[str, Any],
+    cwd: str,
+    context_registry=None,
+) -> Dict[str, Any]:
+    """Convenience function to normalize a pre-plan.
 
     Args:
         pre_plan_data: Pre-planning data to normalize
