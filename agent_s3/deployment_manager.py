@@ -790,7 +790,8 @@ if os.getenv('DATABASE_URL'):
 def index():
     try:
         return render_template('index.html')
-    except:
+    except Exception as exc:
+        app.logger.error("Template rendering failed: %s", exc)
         return f"<h1>{os.getenv('APP_NAME', 'Flask App')}</h1><p>Running on http://{os.getenv('APP_HOST', '127.0.0.1')}:{os.getenv('APP_PORT', '5000')}</p>"
 
 @app.route('/api/status')
