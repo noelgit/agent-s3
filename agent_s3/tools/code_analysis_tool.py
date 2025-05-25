@@ -389,7 +389,10 @@ class CodeAnalysisTool:
                 # Replace results with enhanced results
                 results = enhanced_results
 
-                logger.info("%s", Enhanced search results with structural analysis for query: {query[:50]}...)
+                logger.info(
+                    "Enhanced search results with structural analysis for query: %s...",
+                    query[:50],
+                )
             except Exception as e:
                 logger.error("%s", Error enhancing search results with structural analysis: {e})
 
