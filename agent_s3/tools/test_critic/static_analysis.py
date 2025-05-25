@@ -760,7 +760,7 @@ class CriticStaticAnalyzer:
             test_patterns = [
                 r"test\s*\(",
                 r"it\s*\(",
-                r"describe\s*\(.*,\s*function\s*\(\s*\)\s*{[\s\S]*?(?:test|it)\s*\(", # Nested tests
+                r"describe\s*\(.*,\s*function\s*\(\s*\)\s*{[\s\S]*?(?:test|it)\s*\(",  # Nested tests
             ]
 
         count = 0
