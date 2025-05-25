@@ -322,7 +322,7 @@ class ConfigExplainer:
             return "\n".join(lines)
 
         except Exception as e:
-            logger.error("%s", Error generating human-readable report: {e})
+            logger.error("Error generating human-readable report: %s", e)
             return f"Error generating report: {e}"
 
     def _detect_config_changes(
