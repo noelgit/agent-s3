@@ -49,8 +49,10 @@ class SemanticCache:
     _lock = threading.Lock()
 
     @classmethod
-    def get_instance(cls, config: Optional[Union[Dict[str, Any], 'ConfigModel']] = None)
-         -> 'SemanticCache':        """
+    def get_instance(
+        cls, config: Optional[Union[Dict[str, Any], "ConfigModel"]] = None
+    ) -> "SemanticCache":
+        """
         Get the singleton instance of the semantic cache.
 
         Args:
@@ -112,7 +114,11 @@ class SemanticCache:
         # Load cache from disk if available
         self._load_cache()
 
-        logger.info("%s", Initialized semantic cache in {self.cache_dir} with threshold {self.similarity_threshold})
+        logger.info(
+            "Initialized semantic cache in %s with threshold %s",
+            self.cache_dir,
+            self.similarity_threshold,
+        )
 
     def update_config(self, config: Union[Dict[str, Any], ConfigModel]) -> None:
         """
@@ -130,7 +136,11 @@ class SemanticCache:
         self.similarity_threshold = getattr(self.config, "semantic_similarity_threshold", self.similarity_threshold)
         self.max_cache_entries = getattr(self.config, "semantic_cache_max_entries", self.max_cache_entries)
 
-        logger.info("%s", Updated semantic cache config: ttl={self.ttl}s, threshold={self.similarity_threshold})
+        logger.info(
+            "Updated semantic cache config: ttl=%ss, threshold=%s",
+            self.ttl,
+            self.similarity_threshold,
+        )
 
     def _init_embedding_client(self) -> None:
         """Initialize the embedding client for semantic similarity."""
@@ -138,7 +148,10 @@ class SemanticCache:
             self.embedding_client = EmbeddingClient(self.config)
             logger.info("Initialized embedding client for semantic cache")
         except Exception as e:
-            logger.error("%s", Failed to initialize embedding client: {e}. Semantic matching will be disabled.)
+            logger.error(
+                "Failed to initialize embedding client: %s. Semantic matching will be disabled.",
+                e,
+            )
             self.embedding_client = None
 
     def _init_vector_store(self) -> None:
@@ -148,9 +161,15 @@ class SemanticCache:
             self.index = faiss.IndexFlatIP(self.embedding_dim)  # Inner product (normalized vectors = cosine similarity)
             self.index_lookup: Dict[int, str] = {}  # Maps FAISS index position to cache key
             self.next_id = 0
-            logger.info("%s", Initialized FAISS index with dimension {self.embedding_dim})
+            logger.info(
+                "Initialized FAISS index with dimension %s",
+                self.embedding_dim,
+            )
         except Exception as e:
-            logger.error("%s", Failed to initialize FAISS index: {e}. Semantic matching will be disabled.)
+            logger.error(
+                "Failed to initialize FAISS index: %s. Semantic matching will be disabled.",
+                e,
+            )
             self.index = None
 
     def _load_cache(self) -> None:
@@ -195,12 +214,19 @@ class SemanticCache:
                             self.index_lookup[self.next_id] = key
                             self.next_id += 1
                         except Exception as e:
-                            logger.warning("%s", Failed to add embedding for cache key {key}: {e})
+                            logger.warning(
+                                "Failed to add embedding for cache key %s: %s",
+                                key,
+                                e,
+                            )
 
-                logger.info("%s", Loaded {len(valid_entries)} valid cache entries from disk)
+                logger.info(
+                    "Loaded %d valid cache entries from disk",
+                    len(valid_entries),
+                )
 
             except Exception as e:
-                logger.error("%s", Failed to load cache from disk: {e})
+                logger.error("Failed to load cache from disk: %s", e)
                 # Initialize empty cache
                 self.mem_cache = {}
 
@@ -230,10 +256,13 @@ class SemanticCache:
             # Restrict permissions to owner read/write
             os.chmod(cache_file, stat.S_IRUSR | stat.S_IWUSR)
 
-            logger.debug("%s", Saved {len(self.mem_cache)} cache entries to disk)
+            logger.debug(
+                "Saved %d cache entries to disk",
+                len(self.mem_cache),
+            )
 
         except Exception as e:
-            logger.error("%s", Failed to save cache to disk: {e})
+            logger.error("Failed to save cache to disk: %s", e)
             # Clean up temp file if it exists
             if temp_file.exists():
                 try:
@@ -351,7 +380,7 @@ class SemanticCache:
                 if time.time() - entry.get("timestamp", 0) > self.ttl:
                     # Remove expired entry
                     del self.mem_cache[key]
-                    logger.debug("%s", Removed expired cache entry: {key[:8]}...)
+                    logger.debug("Removed expired cache entry: %s", key[:8])
                     return None
 
                 # Update access timestamp
@@ -360,7 +389,7 @@ class SemanticCache:
                 # Increment hit counter
                 self.hits += 1
 
-                logger.debug("%s", Cache hit for key: {key[:8]}...)
+                logger.debug("Cache hit for key: %s", key[:8])
                 return {'response': entry.get("response"), 'cached': True}
 
             # No exact match, try semantic search
@@ -400,11 +429,15 @@ class SemanticCache:
                                 # Increment semantic hit counter
                                 self.semantic_hits += 1
 
-                                logger.info("%s", Semantic cache hit with similarity {distances[0][0]:.3f} > threshold {self.similarity_threshold})
+                                logger.info(
+                                    "Semantic cache hit with similarity %.3f > threshold %s",
+                                    distances[0][0],
+                                    self.similarity_threshold,
+                                )
                                 return {'response': entry.get("response"), 'cached': True}
 
                 except Exception as e:
-                    logger.warning("%s", Error during semantic search: {e})
+                    logger.warning("Error during semantic search: %s", e)
 
             # No match found
             self.misses += 1
@@ -454,10 +487,10 @@ class SemanticCache:
                         entry["embedding"] = embedding.tolist()
 
                         # Log successful embedding generation
-                        logger.debug("%s", Successfully generated embedding for cache entry: {key[:8]}...)
+                        logger.debug("Successfully generated embedding for cache entry: %s", key[:8])
                 except Exception as e:
                     # Log the error but continue storing the entry without an embedding
-                    logger.warning("%s", Failed to generate embedding for cache entry: {e})
+                    logger.warning("Failed to generate embedding for cache entry: %s", e)
 
                     # Check if embedding client initialization failed
                     if self.embedding_client is None:
@@ -479,7 +512,7 @@ class SemanticCache:
             if len(self.mem_cache) % 10 == 0:
                 self._save_cache()
 
-            logger.debug("%s", Added new cache entry: {key[:8]}...)
+            logger.debug("Added new cache entry: %s", key[:8])
 
     def _evict_entries(self) -> None:
         """
@@ -492,7 +525,7 @@ class SemanticCache:
             key=lambda x: x[1].get("last_access", 0)
         )
         num_to_evict = max(1, len(sorted_entries) - int(self.max_cache_entries * 0.9))
-        logger.info("%s", Evicting {num_to_evict} cache entries from semantic cache)
+        logger.info("Evicting %d cache entries from semantic cache", num_to_evict)
 
         # Track IDs to remove from the FAISS index
         entries_to_evict = sorted_entries[:num_to_evict]
@@ -517,16 +550,22 @@ class SemanticCache:
                 remove_ids = np.array(index_positions_to_remove, dtype=np.int64)
                 # Remove directly from index instead of rebuilding
                 self.index.remove_ids(remove_ids)
-                logger.debug("%s", Removed {len(remove_ids)} entries from FAISS index)
+                logger.debug(
+                    "Removed %d entries from FAISS index",
+                    len(remove_ids),
+                )
             except Exception as e:
-                logger.warning("%s", Error removing entries from FAISS index: {e})
+                logger.warning("Error removing entries from FAISS index: %s", e)
 
                 # If partial removal fails, rebuild index as fallback
                 if len(self.mem_cache) > 0:
                     try:
                         self._rebuild_index()
                     except Exception as rebuild_error:
-                        logger.error("%s", Failed to rebuild index after eviction: {rebuild_error})
+                        logger.error(
+                            "Failed to rebuild index after eviction: %s",
+                            rebuild_error,
+                        )
 
         # Save cache state after eviction
         self._save_cache()
@@ -575,9 +614,9 @@ class SemanticCache:
                     self.index_lookup[self.next_id] = key
                     self.next_id += 1
                 except Exception as e:
-                    logger.warning("%s", Error adding entry to rebuilt index: {e})
+                    logger.warning("Error adding entry to rebuilt index: %s", e)
 
-        logger.info("%s", FAISS index rebuilt with {self.index.ntotal} entries)
+        logger.info("FAISS index rebuilt with %s entries", self.index.ntotal)
 
     def get_cache_stats(self) -> Dict[str, int]:
         """
