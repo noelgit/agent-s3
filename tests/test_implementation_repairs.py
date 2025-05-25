@@ -1,6 +1,6 @@
-import pytest
-
-from agent_s3.tools.implementation_repairs import repair_architecture_issue_coverage
+from agent_s3.tools.implementation_repairs import (
+    repair_architecture_issue_coverage,
+)
 
 
 def test_architecture_issues_addressed_unique():

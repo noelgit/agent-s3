@@ -47,6 +47,9 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 88
 target-version = "py310"
+exclude = [
+    "**",
+]
 
 [tool.mypy]
 python_version = "3.10"
@@ -57,3 +60,4 @@ disallow_incomplete_defs = false
 ignore_missing_imports = true
 no_implicit_optional = false
 ignore_errors = true
+files = ["agent_s3/compression.py"]

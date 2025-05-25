@@ -1,8 +1,4 @@
 """Test module for security validation functionality."""
-import json
-import pytest
-from unittest.mock import MagicMock, patch
-
 from agent_s3.security_validator import SecurityValidator
 
 class TestSecurityValidator:

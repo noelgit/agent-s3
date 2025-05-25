@@ -11,7 +11,10 @@ sys.modules.setdefault(
     types.SimpleNamespace(progress_tracker=lambda *a, **k: None),
 )
 
-from agent_s3.llm_utils import call_llm_via_supabase, call_llm_with_retry
+from agent_s3.llm_utils import (  # noqa: E402
+    call_llm_via_supabase,
+    call_llm_with_retry,
+)
 
 
 class DummyResponse:

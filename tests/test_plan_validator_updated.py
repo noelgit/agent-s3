@@ -2,10 +2,7 @@
 Plan validator test module for Agent-S3.
 Tests the functionality of the plan validator component.
 """
-import os
-import json
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from agent_s3.tools.plan_validator.validator import PlanValidator
 
