@@ -34,7 +34,7 @@ class ContextRegistry:
         for provider in self._providers.values():
             if isinstance(provider, FileContextProvider) and hasattr(provider, "get_relevant_files"):
                 return provider.get_relevant_files(query, top_n)
-        logger.warning("%s", No provider found for relevant files: {query})
+        logger.warning("No provider found for relevant files: %s", query)
         return []
     def get_file_history(self, file_path: str = None) -> Dict[str, Any]:
         for provider in self._providers.values():
