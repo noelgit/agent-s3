@@ -49,51 +49,6 @@ from agent_s3.planning import (
 )
 # Extracted functions are now imported from the planning module
 
-    # Track which feature groups are valid
-    valid_indices = []
-
-    # Validate each feature group
-    for i, group in enumerate(feature_groups):
-        if not isinstance(group, dict):
-            continue
-
-        # Check required group fields
-        if "group_name" not in group:
-            continue
-
-        if "features" not in group or not isinstance(group["features"], list):
-            continue
-
-        # Check if features array is empty
-        if not group["features"]:
-            continue
-
-        # Check each feature in the group
-        features_valid = True
-        for feature in group["features"]:
-            if not isinstance(feature, dict):
-                features_valid = False
-                break
-
-            # Check required feature fields
-            required_fields = ["name", "description"]
-            if not all(field in feature for field in required_fields):
-                features_valid = False
-                break
-
-        if features_valid:
-            valid_indices.append(i)
-
-    # If no valid feature groups found, return error
-    if not valid_indices:
-        return False, "No valid feature groups found", []
-
-    # If some feature groups are valid but not all, return partial success
-    if len(valid_indices) < len(feature_groups):
-        return False, f"Only {len(valid_indices)} of {len(feature_groups)} feature groups are valid", valid_indices
-
-    # All feature groups are valid
-    return True, "", valid_indices
 
 def repair_json_structure(data: Dict[str, Any]) -> Dict[str, Any]:
     """

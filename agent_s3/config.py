@@ -19,20 +19,11 @@ logger = logging.getLogger(__name__)
 # Default values
 _config_instance = None
 
-# Adaptive Configuration settings
-ADAPTIVE_CONFIG_ENABLED = os.getenv('ADAPTIVE_CONFIG_ENABLED', 'true').lower() == 'true'
-ADAPTIVE_CONFIG_REPO_PATH = os.getenv('ADAPTIVE_CONFIG_REPO_PATH', os.getcwd())
-ADAPTIVE_CONFIG_DIR = os.getenv(
-    'ADAPTIVE_CONFIG_DIR',
-    os.path.join(ADAPTIVE_CONFIG_REPO_PATH, '.agent_s3', 'config'),
-)
-ADAPTIVE_METRICS_DIR = os.getenv(
-    'ADAPTIVE_METRICS_DIR',
-    os.path.join(ADAPTIVE_CONFIG_REPO_PATH, '.agent_s3', 'metrics'),
-)
-ADAPTIVE_OPTIMIZATION_INTERVAL = int(
-    os.getenv('ADAPTIVE_OPTIMIZATION_INTERVAL', '3600')
-)  # Default: optimize hourly
+# Adaptive Configuration settings - always enabled
+ADAPTIVE_CONFIG_REPO_PATH = os.getcwd()
+ADAPTIVE_CONFIG_DIR = os.path.join(ADAPTIVE_CONFIG_REPO_PATH, '.agent_s3', 'config')
+ADAPTIVE_METRICS_DIR = os.path.join(ADAPTIVE_CONFIG_REPO_PATH, '.agent_s3', 'metrics')
+ADAPTIVE_OPTIMIZATION_INTERVAL = 3600  # Optimize hourly
 
 # Context Window Sizes (tokens)
 CONTEXT_WINDOW_SCAFFOLDER = int(os.getenv('CONTEXT_WINDOW_SCAFFOLDER', '16384'))
@@ -66,18 +57,18 @@ LLM_DEFAULT_TIMEOUT = float(os.getenv('LLM_DEFAULT_TIMEOUT', '60.0'))
 LLM_EXPLAIN_PROMPT_MAX_LEN = int(os.getenv('LLM_EXPLAIN_PROMPT_MAX_LEN', '1000'))
 LLM_EXPLAIN_RESPONSE_MAX_LEN = int(os.getenv('LLM_EXPLAIN_RESPONSE_MAX_LEN', '1000'))
 
-# CLI command execution parameters
-CLI_COMMAND_WARNINGS     = os.getenv('CLI_COMMAND_WARNINGS', 'true').lower() == 'true'
+# CLI command execution parameters - CLI command warnings always enabled for safety
+CLI_COMMAND_WARNINGS_ENABLED = True  # Always enabled for safety
 CLI_COMMAND_MAX_SIZE     = int(os.getenv('CLI_COMMAND_MAX_SIZE',     '10000'))
 # New configuration for CodeAnalysisTool query cache TTL
 QUERY_CACHE_TTL_SECONDS  = int(os.getenv('QUERY_CACHE_TTL_SECONDS',  '3600')) # Default 1 hour
 # Cache configuration for filesystem monitoring and memory management
 CACHE_DEBOUNCE_DELAY     = float(os.getenv('CACHE_DEBOUNCE_DELAY',   '0.5'))  # Default 0.5 seconds
 MAX_QUERY_THEMES         = int(os.getenv('MAX_QUERY_THEMES',        '50'))    # Default 50 themes
-# Configuration for LLM summarization features
+# Configuration for LLM summarization features - always enabled for token efficiency
+ENABLE_LLM_SUMMARIZATION = True  # Always enabled for token efficiency
 MIN_SIZE_FOR_LLM_SUMMARIZATION = int(os.getenv('MIN_SIZE_FOR_LLM_SUMMARIZATION', '1000'))
 SUMMARY_CACHE_MAX_SIZE   = int(os.getenv('SUMMARY_CACHE_MAX_SIZE',   '500'))
-ENABLE_LLM_SUMMARIZATION = os.getenv('ENABLE_LLM_SUMMARIZATION', 'true').lower() == 'true'
 # Embedding generation configuration
 EMBEDDING_RETRY_COUNT    = int(os.getenv('EMBEDDING_RETRY_COUNT',    '3'))
 EMBEDDING_BACKOFF_INITIAL = float(os.getenv('EMBEDDING_BACKOFF_INITIAL', '1.0'))
@@ -144,6 +135,7 @@ class ImportanceScoringConfig(BaseModel):
 
 
 class ContextManagementConfig(BaseModel):
+    # Context management always enabled for optimal performance
     enabled: bool = True
     background_enabled: bool = True
     optimization_interval: int = 60
@@ -154,14 +146,15 @@ class ContextManagementConfig(BaseModel):
 
 
 class AdaptiveConfig(BaseModel):
-    enabled: bool = ADAPTIVE_CONFIG_ENABLED
+    # Adaptive configuration always enabled for optimal performance
+    enabled: bool = True
+    auto_adjust: bool = True
+    profile_repo_on_start: bool = True
+    metrics_collection: bool = True
     repo_path: str = ADAPTIVE_CONFIG_REPO_PATH
     config_dir: str = ADAPTIVE_CONFIG_DIR
     metrics_dir: str = ADAPTIVE_METRICS_DIR
     optimization_interval: int = ADAPTIVE_OPTIMIZATION_INTERVAL
-    auto_adjust: bool = True
-    profile_repo_on_start: bool = True
-    metrics_collection: bool = True
 
 
 class ConfigModel(BaseModel):
@@ -176,9 +169,10 @@ class ConfigModel(BaseModel):
     log_files: LogFilesConfig = LogFilesConfig()
     context_management: ContextManagementConfig = ContextManagementConfig()
     adaptive_config: AdaptiveConfig = AdaptiveConfig()
+    # Security features always enabled
     check_auth: bool = True
-    interactive: bool = True
     sandbox_environment: bool = True
+    interactive: bool = True
     openrouter_key: str = os.environ.get("OPENROUTER_KEY", "")
     openai_key: str = os.environ.get("OPENAI_KEY", "")
     encryption_key: str = os.environ.get("AGENT_S3_ENCRYPTION_KEY", "")
@@ -190,13 +184,15 @@ class ConfigModel(BaseModel):
     llm_default_timeout: float = LLM_DEFAULT_TIMEOUT
     llm_explain_prompt_max_len: int = LLM_EXPLAIN_PROMPT_MAX_LEN
     llm_explain_response_max_len: int = LLM_EXPLAIN_RESPONSE_MAX_LEN
-    cli_command_warnings: bool = CLI_COMMAND_WARNINGS
+    # CLI command warnings always enabled for safety
+    cli_command_warnings_enabled: bool = CLI_COMMAND_WARNINGS_ENABLED
     cli_command_max_size: int = CLI_COMMAND_MAX_SIZE
     query_cache_ttl_seconds: int = QUERY_CACHE_TTL_SECONDS
     cache_debounce_delay: float = CACHE_DEBOUNCE_DELAY
     max_query_themes: int = MAX_QUERY_THEMES
     min_size_for_llm_summarization: int = MIN_SIZE_FOR_LLM_SUMMARIZATION
     summary_cache_max_size: int = SUMMARY_CACHE_MAX_SIZE
+    # LLM summarization always enabled for token efficiency
     enable_llm_summarization: bool = ENABLE_LLM_SUMMARIZATION
     embedding_retry_count: int = EMBEDDING_RETRY_COUNT
     embedding_backoff_initial: float = EMBEDDING_BACKOFF_INITIAL
@@ -208,7 +204,7 @@ class ConfigModel(BaseModel):
     summarizer_max_chunk_size: int = SUMMARIZER_MAX_CHUNK_SIZE
     summarizer_timeout: float = SUMMARIZER_TIMEOUT
     max_design_patterns: int = MAX_DESIGN_PATTERNS
-    adaptive_config_enabled: bool = ADAPTIVE_CONFIG_ENABLED
+    # Adaptive configuration always enabled
     adaptive_config_repo_path: str = ADAPTIVE_CONFIG_REPO_PATH
     adaptive_config_dir: str = ADAPTIVE_CONFIG_DIR
     adaptive_metrics_dir: str = ADAPTIVE_METRICS_DIR
