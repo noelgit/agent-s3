@@ -486,8 +486,12 @@ class PrePlannerJsonValidator:
 
         return is_valid, all_errors, final_data
 
-    def generate_repair_suggestions(self, data: Dict[str, Any], errors: List[str]) -> Dict[str,
-         Any]:        """
+    def generate_repair_suggestions(
+        self,
+        data: Dict[str, Any],
+        errors: List[str],
+    ) -> Dict[str, Any]:
+        """
         Generate repair suggestions for validation issues.
 
         Args:
@@ -585,7 +589,10 @@ class PrePlannerJsonValidator:
 
                                         was_repaired = True
                                         repairs_made += 1
-                                        logger.info("%s", Repaired missing field '{field_name}' in feature '{feature_name}')
+                                        logger.info(
+                                            "%s",
+                                            f"Repaired missing field '{field_name}' in feature '{feature_name}'",
+                                        )
 
             # Reference integrity repairs
             if "references non-existent implementation step ID" in error:
@@ -606,7 +613,10 @@ class PrePlannerJsonValidator:
                                                 test.pop("implementation_step_id", None)
                                                 was_repaired = True
                                                 repairs_made += 1
-                                                logger.info("%s", Removed invalid step ID reference: '{invalid_id}')
+                                                logger.info(
+                                                    "%s",
+                                                    f"Removed invalid step ID reference: '{invalid_id}'",
+                                                )
 
             # Content safety repairs
             if any(cmd in error.lower() for cmd in ["rm -rf", "deltree", "dangerous operation"]):
@@ -629,7 +639,10 @@ class PrePlannerJsonValidator:
         self.validation_metrics.record_repair(was_repaired)
 
         if was_repaired:
-            logger.info("%s", Successfully made {repairs_made} repairs to the plan)
+            logger.info(
+                "%s",
+                f"Successfully made {repairs_made} repairs to the plan",
+            )
 
         return repaired_data, was_repaired
 
