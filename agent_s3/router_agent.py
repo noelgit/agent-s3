@@ -62,7 +62,7 @@ def _load_llm_config():
     try:
         config_path = os.path.join(os.getcwd(), 'llm.json')
         if not os.path.exists(config_path):
-            logger.error("%s", LLM configuration file not found: {config_path})
+            logger.error("LLM configuration file not found: %s", config_path)
             raise FileNotFoundError(f"LLM configuration file not found: {config_path}")
         with open(config_path, 'r') as f:
             llm_config = json.load(f)
@@ -82,19 +82,20 @@ def _load_llm_config():
                 for role in roles:
                     if role in models_by_role:
                         logger.warning(
-                            "%s",
                             "Duplicate role definition found for %s. Using the last definition found in llm.json.",
                             role,
                         )
                     models_by_role[role] = model_info
             else:
                 logger.warning(
-                    "%s",
                     "Skipping model entry due to invalid or missing 'role': %s",
                     model_info.get("model"),
                 )
 
-        logger.info("%s", Loaded LLM configuration for roles: {list(models_by_role.keys())})
+        logger.info(
+            "Loaded LLM configuration for roles: %s",
+            list(models_by_role.keys()),
+        )
         return models_by_role
     except FileNotFoundError:
         raise
@@ -145,13 +146,21 @@ class RouterAgent:
             if command_type in command_role_map:
                 original_role = metadata.get("role")
                 role = command_role_map[command_type]
-                logger.info("%s", Command pattern '{command_type}' detected. Routing to role '{role}' instead of '{original_role}')
+                logger.info(
+                    "Command pattern '%s' detected. Routing to role '%s' instead of '%s'",
+                    command_type,
+                    role,
+                    original_role,
+                )
                 # Update metadata with the new role
                 metadata["role"] = role
                 metadata["command_type"] = command_type
                 metadata["command_content"] = command_content
             else:
-                logger.warning("%s", Command pattern '{command_type}' detected but no role mapping found.)
+                logger.warning(
+                    "Command pattern '%s' detected but no role mapping found.",
+                    command_type,
+                )
 
         role = metadata.get("role")
         if not role:
@@ -165,19 +174,29 @@ class RouterAgent:
         model_info = _models_by_role.get(role)
 
         if not model_info:
-            logger.warning("%s", No model configured for role: '{role}'. Available roles: {list(_models_by_role.keys())})
+            logger.warning(
+                "No model configured for role: '%s'. Available roles: %s",
+                role,
+                list(_models_by_role.keys()),
+            )
             return None
 
         model_name = model_info.get("model")
         context_window = model_info.get("context_window")
 
         if not model_name:
-            logger.error("%s", Configuration for role '{role}' is missing the 'model' name.)
+            logger.error(
+                "Configuration for role '%s' is missing the 'model' name.", role
+            )
             return None
 
         try:
             estimated_tokens = len(query.split())  # Simplified token estimation
-            logger.info("%s", Estimated tokens for query: {estimated_tokens} (using model context: {model_name}))
+            logger.info(
+                "Estimated tokens for query: %s (using model context: %s)",
+                estimated_tokens,
+                model_name,
+            )
 
             if context_window and estimated_tokens > context_window:
                 logger.warning(
@@ -186,9 +205,12 @@ class RouterAgent:
                     f"Input may be truncated by the LLM."
                 )
         except Exception as e:
-            logger.exception("%s", Failed to estimate token count: {e}. Skipping context window check.)
+            logger.exception(
+                "Failed to estimate token count: %s. Skipping context window check.",
+                e,
+            )
 
-        logger.info("%s", Routing to model '{model_name}' for role '{role}'.)
+        logger.info("Routing to model '%s' for role '%s'.", model_name, role)
         return model_name
 
     def run(self, prompt: Dict[str, Any], **config: Any) -> Optional[str]:
