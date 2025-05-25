@@ -1185,7 +1185,6 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
             status = "SUCCESS" if success else "FAILURE"
             self.scratchpad.log("Moderator", f"[{status}] {message}")
 
-    # Fix missing placeholder f-string issue
     def show_file_content(
         self,
         file_path: str,
