@@ -304,6 +304,9 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
     limits incoming WebSocket payloads
   - `TEST_WS_TOKEN` (optional, defaults to `"replace-me"`)
     authentication token for `simple-test-server.js`
+  - `MAX_DESIGN_PATTERNS` (optional, defaults to `3`)
+    limits how many architectural patterns a system design may use to keep
+    the architecture consistent
 
   Example `.env`:
 
