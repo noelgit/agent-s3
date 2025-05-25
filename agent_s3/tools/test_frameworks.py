@@ -108,7 +108,7 @@ class TestFrameworks:
                 if "jest-image-snapshot" in all_deps:
                     self.frameworks["jest-image-snapshot"] = True
             except Exception as e:
-                logger.warning("%s", Error reading package.json: {e})
+                logger.warning("Error reading package.json: %s", e)
 
         return self.frameworks
 
@@ -189,7 +189,7 @@ class TestFrameworks:
         }
 
         if framework not in install_commands:
-            logger.error("%s", Unknown framework: {framework})
+            logger.error("Unknown framework: %s", framework)
             return False
 
         try:
@@ -198,15 +198,15 @@ class TestFrameworks:
             exit_code, output = self.bash_tool.run_command(cmd, timeout=300)
 
             if exit_code == 0:
-                logger.info("%s", Successfully installed {framework})
+                logger.info("Successfully installed %s", framework)
                 # Update framework detection
                 self.frameworks[framework] = True
                 return True
             else:
-                logger.error("%s", Failed to install {framework}: {output})
+                logger.error("Failed to install %s: %s", framework, output)
                 return False
         except Exception as e:
-            logger.error("%s", Error installing {framework}: {e})
+            logger.error("Error installing %s: %s", framework, e)
             return False
 
     def generate_test_file(self, implementation_file: str, test_type: str) -> Tuple[str, str]:
@@ -258,8 +258,10 @@ class TestFrameworks:
         else:
             return self._get_js_test_template(test_type, framework)
 
-    def verify_tests(self, test_files: List[str], implementation_file: Optional[str] = None)
-         -> Dict[str, Any]:        """
+    def verify_tests(
+        self, test_files: List[str], implementation_file: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
         Verify that tests are valid and runnable.
 
         Args:
@@ -466,8 +468,10 @@ class TestFrameworks:
             else:
                 return f"tests/{stem}.test.js"
 
-    def _generate_python_test(self, implementation_file: str, test_type: str, framework: str)
-         -> str:        """Generate Python test file content."""
+    def _generate_python_test(
+        self, implementation_file: str, test_type: str, framework: str
+    ) -> str:
+        """Generate Python test file content."""
         file_path = Path(implementation_file)
         module_name = file_path.stem
 

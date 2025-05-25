@@ -379,20 +379,20 @@ class ToolRegistry:
             for tool_name in core_tools:
                 success = self.register_tool(tool_name)
                 if success:
-                    logger.debug("%s", Successfully registered core tool: {tool_name})
+                    logger.debug("Successfully registered core tool: %s", tool_name)
                 else:
-                    logger.warning("%s", Failed to register core tool: {tool_name})
+                    logger.warning("Failed to register core tool: %s", tool_name)
 
             # Register optional tools
             optional_tools = ["embedding_client", "database_tool", "tech_stack_manager"]
             for tool_name in optional_tools:
                 success = self.register_tool(tool_name)
                 if success:
-                    logger.debug("%s", Successfully registered optional tool: {tool_name})
+                    logger.debug("Successfully registered optional tool: %s", tool_name)
 
-            logger.info("%s", Successfully registered {len(self.tools)} tools)
+            logger.info("Successfully registered %s tools", len(self.tools))
         except Exception as e:
-            logger.error("%s", Error registering tools: {e})
+            logger.error("Error registering tools: %s", e)
             raise
 
     def get_tool(self, tool_name: str) -> Optional[Any]:
@@ -469,7 +469,7 @@ class ToolRegistry:
                 if name == "embedding_client" and hasattr(tool, 'close'):
                     tool.close()
             except Exception as e:
-                logger.error("%s", Error cleaning up tool {name}: {e})
+                logger.error("Error cleaning up tool %s: %s", name, e)
 
         self.tools.clear()
         self._initialized = False
@@ -484,7 +484,7 @@ class ToolRegistry:
             self.cleanup()
         except Exception as e:
             # Avoid crashing during interpreter shutdown
-            logger.error("%s", Error in ToolRegistry destructor: {e})
+            logger.error("Error in ToolRegistry destructor: %s", e)
 
 
 def get_tools(config):
