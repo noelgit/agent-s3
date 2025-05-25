@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections import defaultdict
+import copy
 from typing import Any, Dict, List, Set
 
 from .utils import find_best_match
@@ -267,7 +267,7 @@ def repair_architecture_issue_coverage(
     plan: Dict[str, Any], issues: List[Dict[str, Any]], architecture_review: Dict[str, Any]
 ) -> Dict[str, Any]:
     """Repair architecture issue coverage in the implementation plan."""
-    repaired_plan = json.loads(json.dumps(plan))
+    repaired_plan = copy.deepcopy(plan)
     element_map: Dict[str, List[tuple[str, int]]] = {}
     for file_path, functions in repaired_plan.items():
         if not isinstance(functions, list):
