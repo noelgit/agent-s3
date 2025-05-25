@@ -322,8 +322,9 @@ class RouterAgent:
 
             # For continue command, append a special instruction about previous work
             if command_type == "continue":
-                system_prompt +
-                    = "\nReview previous outputs and context carefully to ensure continuity."
+                system_prompt += (
+                    "\nReview previous outputs and context carefully to ensure continuity."
+                )
         max_retries = config.get('max_retries', 3)
         initial_backoff = config.get('initial_backoff', 1.0)
         backoff_multiplier = config.get('backoff_multiplier', 2.0)
@@ -342,9 +343,15 @@ class RouterAgent:
 
         for attempt in range(max_retries):
             # Check circuit breaker
-            if (self._failure_counts[model_name] >= failure_threshold and
-                    time.time() < self._last_failure_time[model_name] + cooldown):
-                scratchpad.log("RouterAgent", f"Circuit breaker tripped for {model_name} (Role: {role}). Attempting fallback if available.", level="warning")
+            if (
+                self._failure_counts[model_name] >= failure_threshold
+                and time.time() < self._last_failure_time[model_name] + cooldown
+            ):
+                scratchpad.log(
+                    "RouterAgent",
+                    f"Circuit breaker tripped for {model_name} (Role: {role}). Attempting fallback if available.",
+                    level="warning",
+                )
                 primary_failed = True
                 break
 
@@ -366,7 +373,7 @@ class RouterAgent:
                 primary_failed = False
                 scratchpad.log(
                     "RouterAgent",
-                    f"Successfully called {model_name} (Role: {role}) on attempt {attempt + 1}"
+                    f"Successfully called {model_name} (Role: {role}) on attempt {attempt + 1}",
                 )
                 break  # Success
             except Exception as e:
@@ -374,14 +381,19 @@ class RouterAgent:
                 self._last_failure_time[model_name] = time.time()
                 scratchpad.log(
                     "RouterAgent",
-                    f"Attempt {attempt + 1}/{max_retries} failed for {model_name} (Role: {role}): {e}",
+                    (
+                        f"Attempt {attempt + 1}/{max_retries} failed for {model_name} "
+                        f"(Role: {role}): {e}"
+                    ),
                     level="warning",
                 )
                 if attempt + 1 == max_retries:
                     primary_failed = True
                     scratchpad.log(
                         "RouterAgent",
-                        f"{model_name} (Role: {role}) failed after {max_retries} attempts.",
+                        (
+                            f"{model_name} (Role: {role}) failed after {max_retries} attempts."
+                        ),
                         level="error",
                     )
                 else:
