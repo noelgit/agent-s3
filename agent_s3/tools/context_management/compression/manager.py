@@ -116,9 +116,8 @@ class CompressionManager:
 
                     # Sum size of code_context in both original and compressed
                     if "code_context" in context and "code_context" in compressed:
-                        original_size +
-                            = sum(len(content) for content in context["code_context"].values())                        compressed_size +
-                                                                                            = sum(len(content) for content in compressed["code_context"].values())
+                        original_size += sum(len(content) for content in context["code_context"].values())
+                        compressed_size += sum(len(content) for content in compressed["code_context"].values())
                     # Sum size of other context elements
                     for key in context:
                         if key != "code_context" and key != "compression_metadata":
@@ -172,9 +171,8 @@ class CompressionManager:
 
                     # Sum code_context sizes
                     if "code_context" in context and "code_context" in compressed:
-                        original_size +
-                            = sum(len(content) for content in context["code_context"].values())                        compressed_size +
-                                                                                            = sum(len(content) for content in compressed["code_context"].values())
+                        original_size += sum(len(content) for content in context["code_context"].values())
+                        compressed_size += sum(len(content) for content in compressed["code_context"].values())
                     # Sum other elements
                     for key in context:
                         if key != "code_context" and key != "compression_metadata":
