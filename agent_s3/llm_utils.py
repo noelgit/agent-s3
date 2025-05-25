@@ -5,7 +5,7 @@ backoff, and fallback strategies with advanced semantic caching.
 """
 
 import time
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Tuple
 import requests
 
 # Optional Supabase client
@@ -124,134 +124,171 @@ def call_llm_via_supabase(
                 return choice.get("text") or choice.get("message", {}).get("content", "")
     return response.text
 
-def cached_call_llm(prompt, llm, return_kv=False, **kwargs):
-    """Use semantic cache for LLM calls for better performance and cost optimization.
+def call_llm(
+    prompt: str,
+    llm: Any,
+    *,
+    method_name: str = "generate",
+    config: Optional[Dict[str, Any]] = None,
+    scratchpad_manager: ScratchpadManagerType = None,
+    prompt_summary: Optional[str] = None,
+    **kwargs: Any,
+) -> Tuple[Dict[str, Any], Any]:
+    """Invoke an LLM with optional remote fallback.
+
+    The wrapper handles calling a remote LLM via :func:`call_llm_via_supabase`
+    when ``config.use_remote_llm`` is set. If the remote call fails, it logs the
+    issue and falls back to the provided local ``llm`` instance.
+
+    Cache hits are returned without contacting the LLM service.
 
     Args:
-        prompt: The prompt text or structured prompt data to send to the LLM
-        llm: The LLM client instance to use for generation
-        return_kv: Whether to return the KV tensor along with the response
-        **kwargs: Additional arguments to pass to the LLM call
+        prompt: The prompt text to send to the LLM.
+        llm: Local LLM client instance.
+        method_name: Name of the method to invoke on the LLM client.
+        config: Optional configuration dictionary.
+        scratchpad_manager: Optional scratchpad for logging messages.
+        prompt_summary: Short summary used when generating fallback prompts.
+        **kwargs: Additional parameters for the LLM call.
 
     Returns:
-        The LLM response, either from cache or freshly generated
-        If return_kv is True, returns a tuple (response, kv_tensor)
+        A tuple ``(result_dict, used_llm)`` where ``result_dict`` follows the
+        structure returned by :func:`call_llm_with_retry` and ``used_llm`` is the
+        client instance that produced the result.
     """
-    method_name = kwargs.pop('method_name', 'generate')
-    config = kwargs.pop('config', {})
-    scratchpad_manager = kwargs.pop('scratchpad_manager', None)
-    prompt_summary = kwargs.pop('prompt_summary', prompt[:100] +
-         "..." if len(prompt) > 100 else prompt)
-    use_remote_llm = getattr(config, 'use_remote_llm', False)
-    github_token = getattr(config, 'github_token', None)
+
+    config = config or {}
+    prompt_summary = prompt_summary or (
+        prompt[:100] + ("..." if len(prompt) > 100 else "")
+    )
+    use_remote_llm = getattr(config, "use_remote_llm", False)
+    github_token = getattr(config, "github_token", None)
+
+    def _call(client: Any) -> Dict[str, Any]:
+        prompt_data = {"prompt": prompt, **kwargs}
+        return call_llm_with_retry(
+            llm_client_instance=client,
+            method_name=method_name,
+            prompt_data=prompt_data,
+            config=config,
+            scratchpad_manager=scratchpad_manager,
+            prompt_summary=prompt_summary,
+        )
 
     if use_remote_llm:
-        try:
+        try:  # load token lazily
             from agent_s3.auth import load_token
+
             if not github_token:
                 token_data = load_token()
                 if token_data:
-                    github_token = token_data.get('token') or token_data.get('access_token')
-        except RuntimeError as e:
+                    github_token = token_data.get("token") or token_data.get(
+                        "access_token"
+                    )
+        except RuntimeError as e:  # pragma: no cover - optional token loader
             logging.warning(
                 "Failed to load GitHub token: %s",
                 strip_sensitive_headers(str(e)),
             )
 
         if not github_token:
-            raise ValueError('GitHub token required for remote LLM')
+            raise ValueError("GitHub token required for remote LLM")
 
         class _RemoteLLM:
-            def __init__(self, cfg, token):
+            def __init__(self, cfg: Dict[str, Any], token: str) -> None:
                 self.cfg = cfg
                 self.token = token
 
-            def generate(self, params):
+            def generate(self, params: Dict[str, Any]) -> str:
                 return call_llm_via_supabase(
-                    params.get('prompt', ''),
+                    params.get("prompt", ""),
                     self.token,
                     self.cfg,
-                    timeout=params.get('timeout', self.cfg.get('llm_default_timeout', 60.0)),
+                    timeout=params.get(
+                        "timeout", self.cfg.get("llm_default_timeout", 60.0)
+                    ),
                 )
 
-            def attach_kv(self, _kv):
+            def attach_kv(self, _kv: Any) -> None:
                 return None
 
-            def get_kv_tensor(self):
+            def get_kv_tensor(self) -> Any:
                 return None
 
-        llm_to_use = _RemoteLLM(config, github_token)
-    else:
-        llm_to_use = llm
+        remote_llm = _RemoteLLM(config, github_token)
+        hit = read_cache(prompt, remote_llm)
+        if hit:
+            progress_tracker.increment("semantic_hits")
+            return {"success": True, "response": hit, "cached": True}, remote_llm
 
-    hit = read_cache(prompt, llm_to_use)
-    if hit:
-        progress_tracker.increment("semantic_hits")
-        return hit
+        result = _call(remote_llm)
+        if result.get("success"):
+            return result, remote_llm
 
-    # Convert prompt to the expected format
-    prompt_data = {
-        'prompt': prompt,
-        **kwargs
-    }
-
-    result = call_llm_with_retry(
-        llm_client_instance=llm_to_use,
-        method_name=method_name,
-        prompt_data=prompt_data,
-        config=config,
-        scratchpad_manager=scratchpad_manager,
-        prompt_summary=prompt_summary
-    )
-
-    if not result.get('success') and use_remote_llm:
         if scratchpad_manager:
             scratchpad_manager.log(
-                "LLM Utils",
-                "Remote LLM failed, falling back to local"
+                "LLM Utils", "Remote LLM failed, falling back to local"
             )
         else:
             logging.warning("Remote LLM failed, falling back to local")
 
-        llm_to_use = llm
-        result = call_llm_with_retry(
-            llm_client_instance=llm_to_use,
-            method_name=method_name,
-            prompt_data=prompt_data,
-            config=config,
-            scratchpad_manager=scratchpad_manager,
-            prompt_summary=prompt_summary
-        )
+        return _call(llm), llm
 
-    if result['success']:
-        response = result['response']
+    # Local LLM path
+    hit = read_cache(prompt, llm)
+    if hit:
+        progress_tracker.increment("semantic_hits")
+        return {"success": True, "response": hit, "cached": True}, llm
 
-        # Validate that we received a valid response
+    return _call(llm), llm
+def cached_call_llm(prompt, llm, return_kv=False, **kwargs):
+    """Use semantic cache for LLM calls with optional remote fallback."""
+    method_name = kwargs.pop("method_name", "generate")
+    config = kwargs.pop("config", {})
+    scratchpad_manager = kwargs.pop("scratchpad_manager", None)
+    prompt_summary = kwargs.pop(
+        "prompt_summary", prompt[:100] + ("..." if len(prompt) > 100 else "")
+    )
+
+    result, used_llm = call_llm(
+        prompt,
+        llm,
+        method_name=method_name,
+        config=config,
+        scratchpad_manager=scratchpad_manager,
+        prompt_summary=prompt_summary,
+        **kwargs,
+    )
+
+    if result["success"]:
+        response = result["response"]
+
         if response is None:
             error_msg = "Received empty response from LLM API"
             if return_kv:
                 return f"Error: {error_msg}", None
             return f"Error: {error_msg}"
 
-        # Extract the KV tensor if available
-        kv_tensor = getattr(llm_to_use, 'get_kv_tensor', lambda: None)()
-
-        if kv_tensor is not None:
-            write_cache(prompt, response, kv_tensor)
-        elif cache:
-            try:
-                cache.set(prompt, response)
-            except Exception as e:
-                logging.warning(f"Cache write failed: {e}")
+        if not result.get("cached"):
+            kv_tensor = getattr(used_llm, "get_kv_tensor", lambda: None)()
+            if kv_tensor is not None:
+                write_cache(prompt, response, kv_tensor)
+            elif cache:
+                try:
+                    cache.set(prompt, response)
+                except Exception as e:
+                    logging.warning(f"Cache write failed: {e}")
+        else:
+            kv_tensor = None
 
         if return_kv:
             return response, kv_tensor
         return response
-    else:
-        # Return a default response for error cases
-        if return_kv:
-            return f"Error: {result['error']}", None
-        return f"Error: {result['error']}"
+
+    if return_kv:
+        return f"Error: {result['error']}", None
+    return f"Error: {result['error']}"
+
 
 def call_llm_with_retry(
     llm_client_instance: Any,
