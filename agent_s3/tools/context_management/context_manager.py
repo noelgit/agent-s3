@@ -242,9 +242,13 @@ class ToolRegistry:
             if hasattr(tool, method_name) and callable(getattr(tool, method_name)):
                 try:
                     getattr(tool, method_name)()
-                    logger.debug("%s", Successfully shutdown tool: {tool_name})
+                    logger.debug("Successfully shutdown tool: %s", tool_name)
                 except Exception as e:
-                    logger.error("%s", Error shutting down tool {tool_name}: {e})
+                    logger.error(
+                        "Error shutting down tool %s: %s",
+                        tool_name,
+                        e,
+                    )
 
 
 class _BackgroundTask:
@@ -297,7 +301,10 @@ class ContextManager:
                 config_dir = adaptive_config.get("config_dir")
                 metrics_dir = adaptive_config.get("metrics_dir")
 
-                logger.info("%s", Initializing adaptive configuration for repository: {repo_path})
+                logger.info(
+                    "Initializing adaptive configuration for repository: %s",
+                    repo_path,
+                )
                 self.adaptive_config_manager = AdaptiveConfigManager(
                     repo_path=repo_path,
                     config_dir=config_dir,
@@ -307,11 +314,17 @@ class ContextManager:
                 # Get the optimized configuration
                 adaptive_settings = self.adaptive_config_manager.get_current_config()
                 if adaptive_settings and "context_management" in adaptive_settings:
-                    logger.info("%s", Using adaptive configuration (version {self.adaptive_config_manager.get_config_version()}))
+                    logger.info(
+                        "Using adaptive configuration (version %s)",
+                        self.adaptive_config_manager.get_config_version(),
+                    )
                     # Update our configuration with the adaptive settings
                     self.config["context_management"] = adaptive_settings["context_management"]
             except Exception as e:
-                logger.error("%s", Error initializing adaptive configuration: {e})
+                logger.error(
+                    "Error initializing adaptive configuration: %s",
+                    e,
+                )
                 logger.info("Falling back to default configuration")
 
         # Initialize basic components
@@ -471,9 +484,13 @@ class ContextManager:
         return file_paths
 
 
-    def get_nested_value(self, source_dict: Dict[str, Any], key_path: Union[str, List[str]],
-         default: Any = None) -> Any:        """
-        Get a value from a nested dictionary at any depth using a dot-notation key path or list of keys.
+    def get_nested_value(
+        self,
+        source_dict: Dict[str, Any],
+        key_path: Union[str, List[str]],
+        default: Any = None,
+    ) -> Any:
+        """Get a value from a nested dictionary at any depth using a dot-notation key path or list of keys.
 
         Args:
             source_dict: The dictionary to retrieve from
@@ -500,9 +517,13 @@ class ContextManager:
 
         return current
 
-    def _update_nested_dict(self, target_dict: Dict[str, Any], key_path: Union[str, List[str]],
-         new_value: Any) -> None:        """
-        Update a nested dictionary at any depth using a dot-notation key path or list of keys.
+    def _update_nested_dict(
+        self,
+        target_dict: Dict[str, Any],
+        key_path: Union[str, List[str]],
+        new_value: Any,
+    ) -> None:
+        """Update a nested dictionary at any depth using a dot-notation key path or list of keys.
 
         Args:
             target_dict: The dictionary to update
@@ -600,7 +621,10 @@ class ContextManager:
             )
 
         # Log the initialized tools
-        logger.info("%s", Context Manager initialized with {len(self._tool_registry._tools)} tools)
+        logger.info(
+            "Context Manager initialized with %d tools",
+            len(self._tool_registry._tools),
+        )
 
     def _start_background_optimization(self) -> None:
         """Start the background optimization thread."""
@@ -627,7 +651,7 @@ class ContextManager:
             with self._context_lock:
                 self.current_context = optimized
         except Exception as e:
-            logger.error("%s", "Error during context optimization: %s", e)
+            logger.error("Error during context optimization: %s", e)
 
     def optimize_context_immediately(self) -> None:
         """
@@ -644,9 +668,13 @@ class ContextManager:
         if not self.optimization_running and self.background_enabled:
             self._start_background_optimization()
 
-    def _refine_current_context(self, files: List[str], max_tokens: int = None,
-         task_keywords: Optional[List[str]] = None) -> None:        """
-        Refine the current context based on the given files, token budget, and task keywords.
+    def _refine_current_context(
+        self,
+        files: List[str],
+        max_tokens: int | None = None,
+        task_keywords: Optional[List[str]] = None,
+    ) -> None:
+        """Refine the current context based on the given files, token budget, and task keywords.
 
         Args:
             files: List of primary file paths to focus on.
@@ -684,7 +712,11 @@ class ContextManager:
 
                 # Skip extremely large files or truncate them
                 if content_tokens > (max_tokens * 0.4):  # Skip if file would use >40% of budget
-                    logger.info("%s", Skipping large file {file_path} ({content_tokens} tokens))
+                    logger.info(
+                        "Skipping large file %s (%d tokens)",
+                        file_path,
+                        content_tokens,
+                    )
                     continue
 
                 if tokens_used + content_tokens <= max_tokens:
@@ -699,7 +731,7 @@ class ContextManager:
                         context_files[file_path] = truncated
                         tokens_used = max_tokens  # Consider budget fully used
             except Exception as e:
-                logger.error("%s", Error reading file {file_path}: {e})
+                logger.error("Error reading file %s: %s", file_path, e)
 
         # Update the context with the refined file contents
         with self._context_lock:
@@ -752,7 +784,10 @@ class ContextManager:
         if not isinstance(strategy, DynamicAllocationStrategy): # Make sure DynamicAllocationStrategy is imported or defined
             raise ValueError("Strategy must be an instance of DynamicAllocationStrategy")
 
-        logger.info("%s", Setting new allocation strategy: {strategy.__class__.__name__})
+        logger.info(
+            "Setting new allocation strategy: %s",
+            strategy.__class__.__name__,
+        )
         self.allocation_strategy = strategy
 
     def set_adaptive_config_manager(self, adaptive_config_manager: 'AdaptiveConfigManager') -> None:
@@ -781,19 +816,31 @@ class ContextManager:
                     embedding_model = embedding_config.get("embedding_model")
 
                     if chunk_size:
-                        logger.debug("%s", Using adaptive chunk size: {chunk_size})
+                        logger.debug(
+                            "Using adaptive chunk size: %s",
+                            chunk_size,
+                        )
                         self.config["embedding_chunk_size"] = chunk_size
 
                     if chunk_overlap:
-                        logger.debug("%s", Using adaptive chunk overlap: {chunk_overlap})
+                        logger.debug(
+                            "Using adaptive chunk overlap: %s",
+                            chunk_overlap,
+                        )
                         self.config["embedding_chunk_overlap"] = chunk_overlap
 
                     if max_chunks:
-                        logger.debug("%s", Using adaptive max chunks: {max_chunks})
+                        logger.debug(
+                            "Using adaptive max chunks: %s",
+                            max_chunks,
+                        )
                         self.config["embedding_max_chunks"] = max_chunks
 
                     if embedding_model:
-                        logger.debug("%s", Using adaptive embedding model: {embedding_model})
+                        logger.debug(
+                            "Using adaptive embedding model: %s",
+                            embedding_model,
+                        )
                         self.config["embedding_model"] = embedding_model
 
                 # Update search settings - BM25
@@ -803,10 +850,10 @@ class ContextManager:
                     k1 = bm25_config.get("k1")
                     b = bm25_config.get("b")
                     if k1:
-                        logger.debug("%s", Using adaptive BM25 k1: {k1})
+                        logger.debug("Using adaptive BM25 k1: %s", k1)
                         self.config.setdefault("search_params", {}).setdefault("bm25", {})["k1"] = k1
                     if b:
-                        logger.debug("%s", Using adaptive BM25 b: {b})
+                        logger.debug("Using adaptive BM25 b: %s", b)
                         self.config.setdefault("search_params", {}).setdefault("bm25", {})["b"] = b
 
                 # Update vector search settings
@@ -817,15 +864,24 @@ class ContextManager:
                     similarity_metric = vector_config.get("similarity_metric")
 
                     if top_k:
-                        logger.debug("%s", Using adaptive vector search top_k: {top_k})
+                        logger.debug(
+                            "Using adaptive vector search top_k: %s",
+                            top_k,
+                        )
                         self.config.setdefault("search_params", {}).setdefault("vector", {})["top_k"] = top_k
 
                     if similarity_threshold:
-                        logger.debug("%s", Using adaptive similarity threshold: {similarity_threshold})
+                        logger.debug(
+                            "Using adaptive similarity threshold: %s",
+                            similarity_threshold,
+                        )
                         self.config.setdefault("search_params", {}).setdefault("vector", {})["similarity_threshold"] = similarity_threshold
 
                     if similarity_metric:
-                        logger.debug("%s", Using adaptive similarity metric: {similarity_metric})
+                        logger.debug(
+                            "Using adaptive similarity metric: %s",
+                            similarity_metric,
+                        )
                         self.config.setdefault("search_params", {}).setdefault("vector", {})["similarity_metric"] = similarity_metric
 
                 # Update hybrid search settings
@@ -835,11 +891,17 @@ class ContextManager:
                     vector_weight = hybrid_config.get("vector_weight")
 
                     if bm25_weight:
-                        logger.debug("%s", Using adaptive hybrid search BM25 weight: {bm25_weight})
+                        logger.debug(
+                            "Using adaptive hybrid search BM25 weight: %s",
+                            bm25_weight,
+                        )
                         self.config.setdefault("search_params", {}).setdefault("hybrid", {})["bm25_weight"] = bm25_weight
 
                     if vector_weight:
-                        logger.debug("%s", Using adaptive hybrid search vector weight: {vector_weight})
+                        logger.debug(
+                            "Using adaptive hybrid search vector weight: %s",
+                            vector_weight,
+                        )
                         self.config.setdefault("search_params", {}).setdefault("hybrid", {})["vector_weight"] = vector_weight
 
                 # Update summarization settings
@@ -851,21 +913,33 @@ class ContextManager:
                     max_tokens = summarization_config.get("max_tokens")
 
                     if threshold:
-                        logger.debug("%s", Using adaptive summarization threshold: {threshold})
+                        logger.debug(
+                            "Using adaptive summarization threshold: %s",
+                            threshold,
+                        )
                         self.compression_manager.set_summarization_threshold(threshold)
                         self.config.setdefault("summarization", {})["threshold"] = threshold
 
                     if compression_ratio:
-                        logger.debug("%s", Using adaptive compression ratio: {compression_ratio})
+                        logger.debug(
+                            "Using adaptive compression ratio: %s",
+                            compression_ratio,
+                        )
                         self.compression_manager.set_compression_ratio(compression_ratio)
                         self.config.setdefault("summarization", {})["compression_ratio"] = compression_ratio
 
                     if min_tokens:
-                        logger.debug("%s", Using adaptive min tokens for summarization: {min_tokens})
+                        logger.debug(
+                            "Using adaptive min tokens for summarization: %s",
+                            min_tokens,
+                        )
                         self.config.setdefault("summarization", {})["min_tokens"] = min_tokens
 
                     if max_tokens:
-                        logger.debug("%s", Using adaptive max tokens for summarization: {max_tokens})
+                        logger.debug(
+                            "Using adaptive max tokens for summarization: %s",
+                            max_tokens,
+                        )
                         self.config.setdefault("summarization", {})["max_tokens"] = max_tokens
 
                 # Update importance scoring weights
@@ -879,27 +953,42 @@ class ContextManager:
                     documentation_weight = importance_scoring.get("documentation_weight")
 
                     if code_weight:
-                        logger.debug("%s", Using adaptive code weight: {code_weight})
+                        logger.debug("Using adaptive code weight: %s", code_weight)
                         self.allocation_strategy.code_weight = code_weight
 
                     if comment_weight:
-                        logger.debug("%s", Using adaptive comment weight: {comment_weight})
+                        logger.debug(
+                            "Using adaptive comment weight: %s",
+                            comment_weight,
+                        )
                         self.allocation_strategy.comment_weight = comment_weight
 
                     if metadata_weight:
-                        logger.debug("%s", Using adaptive metadata weight: {metadata_weight})
+                        logger.debug(
+                            "Using adaptive metadata weight: %s",
+                            metadata_weight,
+                        )
                         self.allocation_strategy.metadata_weight = metadata_weight
 
                     if framework_weight:
-                        logger.debug("%s", Using adaptive framework weight: {framework_weight})
+                        logger.debug(
+                            "Using adaptive framework weight: %s",
+                            framework_weight,
+                        )
                         self.allocation_strategy.framework_weight = framework_weight
 
                     if test_weight and hasattr(self.allocation_strategy, 'test_weight'):
-                        logger.debug("%s", Using adaptive test weight: {test_weight})
+                        logger.debug(
+                            "Using adaptive test weight: %s",
+                            test_weight,
+                        )
                         self.allocation_strategy.test_weight = test_weight
 
                     if documentation_weight and hasattr(self.allocation_strategy, 'documentation_weight'):
-                        logger.debug("%s", Using adaptive documentation weight: {documentation_weight})
+                        logger.debug(
+                            "Using adaptive documentation weight: %s",
+                            documentation_weight,
+                        )
                         self.allocation_strategy.documentation_weight = documentation_weight
 
                     logger.debug("Updated importance weights from adaptive configuration")
@@ -911,7 +1000,10 @@ class ContextManager:
                     reserved_tokens = token_budget.get("reserved_tokens")
 
                     if max_context_tokens:
-                        logger.debug("%s", Using adaptive max context tokens: {max_context_tokens})
+                        logger.debug(
+                            "Using adaptive max context tokens: %s",
+                            max_context_tokens,
+                        )
                         self.token_budget_analyzer.max_tokens = max_context_tokens
                         if hasattr(self.allocation_strategy, 'max_tokens'):
                             self.allocation_strategy.max_tokens = max_context_tokens
@@ -919,7 +1011,10 @@ class ContextManager:
                             self._context_size_monitor.max_tokens = max_context_tokens
 
                     if reserved_tokens:
-                        logger.debug("%s", Using adaptive reserved tokens: {reserved_tokens})
+                        logger.debug(
+                            "Using adaptive reserved tokens: %s",
+                            reserved_tokens,
+                        )
                         self.token_budget_analyzer.reserved_tokens = reserved_tokens
                         if hasattr(self.allocation_strategy, 'reserved_tokens'):
                             self.allocation_strategy.reserved_tokens = reserved_tokens
@@ -931,7 +1026,10 @@ class ContextManager:
                     interval = background_opt.get("interval")
 
                     if enabled is not None:
-                        logger.debug("%s", Setting background optimization enabled: {enabled})
+                        logger.debug(
+                            "Setting background optimization enabled: %s",
+                            enabled,
+                        )
                         self.background_enabled = enabled
 
                         # Start or stop background thread based on setting
@@ -941,7 +1039,10 @@ class ContextManager:
                             self._stop_background_optimization()
 
                     if interval:
-                        logger.debug("%s", Using adaptive optimization interval: {interval})
+                        logger.debug(
+                            "Using adaptive optimization interval: %s",
+                            interval,
+                        )
                         self.optimization_interval = interval
 
                 # Update pruning settings for ContentPruningManager
@@ -952,18 +1053,30 @@ class ContextManager:
                     importance_weight = pruning_config.get("importance_weight")
 
                     if recency_weight:
-                        logger.debug("%s", Using adaptive pruning recency weight: {recency_weight})
+                        logger.debug(
+                            "Using adaptive pruning recency weight: %s",
+                            recency_weight,
+                        )
                         self._pruning_manager.recency_weight = recency_weight
 
                     if frequency_weight:
-                        logger.debug("%s", Using adaptive pruning frequency weight: {frequency_weight})
+                        logger.debug(
+                            "Using adaptive pruning frequency weight: %s",
+                            frequency_weight,
+                        )
                         self._pruning_manager.frequency_weight = frequency_weight
 
                     if importance_weight:
-                        logger.debug("%s", Using adaptive pruning importance weight: {importance_weight})
+                        logger.debug(
+                            "Using adaptive pruning importance weight: %s",
+                            importance_weight,
+                        )
                         self._pruning_manager.importance_weight = importance_weight
 
-                logger.info("%s", Successfully applied adaptive configuration (version {self.adaptive_config_manager.get_config_version()}))
+                logger.info(
+                    "Successfully applied adaptive configuration (version %s)",
+                    self.adaptive_config_manager.get_config_version(),
+                )
 
                 # Register metrics callback if available
                 if hasattr(self.adaptive_config_manager.metrics_collector, 'register_callback'):
@@ -973,7 +1086,10 @@ class ContextManager:
                         )
                         logger.debug("Registered metrics callback for adaptive configuration")
                     except Exception as e:
-                        logger.warning("%s", Failed to register metrics callback: {e})
+                        logger.warning(
+                            "Failed to register metrics callback: %s",
+                            e,
+                        )
 
     def _collect_performance_metrics(self) -> Dict[str, Any]:
         """
@@ -1055,7 +1171,7 @@ class ContextManager:
         try:
             return tech_detector.get_frameworks()
         except Exception as e:
-            logger.error("%s", Error getting frameworks: {e})
+            logger.error("Error getting frameworks: %s", e)
             return []
 
     def get_tech_stack_details(self) -> Dict[str, Any]:
@@ -1067,7 +1183,7 @@ class ContextManager:
         try:
             return tech_detector.get_tech_stack()
         except Exception as e:
-            logger.error("%s", Error getting tech stack details: {e})
+            logger.error("Error getting tech stack details: %s", e)
             return {}
 
     def get_package_dependencies(self) -> Dict[str, str]:
@@ -1079,7 +1195,7 @@ class ContextManager:
         try:
             return tech_detector.get_dependencies()
         except Exception as e:
-            logger.error("%s", Error getting package dependencies: {e})
+            logger.error("Error getting package dependencies: %s", e)
             return {}
 
     # Implement FileContextProvider interface methods
@@ -1115,7 +1231,7 @@ class ContextManager:
 
             return content
         except Exception as e:
-            logger.error("%s", Error reading file {file_path}: {e})
+            logger.error("Error reading file %s: %s", file_path, e)
             return None
 
     def get_relevant_files(self, query: str) -> List[str]:
@@ -1141,7 +1257,7 @@ class ContextManager:
 
             return []
         except Exception as e:
-            logger.error("%s", Error searching for relevant files: {e})
+            logger.error("Error searching for relevant files: %s", e)
             return []
 
     # Implement ProjectContextProvider interface methods
@@ -1154,7 +1270,7 @@ class ContextManager:
         try:
             return file_tool.get_project_structure()
         except Exception as e:
-            logger.error("%s", Error getting project structure: {e})
+            logger.error("Error getting project structure: %s", e)
             return {}
 
     def get_current_working_directory(self) -> str:
@@ -1166,7 +1282,7 @@ class ContextManager:
         try:
             return file_tool.get_cwd()
         except Exception as e:
-            logger.error("%s", Error getting current working directory: {e})
+            logger.error("Error getting current working directory: %s", e)
             return ""
 
     # Implement TestContextProvider interface methods
@@ -1179,7 +1295,7 @@ class ContextManager:
         try:
             return test_frameworks.get_detected_frameworks()
         except Exception as e:
-            logger.error("%s", Error getting test frameworks: {e})
+            logger.error("Error getting test frameworks: %s", e)
             return []
 
     def get_test_files(self) -> List[str]:
@@ -1191,7 +1307,7 @@ class ContextManager:
         try:
             return test_frameworks.get_test_files()
         except Exception as e:
-            logger.error("%s", Error getting test files: {e})
+            logger.error("Error getting test files: %s", e)
             return []
 
     # Implement MemoryContextProvider interface methods
@@ -1250,7 +1366,7 @@ class ContextManager:
                 self._dependency_graph = code_tool.get_dependency_graph()
                 self._graph_last_updated = time.time()
             except Exception as e:
-                logger.error("%s", Error refreshing dependency graph: {e})
+                logger.error("Error refreshing dependency graph: %s", e)
 
         return self._dependency_graph
 
@@ -1341,7 +1457,7 @@ class ContextManager:
             return
 
         if not isinstance(context_used, dict):
-            logger.error("%s", "Context data is missing or malformed when logging metrics")
+            logger.error("Context data is missing or malformed when logging metrics")
             return
 
         try:
@@ -1366,7 +1482,7 @@ class ContextManager:
                 )
 
         except Exception as e:
-            logger.error("%s", Error logging metrics to adaptive config: {e})
+            logger.error("Error logging metrics to adaptive config: %s", e)
 
     def shutdown(self) -> None:
         """
@@ -1389,4 +1505,4 @@ class ContextManager:
                 if self.adaptive_config_manager.check_optimization_needed():
                     self.adaptive_config_manager.optimize_configuration()
             except Exception as e:
-                logger.error("%s", Error during final optimization: {e})
+                logger.error("Error during final optimization: %s", e)
