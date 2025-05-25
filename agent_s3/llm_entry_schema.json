@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["model", "role", "context_window", "parameters", "api"],
+  "properties": {
+    "model": {"type": "string"},
+    "role": {
+      "anyOf": [
+        {"type": "string"},
+        {"type": "array", "items": {"type": "string"}, "minItems": 1}
+      ]
+    },
+    "context_window": {"type": "integer", "minimum": 1},
+    "parameters": {"type": "object"},
+    "pricing_per_million": {
+      "type": "object",
+      "properties": {
+        "input": {"type": "number"},
+        "output": {"type": "number"}
+      },
+      "additionalProperties": false
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "api": {
+      "type": "object",
+      "required": ["endpoint", "auth_header"],
+      "properties": {
+        "endpoint": {"type": "string", "minLength": 1},
+        "auth_header": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
