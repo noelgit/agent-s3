@@ -1420,7 +1420,7 @@ def get_consolidated_plan_user_prompt(
     task_description: str,
     context: Optional[Dict[str, Any]] = None,
 ) -> str:
-    """Get the user prompt for the consolidated planning LLM call."""
+    """Get the user prompt for the consolidated planning LLM call.
 
     Args:
         feature_group: The feature group data.
@@ -1431,9 +1431,14 @@ def get_consolidated_plan_user_prompt(
         Properly formatted user prompt string.
     """
     feature_json = json.dumps(feature_group, indent=2)
-    context_str = json.dumps(context, indent=2) if context else "No additional context provided."
+    context_str = (
+        json.dumps(context, indent=2)
+        if context
+        else "No additional context provided."
+    )
 
-    return f"""Please generate a consolidated plan (architecture review, tests, implementation details) for the following feature group, based on the original task description and provided context.
+    return (
+        f"""Please generate a consolidated plan (architecture review, tests, implementation details) for the following feature group, based on the original task description and provided context.
 
 # Original Task Description
 {task_description}
@@ -1450,11 +1455,18 @@ Your task is to:
 3.  Create a detailed, step-by-step implementation plan that directly elaborates on the system_design.code_elements. The implementation must maintain consistent references to element_ids and ensure the code will pass the generated tests.
 4.  Provide a brief discussion explaining the rationale behind your refinements to the system design.
 
-Ensure your response strictly adheres to the JSON schema provided in the system prompt. Focus on creating a practical, actionable plan based *only* on the provided information.
-"""
+Ensure your response strictly adheres to the JSON schema provided in the system prompt. Focus on creating a practical, actionable plan based *only* on the provided information."""
+    )
 
-def _call_llm_with_retry(router_agent, system_prompt: str, user_prompt: str, config: Dict[str, Any],
-     retries: int = 2, initial_backoff: float = 1.0) -> str:    """Helper function to call LLM with retry logic."""
+def _call_llm_with_retry(
+    router_agent,
+    system_prompt: str,
+    user_prompt: str,
+    config: Dict[str, Any],
+    retries: int = 2,
+    initial_backoff: float = 1.0,
+) -> str:
+    """Helper function to call LLM with retry logic."""
     estimator = TokenEstimator()
     prompt_tokens = estimator.estimate_tokens_for_text(system_prompt) + estimator.estimate_tokens_for_text(user_prompt)
     safe_max = max(config.get("max_tokens", 0) - prompt_tokens, 0)
@@ -1474,8 +1486,11 @@ def _call_llm_with_retry(router_agent, system_prompt: str, user_prompt: str, con
         logger.error("LLM call failed: %s", e)
         raise JSONPlannerError(f"LLM call failed after retries: {e}")
 
-def _parse_and_validate_json(response_text: str, schema: Optional[Dict[str, Any]] = None)
-     -> Dict[str, Any]:    """Extracts, parses, and optionally validates JSON from LLM response."""
+def _parse_and_validate_json(
+    response_text: str,
+    schema: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Extracts, parses, and optionally validates JSON from LLM response."""
     # --- (Implementation as provided previously, uses extract_json_from_text) ---
     json_text = extract_json_from_text(response_text)
     if not json_text:
@@ -2314,9 +2329,11 @@ def _calculate_traceability_coverage(validation_issues: List[Dict[str, Any]]) ->
     return max(0.0, min(100.0, percentage))
 
 
-def _calculate_security_coverage(validation_issues: List[Dict[str, Any]],
-     architecture_review: Dict[str, Any]) -> float:    """
-    Calculate the percentage of security concerns properly addressed by tests.
+def _calculate_security_coverage(
+    validation_issues: List[Dict[str, Any]],
+    architecture_review: Dict[str, Any],
+) -> float:
+    """Calculate the percentage of security concerns properly addressed by tests.
 
     Args:
         validation_issues: List of validation issues found in test implementations
@@ -2472,8 +2489,9 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                         "Failed to get LLM response after %d attempts",
                         max_retries + 1,
                     )
-                    raise JSONPlannerError(f"LLM call failed after {max_retries +
-                         1} attempts: {str(last_error)}")
+                    raise JSONPlannerError(
+                        f"LLM call failed after {max_retries + 1} attempts: {str(last_error)}"
+                    )
                 # Exponential backoff with jitter
                 backoff_time = (2 ** retry_count) + (random.random() * 0.5)
                 logger.info("Retrying in %.2f seconds...", backoff_time)
@@ -2854,8 +2872,10 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                         response_data["discussion"] = ""
 
                     repair_note = "\n\n## Implementation Plan Validation and Repair\n\n"
-                    repair_note +
-                        = "The implementation plan was automatically validated and the following issues were addressed:\n\n"
+                    repair_note += (
+                        "The implementation plan was automatically validated and "
+                        "the following issues were addressed:\n\n"
+                    )
                     # Group issues by type and severity for clearer reporting
                     issues_by_category = defaultdict(list)
                     for issue in validation_issues:
@@ -2869,18 +2889,20 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                         for i, description in enumerate(descriptions[:5]):  # Show at most 5 issues per category
                             repair_note += f"- {description}\n"
                         if len(descriptions) > 5:
-                            repair_note +
-                                = f"- ... and {len(descriptions) - 5} more similar issues\n"                        repair_note +
-                                                                        = "\n"
+                            repair_note += f"- ... and {len(descriptions) - 5} more similar issues\n"
+                        repair_note += "\n"
                     # Add metrics improvement summary
                     if new_metrics["overall_score"] > metrics["overall_score"]:
-                        improvement = (new_metrics["overall_score"] - metrics["overall_score"]) * 100
+                        improvement = (
+                            new_metrics["overall_score"] - metrics["overall_score"]
+                        ) * 100
                         repair_note += "\n### Quality Improvement\n\n"
-                        repair_note += f"Overall quality score improved by {improvement:.1f}%.\n"
-                        repair_note +
-                            = f"- Element coverage: {metrics['element_coverage_score']:.2f} → {new_metrics['element_coverage_score']:.2f}\n"                        repair_note +
-                                                                                            = f"- Architecture issue addressal: {metrics['architecture_issue_addressal_score']:.2f} → {new_metrics['architecture_issue_addressal_score']:.2f}\n"                        repair_note +
-                                                                                                                            = f"- Test coverage: {metrics['test_coverage_score']:.2f} → {new_metrics['test_coverage_score']:.2f}\n"
+                        repair_note += (
+                            f"Overall quality score improved by {improvement:.1f}%.\n"
+                            f"- Element coverage: {metrics['element_coverage_score']:.2f} → {new_metrics['element_coverage_score']:.2f}\n"
+                            f"- Architecture issue addressal: {metrics['architecture_issue_addressal_score']:.2f} → {new_metrics['architecture_issue_addressal_score']:.2f}\n"
+                            f"- Test coverage: {metrics['test_coverage_score']:.2f} → {new_metrics['test_coverage_score']:.2f}\n"
+                        )
                     response_data["discussion"] += repair_note
 
                     # Store validation metrics in response
@@ -2926,26 +2948,30 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                         # Add summary of semantic validation to the discussion
                         if "discussion" not in response_data:
                             response_data["discussion"] = ""
-
                         coherence_note = "\n\n## Semantic Coherence Validation Results\n\n"
-                        coherence_note +
-                            = "The implementation plan was validated for semantic coherence across architecture review, test implementation, and system design.\n\n"
+                        coherence_note += (
+                            "The implementation plan was validated for semantic coherence "
+                            "across architecture review, test implementation, and system design.\n\n"
+                        )
                         # Add scores
                         coherence_note += "### Validation Scores\n\n"
-                        coherence_note +
-                            = f"- **Coherence Score**: {results.get('coherence_score', 0.0):.1f}/10\n"                        coherence_note +
-                                                                                            = f"- **Technical Consistency**: {results.get('technical_consistency_score', 0.0):.1f}/10\n"                        coherence_note +
-                                                                                                                            = f"- **Implementation-Test Alignment**: {results.get('implementation_test_alignment_score', 0.0):.2f}/1.0\n"
+                        coherence_note += (
+                            f"- **Coherence Score**: {results.get('coherence_score', 0.0):.1f}/10\n"
+                            f"- **Technical Consistency**: {results.get('technical_consistency_score', 0.0):.1f}/10\n"
+                            f"- **Implementation-Test Alignment**: {results.get('implementation_test_alignment_score', 0.0):.2f}/1.0\n"
+                        )
                         # Add cross-validation findings
                         if "cross_component_traceability" in results:
                             traceability = results["cross_component_traceability"]
-                            coherence_note +
-                                = f"- **Traceability Score**: {traceability.get('score', 0.0):.1f}/10\n\n"
+                            coherence_note += (
+                                f"- **Traceability Score**: {traceability.get('score', 0.0):.1f}/10\n\n"
+                            )
                         # Add security validation results if available
                         if "security_validation" in results:
                             security = results["security_validation"]
-                            coherence_note +
-                                = f"- **Security Validation**: {security.get('score', 0.0):.1f}/10\n\n"
+                            coherence_note += (
+                                f"- **Security Validation**: {security.get('score', 0.0):.1f}/10\n\n"
+                            )
                         # Add critical issues if present
                         if "critical_issues" in results and results["critical_issues"]:
                             coherence_note += "### Critical Issues\n\n"
@@ -2953,12 +2979,9 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                                 issue_desc = issue.get("description", "Unknown issue")
                                 issue_severity = issue.get("severity", "critical")
                                 coherence_note += f"- **[{issue_severity.upper()}]** {issue_desc}\n"
-
                             if len(results["critical_issues"]) > 5:
-                                coherence_note +
-                                    = f"- ... and {len(results['critical_issues']) - 5} more critical issues\n"
+                                coherence_note += f"- ... and {len(results['critical_issues']) - 5} more critical issues\n"
                             coherence_note += "\n"
-
                         # Add optimization opportunities
                         if "optimization_opportunities" in results and results["optimization_opportunities"]:
                             coherence_note += "### Optimization Opportunities\n\n"
@@ -2969,10 +2992,8 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                                 coherence_note += f"- **[{opt_effort} effort]** {opt_desc}\n"
                                 if opt_benefit:
                                     coherence_note += f"  - Benefit: {opt_benefit}\n"
-
                             if len(results["optimization_opportunities"]) > 3:
-                                coherence_note +
-                                    = f"- ... and {len(results['optimization_opportunities']) - 3} more opportunities\n"
+                                coherence_note += f"- ... and {len(results['optimization_opportunities']) - 3} more opportunities\n"
                         response_data["discussion"] += coherence_note
             except Exception as coherence_error:
                 logger.error("Semantic coherence validation failed: %s", coherence_error)
@@ -3054,7 +3075,7 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                         # Try parsing directly first
                         try:
                             parsed_data = json.loads(cleaned)
-                                logger.info("Successfully parsed candidate %d", i + 1)
+                            logger.info("Successfully parsed candidate %d", i + 1)
 
                             # Validate that it contains implementation_plan
                             if "implementation_plan" in parsed_data:
