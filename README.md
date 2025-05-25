@@ -30,6 +30,57 @@ Agent-S3 automates feature planning, code generation, and execution while mainta
 
 Agent-S3 is not just a tool for automation; it is a partner in development that prioritizes transparency, correctness, and engineer control at every step.
 
+## Dependencies and Installation
+
+Agent-S3 is a multi-component system with dependencies across Python, Node.js, and TypeScript ecosystems. For comprehensive dependency information, see [`DEPENDENCIES.md`](DEPENDENCIES.md).
+
+### Quick Setup
+
+**Prerequisites:**
+- Python 3.8+ 
+- Node.js 16+
+- npm or yarn
+
+**Python Dependencies:**
+```bash
+# Core runtime dependencies
+pip install -r requirements.txt
+
+# Development and testing dependencies  
+pip install -r requirements-dev.txt
+```
+
+**Node.js Dependencies:**
+```bash
+# Main project dependencies
+npm install
+
+# VSCode extension
+cd vscode && npm install
+
+# Webview UI
+cd vscode/webview-ui && npm install
+```
+
+**Building:**
+```bash
+# Compile VSCode extension
+cd vscode && npm run compile
+
+# Build webview UI
+cd vscode && npm run build-webview
+```
+
+**Validation:**
+```bash
+# Validate all dependencies are working
+python validate_dependencies.py
+
+# Quick dependency check
+npm audit
+pip check
+```
+
 ## Core Features
 
 **Python Backend (`agent_s3`):**
