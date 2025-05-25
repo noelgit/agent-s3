@@ -57,6 +57,8 @@ The following criteria should be applied to both code generation and code analys
 - Use meaningful commit messages with conventional commits format
 - Apply continuous integration best practices
 - Prioritize immutability when appropriate
+- Ensure all updates pass lint, type, and syntax checks
+- Never create duplicate code or content when updating files
 
 ### Accessibility
 - WCAG 2.1 Level AA compliance
