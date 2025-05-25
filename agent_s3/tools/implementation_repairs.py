@@ -300,7 +300,10 @@ def repair_architecture_issue_coverage(
             for element_id in target_elements:
                 if element_id in element_map:
                     for file_path, function_idx in element_map[element_id]:
-                        function = repaired_plan[file_path][function_idx]
+                        functions = repaired_plan.get(file_path)
+                        if not isinstance(functions, list) or not (0 <= function_idx < len(functions)):
+                            continue
+                        function = functions[function_idx]
                         function.setdefault("architecture_issues_addressed", [])
                         if arch_issue_id not in function["architecture_issues_addressed"]:
                             function["architecture_issues_addressed"].append(arch_issue_id)
