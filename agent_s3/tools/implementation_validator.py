@@ -321,10 +321,13 @@ def repair_implementation_plan(
 
     # Fix missing canonical paths
     if "missing_canonical_path" in issues_by_type or "missing_canonical_paths_section" in issues_by_type:
-        missing_path_issues = issues_by_type.get("missing_canonical_path", []) +
-             issues_by_type.get("missing_canonical_paths_section", [])        repaired_plan = repair_missing_canonical_paths(
+        missing_path_issues = (
+            issues_by_type.get("missing_canonical_path", [])
+            + issues_by_type.get("missing_canonical_paths_section", [])
+        )
+        repaired_plan = repair_missing_canonical_paths(
             repaired_plan,
-            missing_path_issues
+            missing_path_issues,
         )
 
     # Fix inconsistent patterns
@@ -398,12 +401,11 @@ def _extract_architecture_issues(architecture_review: Dict[str, Any]) -> List[Di
     return issues
 
 
-def _extract_test_requirements(test_implementations: Dict[str, Any]) -> Dict[str, List[Dict[str,
-     Any]]]:    """Extract test requirements from test implementations."""
+def _extract_test_requirements(
+    test_implementations: Dict[str, Any]
+) -> Dict[str, List[Dict[str, Any]]]:
+    """Extract test requirements from test implementations."""
     requirements = defaultdict(list)
-
-    if not isinstance(test_implementations, dict) or "tests" not in test_implementations:
-        return requirements
 
     for category in ["unit_tests", "integration_tests", "property_based_tests", "acceptance_tests"]:
         for test in test_implementations.get("tests", {}).get(category, []):
