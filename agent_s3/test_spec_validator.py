@@ -444,7 +444,7 @@ def generate_missing_tests_with_llm(
             data = json.loads(json_str)
             return data.get("refined_test_requirements", data)
     except Exception as e:  # pragma: no cover - best effort
-        logger.error("%s", "LLM repair failed: %s", e)
+        logger.error("LLM repair failed: %s", e)
 
     return {}
 
@@ -618,9 +618,16 @@ def repair_invalid_element_ids(
             # Set replacement if found and score is reasonable
             if best_match and highest_score > 0.3:
                 invalid_id_replacements[invalid_id] = best_match
-                logger.info("%s", Will replace invalid element ID '{invalid_id}' with '{best_match}')
+                logger.info(
+                    "Will replace invalid element ID '%s' with '%s'",
+                    invalid_id,
+                    best_match,
+                )
             else:
-                logger.warning("%s", Could not find suitable replacement for invalid element ID '{invalid_id}')
+                logger.warning(
+                    "Could not find suitable replacement for invalid element ID '%s'",
+                    invalid_id,
+                )
 
     # Create a deep copy of test_specs
     repaired_specs = json.loads(json.dumps(test_specs))
@@ -630,7 +637,11 @@ def repair_invalid_element_ids(
         if isinstance(obj, dict) and key in obj and obj[key] in invalid_id_replacements:
             old_id = obj[key]
             obj[key] = invalid_id_replacements[old_id]
-            logger.info("%s", Replaced element ID '{old_id}' with '{obj[key]}')
+            logger.info(
+                "Replaced element ID '%s' with '%s'",
+                old_id,
+                obj[key],
+            )
 
     def replace_element_ids(obj, key):
         if isinstance(obj, dict) and key in obj and isinstance(obj[key], list):
@@ -638,7 +649,11 @@ def repair_invalid_element_ids(
                 if element_id in invalid_id_replacements:
                     old_id = obj[key][i]
                     obj[key][i] = invalid_id_replacements[old_id]
-                    logger.info("%s", Replaced element ID '{old_id}' with '{obj[key][i]}')
+                    logger.info(
+                        "Replaced element ID '%s' with '%s'",
+                        old_id,
+                        obj[key][i],
+                    )
 
     # Process each test type
     for test_type, id_key in [
@@ -735,11 +750,21 @@ def assign_priorities_to_address_critical_issues(
         if desc in priority_updates:
             old_priority = test.get("priority", "Medium")
             test["priority"] = priority_updates[desc]
-            logger.info("%s", Updated test '{desc}' priority from '{old_priority}' to '{test['priority']}')
+            logger.info(
+                "Updated test '%s' priority from '%s' to '%s'",
+                desc,
+                old_priority,
+                test["priority"],
+            )
         elif test_id in test_id_updates:
             old_priority = test.get("priority", "Medium")
             test["priority"] = test_id_updates[test_id]
-            logger.info("%s", Updated test ID '{test_id}' priority from '{old_priority}' to '{test['priority']}')
+            logger.info(
+                "Updated test ID '%s' priority from '%s' to '%s'",
+                test_id,
+                old_priority,
+                test["priority"],
+            )
 
         # Also check if test addresses a critical issue but has no priority set
         addressed_issue = test.get("architecture_issue_addressed")
@@ -753,7 +778,11 @@ def assign_priorities_to_address_critical_issues(
 
             if issue_severity:
                 test["priority"] = severity_priority_map.get(issue_severity, "Medium")
-                logger.info("%s", Assigned priority '{test['priority']}' to test '{desc}' based on addressed issue severity)
+                logger.info(
+                    "Assigned priority '%s' to test '%s' based on addressed issue severity",
+                    test["priority"],
+                    desc,
+                )
 
     # Update all test types
     for test_type in ["unit_tests", "integration_tests", "property_based_tests", "acceptance_tests"]:
