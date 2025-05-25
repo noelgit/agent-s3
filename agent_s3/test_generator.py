@@ -419,13 +419,13 @@ Each test must include complete runnable code - not stubs or pseudocode.
             return validated_data
 
         except json.JSONDecodeError as e:
-            logger.error("%s", Failed to parse JSON response: {e})
+            logger.error("Failed to parse JSON response: %s", e)
             raise TestGenerationError(f"Invalid JSON response: {e}")
         except ValueError as e:
-            logger.error("%s", Invalid response structure: {e})
+            logger.error("Invalid response structure: %s", e)
             raise TestGenerationError(f"Invalid response structure: {e}")
 
     except Exception as e:
-        logger.error("%s", Error generating test implementations: {e})
+        logger.error("Error generating test implementations: %s", e)
         logger.error(traceback.format_exc())
         raise TestGenerationError(f"Error generating test implementations: {e}")
