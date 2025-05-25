@@ -90,11 +90,11 @@ class PhpPestAdapter(Adapter):
                     with open(test_file, "r", encoding="utf-8") as f:
                         content = f.read()
                         if "test(" in content or "it(" in content:
-                            logger.info("%s", Found Pest-style tests in {test_file})
+                            logger.info("Found Pest-style tests in %s", test_file)
                             self.is_pest = True
                             return True
                         elif "extends TestCase" in content or "PHPUnit" in content:
-                            logger.info("%s", Found PHPUnit-style tests in {test_file})
+                            logger.info("Found PHPUnit-style tests in %s", test_file)
                             self.is_phpunit = True
                             return True
                 except Exception:
@@ -102,7 +102,7 @@ class PhpPestAdapter(Adapter):
                     pass
 
             # If we found test files but couldn't determine the type, assume PHPUnit
-            logger.info("%s", Found {len(test_files)} PHP test files, assuming PHPUnit)
+            logger.info("Found %d PHP test files, assuming PHPUnit", len(test_files))
             self.is_phpunit = True
             return True
 
@@ -147,7 +147,7 @@ class PhpPestAdapter(Adapter):
             return []
 
         except Exception as e:
-            logger.error("%s", Error collecting PHP tests: {str(e)})
+            logger.error("Error collecting PHP tests: %s", str(e))
             return [f"Error collecting PHP tests: {str(e)}"]
 
         finally:
@@ -182,7 +182,7 @@ class PhpPestAdapter(Adapter):
             return result.returncode == 0
 
         except Exception as e:
-            logger.error("%s", Error running PHP smoke tests: {str(e)})
+            logger.error("Error running PHP smoke tests: %s", str(e))
             return False
 
         finally:
@@ -238,7 +238,7 @@ class PhpPestAdapter(Adapter):
                             if elements > 0:
                                 return 100.0 * covered / elements
                 except Exception as e:
-                    logger.error("%s", Error parsing coverage XML: {str(e)})
+                    logger.error("Error parsing coverage XML: %s", str(e))
 
             # Try to extract from console output
             for line in result.stdout.splitlines():
@@ -250,7 +250,7 @@ class PhpPestAdapter(Adapter):
             return None
 
         except Exception as e:
-            logger.error("%s", Error running PHP coverage analysis: {str(e)})
+            logger.error("Error running PHP coverage analysis: %s", str(e))
             return None
 
         finally:
@@ -317,7 +317,7 @@ class PhpPestAdapter(Adapter):
             return None
 
         except Exception as e:
-            logger.error("%s", Error running PHP mutation testing: {str(e)})
+            logger.error("Error running PHP mutation testing: %s", str(e))
             return None
 
         finally:

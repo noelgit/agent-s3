@@ -63,7 +63,7 @@ class PythonPytestAdapter(Adapter):
         # Check for test files with pytest naming pattern
         test_files = list(workspace.glob("**/test_*.py")) + list(workspace.glob("**/tests/**/*.py"))
         if test_files:
-            logger.info("%s", Found {len(test_files)} pytest-style test files)
+            logger.info("Found %d pytest-style test files", len(test_files))
             return True
 
         # Check for Python files with pytest imports
@@ -72,7 +72,7 @@ class PythonPytestAdapter(Adapter):
                 with open(py_file, "r", encoding="utf-8") as f:
                     content = f.read()
                     if "import pytest" in content or "from pytest" in content:
-                        logger.info("%s", Found pytest import in {py_file})
+                        logger.info("Found pytest import in %s", py_file)
                         return True
             except Exception:
                 # Skip files with encoding issues
@@ -116,7 +116,7 @@ class PythonPytestAdapter(Adapter):
             return []
 
         except Exception as e:
-            logger.error("%s", Error running pytest collect-only: {str(e)})
+            logger.error("Error running pytest collect-only: %s", str(e))
             return [f"Error running pytest collect-only: {str(e)}"]
 
         finally:
@@ -148,7 +148,7 @@ class PythonPytestAdapter(Adapter):
             return result.returncode in {0, 5}
 
         except Exception as e:
-            logger.error("%s", Error running pytest smoke tests: {str(e)})
+            logger.error("Error running pytest smoke tests: %s", str(e))
             return False
 
         finally:
@@ -204,7 +204,7 @@ class PythonPytestAdapter(Adapter):
             return 0.0
 
         except Exception as e:
-            logger.error("%s", Error running coverage analysis: {str(e)})
+            logger.error("Error running coverage analysis: %s", str(e))
             return None
 
         finally:
@@ -301,7 +301,7 @@ class PythonPytestAdapter(Adapter):
             return None
 
         except Exception as e:
-            logger.error("%s", Error running mutation testing: {str(e)})
+            logger.error("Error running mutation testing: %s", str(e))
             return None
 
         finally:

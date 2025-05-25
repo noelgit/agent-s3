@@ -41,7 +41,7 @@ class Reporter:
 
             logger.info("Test critic reports written successfully")
         except Exception as e:
-            logger.error("%s", Error writing test critic reports: {str(e)})
+            logger.error("Error writing test critic reports: %s", str(e))
 
     def _write_json(self, results: Dict[str, Any]) -> None:
         """
@@ -65,7 +65,7 @@ class Reporter:
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(output_data, f, indent=2)
 
-        logger.info("%s", Test critic JSON report written to {output_path})
+        logger.info("Test critic JSON report written to %s", output_path)
 
     def _write_junit_xml(self, results: Dict[str, Any]) -> None:
         """
@@ -140,4 +140,4 @@ class Reporter:
         tree = ET.ElementTree(testsuite)
         tree.write(output_path, encoding='utf-8', xml_declaration=True)
 
-        logger.info("%s", Test critic JUnit XML report written to {output_path})
+        logger.info("Test critic JUnit XML report written to %s", output_path)
