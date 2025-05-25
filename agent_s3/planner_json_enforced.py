@@ -1484,7 +1484,9 @@ def _parse_and_validate_json(response_text: str, schema: Optional[Dict[str, Any]
     try:
         data = json.loads(json_text)
     except json.JSONDecodeError as e:
-        raise JSONPlannerError(f"Invalid JSON received from LLM: {e}\nResponse Text: {response_text[:500]}...")
+        raise JSONPlannerError(
+            f"Invalid JSON received from LLM: {e}\nResponse Text: {response_text}"
+        )
 
     required_top_level_keys = {"architecture_review", "tests", "implementation_plan", "discussion"}
     missing_keys = required_top_level_keys - data.keys()

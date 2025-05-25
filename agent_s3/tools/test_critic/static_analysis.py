@@ -967,11 +967,15 @@ class CriticStaticAnalyzer:
                 analysis = json.loads(json_str)
                 return analysis
             except json.JSONDecodeError as e:
-                logger.error("%s", Could not parse LLM response as JSON for test analysis. Error: {e}. Response: {response[:500]})
+                logger.exception(
+                    "Could not parse LLM response as JSON for test analysis. Error: %s. Response: %s",
+                    e,
+                    response,
+                )
                 return {"error": "Could not parse LLM response as JSON", "raw_response": response}
 
         except Exception as e:
-            logger.error(f"Error during LLM test analysis: {str(e)}", exc_info=True)
+            logger.exception("Error during LLM test analysis")
             return {"error": f"Error during LLM analysis: {str(e)}"}
 
 

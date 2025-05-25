@@ -295,8 +295,8 @@ class VSCodeIntegration:
             logger.info(
                 f"Connection info written to {self.connect_file_path}"
             )
-        except Exception as e:
-            logger.error("Failed to write connection info: %s", e)
+        except Exception:
+            logger.exception("Failed to write connection info")
 
     def stop_server(self) -> None:
         """Stop the WebSocket server."""
@@ -323,8 +323,8 @@ class VSCodeIntegration:
             if os.path.exists(self.connect_file_path):
                 os.remove(self.connect_file_path)
                 logger.info("Connection file removed")
-        except Exception as e:
-            logger.error("Failed to remove connection file: %s", e)
+        except Exception:
+            logger.exception("Failed to remove connection file")
 
     def send_to_chat_ui(self, message: Dict[str, Any]) -> bool:
         """
@@ -343,8 +343,8 @@ class VSCodeIntegration:
         try:
             self.message_queue.put(message)
             return True
-        except Exception as e:
-            logger.error("Failed to queue message: %s", e)
+        except Exception:
+            logger.exception("Failed to queue message")
             return False
 
     def get_user_response(
@@ -388,8 +388,8 @@ class VSCodeIntegration:
                 "Timeout waiting for user response after %s seconds", timeout
             )
             return None
-        except Exception as e:
-            logger.error("Error getting user response: %s", e)
+        except Exception:
+            logger.exception("Error getting user response")
             return None
 
     def display_plan(self, plan: str, summary: str) -> None:

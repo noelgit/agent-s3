@@ -100,8 +100,8 @@ def _load_llm_config():
         raise
     except json.JSONDecodeError as e:
         raise ValueError(f"Error decoding llm.json: {e}")
-    except Exception as e:
-        logger.error(f"Failed to load LLM configuration: {e}", exc_info=True)
+    except Exception:
+        logger.exception("Failed to load LLM configuration")
         raise
 
 class RouterAgent:
@@ -770,13 +770,13 @@ class RouterAgent:
             duration = time.time() - start
             self.metrics.record(role, model_name, duration, False, 0)
             response_text = e.response.text if e.response else "No response body"
-            error_msg = f"API call to {model_name} failed: {e}. Response: {response_text[:500]}"
+            error_msg = f"API call to {model_name} failed: {e}. Response: {response_text}"
             scratchpad.log("RouterAgent", error_msg, level="error")
             raise ConnectionError(error_msg)
         except (json.JSONDecodeError, KeyError, IndexError, AttributeError, ValueError) as e:
             duration = time.time() - start
             self.metrics.record(role, model_name, duration, False, 0)
-            error_msg = f"Failed to process response from {model_name}: {e}. Response data: {response.text[:500]}"
+            error_msg = f"Failed to process response from {model_name}: {e}. Response data: {response.text}"
             scratchpad.log("RouterAgent", error_msg, level="error")
             raise ValueError(error_msg)
         except Exception as e:

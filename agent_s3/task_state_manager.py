@@ -458,8 +458,8 @@ class TaskStateManager:
 
             logger.info("%s", Saved task snapshot: {snapshot_file})
             return True
-        except Exception as e:
-            logger.error("%s", Error saving task snapshot: {e})
+        except Exception:
+            logger.exception("Error saving task snapshot")
             return False
 
     def load_task_snapshot(self, task_id: str, phase: str) -> Optional[TaskState]:
@@ -494,10 +494,10 @@ class TaskStateManager:
             logger.info("%s", Loaded task snapshot: {snapshot_file})
             return state
         except json.JSONDecodeError:
-            logger.error("%s", Invalid JSON in task snapshot: {snapshot_file})
+            logger.exception("Invalid JSON in task snapshot: %s", snapshot_file)
             return None
-        except Exception as e:
-            logger.error("%s", Error loading task snapshot: {e})
+        except Exception:
+            logger.exception("Error loading task snapshot")
             return None
 
     def get_active_tasks(self) -> List[Dict[str, Any]]:
@@ -544,15 +544,15 @@ class TaskStateManager:
                             os.path.getmtime(os.path.join(task_dir, latest_file))).isoformat(),
                         "request_text": state_dict.get("request_text", "Unknown task")
                     })
-                except Exception as e:
-                    logger.warning("%s", Error reading task snapshot: {e})
+                except Exception:
+                    logger.exception("Error reading task snapshot")
 
             # Sort by last updated time, newest first
             active_tasks.sort(key=lambda t: t.get("last_updated", ""), reverse=True)
 
             return active_tasks
-        except Exception as e:
-            logger.error("%s", Error getting active tasks: {e})
+        except Exception:
+            logger.exception("Error getting active tasks")
             return []
 
     def delete_task(self, task_id: str) -> bool:
@@ -580,8 +580,8 @@ class TaskStateManager:
 
             logger.info("%s", Deleted task: {task_id})
             return True
-        except Exception as e:
-            logger.error("%s", Error deleting task: {e})
+        except Exception:
+            logger.exception("Error deleting task")
             return False
 
     def clear_state(self, task_id: str) -> bool:
@@ -627,8 +627,8 @@ class TaskStateManager:
                     # Delete old tasks
                     logger.info("%s", Cleaning up old task: {task_id} (age: {age/86400:.1f} days))
                     self.delete_task(task_id)
-        except Exception as e:
-            logger.error("%s", Error cleaning up old snapshots: {e})
+        except Exception:
+            logger.exception("Error cleaning up old snapshots")
 
     def recover_from_corrupted_snapshot(self, task_id: str, phase: str) -> Optional[TaskState]:
         """Attempt to recover from a corrupted snapshot.
@@ -711,8 +711,8 @@ class TaskStateManager:
                         logger.info("%s", Found previous phase snapshot: {prev_phase})
                         return prev_state
 
-            logger.error("%s", Failed to recover task snapshot: {snapshot_file})
+            logger.exception("Failed to recover task snapshot: %s", snapshot_file)
             return None
-        except Exception as e:
-            logger.error("%s", Error recovering task snapshot: {e})
+        except Exception:
+            logger.exception("Error recovering task snapshot")
             return None
