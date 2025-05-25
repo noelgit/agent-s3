@@ -56,9 +56,9 @@ from agent_s3.debugging_manager import DebuggingManager
 from agent_s3.code_generator import CodeGenerator
 from .registry import CoordinatorRegistry
 
-# Configure logging
+# Configure module logger. The logging system should be configured by the
+# application entry point (e.g. the CLI) before importing this module.
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
         
 class Coordinator:
     """Coordinates the workflow phases for Agent-S3."""
