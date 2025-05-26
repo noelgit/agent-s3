@@ -9,6 +9,7 @@ import os
 import logging
 import json
 import re
+from .json_utils import parse_json_from_llm_response
 from .pattern_constants import DEV_MODE_PATTERN, START_DEPLOYMENT_PATTERN
 import secrets
 import string
@@ -515,8 +516,8 @@ class DeploymentManager:
         if re.fullmatch(r"[A-Za-z0-9_./@:+-]+", value) and " " not in value:
             return value
 
-        # Escape backslashes and quotes, then wrap in double quotes
-        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+        # Escape backslashes, then wrap in double quotes
+        escaped = value.replace("\\", "\\\\")
         return f'"{escaped}"'
 
     def _setup_database(self, db_config: DatabaseConfig) -> Dict[str, Any]:
@@ -1286,7 +1287,25 @@ if __name__ == '__main__':
         5. Dependency requirements
         6. Port and host configuration
 
-        When the user is ready to deploy, you will provide a comprehensive deployment plan with explicit instructions.
+        When the user is ready to deploy, respond **only** with a JSON object using these keys:
+        {
+            "app_name": string,
+            "app_type": string,
+            "host": string,
+            "port": integer,
+            "debug": boolean,
+            "database": {
+                "type": string,
+                "host": string,
+                "port": integer,
+                "username": string,
+                "password": string,
+                "database": string
+            },
+            "environment_variables": {"VAR": "value"},
+            "launch_command": string
+        }
+        The JSON should contain all collected information and nothing else.
         """
 
     def _check_deployment_readiness(self, conversation: List[Dict[str, str]]) -> bool:
@@ -1338,35 +1357,34 @@ if __name__ == '__main__':
         if not conversation:
             return "Error: No active deployment conversation. Please start a new one."
 
-        # Add system prompt to request deployment preparation
+        # Add system prompt to request deployment preparation in JSON form
         system_prompt = """
-        Based on the conversation so far, prepare a concise deployment configuration.
-
-        Your response should be structured as follows:
-
-        1. DEPLOYMENT SUMMARY: A brief summary of what will be deployed
-
-        2. CONFIGURATION:
-           - Application Type: (e.g., Flask, Django, Express, etc.)
-           - Host: (e.g., localhost, 127.0.0.1)
-           - Port: (e.g., 8000)
-           - Environment Mode: (development/production)
-           - Database: (type and configuration if applicable)
-
-        3. ENVIRONMENT VARIABLES:
-           List all environment variables that will be set
-
-        4. DEPLOYMENT STEPS:
-           Numbered list of steps to complete the deployment
-
-        5. LAUNCH COMMAND:
-           The exact command to start the application
-
-        Be specific and concrete, using only the information gathered from the conversation.
-        Format this as a structured report, ready for implementation.
+        Based on the conversation so far, output the final deployment configuration
+        **only** as a JSON object with these keys:
+        {
+            "app_name": string,
+            "app_type": string,
+            "host": string,
+            "port": integer,
+            "debug": boolean,
+            "database": {
+                "type": string,
+                "host": string,
+                "port": integer,
+                "username": string,
+                "password": string,
+                "database": string
+            },
+            "environment_variables": {"VAR": "value"},
+            "launch_command": string
+        }
+        The JSON must contain all deployment details gathered during the conversation.
         """
 
-        preparation_prompt = "Based on our conversation, please prepare a deployment configuration that I can implement. Include all the details we've discussed and any recommendations for a smooth deployment."
+        preparation_prompt = (
+            "Provide the final deployment configuration in JSON using the keys"
+            " specified in the system prompt."
+        )
 
         # Create conversation for deployment preparation
         preparation_conversation = conversation + [
@@ -1383,120 +1401,49 @@ if __name__ == '__main__':
         return response
 
     def _extract_deployment_config(self, response: str) -> Optional[DeploymentConfig]:
-        """Extract deployment configuration from LLM response.
-
-        Args:
-            response: LLM response with deployment configuration
-
-        Returns:
-            Extracted DeploymentConfig object or None if extraction fails
-        """
+        """Extract deployment configuration from an LLM JSON response."""
         try:
-            # Use regex to extract key configuration details
-            app_type_match = re.search(
-                r"Application Type:?\s*([a-zA-Z0-9_+\- ]+)",
-                response,
-                re.IGNORECASE,
-            )
-            app_type = (
-                app_type_match.group(1).strip().lower() if app_type_match else "python"
-            )
+            success, data, error = parse_json_from_llm_response(response)
+            if not success:
+                if self.scratchpad:
+                    self.scratchpad.log(
+                        "DeploymentManager",
+                        f"Failed to parse deployment JSON: {error}",
+                        level="error",
+                    )
+                return None
 
-            host_match = re.search(r"Host:?\s*([a-zA-Z0-9_.\-]+)", response, re.IGNORECASE)
-            host = host_match.group(1).strip() if host_match else "localhost"
+            app_type = str(data.get("app_type", "python")).lower()
+            host = str(data.get("host", "localhost"))
+            try:
+                port = int(data.get("port", 8000))
+            except (TypeError, ValueError):
+                port = 8000
+            app_name = data.get("app_name") or f"{app_type.title()} Application"
 
-            port_match = re.search(r"Port:?\s*(\d+)", response, re.IGNORECASE)
-            port = int(port_match.group(1)) if port_match else 8000
-
-            # Try to extract app name from the summary
-
-            app_name_match = re.search(
-                r"DEPLOYMENT SUMMARY.*?([a-zA-Z0-9_\- ]+)(?:application|app|service)",
-                response,
-                re.IGNORECASE | re.DOTALL,
-            )
-            app_name = (
-                app_name_match.group(1).strip()
-                if app_name_match
-                else f"{app_type.title()} Application"
-            )
-
-            # Extract debug/environment mode
-            debug_match = re.search(
-                r"(?:Environment Mode|Mode):?\s*([a-zA-Z0-9_\- ]+)",
-                response,
-                re.IGNORECASE,
-            )
+            debug_val = data.get("debug") or data.get("debug_mode") or data.get("environment_mode")
             debug_mode = bool(
-                debug_match and DEV_MODE_PATTERN.search(debug_match.group(1))
+                isinstance(debug_val, str) and DEV_MODE_PATTERN.search(str(debug_val))
+                or bool(debug_val)
             )
-            # Extract database configuration if present
-            db_type = None
+
             db_config = None
+            db_data = data.get("database")
+            if isinstance(db_data, dict):
+                db_config = DatabaseConfig(
+                    db_type=str(db_data.get("type", "sqlite")),
+                    host=str(db_data.get("host", "localhost")),
+                    port=db_data.get("port"),
+                    username=str(db_data.get("username", "")),
+                    password=str(db_data.get("password", "")),
+                    database=str(db_data.get("database", "")),
+                )
 
+            env_vars: Dict[str, str] = {}
+            env_data = data.get("environment_variables") or data.get("env_vars")
+            if isinstance(env_data, dict):
+                env_vars = {str(k): str(v) for k, v in env_data.items()}
 
-            db_section = re.search(
-                r"Database:?\s*([^\n]+(?:\n\s+[^\n]+)*)",
-                response,
-                re.IGNORECASE,
-            )
-            if db_section:
-                db_text = db_section.group(1).lower()
-                if "sqlite" in db_text:
-                    db_type = "sqlite"
-                    db_path_match = re.search(r"(?:path|file):?\s*([a-zA-Z0-9_.\-/\\]+)", db_text)
-                    db_path = db_path_match.group(1).strip() if db_path_match else "database.sqlite"
-                    db_config = DatabaseConfig(db_type=db_type, database=db_path)
-
-                elif "postgres" in db_text:
-                    db_type = "postgresql"
-                    host_match = re.search(r"host:?\s*([a-zA-Z0-9_.\-]+)", db_text)
-                    port_match = re.search(r"port:?\s*(\d+)", db_text)
-                    user_match = re.search(r"(?:user|username):?\s*([a-zA-Z0-9_\-]+)", db_text)
-                    pass_match = re.search(r"(?:pass|password):?\s*([a-zA-Z0-9_\-]+)", db_text)
-                    db_match = re.search(r"(?:db|database|name):?\s*([a-zA-Z0-9_\-]+)", db_text)
-
-                    db_config = DatabaseConfig(
-                        db_type=db_type,
-                        host=host_match.group(1).strip() if host_match else "localhost",
-                        port=int(port_match.group(1)) if port_match else 5432,
-                        username=user_match.group(1).strip() if user_match else "postgres",
-                        password=pass_match.group(1).strip() if pass_match else "",
-                        database=db_match.group(1).strip() if db_match else "postgres"
-                    )
-
-                elif "mysql" in db_text:
-                    db_type = "mysql"
-                    host_match = re.search(r"host:?\s*([a-zA-Z0-9_.\-]+)", db_text)
-                    port_match = re.search(r"port:?\s*(\d+)", db_text)
-                    user_match = re.search(r"(?:user|username):?\s*([a-zA-Z0-9_\-]+)", db_text)
-                    pass_match = re.search(r"(?:pass|password):?\s*([a-zA-Z0-9_\-]+)", db_text)
-                    db_match = re.search(r"(?:db|database|name):?\s*([a-zA-Z0-9_\-]+)", db_text)
-
-                    db_config = DatabaseConfig(
-                        db_type=db_type,
-                        host=host_match.group(1).strip() if host_match else "localhost",
-                        port=int(port_match.group(1)) if port_match else 3306,
-                        username=user_match.group(1).strip() if user_match else "root",
-                        password=pass_match.group(1).strip() if pass_match else "",
-                        database=db_match.group(1).strip() if db_match else "mysql"
-                    )
-
-            # Extract environment variables
-
-            env_vars = {}
-            env_section = re.search(
-                r"ENVIRONMENT VARIABLES:?\s*([^\n]+(?:\n\s+[^\n]+)*)",
-                response,
-                re.IGNORECASE,
-            )
-            if env_section:
-                env_text = env_section.group(1)
-                env_matches = re.findall(r"([A-Z_0-9]+):?\s*([^\n]+)", env_text)
-                for key, value in env_matches:
-                    env_vars[key.strip()] = value.strip()
-
-            # Create DeploymentConfig object
             return DeploymentConfig(
                 app_name=app_name,
                 app_type=app_type,
@@ -1505,11 +1452,15 @@ if __name__ == '__main__':
                 debug_mode=debug_mode,
                 database_config=db_config,
                 extra_env_vars=env_vars,
-                static_dir="static",  # Default static dir
-                log_level="info" if not debug_mode else "debug"
+                static_dir="static",
+                log_level="info" if not debug_mode else "debug",
             )
 
         except Exception as e:
             if self.scratchpad:
-                self.scratchpad.log("DeploymentManager", f"Failed to extract deployment config: {e}", level="error")
+                self.scratchpad.log(
+                    "DeploymentManager",
+                    f"Failed to extract deployment config: {e}",
+                    level="error",
+                )
             return None
