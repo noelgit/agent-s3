@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from .base import CompressionStrategy
-from .utils import logger
 
 
 class SemanticSummarizer(CompressionStrategy):

@@ -5,7 +5,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Dict
 
-from .utils import logger
 
 
 class CompressionStrategy(ABC):

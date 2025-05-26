@@ -5,7 +5,7 @@ from collections import defaultdict
 import json
 from typing import Any, Dict, List, Set
 
-from .constants import ErrorMessages, logger
+from .constants import ErrorMessages
 from ...config import get_config
 
 

@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from .base import CompressionStrategy
-from .utils import logger
 
 class KeyInfoExtractor(CompressionStrategy):
     """

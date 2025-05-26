@@ -9,7 +9,7 @@ aligned with the system design, and address issues raised in architecture review
 import json
 import logging
 import re
-from typing import Dict, Any, List, Set, Tuple
+from typing import Dict, Any, List, Set
 
 from .validation_result import ValidationResult
 from collections import defaultdict
@@ -36,23 +36,9 @@ from .implementation_repairs import (
     repair_structure,
 )
 from .implementation_validation import (
-    check_function_naming_consistency,
-    check_implementation_complexity,
-    check_dependency_management,
-    find_circular_dependencies,
-    check_error_handling_patterns,
-    check_solid_principles,
-    validate_implementation_security,
-    validate_implementation_test_alignment,
     extract_assertions,
     extract_edge_cases,
     extract_expected_behaviors,
-    extract_element_ids_from_system_design,
-    extract_architecture_issues,
-    extract_test_requirements,
-    validate_single_function,
-    validate_architecture_issue_coverage,
-    element_needs_implementation,
 )
 
 logger = logging.getLogger(__name__)

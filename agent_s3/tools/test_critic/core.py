@@ -7,10 +7,8 @@ analysis capabilities from the original TestCritic class.
 """
 
 import logging
-import re
-import json
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Set
+from typing import Dict, Any, List, Optional
 from enum import StrEnum
 
 from .adapters.base import Adapter

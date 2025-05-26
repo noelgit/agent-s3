@@ -5,7 +5,7 @@ import json
 import re
 from typing import Any, Dict, List, Set
 
-from .constants import ErrorMessages, logger
+from .constants import ErrorMessages
 
 
 def validate_code_elements(system_design: Dict[str, Any]) -> List[Dict[str, Any]]:
