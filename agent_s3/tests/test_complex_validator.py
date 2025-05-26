@@ -69,5 +69,41 @@ class TestComplexValidation(unittest.TestCase):
         self.assertFalse(is_valid)
         self.assertTrue(any("Duplicate feature name" in error for error in errors))
 
+    def test_validate_all_with_structure_issues(self):
+        """validate_all should gather errors from all categories."""
+        data = {
+            "feature_groups": [
+                {
+                    "group_name": "Group X",
+                    # Missing group_description -> structure error
+                    "features": [
+                        {
+                            "name": "SecFeature",
+                            "description": "Handle passwords",
+                            "complexity": 3,
+                            # Missing risk_assessment -> security error
+                        }
+                    ],
+                },
+                {
+                    "group_name": "Group Y",
+                    "group_description": "desc",
+                    "features": [
+                        {
+                            "name": "SecFeature",  # duplicate name -> semantic error
+                            "description": "Another",
+                            "complexity": 2,
+                        }
+                    ],
+                },
+            ]
+        }
+
+        is_valid, result = self.validator.validate_all(data)
+        self.assertFalse(is_valid)
+        self.assertGreater(len(result["errors"]["structure"]), 0)
+        self.assertGreater(len(result["errors"]["semantic"]), 0)
+        self.assertGreater(len(result["errors"]["security"]), 0)
+
 if __name__ == "__main__":
     unittest.main()
