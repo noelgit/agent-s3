@@ -7,6 +7,7 @@ It validates structure, semantic coherence, and security aspects of pre-planning
 
 from typing import Any, Dict, List, Tuple
 import logging
+from .pre_planner_json_validator import PrePlannerJsonValidator
 from .pattern_constants import (
     SECURITY_CONCERN_PATTERN,
     SECURITY_KEYWORD_PATTERNS,
@@ -240,7 +241,12 @@ class PrePlanningValidator:
         return len(errors) == 0, errors
 
     def validate_all(self, data: Dict[str, Any]) -> Tuple[bool, Dict[str, Any]]:
-        """Perform all validation checks and return comprehensive results."""
+        """Run full validation including cross-reference and content checks.
+
+        In addition to structure, semantic, and security validation, this
+        method cross-references plan elements and validates the content of
+        implementation details using :class:`PrePlannerJsonValidator`.
+        """
         result = {
             "valid": True,
             "errors": {
@@ -278,7 +284,23 @@ class PrePlanningValidator:
         security_valid, security_errors = self.validate_security(data)
         result["errors"]["security"] = security_errors
 
+        # Cross-reference and content validation via PrePlannerJsonValidator
+        validator = PrePlannerJsonValidator()
+        xref_valid, xref_errors, _ = validator.implement_cross_reference_validation(
+            data
+        )
+        content_valid, content_errors, _ = validator.implement_content_validation(
+            data
+        )
+        result["errors"]["other"].extend(xref_errors + content_errors)
+
         # Update overall validity
-        result["valid"] = structure_valid and semantic_valid and security_valid
+        result["valid"] = (
+            structure_valid
+            and semantic_valid
+            and security_valid
+            and xref_valid
+            and content_valid
+        )
 
         return result["valid"], result
