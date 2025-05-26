@@ -216,5 +216,20 @@ class TestCodeGenerator(unittest.TestCase):
         self.assertEqual(result, "")
         self.code_generator.validator.validate_generated_code.assert_not_called()
 
+    def test_generate_code_none_result(self):
+        """generate_code should map file paths to None when generation fails."""
+        plan = {
+            "implementation_plan": {"file1.py": [{"function": "func1"}]},
+            "tests": {},
+            "group_name": "Test Group",
+        }
+
+        self.code_generator.context_manager.prepare_file_context = MagicMock(return_value={})
+        self.code_generator.generate_file = MagicMock(return_value=None)
+
+        result = self.code_generator.generate_code(plan)
+
+        self.assertEqual(result, {"file1.py": None})
+
 if __name__ == '__main__':
     unittest.main()
