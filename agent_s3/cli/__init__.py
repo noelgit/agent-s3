@@ -4,6 +4,8 @@ import os
 import sys
 import argparse
 import logging
+from fnmatch import fnmatch
+from typing import Dict
 
 from agent_s3.config import Config
 from agent_s3.coordinator import Coordinator
@@ -109,6 +111,40 @@ def process_command(coordinator: Coordinator, command: str) -> None:
     except Exception as e:  # pragma: no cover - defensive
         print(f"Error processing command '{command}': {e}")
         logger.error(f"Command processing error: {e}", exc_info=True)
+
+
+def gather_code_context(limit: int = 200) -> Dict[str, str]:
+    """Return sanitized snippets of project code for LLM context."""
+
+    import glob
+    import itertools
+
+    sensitive_path_patterns = [
+        "*secret*",
+        "*credential*",
+        "*.env*",
+        "*token*",
+        "*password*",
+    ]
+    sensitive_keywords = {"secret", "password", "token", "key"}
+
+    context: Dict[str, str] = {}
+    for path in itertools.islice(glob.glob("**/*.py", recursive=True), limit):
+        lower_path = path.lower()
+        if any(fnmatch(lower_path, pat) for pat in sensitive_path_patterns):
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                content = f.read(5000)
+        except OSError:
+            continue
+        lines = [
+            ln
+            for ln in content.splitlines()
+            if not any(word in ln.lower() for word in sensitive_keywords)
+        ]
+        context[path] = "\n".join(lines)
+    return context
 
 
 def main() -> None:
@@ -242,20 +278,12 @@ User input: ''' + repr(prompt)
             else:
                 print("Command aborted.")
         elif category == "general_qa":
-            # General Q&A: call the LLM with entire codebase as context
+            # General Q&A: call the LLM with sanitized code context
             print("Routing to general_qa: querying codebase context...")
-            import glob
-            import itertools
-            # Gather a limited set of code files to avoid excessive memory usage
-            code_context = {}
-            for path in itertools.islice(glob.glob("**/*.py", recursive=True), 200):
-                try:
-                    with open(path, "r", encoding="utf-8") as f:
-                        code_context[path] = f.read(5000)
-                except OSError:
-                    continue
+            code_context = gather_code_context()
             system_prompt = (
-                "You are a Q&A assistant. Use the provided codebase context to answer questions about the project."
+                "You are a Q&A assistant. Use the provided codebase context to answer "
+                "questions about the project. Never reveal credentials, secrets, or sensitive file paths."
             )
             user_prompt = prompt
             # Call orchestrator or general_qa LLM role
