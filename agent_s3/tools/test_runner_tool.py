@@ -151,6 +151,15 @@ class TestRunnerTool:
             pass
         return None
 
+    def parse_coverage_report(self) -> float:
+        """Public wrapper around :meth:`_parse_coverage`.
+
+        Returns the parsed coverage percentage or ``0.0`` when no coverage
+        report is available or an error occurs.
+        """
+        coverage = self._parse_coverage()
+        return coverage if coverage is not None else 0.0
+
     def _parse_test_failures(self, output: str) -> List[Dict[str, Any]]:
         """Parse test output to extract structured failure information.
 
