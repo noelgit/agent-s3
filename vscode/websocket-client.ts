@@ -236,7 +236,7 @@ export class WebSocketClient implements vscode.Disposable {
       let dataString: string;
       if (typeof data === "string") {
         dataString = data;
-      } else if (Buffer.isBuffer(data) || Array.isArray(data)) {
+      } else if ((Buffer as any).isBuffer(data) || Array.isArray(data)) {
         dataString = data.toString();
       } else if (data instanceof ArrayBuffer) {
         dataString = Buffer.from(data).toString();

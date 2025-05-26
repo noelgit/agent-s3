@@ -22,7 +22,7 @@ export class BackendConnection implements vscode.Disposable {
   private offlineQueue: any[] = [];
   private workspaceState: vscode.Memento | undefined;
   private progressInterval: NodeJS.Timeout | undefined;
-  private chatHistoryEmitter = new vscode.EventEmitter<ChatHistoryEntry>();
+  private chatHistoryEmitter: vscode.EventEmitter<ChatHistoryEntry> = new vscode.EventEmitter();
 
   public readonly onDidPersistChatMessage = this.chatHistoryEmitter.event;
 

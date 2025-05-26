@@ -41,10 +41,10 @@ export class InteractiveWebviewManager {
     );
 
     // Set webview content
-    this.panel.webview.html = this.getWebviewContent(this.panel.webview);
+    this.panel!.webview.html = this.getWebviewContent(this.panel!.webview);
 
     // Handle disposal
-    this.panel.onDidDispose(
+    this.panel!.onDidDispose(
       () => {
         this.panel = undefined;
 
@@ -61,7 +61,7 @@ export class InteractiveWebviewManager {
     );
 
     // Handle messages from the webview
-    this.panel.webview.onDidReceiveMessage(
+    this.panel!.webview.onDidReceiveMessage(
       (message: any) => {
         if (this.messageHandler) {
           this.messageHandler(message);
@@ -71,7 +71,7 @@ export class InteractiveWebviewManager {
       this.disposables,
     );
 
-    return this.panel;
+    return this.panel!;
   }
 
   /**
@@ -84,12 +84,12 @@ export class InteractiveWebviewManager {
   /**
    * Send a message to the webview
    */
-  public postMessage(message: any): boolean {
+  public async postMessage(message: any): Promise<boolean> {
     if (!this.panel) {
       return false;
     }
 
-    return this.panel.webview.postMessage(message);
+    return await this.panel.webview.postMessage(message);
   }
 
   /**
