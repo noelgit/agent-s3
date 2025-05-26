@@ -178,6 +178,14 @@ class ContextRegistry:
 
     # --- End Added Passthrough Methods ---
 
+    def get_current_context_snapshot(self, context_type: str = None, query: str = None) -> Dict[str, Any]:
+        """Return a snapshot of the current context from the registered manager."""
+        for provider in self._providers.values():
+            if hasattr(provider, "get_current_context_snapshot"):
+                return provider.get_current_context_snapshot()
+        logger.warning("No provider found for current context snapshot")
+        return {}
+
     def get_optimized_context(self, context_type: str = None) -> Dict[str, Any]:
         result = {}
         for provider in self._providers.values():

@@ -620,8 +620,7 @@ class ContextManager:
         """Optimize the current context using :class:`ContextPruner`."""
         if not self.current_context:
             return
-        with self._context_lock:
-            context_copy = copy.deepcopy(self.current_context)
+        context_copy = self.get_current_context_snapshot()
         try:
             optimized = self.context_pruner.optimize(context_copy, self.config)
             with self._context_lock:
@@ -774,8 +773,7 @@ class ContextManager:
 
         # Use the configured allocation strategy
         # The allocation strategy (e.g., TaskAdaptiveAllocation) should internally use task_keywords
-        with self._context_lock:
-            context_copy = copy.deepcopy(self.current_context)
+        context_copy = self.get_current_context_snapshot()
 
         allocation_result = self.allocation_strategy.allocate(
             context_copy,
@@ -1047,6 +1045,10 @@ class ContextManager:
     # Implement ContextProvider interface methods
     def get_context(self) -> Dict[str, Any]:
         """Get the current context."""
+        return self.get_current_context_snapshot()
+
+    def get_current_context_snapshot(self) -> Dict[str, Any]:
+        """Return a thread-safe snapshot of the current context."""
         with self._context_lock:
             return copy.deepcopy(self.current_context)
 
@@ -1075,8 +1077,7 @@ class ContextManager:
 
         self._optimize_context()
 
-        with self._context_lock:
-            return copy.deepcopy(self.current_context)
+        return self.get_current_context_snapshot()
 
     def clear_context(self) -> None:
         """Clear the entire context."""
@@ -1132,10 +1133,9 @@ class ContextManager:
             File content or None if file not found
         """
         # First check if we already have it in context
-        with self._context_lock:
-            files = self.current_context.get("files", {})
-            if file_path in files:
-                return files[file_path]
+        files = self.get_current_context_snapshot().get("files", {})
+        if file_path in files:
+            return files[file_path]
 
         # Otherwise try to load it with the file tool
         file_tool = self._tool_registry.get_tool_by_capability(ToolCapability.FILE_OPERATIONS)
@@ -1259,9 +1259,8 @@ class ContextManager:
         Returns:
             Stored value or None if key not found
         """
-        with self._context_lock:
-            memory = self.current_context.get("memory", {})
-            value = memory.get(key)
+        memory = self.get_current_context_snapshot().get("memory", {})
+        value = memory.get(key)
 
         # Record access for the pruning manager
         if value is not None:
