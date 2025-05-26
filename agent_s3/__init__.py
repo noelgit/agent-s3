@@ -31,7 +31,7 @@ _MODULE_MAP = {
     "ComplexityError": "agent_s3.pre_planning_errors",
     "handle_pre_planning_errors": "agent_s3.pre_planning_errors",
     "CodeGenerator": "agent_s3.code_generator",
-    "ContextManager": "agent_s3.context_manager",
+    "ContextManager": "agent_s3.tools.context_management.context_manager",
     "CodeValidator": "agent_s3.code_validator",
     "DebugUtils": "agent_s3.debug_utils",
 }

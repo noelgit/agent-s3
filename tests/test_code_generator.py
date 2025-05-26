@@ -7,7 +7,7 @@ import tempfile
 
 try:
     from agent_s3.code_generator import CodeGenerator
-    from agent_s3.context_manager import ContextManager
+    from agent_s3.tools.context_management.context_manager import ContextManager
     from agent_s3.debug_utils import DebugUtils
     from agent_s3.enhanced_scratchpad_manager import (
         EnhancedScratchpadManager,
