@@ -321,8 +321,10 @@ class TestCompressionNoWorkarounds:
         # A file with many repeating patterns is good for ReferenceCompressor
         context = {
             "code_context": {
-                "repeated.py": "def process_item(item)
-                    :\n    result = item * 2\n    return result\n" * 50,                "unique.py": "\n".join([f"def unique_function_{i}():\n    return {i}" for i in range(30)])
+                "repeated.py": (
+                    "def process_item(item):\n    result = item * 2\n    return result\n" * 50
+                ),
+                "unique.py": "\n".join([f"def unique_function_{i}():\n    return {i}" for i in range(30)])
             }
         }
 
