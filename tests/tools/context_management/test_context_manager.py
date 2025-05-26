@@ -328,7 +328,7 @@ class DummyLock:
         return False
 
 
-def test_gather_context_uses_lock_and_copy():
+def test_gather_context_snapshot_fields():
     cm = ContextManager()
 
     cm.allocation_strategy = Mock()
