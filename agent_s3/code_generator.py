@@ -26,7 +26,6 @@ class CodeGenerator:
         self.debug_utils = DebugUtils(self.debugging_manager, self.scratchpad)
         self.max_validation_attempts = 3
         self.max_refinement_attempts = 2
-        self._generation_attempts: Dict[str, int] = {}
 
     # ------------------------------------------------------------------
     def generate_code(self, plan: Dict[str, Any], tech_stack: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
