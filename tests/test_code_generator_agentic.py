@@ -143,10 +143,10 @@ class TestCodeGeneratorAgentic:
         file_path = "agent_s3/test_module.py"
         valid_code = "def test_func():\n    return True"
 
-        # Mock bash tool response for flake8 and mypy (no errors)
-        # Simulate successful run for both flake8 and mypy
+        # Mock bash tool response for ruff and mypy (no errors)
+        # Simulate successful run for both ruff and mypy
         mock_coordinator.bash_tool.run_command.side_effect = [
-            (0, "", ""), # flake8 success
+            (0, "", ""), # ruff success
             (0, "", "")  # mypy success
         ]
 
@@ -158,7 +158,7 @@ class TestCodeGeneratorAgentic:
         # Assert
         assert is_valid is True
         assert len(issues) == 0
-        # Ensure bash_tool.run_command was called twice (for flake8 and mypy)
+        # Ensure bash_tool.run_command was called twice (for ruff and mypy)
         assert mock_coordinator.bash_tool.run_command.call_count == 2
 
 
@@ -169,9 +169,9 @@ class TestCodeGeneratorAgentic:
         file_path = "agent_s3/test_module.py"
         invalid_code = "def test_func()\n    \n    return undefined_variable"  # Missing colon and undefined variable
         
-        # Simulate flake8 finding an error and mypy finding an error
+        # Simulate ruff finding an error and mypy finding an error
         mock_coordinator.bash_tool.run_command.side_effect = [
-            (1, "E999 SyntaxError: invalid syntax", ""), # flake8 error
+            (1, "E999 SyntaxError: invalid syntax", ""), # ruff error
             (1, "test_module.py:2: error: Name 'undefined_variable' is not defined", "") # mypy error
         ]
 
@@ -182,11 +182,11 @@ class TestCodeGeneratorAgentic:
 
         # Assert
         assert is_valid is False
-        assert len(issues) > 0 # Expecting issues from ast.parse, flake8, and mypy
+        assert len(issues) > 0 # Expecting issues from ast.parse, ruff, and mypy
         assert any("SyntaxError: invalid syntax" in issue for issue in issues) # From ast.parse
-        assert any("E999 SyntaxError: invalid syntax" in issue for issue in issues) # From flake8
+        assert any("E999 SyntaxError: invalid syntax" in issue for issue in issues) # From ruff
         assert any("Name 'undefined_variable' is not defined" in issue for issue in issues) # From mypy
-        # Ensure bash_tool.run_command was called twice (for flake8 and mypy)
+        # Ensure bash_tool.run_command was called twice (for ruff and mypy)
         assert mock_coordinator.bash_tool.run_command.call_count == 2
 
 

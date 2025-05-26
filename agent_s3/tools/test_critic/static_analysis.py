@@ -104,7 +104,6 @@ class CriticStaticAnalyzer:
                 "python": [
                     r"mypy",
                     r"pylint",
-                    r"flake8",
                     r"pycodestyle",
                     r"ruff",
                     r"# type:"

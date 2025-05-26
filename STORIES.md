@@ -149,7 +149,7 @@ Refer to these resources for a complete understanding of the project.
             *   Calls `code_generator.generate_code(request_text, plan)` to create code changes.
             *   Applies changes using `_apply_changes_and_manage_dependencies`.
             *   Runs validation via `_run_validation_phase()` which includes:
-                *   Linting with tools like flake8
+                *   Linting with tools like ruff
                 *   Type checking with mypy
                 *   Running tests with test_runner_tool
                 *   Verifying test coverage with TestCritic

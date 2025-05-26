@@ -420,18 +420,41 @@ class WorkflowOrchestrator:
 
             validation = self._run_validation_phase()
 
+            attempt = 0
+            while not validation.get("success"):
+                attempt += 1
+
+                if hasattr(self.coordinator, "progress_tracker"):
+                    self.coordinator.progress_tracker.update_progress({
+                        "phase": "debug",
+                        "status": "started",
+                        "details": f"attempt {attempt}"
+                    })
+
+                debug_result = self.coordinator.debugging_manager.handle_error(
+                    error_message=f"Validation step '{validation.get('step')}' failed",
+                    traceback_text=validation.get("output", ""),
+                    metadata={"plan": plan, "validation_step": validation.get("step")},
+                )
+
+                if hasattr(self.coordinator, "progress_tracker"):
+                    self.coordinator.progress_tracker.update_progress({
+                        "phase": "debug",
+                        "status": "completed" if debug_result.get("success") else "failed",
+                        "details": f"attempt {attempt}"
+                    })
+
+                if not debug_result.get("success"):
+                    break
+
+                validation = self._run_validation_phase()
+
             if validation.get("success"):
                 all_changes.update(changes)
                 overall_success = True
                 if stash_created and git_tool:
                     git_tool.run_git_command("stash drop")
                 continue
-
-            self.coordinator.debugging_manager.handle_error(
-                error_message=f"Validation step '{validation.get('step')}' failed",
-                traceback_text=validation.get("output", ""),
-                metadata={"plan": plan, "validation_step": validation.get("step")},
-            )
 
             if stash_created and git_tool:
                 git_tool.run_git_command("stash pop --index")
@@ -477,7 +500,7 @@ class WorkflowOrchestrator:
                     "coverage": None,
                 }
 
-            lint_exit, lint_output = self.coordinator.bash_tool.run_command("flake8 .", timeout=120)
+            lint_exit, lint_output = self.coordinator.bash_tool.run_command("ruff .", timeout=120)
             results["lint_output"] = lint_output
             if lint_exit != 0:
                 results.update({"success": False, "step": "lint"})

@@ -29,7 +29,7 @@ class CodeValidator:
             tmp.write(generated_code.encode())
             tmp.flush()
             if hasattr(self.coordinator, "bash_tool") and self.coordinator.bash_tool:
-                rc, output = self.coordinator.bash_tool.run_command(f"flake8 {tmp.name}")
+                rc, output = self.coordinator.bash_tool.run_command(f"ruff {tmp.name}")
                 if rc != 0 and output:
                     issues.extend([f"Linting: {line}" for line in output.splitlines() if line.strip()])
 
