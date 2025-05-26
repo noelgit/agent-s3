@@ -312,3 +312,36 @@ def test_log_metrics_uses_estimator():
 
     estimator_mock.estimate_tokens_for_context.assert_called_once_with(context)
     cm.adaptive_config_manager.log_token_usage.assert_called_once()
+
+
+class DummyLock:
+    def __init__(self):
+        self.entered = 0
+
+    def __enter__(self):
+        self.entered += 1
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return False
+
+
+def test_gather_context_uses_lock_and_copy():
+    cm = ContextManager()
+
+    cm.allocation_strategy = Mock()
+    cm.allocation_strategy.allocate.return_value = {"optimized_context": {}}
+
+    with cm._context_lock:
+        cm.current_context = {"code_context": {"a.py": "print('hi')"}}
+
+    dummy_lock = DummyLock()
+    cm._context_lock = dummy_lock
+
+    result = cm.gather_context()
+
+    assert result == {}
+    assert dummy_lock.entered == 1
+
+    called_context = cm.allocation_strategy.allocate.call_args[0][0]
+    assert called_context == {"code_context": {"a.py": "print('hi')"}}
+    assert called_context is not cm.current_context
