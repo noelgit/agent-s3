@@ -1,6 +1,6 @@
 """Tests for function-level test requirements in pre_planner_json_enforced."""
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import agent_s3.pre_planner_json_enforced as pre_planner
 from agent_s3.router_agent import RouterAgent
@@ -450,3 +450,18 @@ def test_create_fallback_json():
     assert len(fallback["feature_groups"]) > 0
     assert "features" in fallback["feature_groups"][0]
     assert len(fallback["feature_groups"][0]["features"]) > 0
+
+
+def test_pre_planning_workflow_noninteractive(router_agent):
+    """Clarification questions should not prompt for input when disabled."""
+    router_agent.call_llm_by_role.return_value = '{"question": "Need details"}'
+
+    with patch("builtins.input") as mock_input:
+        with pytest.raises(pre_planner.JSONValidationError):
+            pre_planner.pre_planning_workflow(
+                router_agent,
+                "Create a calculator",
+                max_preplanning_attempts=1,
+                allow_interactive_clarification=False,
+            )
+        mock_input.assert_not_called()

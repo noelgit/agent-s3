@@ -16,7 +16,7 @@ import json
 import logging
 import os
 import time  # Added for potential delays in retry
-from typing import Dict, Any, Optional, Tuple, List, Union
+from typing import Callable, Dict, Any, Optional, Tuple, List, Union
 
 from agent_s3.progress_tracker import progress_tracker
 
@@ -491,6 +491,8 @@ def pre_planning_workflow(
     task_description: str,
     context: Optional[Dict[str, Any]] = None,
     max_preplanning_attempts: int = 2,
+    allow_interactive_clarification: bool = True,
+    clarification_callback: Optional[Callable[[str], str]] = None,
 ) -> Tuple[bool, Dict[str, Any]]:
     """Run the JSON-enforced pre-planning workflow.
 
@@ -500,6 +502,10 @@ def pre_planning_workflow(
         context: Optional context dictionary passed to the LLM.
         max_preplanning_attempts: Maximum number of attempts to get valid
             pre-planning data.
+        allow_interactive_clarification: Enable interactive ``input`` prompts
+            when the LLM asks clarification questions.
+        clarification_callback: Optional callback used to obtain clarification
+            answers programmatically when interactivity is disabled.
 
     The workflow may prompt the user for additional clarification when the
     initial request lacks sufficient detail. Clarification exchanges are
@@ -545,7 +551,16 @@ def pre_planning_workflow(
 
         if status == "question" and clarification_attempts < max_clarifications:
             question = data.get("question", "") if isinstance(data, dict) else ""
-            answer = input(question + " ")
+            if allow_interactive_clarification:
+                answer = input(question + " ")
+            elif clarification_callback is not None:
+                answer = clarification_callback(question)
+            else:
+                # Skip clarification if not interactive and no callback provided
+                attempts += 1
+                clarification_attempts += 1
+                continue
+
             try:
                 progress_tracker.logger.info(
                     json.dumps(

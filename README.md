@@ -353,6 +353,7 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   - `USE_REMOTE_LLM` to toggle remote LLM usage
   - `MAX_CLARIFICATION_ROUNDS` (optional, defaults to `3`) limits pre-planning clarification exchanges
   - `MAX_PREPLANNING_ATTEMPTS` (optional, defaults to `2`) sets the maximum number of retries when generating pre-planning data
+  - `ALLOW_INTERACTIVE_CLARIFICATION` (optional, defaults to `true`) when set to `false` disables interactive clarification prompts during pre-planning
   - `pre_planning_mode` selects `off`, `json`, or `enforced_json` workflow. See `docs/pre_planning_workflow.md` for details.
   - `WEBSOCKET_MAX_MESSAGE_SIZE` (optional, defaults to `65536` bytes)
     limits incoming WebSocket payloads
