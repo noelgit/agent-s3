@@ -285,7 +285,7 @@ class ToolRegistry:
                 return True
             elif tool_name == "code_analysis_tool":
                 self.tools["code_analysis_tool"] = CodeAnalysisTool(
-                    linters=self.config.config.get("linters", ["flake8"]),
+                    linters=self.config.config.get("linters", ["ruff"]),
                     ignore_patterns=self.config.config.get("ignore_patterns", []),
                     max_files=self.config.config.get("max_files_analysis", 50)
                 )
