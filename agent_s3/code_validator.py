@@ -6,7 +6,7 @@ import json
 import os
 import re
 import tempfile
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 
 
 class CodeValidator:
@@ -75,7 +75,9 @@ class CodeValidator:
         refined = self._extract_code_from_response(response, file_path)
         return refined if refined else code
 
-    def _extract_code_from_response(self, response: str, file_path: str) -> str:
+    def _extract_code_from_response(self, response: Optional[str], file_path: str) -> str:
+        if response is None:
+            return ""
         code_block_pattern = r"```(?:python)?(?:\s*\n)(.*?)(?:\n```)"
         matches = re.findall(code_block_pattern, response, re.DOTALL)
         if matches:

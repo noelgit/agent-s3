@@ -138,6 +138,11 @@ class CodeGenerator:
             role="generator", system_prompt=system_prompt, user_prompt=user_prompt, config={"temperature": 0.2}
         )
         generated_code = self._extract_code_from_response(response, file_path)
+        if not generated_code:
+            self.scratchpad.log(
+                "CodeGenerator", "LLM returned no code", level=LogLevel.ERROR
+            )
+            return ""
         for attempt in range(max_validation_attempts):
             self.scratchpad.log(
                 "CodeGenerator", f"Validating generated code (attempt {attempt + 1}/{max_validation_attempts})"
@@ -193,7 +198,9 @@ class CodeGenerator:
 
     # ------------------------------------------------------------------
     @staticmethod
-    def _extract_code_from_response(response: str, file_path: str) -> str:
+    def _extract_code_from_response(response: Optional[str], file_path: str) -> str:
+        if response is None:
+            return ""
         code_block_pattern = r"```(?:python)?(?:\s*\n)(.*?)(?:\n```)"
         matches = re.findall(code_block_pattern, response, re.DOTALL)
         if matches:
