@@ -69,6 +69,9 @@ pip install --upgrade pip
 # Install development dependencies
 pip install -r requirements.txt
 
+# Install build tools
+pip install build twine
+
 # Install package in development mode
 pip install -e .
 ```

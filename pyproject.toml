@@ -8,13 +8,12 @@ version = "0.1.1"
 description = "A state-of-the-art AI coding agent with GitHub issue tracking"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "Agent-S3 Team", email = "agent-s3@example.com"}
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -75,6 +74,10 @@ dependencies = [
 postgresql = ["psycopg2-binary>=2.9.0"]
 mysql = ["pymysql>=1.0.0"]
 tokenizers = ["tiktoken>=0.5.0"]
+
+[tool.setuptools.packages.find]
+include = ["agent_s3*"]
+exclude = ["tests*", "docs*", "vscode*", "node_modules*", "logs*", "task_snapshots*", "system_tests*"]
 
 [project.scripts]
 agent-s3 = "agent_s3.cli:main"
