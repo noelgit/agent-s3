@@ -180,7 +180,11 @@ def test_pre_planning_phase_normal_flow(coordinator):
     assert result["status"] == "completed"
     assert result["is_complex"] is False
     assert result["complexity_score"] == 150.0
-    mock_call.assert_called_once_with(coordinator.router_agent, "Add feature X")
+    mock_call.assert_called_once_with(
+        coordinator.router_agent,
+        "Add feature X",
+        allow_interactive_clarification=True,
+    )
     coordinator.pre_planner.assess_complexity.assert_called_once()
 
 def test_pre_planning_phase_high_complexity(coordinator):
@@ -204,7 +208,11 @@ def test_pre_planning_phase_high_complexity(coordinator):
     assert result["status"] == "completed"
     assert result["is_complex"] is True
     assert result["complexity_score"] == 400.0
-    mock_call.assert_called_once_with(coordinator.router_agent, "Refactor module Y")
+    mock_call.assert_called_once_with(
+        coordinator.router_agent,
+        "Refactor module Y",
+        allow_interactive_clarification=True,
+    )
     coordinator.pre_planner.assess_complexity.assert_called_once()
 
 def test_pre_planning_assess_complexity_error(coordinator):
@@ -223,7 +231,11 @@ def test_pre_planning_assess_complexity_error(coordinator):
     assert result["success"] is True
     assert result["status"] == "completed"
     assert result["is_complex"] is False
-    mock_call.assert_called_once_with(coordinator.router_agent, "Add feature Z")
+    mock_call.assert_called_once_with(
+        coordinator.router_agent,
+        "Add feature Z",
+        allow_interactive_clarification=True,
+    )
     coordinator.pre_planner.assess_complexity.assert_called_once()
 
 def test_pre_planning_complexity_estimation_error(coordinator):
@@ -243,7 +255,11 @@ def test_pre_planning_complexity_estimation_error(coordinator):
     assert result["status"] == "completed"
     assert result["complexity_score"] is None
     assert result["is_complex"] is False
-    mock_call.assert_called_once_with(coordinator.router_agent, "Add feature W")
+    mock_call.assert_called_once_with(
+        coordinator.router_agent,
+        "Add feature W",
+        allow_interactive_clarification=True,
+    )
     coordinator.pre_planner.assess_complexity.assert_called_once()
 
 def test_pre_planning_prompt_error(coordinator):
@@ -289,7 +305,11 @@ def test_pre_planning_phase_updated_requirements(coordinator):
     assert result["success"] is True
     assert result["status"] == "completed"
     assert result["test_requirements"]["approval_baseline"] == ["Baseline test"]
-    mock_call.assert_called_once_with(coordinator.router_agent, "Add feature X")
+    mock_call.assert_called_once_with(
+        coordinator.router_agent,
+        "Add feature X",
+        allow_interactive_clarification=True,
+    )
     coordinator.pre_planner.assess_complexity.assert_called_once()
 
 def test_pre_planning_phase_updated_complexity(coordinator):
@@ -313,7 +333,11 @@ def test_pre_planning_phase_updated_complexity(coordinator):
     assert result["status"] == "completed"
     assert result["is_complex"] is True
     assert result["complexity_score"] == 55
-    mock_call.assert_called_once_with(coordinator.router_agent, "Add feature X")
+    mock_call.assert_called_once_with(
+        coordinator.router_agent,
+        "Add feature X",
+        allow_interactive_clarification=True,
+    )
     coordinator.pre_planner.assess_complexity.assert_called_once()
 
 def test_pre_planning_phase_with_caching(coordinator):

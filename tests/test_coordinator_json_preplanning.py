@@ -94,7 +94,11 @@ class TestCoordinatorJsonPrePlanning:
         result = integrate_with_coordinator(mock_coordinator, task)
 
         # Verify the call to call_pre_planner_with_enforced_json
-        mock_call.assert_called_once_with(mock_coordinator.router_agent, task)
+        mock_call.assert_called_once_with(
+            mock_coordinator.router_agent,
+            task,
+            allow_interactive_clarification=True,
+        )
 
         # Verify the result
         assert result["success"] is True
@@ -160,7 +164,11 @@ class TestCoordinatorJsonPrePlanning:
         result = integrate_with_coordinator(mock_coordinator, task)
 
         # Verify the call to call_pre_planner_with_enforced_json
-        mock_call.assert_called_once_with(mock_coordinator.router_agent, task)
+        mock_call.assert_called_once_with(
+            mock_coordinator.router_agent,
+            task,
+            allow_interactive_clarification=True,
+        )
 
         # Verify the result
         assert result["success"] is True
