@@ -6,9 +6,9 @@
     ]
   },
   "nodejs": {
-    "status": "failed",
+    "status": "passed",
     "details": [
-      "\u274c Main package.json issues: npm error code ERESOLVE\nnpm error ERESOLVE unable to resolve dependency tree\nnpm error\nnpm error Whi...",
+      "\u2705 Main package.json dependencies valid",
       "\u2705 VSCode extension dependencies valid",
       "\u2705 Webview UI dependencies valid"
     ]
@@ -23,8 +23,8 @@
     ]
   },
   "overall": {
-    "status": "failed",
-    "passed": 2,
-    "failed": 1
+    "status": "passed",
+    "passed": 3,
+    "failed": 0
   }
 }
