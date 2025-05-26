@@ -168,6 +168,14 @@ class ContextRegistry:
         logger.warning("No provider found for dependency graph")
         return {}
 
+    def get_current_context_snapshot(self, context_type: str = None, query: str = None) -> Dict[str, Any]:
+        """Return a snapshot of the current context from the registered context manager."""
+        provider = self.get_provider("context_manager")
+        if provider and hasattr(provider, "get_current_context_snapshot"):
+            return provider.get_current_context_snapshot(context_type=context_type, query=query)
+        logger.warning("No provider found for get_current_context_snapshot")
+        return {}
+
     # --- End Added Passthrough Methods ---
 
     def get_optimized_context(self, context_type: str = None) -> Dict[str, Any]:
