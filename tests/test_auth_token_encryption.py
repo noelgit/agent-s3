@@ -1,7 +1,10 @@
 from typing import Any
 
-from cryptography.fernet import Fernet
 import pytest
+
+# Skip this module if cryptography isn't installed
+pytest.importorskip("cryptography")
+from cryptography.fernet import Fernet
 
 from agent_s3.auth import TOKEN_ENCRYPTION_KEY_ENV
 from agent_s3.auth import load_token
