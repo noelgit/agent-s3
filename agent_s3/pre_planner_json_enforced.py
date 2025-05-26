@@ -516,6 +516,8 @@ def pre_planning_workflow(
     task_description: str,
     context: Optional[Dict[str, Any]] = None,
     max_preplanning_attempts: int = 2,
+    *,
+    allow_interactive_clarification: bool = True,
 ) -> Tuple[bool, Dict[str, Any]]:
     """Run the JSON-enforced pre-planning workflow.
 
@@ -525,6 +527,8 @@ def pre_planning_workflow(
         context: Optional context dictionary passed to the LLM.
         max_preplanning_attempts: Maximum number of attempts to get valid
             pre-planning data.
+        allow_interactive_clarification: Whether the workflow may ask the user
+            clarification questions during execution. Defaults to ``True``.
 
     The workflow may prompt the user for additional clarification when the
     initial request lacks sufficient detail. Clarification exchanges are
@@ -568,7 +572,11 @@ def pre_planning_workflow(
         if status is True:
             return True, data
 
-        if status == "question" and clarification_attempts < max_clarifications:
+        if (
+            allow_interactive_clarification
+            and status == "question"
+            and clarification_attempts < max_clarifications
+        ):
             question = data.get("question", "") if isinstance(data, dict) else ""
             answer = input(question + " ")
             try:
@@ -1010,6 +1018,9 @@ class PrePlanner:
                 task_description,
                 context,
                 max_preplanning_attempts=max_preplanning_attempts,
+                allow_interactive_clarification=self.config.get(
+                    "allow_interactive_clarification", True
+                ),
             )
         else:
             system_prompt = get_base_system_prompt()

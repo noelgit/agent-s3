@@ -336,7 +336,10 @@ class WorkflowOrchestrator:
                 success, pre_plan = pre_planning_workflow(
                     self.coordinator.router_agent,
                     task,
-                    max_attempts=2,
+                    max_preplanning_attempts=2,
+                    allow_interactive_clarification=self.coordinator.config.config.get(
+                        "allow_interactive_clarification", True
+                    ),
                 )
             if not success:
                 self.coordinator.scratchpad.log("Coordinator", "Pre-planning failed", level=self.coordinator.LogLevel.ERROR)

@@ -33,6 +33,9 @@ def generate_plan_via_workflow(
         task_description,
         context=context,
         max_preplanning_attempts=max_preplanning_attempts,
+        allow_interactive_clarification=coordinator.config.config.get(
+            "allow_interactive_clarification", True
+        ),
     )
     if not success:
         return {"success": False, "error": "Pre-planning failed", "plan": None}
