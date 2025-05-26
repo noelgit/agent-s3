@@ -169,22 +169,19 @@ class ContextRegistry:
         return {}
 
     def get_current_context_snapshot(self, context_type: str = None, query: str = None) -> Dict[str, Any]:
-        """Return a snapshot of the current context from the registered context manager."""
+        """Return a snapshot of the current context from the registered manager."""
         provider = self.get_provider("context_manager")
         if provider and hasattr(provider, "get_current_context_snapshot"):
-            return provider.get_current_context_snapshot(context_type=context_type, query=query)
-        logger.warning("No provider found for get_current_context_snapshot")
+            method = getattr(provider, "get_current_context_snapshot")
+            try:
+                return method(context_type=context_type, query=query)
+            except TypeError:
+                # Fallback for providers that do not accept parameters
+                return method()
+        logger.warning("No provider found for current context snapshot")
         return {}
 
     # --- End Added Passthrough Methods ---
-
-    def get_current_context_snapshot(self, context_type: str = None, query: str = None) -> Dict[str, Any]:
-        """Return a snapshot of the current context from the registered manager."""
-        for provider in self._providers.values():
-            if hasattr(provider, "get_current_context_snapshot"):
-                return provider.get_current_context_snapshot()
-        logger.warning("No provider found for current context snapshot")
-        return {}
 
     def get_optimized_context(self, context_type: str = None) -> Dict[str, Any]:
         result = {}
