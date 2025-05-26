@@ -1,0 +1,30 @@
+{
+  "python": {
+    "status": "passed",
+    "details": [
+      "\u2705 All Python dependencies can be installed"
+    ]
+  },
+  "nodejs": {
+    "status": "failed",
+    "details": [
+      "\u274c Main package.json issues: npm error code ERESOLVE\nnpm error ERESOLVE unable to resolve dependency tree\nnpm error\nnpm error Whi...",
+      "\u2705 VSCode extension dependencies valid",
+      "\u2705 Webview UI dependencies valid"
+    ]
+  },
+  "tree_sitter": {
+    "status": "passed",
+    "details": [
+      "\u2705 tree_sitter_python available",
+      "\u2705 tree_sitter_javascript available",
+      "\u2705 tree_sitter_typescript available",
+      "\u2705 tree_sitter_php available"
+    ]
+  },
+  "overall": {
+    "status": "failed",
+    "passed": 2,
+    "failed": 1
+  }
+}
