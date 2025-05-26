@@ -1044,13 +1044,17 @@ class ContextManager:
 
     # Implement ContextProvider interface methods
     def get_context(self) -> Dict[str, Any]:
-        """Get the current context."""
-        return self.get_current_context_snapshot()
-
-    def get_current_context_snapshot(self) -> Dict[str, Any]:
-        """Return a thread-safe snapshot of the current context."""
+        """Get the current context in a thread-safe manner."""
         with self._context_lock:
             return copy.deepcopy(self.current_context)
+
+    def get_current_context_snapshot(self) -> Dict[str, Any]:
+        """Return a snapshot of the current context.
+
+        This method is kept for backward compatibility and delegates to
+        :meth:`get_context`.
+        """
+        return self.get_context()
 
     def update_context(self, updates: Dict[str, Any]) -> None:
         """
