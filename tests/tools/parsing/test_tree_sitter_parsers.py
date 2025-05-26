@@ -2,6 +2,13 @@
 """
 Test script to verify Tree-sitter parser integration with the modern capsule-based approach.
 """
+import pytest
+
+# Skip if tree-sitter parsers aren't installed
+pytest.importorskip("tree_sitter")
+pytest.importorskip("tree_sitter_javascript")
+pytest.importorskip("tree_sitter_php")
+pytest.importorskip("tree_sitter_typescript")
 from agent_s3.tools.parsing.parser_registry import ParserRegistry
 
 def test_javascript_parser():

@@ -1,3 +1,7 @@
+import pytest
+
+# Skip if tree-sitter parsers aren't installed
+pytest.importorskip("tree_sitter")
 from agent_s3.tools.parsing.parser_registry import ParserRegistry
 
 def test_parser_registry_dispatch():

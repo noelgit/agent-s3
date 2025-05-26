@@ -4,6 +4,7 @@ import pytest
 # available. Importing ``StaticAnalyzer`` triggers the import of ``phply``
 # internally, so guard the import to prevent ImportError.
 pytest.importorskip("phply")
+pytest.importorskip("tree_sitter")
 
 from agent_s3.tools.static_analyzer import StaticAnalyzer
 
