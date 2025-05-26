@@ -816,3 +816,55 @@ class Coordinator:
     def start_pre_planning_from_design(self, design_file: str = "design.txt") -> Dict[str, Any]:
         """Delegate pre-planning start to the workflow orchestrator."""
         return self.orchestrator.start_pre_planning_from_design(design_file)
+
+    # ------------------------------------------------------------------
+    # Execution resume helpers
+    # ------------------------------------------------------------------
+
+    def _execute_changes_atomically(
+        self,
+        changes: List[Dict[str, Any]],
+        iteration: int,
+        *,
+        already_applied: Optional[List[Dict[str, Any]]] = None,
+    ) -> None:
+        """Apply file changes atomically using file and git tools."""
+        file_tool = getattr(self, "file_tool", None)
+        git_tool = getattr(self, "git_tool", None)
+        if file_tool is None:
+            raise RuntimeError("File tool not available")
+
+        try:
+            for change in changes:
+                file_tool.write_file(change.get("path"), change.get("content", ""))
+                if git_tool:
+                    git_tool.add_file(change.get("path"))
+        except Exception as exc:  # pragma: no cover - defensive
+            if git_tool:
+                git_tool.reset_hard()
+            self.scratchpad.log(
+                "Coordinator",
+                f"Failed to apply changes in iteration {iteration}: {exc}",
+                level=LogLevel.ERROR,
+            )
+            raise
+
+    def _run_tests_after_changes(self, changes: List[Dict[str, Any]], iteration: int) -> Dict[str, Any]:
+        """Run project tests after applying changes."""
+        self.scratchpad.log(
+            "Coordinator",
+            f"Running tests after applying changes for iteration {iteration}",
+        )
+        return self.orchestrator._run_tests()
+
+    def _analyze_test_results(
+        self,
+        raw_output: str,
+        changes: List[Dict[str, Any]],
+        iteration: int,
+    ) -> Dict[str, Any]:
+        """Analyze raw test output for resume workflow."""
+        parser = getattr(self.test_runner_tool, "parse_test_output", None)
+        if callable(parser):
+            return parser(raw_output)
+        return {"output": raw_output}
