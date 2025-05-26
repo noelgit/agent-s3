@@ -345,3 +345,52 @@ def test_gather_context_uses_lock_and_copy():
     called_context = cm.allocation_strategy.allocate.call_args[0][0]
     assert called_context == {"code_context": {"a.py": "print('hi')"}}
     assert called_context is not cm.current_context
+
+
+def test_set_adaptive_config_manager_updates_compression(monkeypatch):
+    """Ensure compression settings are updated using adaptive config manager."""
+    cm = ContextManager()
+
+    # Prepare dummy adaptive configuration
+    class DummyManager:
+        def __init__(self):
+            self.metrics_collector = Mock(register_callback=Mock())
+
+        def get_current_config(self):
+            return {
+                "context_management": {
+                    "summarization": {
+                        "threshold": 3000,
+                        "compression_ratio": 0.25,
+                    }
+                }
+            }
+
+        def get_config_version(self):
+            return 1
+
+    called = {"threshold": None, "ratio": None}
+
+    def fake_set_threshold(value: int) -> None:
+        called["threshold"] = value
+
+    def fake_set_ratio(value: float) -> None:
+        called["ratio"] = value
+
+    # Patch CompressionManager methods with monkeypatch to restore them later
+    monkeypatch.setattr(
+        cm.compression_manager,
+        "set_summarization_threshold",
+        fake_set_threshold,
+    )
+    monkeypatch.setattr(
+        cm.compression_manager,
+        "set_compression_ratio",
+        fake_set_ratio,
+    )
+    monkeypatch.setattr(cm, "_start_background_optimization", lambda: None)
+
+    cm.set_adaptive_config_manager(DummyManager())
+
+    assert called["threshold"] == 3000
+    assert called["ratio"] == 0.25
