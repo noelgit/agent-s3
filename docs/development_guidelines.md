@@ -82,3 +82,30 @@ The repository includes Playwright tests that map to the user stories:
   ```bash
   npx playwright test --headed
   ```
+
+## Contributing Guidelines
+
+### Setup for Contributors
+- Install runtime and development dependencies:
+  ```bash
+  pip install -r requirements.txt
+  pip install -r requirements-dev.txt
+  ```
+
+### Pre-commit Checklist
+- Run `pytest` and confirm all tests pass
+- Run `mypy agent_s3` for static type checking  
+- Run `ruff check agent_s3` for linting
+- Write commit messages according to the Conventional Commits specification
+
+### Commit Message Format
+Use [Conventional Commits](https://www.conventionalcommits.org/) with the format `<type>(<scope>): <description>`.
+Keep the description concise and in the imperative mood.
+
+Examples:
+```
+fix(security): sanitize header logs
+docs(readme): mention Supabase secrets
+feat(planner): add JSON schema validation
+refactor(auth): consolidate token validation
+```
