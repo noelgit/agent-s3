@@ -9,6 +9,10 @@ import uuid
 import json
 import os
 import re
+import sys
+import ast
+import importlib.util
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .registry import CoordinatorRegistry
@@ -442,16 +446,97 @@ class WorkflowOrchestrator:
     # Supporting helpers
     # ------------------------------------------------------------------
     def _apply_changes_and_manage_dependencies(self, changes: Dict[str, str]) -> bool:
-        """Apply generated code changes and manage dependencies."""
+        """Apply generated code changes and manage dependencies.
+
+        This writes the generated files, detects newly introduced Python
+        dependencies, updates ``requirements.txt`` accordingly, and triggers
+        installation via the bash tool.
+        """
         try:
             file_tool = self.registry.get_tool("file_tool")
+            bash_tool = self.registry.get_tool("bash_tool")
+            if not file_tool or not bash_tool:
+                raise RuntimeError("Required tools not initialized")
+
             for path, content in changes.items():
-                if not file_tool:
-                    raise RuntimeError("File tool not initialized")
-                file_tool.write_file(path, content)
+                success, msg = file_tool.write_file(path, content)
+                if not success:
+                    raise RuntimeError(msg)
+
+            req_file = Path("requirements.txt")
+            existing_packages: set[str] = set()
+            exists_success, exists = file_tool.file_exists(str(req_file))
+            if exists_success and exists:
+                read_success, req_content = file_tool.read_file(str(req_file))
+                if read_success:
+                    for line in req_content.splitlines():
+                        line = line.strip()
+                        if line and not line.startswith("#"):
+                            pkg = re.split(r"[=<>!].*", line)[0].lower()
+                            existing_packages.add(pkg)
+
+            new_packages: set[str] = set()
+            for path, content in changes.items():
+                if path.endswith(".py"):
+                    try:
+                        tree = ast.parse(content)
+                        for node in ast.walk(tree):
+                            if isinstance(node, ast.Import):
+                                for alias in node.names:
+                                    pkg = alias.name.split(".")[0]
+                                    if pkg and pkg.lower() not in existing_packages and not self._is_stdlib(pkg):
+                                        new_packages.add(pkg)
+                            elif isinstance(node, ast.ImportFrom) and node.module:
+                                pkg = node.module.split(".")[0]
+                                if pkg and pkg.lower() not in existing_packages and not self._is_stdlib(pkg):
+                                    new_packages.add(pkg)
+                    except Exception:
+                        # Fallback regex parsing
+                        for match in re.findall(r"^\s*(?:from\s+([\w\.]+)\s+import|import\s+([\w\.]+))", content, re.MULTILINE):
+                            pkg = (match[0] or match[1]).split(".")[0]
+                            if pkg and pkg.lower() not in existing_packages and not self._is_stdlib(pkg):
+                                new_packages.add(pkg)
+
+            if new_packages:
+                updated_lines = []
+                if exists_success and exists and read_success:
+                    updated_lines = req_content.splitlines()
+                for pkg in sorted(new_packages):
+                    updated_lines.append(pkg)
+                file_tool.write_file(str(req_file), "\n".join(updated_lines) + "\n")
+
+                exit_code, output = bash_tool.run_command(
+                    "pip install -r requirements.txt",
+                    timeout=300,
+                )
+                if exit_code != 0:
+                    self.coordinator.scratchpad.log(
+                        "Coordinator",
+                        f"Package installation failed: {output}",
+                        level=self.coordinator.LogLevel.ERROR,
+                    )
+                    return False
+
             return True
         except Exception as exc:  # pragma: no cover - safety net
-            self.coordinator.scratchpad.log("Coordinator", f"Failed applying changes: {exc}", level=self.coordinator.LogLevel.ERROR)
+            self.coordinator.scratchpad.log(
+                "Coordinator",
+                f"Failed applying changes: {exc}",
+                level=self.coordinator.LogLevel.ERROR,
+            )
+            return False
+
+    @staticmethod
+    def _is_stdlib(module: str) -> bool:
+        """Return ``True`` if ``module`` is part of the Python standard library."""
+        try:
+            if hasattr(sys, "stdlib_module_names") and module in sys.stdlib_module_names:
+                return True
+            spec = importlib.util.find_spec(module)
+            if not spec or not spec.origin:
+                return False
+            return "site-packages" not in spec.origin and "dist-packages" not in spec.origin
+        except Exception:
             return False
 
     def _run_validation_phase(self) -> Dict[str, Any]:
