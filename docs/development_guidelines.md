@@ -11,7 +11,12 @@ Description: Consolidated development guidelines for Agent-S3.
   ```bash
   python -m pip install -e . && pip install -r requirements.txt
   ```
+- Install optional tokenizers (required for some tests):
+  ```bash
+  pip install '.[tokenizers]'  # provides tiktoken for accurate token counting
+  ```
 - Run tests: `pytest`
+- If `tiktoken` is unavailable, unit tests under `tests/unit/context_management` mock the library to allow test execution.
 - Run a single test: `pytest tests/path_to_test.py::TestClass::test_function`
 - Run the CLI: `python -m agent_s3.cli`
 - Type checking: `mypy agent_s3/`
