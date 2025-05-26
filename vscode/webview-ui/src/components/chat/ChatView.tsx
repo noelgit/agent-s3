@@ -6,13 +6,15 @@ import DOMPurify from 'dompurify';
 import './ChatView.css';
 
 // Configure markdown parser with syntax highlighting
-marked.setOptions({
-  highlight: (code: string, lang: string) => {
-    if (lang && hljs.getLanguage(lang)) {
-      return hljs.highlight(code, { language: lang }).value;
+marked.use({
+  renderer: {
+    code(code: string, lang?: string) {
+      if (lang && hljs.getLanguage(lang)) {
+        return `<pre><code class="hljs language-${lang}">${hljs.highlight(code, { language: lang }).value}</code></pre>`;
+      }
+      return `<pre><code class="hljs">${hljs.highlightAuto(code).value}</code></pre>`;
     }
-    return hljs.highlightAuto(code).value;
-  },
+  }
 });
 
 // Define types for our chat components

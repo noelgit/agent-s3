@@ -86,6 +86,9 @@ npm install
 cd vscode
 npm install
 
+# Install VS Code Extension CLI (vsce) globally
+npm install -g @vscode/vsce
+
 # Install webview UI dependencies
 cd webview-ui
 npm install
@@ -101,11 +104,10 @@ python validate_dependencies.py
 # Check for any missing dependencies
 pip check
 
-# Verify Node.js dependencies
+# Verify Node.js dependencies  
 npm audit
-cd vscode && npm audit
-cd webview-ui && npm audit
-cd ../..
+cd vscode && npm audit && cd ..
+cd vscode/webview-ui && npm audit && cd ../..
 ```
 
 ## Phase 2: Building Components
@@ -140,11 +142,11 @@ rm -rf out/ *.vsix
 # Compile TypeScript
 npm run compile
 
-# Build webview UI
-npm run build-webview
+# Build webview UI (may take several minutes)
+npm run build-webview || echo "Build may fail due to dependency conflicts - check logs"
 
 # Package extension
-npx vsce package
+vsce package --allow-missing-repository
 
 # Verify extension package
 ls -la *.vsix
@@ -155,6 +157,11 @@ Expected output:
 ```
 agent-s3-0.1.0.vsix
 ```
+
+**Note**: If webview-ui build fails due to dependency conflicts:
+- The extension can still be packaged without the webview UI
+- Webview UI build issues are common with older react-scripts versions
+- Consider updating to newer React/TypeScript versions in production
 
 ### 2.3 Build Webview UI (Standalone)
 
@@ -177,6 +184,9 @@ cd ../..
 ### 3.1 Python Package Testing
 
 ```bash
+# Install test dependencies if not already installed
+pip install pytest
+
 # Run unit tests
 python -m pytest tests/ -v
 
