@@ -127,7 +127,7 @@ class TestCodeGeneratorAgentic:
 
         # Mock necessary methods
         code_generator._extract_relevant_tests = MagicMock(return_value={"unit_tests": []})
-        code_generator._generate_with_validation = MagicMock(return_value="def test_func():\n    return True") # Corrected string literal
+        code_generator._generate_with_validation = MagicMock(return_value="def test_func():\n    return True")
         # Act
         result = code_generator.generate_file(file_path, implementation_details, tests, {})
 
@@ -135,6 +135,8 @@ class TestCodeGeneratorAgentic:
         assert result == "def test_func():\n    return True"
         code_generator._extract_relevant_tests.assert_called_once()
         code_generator._generate_with_validation.assert_called_once()
+        _, kwargs = code_generator._generate_with_validation.call_args
+        assert kwargs.get("config") == mock_coordinator.config.config
 
     def test_validate_generated_code_valid(self, mock_coordinator):
         """Test validation of valid code."""
