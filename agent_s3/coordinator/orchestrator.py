@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .registry import CoordinatorRegistry
 from typing import TYPE_CHECKING
+from ..enhanced_scratchpad_manager import LogLevel
 from ..pre_planner_json_enforced import (
     call_pre_planner_with_enforced_json,
     pre_planning_workflow,
@@ -63,7 +64,7 @@ class WorkflowOrchestrator:
             self._broadcast_workflow_status(f"Workflow paused: {reason}")
             self.coordinator.scratchpad.log(
                 "Orchestrator", f"Workflow paused: {reason}",
-                level=self.coordinator.LogLevel.INFO
+                level=LogLevel.INFO
             )
             return True
 
@@ -81,7 +82,7 @@ class WorkflowOrchestrator:
             self._broadcast_workflow_status(f"Workflow resumed: {reason}")
             self.coordinator.scratchpad.log(
                 "Orchestrator", f"Workflow resumed: {reason}",
-                level=self.coordinator.LogLevel.INFO
+                level=LogLevel.INFO
             )
             return True
 
@@ -101,7 +102,7 @@ class WorkflowOrchestrator:
             self._broadcast_workflow_status(f"Workflow stopped: {reason}")
             self.coordinator.scratchpad.log(
                 "Orchestrator", f"Workflow stopped: {reason}",
-                level=self.coordinator.LogLevel.WARNING
+                level=LogLevel.WARNING
             )
             return True
 
@@ -127,9 +128,15 @@ class WorkflowOrchestrator:
         if not self.pause_event.is_set():
             self.coordinator.scratchpad.log(
                 "Orchestrator", "Workflow paused, waiting for resume...",
-                level=self.coordinator.LogLevel.INFO
+                level=LogLevel.INFO
             )
-            self.pause_event.wait()  # Block until resumed
+            # Wait with timeout to prevent infinite blocking
+            resumed = self.pause_event.wait(timeout=30.0)
+            if not resumed:
+                self.coordinator.scratchpad.log(
+                    "Orchestrator", "Pause timeout reached, checking workflow state...",
+                    level=LogLevel.WARNING
+                )
 
             # Check if stopped while paused
             if self.stop_event.is_set():
@@ -169,7 +176,7 @@ class WorkflowOrchestrator:
             # Don't let status broadcasting break the workflow
             self.coordinator.scratchpad.log(
                 "Orchestrator", f"Failed to broadcast status: {e}",
-                level=self.coordinator.LogLevel.WARNING
+                level=LogLevel.WARNING
             )
 
     # ------------------------------------------------------------------
@@ -264,7 +271,7 @@ class WorkflowOrchestrator:
                 return self.coordinator.implementation_manager.start_implementation(design_file)
             except Exception as exc:
                 self.coordinator.scratchpad.log(
-                    "Coordinator", f"Implementation failed: {exc}", level=self.coordinator.LogLevel.ERROR
+                    "Coordinator", f"Implementation failed: {exc}", level=LogLevel.ERROR
                 )
                 return {"success": False, "error": str(exc)}
 
@@ -285,7 +292,7 @@ class WorkflowOrchestrator:
                 return self.coordinator.implementation_manager.continue_implementation()
             except Exception as exc:
                 self.coordinator.scratchpad.log(
-                    "Coordinator", f"Continuation failed: {exc}", level=self.coordinator.LogLevel.ERROR
+                    "Coordinator", f"Continuation failed: {exc}", level=LogLevel.ERROR
                 )
                 return {"success": False, "error": str(exc)}
 
@@ -295,14 +302,14 @@ class WorkflowOrchestrator:
         success, design_content = file_tool.read_file(design_file)
         if not success:
             self.coordinator.scratchpad.log(
-                "Coordinator", f"Failed to read design file: {design_content}", level=self.coordinator.LogLevel.ERROR
+                "Coordinator", f"Failed to read design file: {design_content}", level=LogLevel.ERROR
             )
             return {"success": False, "error": design_content}
 
         tasks = self._extract_tasks_from_design(design_content)
         if not tasks:
             self.coordinator.scratchpad.log(
-                "Coordinator", "No tasks found in design file", level=self.coordinator.LogLevel.ERROR
+                "Coordinator", "No tasks found in design file", level=LogLevel.ERROR
             )
             return {"success": False, "error": "No tasks in design file"}
 
@@ -338,7 +345,7 @@ class WorkflowOrchestrator:
                     max_attempts=2,
                 )
             if not success:
-                self.coordinator.scratchpad.log("Coordinator", "Pre-planning failed", level=self.coordinator.LogLevel.ERROR)
+                self.coordinator.scratchpad.log("Coordinator", "Pre-planning failed", level=LogLevel.ERROR)
                 return []
         else:
             pre_plan = pre_planning_input
@@ -358,7 +365,7 @@ class WorkflowOrchestrator:
             self.coordinator.scratchpad.log(
                 "Coordinator",
                 f"Feature group processing failed: {fg_result.get('error')}",
-                level=self.coordinator.LogLevel.ERROR,
+                level=LogLevel.ERROR,
             )
             return []
 
@@ -534,7 +541,7 @@ class WorkflowOrchestrator:
                     self.coordinator.scratchpad.log(
                         "Coordinator",
                         f"Package installation failed: {output}",
-                        level=self.coordinator.LogLevel.ERROR,
+                        level=LogLevel.ERROR,
                     )
                     return False
 
@@ -543,7 +550,7 @@ class WorkflowOrchestrator:
             self.coordinator.scratchpad.log(
                 "Coordinator",
                 f"Failed applying changes: {exc}",
-                level=self.coordinator.LogLevel.ERROR,
+                level=LogLevel.ERROR,
             )
             return False
 
@@ -612,14 +619,14 @@ class WorkflowOrchestrator:
                 self.coordinator.scratchpad.log(
                     "Coordinator",
                     f"Invalid mutation_score_threshold '{threshold_config}', defaulting to 70.0",
-                    level=self.coordinator.LogLevel.ERROR,
+                    level=LogLevel.ERROR,
                 )
                 threshold = 70.0
             if mutation_score is not None and mutation_score < threshold:
                 results.update({"success": False, "step": "mutation"})
                 return results
         except Exception as exc:  # pragma: no cover - safety net
-            self.coordinator.scratchpad.log("Coordinator", f"Validation error: {exc}", level=self.coordinator.LogLevel.ERROR)
+            self.coordinator.scratchpad.log("Coordinator", f"Validation error: {exc}", level=LogLevel.ERROR)
             results.update({"success": False, "step": "unknown_error"})
             return results
 
@@ -642,7 +649,7 @@ class WorkflowOrchestrator:
                 "coverage": coverage or 0.0,
             }
         except Exception as exc:  # pragma: no cover - safety net
-            self.coordinator.scratchpad.log("Coordinator", f"Test execution failed: {exc}", level=self.coordinator.LogLevel.ERROR)
+            self.coordinator.scratchpad.log("Coordinator", f"Test execution failed: {exc}", level=LogLevel.ERROR)
             return {"success": False, "output": str(exc), "coverage": 0.0}
 
     # ------------------------------------------------------------------
