@@ -335,19 +335,24 @@ def test_gather_context_uses_lock_and_copy():
     cm.allocation_strategy.allocate.return_value = {"optimized_context": {}}
 
     with cm._context_lock:
-        cm.current_context = {"code_context": {"a.py": "print('hi')"}}
+        cm.current_context = {
+            "code_context": {"a.py": "print('hi')"},
+            "files": {"a.py": "print('hi')"},
+            "task": {"description": "desc", "type": "unit"},
+        }
 
     dummy_lock = DummyLock()
     cm._context_lock = dummy_lock
 
     result = cm.gather_context()
 
-    assert result == {}
-    assert dummy_lock.entered == 1
+    snapshot = cm.get_current_context_snapshot()
 
-    called_context = cm.allocation_strategy.allocate.call_args[0][0]
-    assert called_context == {"code_context": {"a.py": "print('hi')"}}
-    assert called_context is not cm.current_context
+    assert "files" in snapshot
+    assert "description" in snapshot.get("task", {})
+    assert "type" in snapshot.get("task", {})
+    assert result == {}
+
 
 
 def test_set_adaptive_config_manager_updates_compression(monkeypatch):

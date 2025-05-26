@@ -1037,6 +1037,11 @@ class ContextManager:
         with self._context_lock:
             return copy.deepcopy(self.current_context)
 
+    def get_current_context_snapshot(self) -> Dict[str, Any]:
+        """Return a snapshot of the current context."""
+        with self._context_lock:
+            return copy.deepcopy(self.current_context)
+
     def update_context(self, updates: Dict[str, Any]) -> None:
         """
         Update the context with the provided updates.
