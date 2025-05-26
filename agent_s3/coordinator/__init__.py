@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import traceback
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 # Third-party imports
@@ -16,7 +17,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 # Local imports
 from agent_s3.config import Config
-from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager, LogLevel
+from agent_s3.enhanced_scratchpad_manager import (
+    EnhancedScratchpadManager,
+    LogLevel,
+    Section,
+)
 from agent_s3.implementation_manager import ImplementationManager
 from agent_s3.error_handler import ErrorHandler
 
@@ -816,3 +821,63 @@ class Coordinator:
     def start_pre_planning_from_design(self, design_file: str = "design.txt") -> Dict[str, Any]:
         """Delegate pre-planning start to the workflow orchestrator."""
         return self.orchestrator.start_pre_planning_from_design(design_file)
+
+    def debug_last_test(self) -> Optional[str]:
+        """Debug the last failing test using the debugging manager."""
+        with self.error_handler.error_context(
+            phase="debug",
+            operation="debug_last_test",
+        ):
+            self.scratchpad.start_section(Section.DEBUGGING, "Coordinator")
+            try:
+                self.progress_tracker.update_progress({
+                    "phase": "debug",
+                    "status": "started",
+                    "timestamp": datetime.now().isoformat(),
+                })
+
+                last = self.progress_tracker.get_latest_progress()
+                if not last or "output" not in last:
+                    self.scratchpad.log(
+                        "Coordinator",
+                        "No recent test output found for debugging.",
+                    )
+                    return None
+
+                output = last["output"]
+
+                context = self.error_context_manager.collect_error_context(
+                    error_message=output
+                )
+                attempted, result = self.error_context_manager.attempt_automated_recovery(
+                    context, context
+                )
+
+                if not attempted or "failed" in str(result).lower():
+                    debug_result = self.debugging_manager.handle_error(
+                        error_message=output,
+                        traceback_text=output,
+                        file_path=context.get("parsed_error", {}).get("file_paths", [None])[0],
+                        line_number=context.get("parsed_error", {}).get("line_numbers", [None])[0],
+                    )
+                    self.scratchpad.log(
+                        "Coordinator",
+                        f"Advanced debugging result: {debug_result.get('description', '')}",
+                    )
+
+                self.progress_tracker.update_progress({
+                    "phase": "debug",
+                    "status": "completed",
+                    "timestamp": datetime.now().isoformat(),
+                })
+                return None
+            except Exception as e:
+                self.progress_tracker.update_progress({
+                    "phase": "debug",
+                    "status": "failed",
+                    "error": str(e),
+                    "timestamp": datetime.now().isoformat(),
+                })
+                return f"Error during finalization: {e}"
+            finally:
+                self.scratchpad.end_section(Section.DEBUGGING)

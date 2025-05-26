@@ -71,8 +71,8 @@ class TestCommandProcessor:
 
     @patch('pathlib.Path.open')
     @patch('pathlib.Path.exists')
-    def test_execute_plan_command(self, mock_exists, mock_open, command_processor, mock_coordinator)
-        :        """Test execute_plan_command."""
+    def test_execute_plan_command(self, mock_exists, mock_open, command_processor, mock_coordinator):
+        """Test execute_plan_command."""
         # Setup
         mock_exists.return_value = False
         mock_file = MagicMock()
