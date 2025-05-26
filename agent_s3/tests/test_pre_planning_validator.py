@@ -57,5 +57,41 @@ class TestPrePlanningValidator(unittest.TestCase):
         self.assertEqual(result["metadata"]["feature_count"], 1)
         self.assertEqual(result["metadata"]["group_count"], 1)
 
+    def test_complete_validation_structure_failure(self):
+        """Validation should aggregate errors when structure is invalid."""
+        invalid_data = {
+            "feature_groups": [
+                {
+                    "group_name": "Security",
+                    # Missing group_description triggers structure error
+                    "features": [
+                        {
+                            "name": "Auth",  # duplicated below for semantic error
+                            "description": "Login system",
+                            "complexity": 3,
+                            # Missing risk_assessment triggers security error
+                        }
+                    ],
+                },
+                {
+                    "group_name": "More Security",
+                    "group_description": "desc",
+                    "features": [
+                        {
+                            "name": "Auth",  # duplicate name
+                            "description": "Another",
+                            "complexity": 2,
+                        }
+                    ],
+                },
+            ]
+        }
+
+        is_valid, result = self.validator.validate_all(invalid_data)
+        self.assertFalse(is_valid)
+        self.assertGreater(len(result["errors"]["structure"]), 0)
+        self.assertGreater(len(result["errors"]["semantic"]), 0)
+        self.assertGreater(len(result["errors"]["security"]), 0)
+
 if __name__ == "__main__":
     unittest.main()

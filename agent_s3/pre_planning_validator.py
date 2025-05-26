@@ -256,18 +256,19 @@ class PrePlanningValidator:
             }
         }
 
-        # Structure validation (critical - fail fast)
+        # Structure validation (critical but no longer fail fast)
         structure_valid, structure_errors = self.validate_structure(data)
         result["errors"]["structure"] = structure_errors
 
-        if not structure_valid:
-            result["valid"] = False
-            return result["valid"], result
-
-        # Count metrics
-        result["metadata"]["group_count"] = len(data.get("feature_groups", []))
-        result["metadata"]["feature_count"] = sum(len(group.get("features", []))
-                                               for group in data.get("feature_groups", []))
+        # Count metrics based on whatever structure is present
+        if isinstance(data.get("feature_groups"), list):
+            result["metadata"]["group_count"] = len(data.get("feature_groups", []))
+            result["metadata"]["feature_count"] = sum(
+                len(group.get("features", [])) for group in data.get("feature_groups", [])
+            )
+        else:
+            result["metadata"]["group_count"] = 0
+            result["metadata"]["feature_count"] = 0
 
         # Semantic coherence validation
         semantic_valid, semantic_errors = self.validate_semantic_coherence(data)
