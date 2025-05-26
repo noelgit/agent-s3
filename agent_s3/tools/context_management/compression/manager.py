@@ -38,6 +38,10 @@ class CompressionManager:
             ReferenceCompressor()
         ]
 
+        # Optional tuning parameters used by ContextManager
+        self.summarization_threshold = None
+        self.compression_ratio = None
+
     def need_compression(self, context: Dict[str, Any], token_count: Optional[int] = None) -> bool:
         """
         Determine if context needs compression.
@@ -292,3 +296,15 @@ class CompressionManager:
         """
         return [strategy.__class__.__name__ for strategy in self.strategies] + \
                [strategy.__class__.__name__.lower() for strategy in self.strategies]
+
+    def set_summarization_threshold(self, threshold: int) -> None:
+        """Update summarization threshold for strategies that support it."""
+        self.summarization_threshold = threshold
+        for strategy in self.strategies:
+            if hasattr(strategy, "summarization_threshold"):
+                strategy.summarization_threshold = threshold
+
+    def set_compression_ratio(self, ratio: float) -> None:
+        """Set the minimum compression ratio used when selecting strategies."""
+        self.compression_ratio = ratio
+        self.min_compression_ratio = ratio

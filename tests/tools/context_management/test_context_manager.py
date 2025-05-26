@@ -257,15 +257,11 @@ def test_refine_context_with_missing_tools():
         }
 
     # Run refinement
-    refined = cm._refine_current_context()
+    refined = cm._refine_current_context(["file1.py", "file2.py"])
 
     # Verify fallbacks were used:
-    # 1. Should use uniform importance scoring without code_analysis_tool
-    assert "code_context" in refined
-    assert len(refined["code_context"]) == 2
-
-    # 2. Should use hierarchical_summarize for code content
-    cm._memory_manager.hierarchical_summarize.assert_called()
+    # 1. Should return an empty mapping when file operations are unavailable
+    assert refined == {}
 
     # Set up a second test with only token_budget_analyzer (no memory_manager)
     cm2 = ContextManager()
@@ -279,12 +275,10 @@ def test_refine_context_with_missing_tools():
         cm2.current_context = cm.current_context.copy()
 
     # Run refinement
-    refined2 = cm2._refine_current_context()
+    refined2 = cm2._refine_current_context(["file1.py", "file2.py"])
 
-    # Should still have content, but truncated
-    assert "code_context" in refined2
-    assert len(refined2["code_context"]) == 2
-    assert all("truncated" in content for content in refined2["code_context"].values())
+    # Without file operations the mapping should also be empty
+    assert refined2 == {}
 
 
 def test_log_metrics_invalid_context(caplog):

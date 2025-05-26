@@ -644,15 +644,22 @@ class ContextManager:
         if not self.optimization_running:
             self._start_background_optimization()
 
-    def _refine_current_context(self, files: List[str], max_tokens: int = None,
-                                task_keywords: Optional[List[str]] = None) -> None:
-        """
-        Refine the current context based on the given files, token budget, and task keywords.
+    def _refine_current_context(
+        self,
+        files: List[str],
+        max_tokens: int | None = None,
+        task_keywords: Optional[List[str]] = None,
+    ) -> Dict[str, str]:
+        """Refine the context for the provided files and return their contents.
 
         Args:
             files: List of primary file paths to focus on.
             max_tokens: Optional maximum token budget for this refinement.
             task_keywords: Optional list of keywords from the task description.
+
+        Returns:
+            Mapping of file paths to the refined (and possibly truncated) file
+            contents that were added to the context.
         """
         if not max_tokens:
             max_tokens = self.config.get("CONTEXT_BACKGROUND_OPT_TARGET_TOKENS", 16000)
@@ -664,10 +671,12 @@ class ContextManager:
         prioritized_files = files + [f for f in all_files if f not in files]
 
         # Allocate token budget
-        file_tool = self._tool_registry.get_tool_by_capability(ToolCapability.FILE_OPERATIONS)
+        file_tool = self._tool_registry.get_tool_by_capability(
+            ToolCapability.FILE_OPERATIONS
+        )
         if not file_tool:
             logger.warning("No file tool available for context refinement")
-            return
+            return {}
 
         context_files = {}
         tokens_used = 0
@@ -706,6 +715,8 @@ class ContextManager:
         with self._context_lock:
             # Use _update_nested_dict for consistency
             self._update_nested_dict(self.current_context, "files", context_files)
+
+        return context_files
 
     def gather_context(
         self,
