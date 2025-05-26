@@ -216,51 +216,76 @@ def get_openrouter_params() -> Dict[str, Any]:
     return get_openrouter_json_params()
 
 
-def validate_preplan_all(data) -> Tuple[bool, str]:
+def validate_preplan_all(data) -> Tuple[bool, str, Dict[str, Any]]:
+    """Run all pre-planning validations and attempt repairs.
+
+    This function validates the plan using multiple validators and, when
+    necessary, leverages :class:`PrePlannerJsonValidator` to repair the plan.
+
+    Returns a tuple ``(is_valid, message, plan)`` where ``plan`` is the validated
+    (and possibly repaired) plan.
     """
-    Run all pre-planning validations and accumulate errors.
-    Returns (True, "") if all pass, else (False, error_message).
-    """
-    errors = []
+
+    errors: List[str] = []
+    validated_data = data
+
     # 1. JSON schema validation
-    is_valid, validation_msg = validate_json_schema(data)
+    is_valid, validation_msg = validate_json_schema(validated_data)
     if not is_valid:
         errors.append(f"JSON schema validation error: {validation_msg}")
 
     # 2. Enhanced validation with PrePlannerJsonValidator
     try:
         from agent_s3.pre_planner_json_validator import PrePlannerJsonValidator
+
         validator = PrePlannerJsonValidator()
-        enhanced_valid, enhanced_errors, validated_data = validator.validate_all(data)
+        enhanced_valid, enhanced_errors, validated_data = validator.validate_all(
+            validated_data
+        )
         if not enhanced_valid:
-            for error in enhanced_errors:
-                errors.append(f"Enhanced validation error: {error}")
-    except Exception as e:
+            errors.extend(f"Enhanced validation error: {e}" for e in enhanced_errors)
+
+            # Attempt automatic repair when validation fails
+            validated_data, repaired = validator.repair_plan(validated_data, enhanced_errors)
+            if repaired:
+                # Re-validate after repair
+                enhanced_valid, enhanced_errors, validated_data = validator.validate_all(
+                    validated_data
+                )
+                if enhanced_valid:
+                    errors.clear()
+                else:
+                    errors.extend(f"Enhanced validation error: {e}" for e in enhanced_errors)
+    except Exception as e:  # pragma: no cover - defensive
         errors.append(f"Enhanced validator exception: {str(e)}")
 
     # 3. Static plan checker
     try:
         from agent_s3.tools.plan_validator import validate_pre_plan
-        static_valid, static_msg = validate_pre_plan(data)
+
+        static_valid, static_msg = validate_pre_plan(validated_data)
         if not static_valid:
             if isinstance(static_msg, dict) and "critical" in static_msg:
                 for err in static_msg["critical"]:
-                    errors.append(f"Static plan checker critical error: {err.get('message', '')}")
+                    errors.append(
+                        f"Static plan checker critical error: {err.get('message', '')}"
+                    )
             else:
                 errors.append(f"Static plan checker error: {static_msg}")
-    except Exception as e:
+    except Exception as e:  # pragma: no cover - defensive
         errors.append(f"Static plan checker exception: {e}")
 
     # 4. Planner compatibility
     try:
         from agent_s3.planner_json_enforced import validate_pre_planning_for_planner
-        planner_compatible, planner_msg = validate_pre_planning_for_planner(data)
+
+        planner_compatible, planner_msg = validate_pre_planning_for_planner(validated_data)
         if not planner_compatible:
             errors.append(f"Planner compatibility error: {planner_msg}")
-    except Exception as e:
+    except Exception as e:  # pragma: no cover - defensive
         errors.append(f"Planner compatibility check exception: {e}")
 
-    return (len(errors) == 0), "\n".join(errors)
+    return (len(errors) == 0), "\n".join(errors), validated_data
 
 def integrate_with_coordinator(
     coordinator,
@@ -927,9 +952,9 @@ def call_pre_planner_with_enforced_json(
                 # Ensure element_id consistency and traceability
                 data = ensure_element_id_consistency(data)
                 # Validate all requirements
-                valid, validation_msg = validate_preplan_all(data)
+                valid, validation_msg, validated_plan = validate_preplan_all(data)
                 if valid:
-                    return True, data
+                    return True, validated_plan
                 else:
                     last_error = f"Validation failed: {validation_msg}"
             elif status == "question":
