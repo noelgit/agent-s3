@@ -452,3 +452,42 @@ def test_create_fallback_json():
     assert len(fallback["feature_groups"][0]["features"]) > 0
     valid, msg = pre_planner.validate_preplan_all(fallback)
     assert valid, msg
+
+
+def test_clarification_callback_invoked_when_disabled(monkeypatch, router_agent):
+    """Ensure callback is used when interactive clarification is disabled."""
+
+    router_agent.call_llm_by_role.side_effect = [
+        '{"question": "Need more details?"}',
+        '{"original_request": "task", "feature_groups": []}',
+    ]
+
+    captured = {}
+
+    def callback(question: str) -> str:
+        captured["question"] = question
+        return "answer"
+
+    input_called = False
+
+    def fake_input(prompt: str = "") -> str:
+        nonlocal input_called
+        input_called = True
+        return "ignored"
+
+    monkeypatch.setattr("builtins.input", fake_input)
+
+    import agent_s3.pre_planner_json_enforced as pre_planner
+    monkeypatch.setattr(pre_planner, "validate_json_schema", lambda data: (True, ""))
+    from agent_s3.pre_planner_json_enforced import pre_planning_workflow
+
+    success, result = pre_planning_workflow(
+        router_agent,
+        "task",
+        allow_interactive_clarification=False,
+        clarification_callback=callback,
+    )
+
+    assert success
+    assert captured["question"] == "Need more details?"
+    assert not input_called
