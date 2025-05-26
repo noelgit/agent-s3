@@ -450,5 +450,5 @@ def test_create_fallback_json():
     assert len(fallback["feature_groups"]) > 0
     assert "features" in fallback["feature_groups"][0]
     assert len(fallback["feature_groups"][0]["features"]) > 0
-    valid, msg = pre_planner.validate_preplan_all(fallback)
+    valid, msg, _ = pre_planner.validate_preplan_all(fallback)
     assert valid, msg

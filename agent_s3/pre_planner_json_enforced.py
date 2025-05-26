@@ -230,7 +230,7 @@ def validate_preplan_all(data) -> Tuple[bool, str, Dict[str, Any]]:
     validated_data = data
 
     # 1. JSON schema validation
-    is_valid, validation_msg = validate_json_schema(validated_data)
+    is_valid, validation_msg, _ = validate_json_schema(validated_data)
     if not is_valid:
         errors.append(f"JSON schema validation error: {validation_msg}")
 
@@ -653,7 +653,7 @@ def process_response(
         return "question", data
 
     # Otherwise, validate schema - now with partial validation support
-    is_valid, validation_msg = validate_json_schema(data)
+    is_valid, validation_msg, _ = validate_json_schema(data)
 
     if is_valid:
         return True, data # Fully valid
@@ -666,7 +666,7 @@ def process_response(
         )
         try:
             repaired = repair_json_structure(data)
-            is_valid2, validation_msg2 = validate_json_schema(repaired)
+            is_valid2, validation_msg2, _ = validate_json_schema(repaired)
             if is_valid2:
                 return True, repaired
             else:
@@ -974,11 +974,11 @@ def call_pre_planner_with_enforced_json(
     )
     fallback_data = create_fallback_pre_planning_output(task_description)
     # Validate fallback data to ensure it meets minimum requirements
-    valid, validation_msg = validate_preplan_all(fallback_data)
+    valid, validation_msg, validated_fallback = validate_preplan_all(fallback_data)
     if not valid:
         logger.error("Fallback validation failed: %s", validation_msg)
-        return False, {"pre_planning_data": fallback_data, "error": validation_msg}
-    return False, fallback_data
+        return False, {"pre_planning_data": validated_fallback, "error": validation_msg}
+    return False, validated_fallback
 
 
 class PrePlanner:
