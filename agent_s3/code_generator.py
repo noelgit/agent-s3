@@ -141,6 +141,13 @@ class CodeGenerator:
         config: Optional[Dict[str, Any]] = None,
         max_validation_attempts: Optional[int] = None,
     ) -> str:
+        """Generate and validate code for ``file_path``.
+
+        The method uses the provided prompts to call the LLM and iteratively
+        refine the resulting code until it passes validation and tests. If all
+        refinement attempts fail and tests continue to fail, the method may
+        return ``None`` to signal that code generation was unsuccessful.
+        """
         self.scratchpad.log("CodeGenerator", f"Generating initial code for {file_path}")
         if max_validation_attempts is None:
             max_validation_attempts = self.max_validation_attempts
