@@ -45,66 +45,76 @@ class WorkflowOrchestrator:
         self.can_pause = True
         self.can_resume = False
         self.can_stop = True
+        
+        # Valid state transitions for atomic updates
+        self.valid_transitions = {
+            "ready": {"running"},
+            "running": {"paused", "stopped", "completed", "failed"},
+            "paused": {"running", "stopped", "failed"},
+            "stopped": set(),  # Terminal state
+            "completed": set(),  # Terminal state
+            "failed": set(),  # Terminal state
+        }
 
     # ------------------------------------------------------------------
     # Workflow control methods
     # ------------------------------------------------------------------
 
+    def _atomic_state_transition(self, to_state: str, reason: str = "") -> bool:
+        """Atomically transition workflow state with validation."""
+        with self.control_lock:
+            if to_state not in self.valid_transitions[self.workflow_state]:
+                self.coordinator.scratchpad.log(
+                    "Orchestrator", 
+                    f"Invalid state transition from {self.workflow_state} to {to_state}",
+                    level=LogLevel.ERROR
+                )
+                return False
+            
+            old_state = self.workflow_state
+            self.workflow_state = to_state
+            
+            # Update control flags based on new state
+            if to_state == "running":
+                self.can_pause = True
+                self.can_resume = False
+                self.can_stop = True
+                self.pause_event.set()
+                self.stop_event.clear()
+            elif to_state == "paused":
+                self.can_pause = False
+                self.can_resume = True
+                self.can_stop = True
+                self.pause_event.clear()
+            elif to_state in ("stopped", "completed", "failed"):
+                self.can_pause = False
+                self.can_resume = False
+                self.can_stop = False
+                self.pause_event.set()  # Unblock any waiting operations
+                self.stop_event.set()
+            
+            # Log and broadcast the transition
+            message = f"State transition: {old_state} → {to_state}"
+            if reason:
+                message += f" ({reason})"
+            
+            self.coordinator.scratchpad.log(
+                "Orchestrator", message, level=LogLevel.INFO
+            )
+            self._broadcast_workflow_status(message)
+            return True
+
     def pause_workflow(self, reason: str = "User requested pause") -> bool:
         """Pause the current workflow execution."""
-        with self.control_lock:
-            if self.workflow_state != "running" or not self.can_pause:
-                return False
-
-            self.workflow_state = "paused"
-            self.pause_event.clear()
-            self.can_pause = False
-            self.can_resume = True
-
-            self._broadcast_workflow_status(f"Workflow paused: {reason}")
-            self.coordinator.scratchpad.log(
-                "Orchestrator", f"Workflow paused: {reason}",
-                level=LogLevel.INFO
-            )
-            return True
+        return self._atomic_state_transition("paused", reason)
 
     def resume_workflow(self, reason: str = "User requested resume") -> bool:
         """Resume the paused workflow execution."""
-        with self.control_lock:
-            if self.workflow_state != "paused" or not self.can_resume:
-                return False
-
-            self.workflow_state = "running"
-            self.pause_event.set()
-            self.can_pause = True
-            self.can_resume = False
-
-            self._broadcast_workflow_status(f"Workflow resumed: {reason}")
-            self.coordinator.scratchpad.log(
-                "Orchestrator", f"Workflow resumed: {reason}",
-                level=LogLevel.INFO
-            )
-            return True
+        return self._atomic_state_transition("running", reason)
 
     def stop_workflow(self, reason: str = "User requested stop") -> bool:
         """Stop the current workflow execution."""
-        with self.control_lock:
-            if self.workflow_state in ["stopped", "completed", "failed"]:
-                return False
-
-            self.workflow_state = "stopped"
-            self.stop_event.set()
-            self.pause_event.set()  # Unblock any paused operations
-            self.can_pause = False
-            self.can_resume = False
-            self.can_stop = False
-
-            self._broadcast_workflow_status(f"Workflow stopped: {reason}")
-            self.coordinator.scratchpad.log(
-                "Orchestrator", f"Workflow stopped: {reason}",
-                level=LogLevel.WARNING
-            )
-            return True
+        return self._atomic_state_transition("stopped", reason)
 
     def get_workflow_status(self) -> Dict[str, Any]:
         """Get the current workflow status."""
@@ -191,16 +201,13 @@ class WorkflowOrchestrator:
     ) -> None:
         """Execute the full planning and implementation workflow for a task."""
         # Initialize workflow state
-        with self.control_lock:
-            self.workflow_state = "running"
-            self.workflow_id = str(uuid.uuid4())
-            self.stop_event.clear()
-            self.pause_event.set()
-            self.can_pause = True
-            self.can_resume = False
-            self.can_stop = True
-
-        self._broadcast_workflow_status("Workflow started")
+        self.workflow_id = str(uuid.uuid4())
+        if not self._atomic_state_transition("running", "Task started"):
+            self.coordinator.scratchpad.log(
+                "Orchestrator", "Failed to start workflow - invalid state",
+                level=LogLevel.ERROR
+            )
+            return
 
         with self.coordinator.error_handler.error_context(
             phase="run_task",
@@ -226,23 +233,18 @@ class WorkflowOrchestrator:
                     self._finalize_task(changes)
 
                 # Mark workflow as completed
-                with self.control_lock:
-                    if self.workflow_state not in ["stopped", "failed"]:
-                        self.workflow_state = "completed"
-                        self.can_pause = False
-                        self.can_resume = False
-                        self.can_stop = False
-
-                self._broadcast_workflow_status("Workflow completed successfully")
+                if not self._atomic_state_transition("completed", "Workflow completed successfully"):
+                    self.coordinator.scratchpad.log(
+                        "Orchestrator", "Failed to transition to completed state",
+                        level=LogLevel.WARNING
+                    )
 
             except Exception as exc:  # pragma: no cover - safety net
-                with self.control_lock:
-                    self.workflow_state = "failed"
-                    self.can_pause = False
-                    self.can_resume = False
-                    self.can_stop = False
-
-                self._broadcast_workflow_status(f"Workflow failed: {str(exc)}")
+                if not self._atomic_state_transition("failed", f"Workflow failed: {str(exc)}"):
+                    self.coordinator.scratchpad.log(
+                        "Orchestrator", "Failed to transition to failed state",
+                        level=LogLevel.ERROR
+                    )
                 self.coordinator.error_handler.handle_exception(
                     exc=exc,
                     phase="run_task",

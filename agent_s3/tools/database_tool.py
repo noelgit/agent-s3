@@ -288,16 +288,21 @@ class DatabaseTool:
 
         engine = self.connections[db_name]
         connection = None
+        transaction_started = False
         try:
             connection = engine.connect()
             connection.begin() # Start transaction
+            transaction_started = True
             logger.info("Manual transaction started for %s", db_name)
             return connection
         except SQLAlchemyError as e:
             logger.error("Failed to begin manual transaction for %s: %s", db_name, e)
-            if connection:
+            raise e
+        finally:
+            # Only close connection if transaction failed to start
+            if not transaction_started and connection:
                 connection.close()
-            return None
+                logger.debug("Closed connection after failed transaction start for %s", db_name)
 
     def commit_transaction(self, connection: "sqlalchemy.engine.Connection") -> bool:
         """Commit a manually started transaction and close the connection."""
@@ -939,3 +944,39 @@ class DatabaseTool:
                 "duration_ms": duration,
                 "sqlalchemy_error": sqlalchemy_error if 'sqlalchemy_error' in locals() else None # Include previous error if exists
             }
+    
+    def close_connections(self) -> None:
+        """Close all database connections and dispose of engines."""
+        if not self.use_sqlalchemy:
+            return
+            
+        for db_name, engine in self.connections.items():
+            try:
+                # Dispose of the engine which closes all connections in the pool
+                engine.dispose()
+                logger.info("Closed database connection for '%s'", db_name)
+            except Exception as e:
+                logger.error("Error closing connection for '%s': %s", db_name, e)
+        
+        # Clear the connections dictionary
+        self.connections.clear()
+    
+    def cleanup(self) -> None:
+        """Clean up all resources used by the database tool."""
+        self.close_connections()
+    
+    def __del__(self) -> None:
+        """Destructor to ensure cleanup happens."""
+        try:
+            self.cleanup()
+        except Exception:
+            # Ignore exceptions during cleanup in destructor
+            pass
+    
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit with cleanup."""
+        self.cleanup()

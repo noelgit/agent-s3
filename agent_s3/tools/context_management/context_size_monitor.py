@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 from typing import Any
 from typing import Dict
@@ -20,22 +21,25 @@ class ContextSizeMonitor:
         self.history: List[Tuple[float, int]] = []
         self.alert_thresholds = [0.7, 0.8, 0.9]
         self._exceeded_thresholds: Set[float] = set()
+        # Thread safety lock for atomic operations
+        self._monitor_lock = threading.Lock()
 
     def update(self, context: Dict[str, Any]) -> None:
-        self.current_usage = self.token_analyzer.get_total_token_count(context)
-        self.history.append((time.time(), self.current_usage))
-        if len(self.history) > 100:
-            self.history = self.history[-100:]
-        for section_key, value in context.items():
-            if isinstance(value, dict):
-                section_tokens = 0
-                for k, v in value.items():
-                    if isinstance(v, str):
-                        section_tokens += self.token_analyzer.get_token_count(v)
-                self.section_usage[section_key] = section_tokens
-            elif isinstance(value, str):
-                self.section_usage[section_key] = self.token_analyzer.get_token_count(value)
-        self._check_thresholds()
+        with self._monitor_lock:
+            self.current_usage = self.token_analyzer.get_total_token_count(context)
+            self.history.append((time.time(), self.current_usage))
+            if len(self.history) > 100:
+                self.history = self.history[-100:]
+            for section_key, value in context.items():
+                if isinstance(value, dict):
+                    section_tokens = 0
+                    for k, v in value.items():
+                        if isinstance(v, str):
+                            section_tokens += self.token_analyzer.get_token_count(v)
+                    self.section_usage[section_key] = section_tokens
+                elif isinstance(value, str):
+                    self.section_usage[section_key] = self.token_analyzer.get_token_count(value)
+            self._check_thresholds()
 
     def _check_thresholds(self) -> None:
         usage_ratio = self.current_usage / self.max_tokens

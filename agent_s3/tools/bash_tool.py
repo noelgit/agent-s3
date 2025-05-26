@@ -414,6 +414,7 @@ class BashTool:
         container_id = str(uuid.uuid4())
         container_name = f"agent_s3_sandbox_{container_id}"
 
+        script_path = None
         try:
             # Create a script file with the command
             script_path = os.path.join(self.workspace_dir, f"{container_id}.sh")
@@ -474,9 +475,6 @@ class BashTool:
                 timeout=timeout
             )
 
-            # Clean up
-            os.unlink(script_path)
-
             return process.returncode, process.stdout
 
         except subprocess.TimeoutExpired:
@@ -487,6 +485,14 @@ class BashTool:
 
         except Exception as e:
             return 1, f"Error running command in container: {e}"
+        
+        finally:
+            # Ensure script file cleanup
+            if script_path and os.path.exists(script_path):
+                try:
+                    os.unlink(script_path)
+                except OSError:
+                    pass  # Ignore cleanup errors
 
     def _run_with_subprocess(self, command: str, timeout: int) -> Tuple[int, str]:
         """Run a command with subprocess (fallback method).
@@ -529,7 +535,7 @@ class BashTool:
             return 1, f"Error executing command: {e}"
 
     def _is_blocked(self, command: str) -> bool:
-        """Check if a command is blocked.
+        """Check if a command is blocked or contains injection attempts.
 
         Args:
             command: The command to check
@@ -537,10 +543,84 @@ class BashTool:
         Returns:
             True if the command is blocked, False otherwise
         """
+        # Basic blocked commands check
         command_lower = command.lower()
         for block in self.blocked_commands:
             if re.search(rf"\b{re.escape(block)}\b", command_lower):
                 return True
+        
+        # Enhanced injection detection
+        return self._detect_command_injection(command)
+    
+    def _detect_command_injection(self, command: str) -> bool:
+        """Detect potential command injection attempts.
+        
+        Args:
+            command: The command to validate
+            
+        Returns:
+            True if injection detected, False otherwise
+        """
+        # Dangerous shell metacharacters and patterns
+        dangerous_patterns = [
+            r';\s*\w',  # Command chaining with semicolon
+            r'&&\s*\w',  # Command chaining with &&
+            r'\|\|\s*\w',  # Command chaining with ||
+            r'`[^`]*`',  # Command substitution with backticks
+            r'\$\([^)]*\)',  # Command substitution with $()
+            r'>\s*/\w',  # Redirection to system paths
+            r'<\s*/\w',  # Input redirection from system paths
+            r'\|\s*\w',  # Piping to other commands
+            r'&\s*$',  # Background execution
+            r'\x00',  # Null byte injection
+            r'[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]',  # Control characters
+        ]
+        
+        # Check for dangerous patterns
+        for pattern in dangerous_patterns:
+            if re.search(pattern, command, re.IGNORECASE | re.MULTILINE):
+                return True
+        
+        # Check for suspicious encoded content
+        if self._contains_encoded_content(command):
+            return True
+            
+        # Check for path traversal attempts
+        if self._contains_path_traversal(command):
+            return True
+            
+        return False
+    
+    def _contains_encoded_content(self, command: str) -> bool:
+        """Check for encoded content that could hide malicious commands."""
+        # Base64 detection
+        if re.search(r'[A-Za-z0-9+/]{20,}={0,2}', command):
+            return True
+        
+        # Hex encoding detection
+        if re.search(r'\\x[0-9a-fA-F]{2}', command):
+            return True
+            
+        # URL encoding detection
+        if re.search(r'%[0-9a-fA-F]{2}', command):
+            return True
+            
+        return False
+    
+    def _contains_path_traversal(self, command: str) -> bool:
+        """Check for path traversal attempts."""
+        # Directory traversal patterns
+        traversal_patterns = [
+            r'\.\./.*\.\.',  # Multiple directory traversal
+            r'/\.\./\.\.',  # Absolute path traversal
+            r'\.\.[\\/]',  # Basic traversal
+            r'[\\/]\.\.[\\/]',  # Traversal in paths
+        ]
+        
+        for pattern in traversal_patterns:
+            if re.search(pattern, command):
+                return True
+                
         return False
 
     def _check_docker_available(self) -> bool:

@@ -8,6 +8,7 @@ import re
 import json
 import logging
 import platform
+import threading
 from pathlib import Path
 from typing import Optional, Dict, List, Any
 
@@ -16,8 +17,9 @@ from pydantic import BaseModel, ValidationError, Field
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Default values
+# Default values with thread safety
 _config_instance = None
+_config_lock = threading.Lock()
 
 # Adaptive Configuration settings - always enabled
 ADAPTIVE_CONFIG_REPO_PATH = os.getcwd()
@@ -251,21 +253,26 @@ class Config:
         self.guidelines: List[str] = []
         self.settings: ConfigModel = ConfigModel()
         self._config_dict = self.settings.dict()
+        
+        # Thread safety for configuration updates
+        self._settings_lock = threading.RLock()
 
     @property
     def config(self) -> Dict[str, Any]:
         """Dictionary representation for backward compatibility."""
-        self._config_dict = self.settings.dict()
-        return self._config_dict
+        with self._settings_lock:
+            self._config_dict = self.settings.dict()
+            return self._config_dict.copy()  # Return a copy to prevent external modification
 
     @config.setter
     def config(self, new_config: Dict[str, Any]) -> None:
-        try:
-            self.settings = ConfigModel(**new_config)
-            self._config_dict = self.settings.dict()
-        except ValidationError as exc:
-            self.load_failed = True
-            raise ValueError(f"Invalid configuration: {exc}") from exc
+        with self._settings_lock:
+            try:
+                self.settings = ConfigModel(**new_config)
+                self._config_dict = self.settings.dict()
+            except ValidationError as exc:
+                self.load_failed = True
+                raise ValueError(f"Invalid configuration: {exc}") from exc
 
     def get_default_config(self) -> Dict[str, Any]:
         """Return default configuration as dictionary."""
@@ -397,7 +404,7 @@ class Config:
 
 
 def get_config():
-    """Get the loaded configuration instance.
+    """Get the loaded configuration instance with thread safety.
 
     If the configuration hasn't been loaded yet, it will be loaded
     with default parameters.
@@ -406,15 +413,21 @@ def get_config():
         The loaded configuration dictionary.
     """
     global _config_instance
+    
+    # Double-checked locking pattern for thread safety
     if _config_instance is None:
-        _config_instance = Config()
-        try:
-            _config_instance.load()
-        except Exception as e:
-            # Log the error instead of silently ignoring it
-            logging.error(f"Error loading configuration: {e}")
-            # Load default configuration values
-            _config_instance.config = _config_instance.get_default_config()
-            # Set load failure flag to allow callers to detect this condition
-            _config_instance.load_failed = True
+        with _config_lock:
+            # Check again inside the lock to handle race conditions
+            if _config_instance is None:
+                _config_instance = Config()
+                try:
+                    _config_instance.load()
+                except Exception as e:
+                    # Log the error instead of silently ignoring it
+                    logging.error(f"Error loading configuration: {e}")
+                    # Load default configuration values
+                    _config_instance.config = _config_instance.get_default_config()
+                    # Set load failure flag to allow callers to detect this condition
+                    _config_instance.load_failed = True
+    
     return _config_instance.settings

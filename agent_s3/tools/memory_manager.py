@@ -74,6 +74,8 @@ class MemoryManager:
         self._lock = threading.RLock()
         self._batch_timer: Optional[threading.Timer] = None
         self.batch_delay = config.get('cache_debounce_delay', 0.2)
+        self._shutdown_event = threading.Event()
+        self._cleanup_registered = False
 
         # Configure progressive eviction parameters
         self.max_embeddings = config.get("max_embeddings", DEFAULT_MAX_EMBEDDINGS)
@@ -641,3 +643,51 @@ class MemoryManager:
             system_prompt=system_prompt,
             user_prompt=user_prompt
         )
+    
+    def _enforce_cache_limits(self) -> None:
+        """Enforce memory limits on caches to prevent unbounded growth."""
+        # Enforce summary cache limit
+        with self._lock:
+            while len(self._summary_cache) > self.summary_cache_max_size:
+                # Remove oldest entry
+                self._summary_cache.popitem(last=False)
+        
+        # Enforce embedding cache limit through eviction
+        if hasattr(self, 'embedding_client'):
+            self._evict_embeddings_if_needed()
+    
+    def cleanup(self) -> None:
+        """Clean up resources and shutdown background threads."""
+        if self._shutdown_event.is_set():
+            return  # Already cleaned up
+            
+        self._shutdown_event.set()
+        
+        # Cancel any pending batch timer
+        if self._batch_timer and self._batch_timer.is_alive():
+            self._batch_timer.cancel()
+        
+        # Shutdown executor with timeout
+        if hasattr(self, '_executor') and self._executor:
+            self._executor.shutdown(wait=True, timeout=10.0)
+        
+        # Clear caches to free memory
+        with self._lock:
+            self._summary_cache.clear()
+            self._batch_queue.clear()
+    
+    def __del__(self) -> None:
+        """Destructor to ensure cleanup happens."""
+        try:
+            self.cleanup()
+        except Exception:
+            # Ignore exceptions during cleanup in destructor
+            pass
+    
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit with cleanup."""
+        self.cleanup()

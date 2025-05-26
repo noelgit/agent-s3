@@ -1,6 +1,12 @@
 # Agent-S3
 
-Agent-S3 is a modern AI coding agent designed to empower engineers by emphasizing transparency, control, and strict adherence to guidelines. Recognizing that AI can and will make mistakes, Agent-S3 ensures that the engineer remains in control at every stage of the development process.
+Agent-S3 is SparkSoft Solutions' own Engineer-in-the-Loop AI coding agent designed to empower engineers by emphasizing transparency, control, and strict adherence to guidelines. Recognizing that AI can and will make mistakes, Agent-S3 ensures that the engineer remains in control at every stage of the development process.
+
+**Core Philosophy:**
+- **Correctness over Speed**: Agent-S3 prioritizes correctness over convenience, implementing rigorous validation at every step
+- **Engineer Control**: Every decision is reviewed and approved by the engineer before execution
+- **Transparency First**: All planning, validation, and implementation steps are clearly visible to the user
+- **Quality Assurance**: Multi-phase validation including semantic coherence checks, security reviews, and comprehensive testing strategies
 
 This README and the companion `STORIES.md` file serve as the canonical project
 documentation. Both documents provide authoritative information on setup,
@@ -31,6 +37,34 @@ Agent-S3 automates feature planning, code generation, and execution while mainta
 - **GitHub Integration:** Automatic creation of GitHub issues from approved plans and pull requests from completed implementations, providing seamless project management integration when a GitHub token is available.
 
 Agent-S3 is not just a tool for automation; it is a partner in development that prioritizes transparency, correctness, and engineer control at every step.
+
+## Key Objectives
+
+Agent-S3 is built around several core objectives that guide its design and implementation:
+
+### 1. **Maintain Engineering Excellence**
+- **Security-First Development**: Implements OWASP Top 10 security standards, input validation, authentication/authorization, and secure coding practices
+- **Performance Optimization**: Focuses on efficient algorithms (O(n) or better), proper database query optimization, memory management, and resource usage
+- **Code Quality Standards**: Enforces SOLID principles, clean code practices, comprehensive documentation, and adherence to project-specific guidelines
+- **Accessibility Compliance**: Ensures WCAG 2.1 Level AA compliance with semantic HTML, keyboard navigation, and assistive technology support
+
+### 2. **Provide Comprehensive Validation**
+- **Semantic Coherence**: Validates logical consistency between architecture, implementation plans, and tests
+- **Multi-Phase Validation**: Implements pre-planning validation, JSON schema enforcement, and static plan checking
+- **Cross-Component Verification**: Ensures traceability between system design elements, implementation steps, and test coverage
+- **Security Review Integration**: Automated security validation for critical operations and data handling
+
+### 3. **Enable Scalable Development Workflows**
+- **Feature Group Processing**: Decomposes complex requests into manageable, single-concern features
+- **Intelligent Context Management**: Uses semantic caching, token optimization, and framework-specific adaptations
+- **Error Recovery Systems**: Implements pattern-based error detection, automated recovery strategies, and comprehensive logging
+- **Multi-LLM Orchestration**: Optimizes costs and performance through strategic model selection and caching
+
+### 4. **Support Modern Development Practices**
+- **CI/CD Integration**: Seamless integration with GitHub for issue tracking, pull requests, and automated workflows
+- **Test-Driven Development**: Comprehensive test planning including unit, integration, property-based, and acceptance tests
+- **Interactive Design Process**: Conversational feature decomposition with industry best practice recommendations
+- **Real-Time Collaboration**: WebSocket-based streaming UI for immediate feedback and progress tracking
 
 ## Dependencies and Installation
 

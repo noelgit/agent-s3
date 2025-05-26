@@ -388,6 +388,7 @@ class ContextManager:
         # Dependency graph state
         self._dependency_graph: Dict[str, Any] = {"nodes": {}, "edges": []}
         self._graph_last_updated: float = 0
+        self._graph_lock = threading.Lock()  # Thread safety for dependency graph
 
         # Start background optimization (always enabled)
         self._start_background_optimization()
@@ -1358,52 +1359,53 @@ class ContextManager:
         if not new_nodes and not new_edges:
             return
 
-        graph = self._dependency_graph
-        nodes = graph.setdefault("nodes", {})
-        edges = graph.setdefault("edges", [])
+        with self._graph_lock:
+            graph = self._dependency_graph
+            nodes = graph.setdefault("nodes", {})
+            edges = graph.setdefault("edges", [])
 
-        # Track existing nodes for possible mapping
-        name_type_to_old_id: Dict[tuple, str] = {}
-        for nid, node in nodes.items():
-            if node.get("path") in files and node.get("name"):
-                name_type_to_old_id[(node["name"], node.get("type"))] = nid
+            # Track existing nodes for possible mapping
+            name_type_to_old_id: Dict[tuple, str] = {}
+            for nid, node in nodes.items():
+                if node.get("path") in files and node.get("name"):
+                    name_type_to_old_id[(node["name"], node.get("type"))] = nid
 
-        # Determine node replacements based on name/type matches
-        id_mapping: Dict[str, str] = {}
-        for n in new_nodes:
-            key = (n.get("name"), n.get("type"))
-            old_id = name_type_to_old_id.get(key)
-            if old_id:
-                id_mapping[old_id] = n["id"]
+            # Determine node replacements based on name/type matches
+            id_mapping: Dict[str, str] = {}
+            for n in new_nodes:
+                key = (n.get("name"), n.get("type"))
+                old_id = name_type_to_old_id.get(key)
+                if old_id:
+                    id_mapping[old_id] = n["id"]
 
-        removed_ids: Set[str] = set(id_mapping.keys())
-        for rid in removed_ids:
-            nodes.pop(rid, None)
+            removed_ids: Set[str] = set(id_mapping.keys())
+            for rid in removed_ids:
+                nodes.pop(rid, None)
 
-        updated_edges: List[Dict[str, Any]] = []
-        for e in edges:
-            src = id_mapping.get(e.get("source"), e.get("source"))
-            tgt = id_mapping.get(e.get("target"), e.get("target"))
+            updated_edges: List[Dict[str, Any]] = []
+            for e in edges:
+                src = id_mapping.get(e.get("source"), e.get("source"))
+                tgt = id_mapping.get(e.get("target"), e.get("target"))
 
-            if src in removed_ids and src not in id_mapping:
-                continue
-            if tgt in removed_ids and tgt not in id_mapping:
-                continue
+                if src in removed_ids and src not in id_mapping:
+                    continue
+                if tgt in removed_ids and tgt not in id_mapping:
+                    continue
 
-            if src != e.get("source") or tgt != e.get("target"):
-                e = e.copy()
-                e["source"] = src
-                e["target"] = tgt
-            updated_edges.append(e)
+                if src != e.get("source") or tgt != e.get("target"):
+                    e = e.copy()
+                    e["source"] = src
+                    e["target"] = tgt
+                updated_edges.append(e)
 
-        # Insert new nodes and edges
-        for n in new_nodes:
-            nodes[n["id"]] = n
-        updated_edges.extend(new_edges)
+            # Insert new nodes and edges
+            for n in new_nodes:
+                nodes[n["id"]] = n
+            updated_edges.extend(new_edges)
 
-        graph["nodes"] = nodes
-        graph["edges"] = updated_edges
-        self._graph_last_updated = time.time()
+            graph["nodes"] = nodes
+            graph["edges"] = updated_edges
+            self._graph_last_updated = time.time()
 
     def get_file_dependencies(self, file_path: str) -> List[str]:
         """

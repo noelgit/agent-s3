@@ -2,6 +2,7 @@ from collections import OrderedDict
 from collections import defaultdict
 import json
 import logging
+import threading
 import time
 from typing import Any
 from typing import Dict
@@ -25,23 +26,28 @@ class ContentPruningManager:
         self.recency_weight = 0.5
         self.frequency_weight = 0.3
         self.importance_weight = 0.2
+        # Thread safety lock for atomic operations
+        self._data_lock = threading.Lock()
 
     def record_access(self, key_path: str) -> None:
         timestamp = time.time()
-        history = self._access_history[key_path]
-        history.append(timestamp)
-        if len(history) > self._max_history_per_key:
-            history.pop(0)
-        self._access_counts[key_path] += 1
-        self._lru_cache[key_path] = timestamp
-        if len(self._lru_cache) > 1000:
-            self._lru_cache.popitem(last=False)
+        with self._data_lock:
+            history = self._access_history[key_path]
+            history.append(timestamp)
+            if len(history) > self._max_history_per_key:
+                history.pop(0)
+            self._access_counts[key_path] += 1
+            self._lru_cache[key_path] = timestamp
+            if len(self._lru_cache) > 1000:
+                self._lru_cache.popitem(last=False)
 
     def set_importance(self, key_path: str, importance: float) -> None:
-        self._importance_overrides[key_path] = max(0.0, min(1.0, importance))
+        with self._data_lock:
+            self._importance_overrides[key_path] = max(0.0, min(1.0, importance))
 
     def mark_as_critical(self, key_path: str) -> None:
-        self._critical_paths.add(key_path)
+        with self._data_lock:
+            self._critical_paths.add(key_path)
 
     def _calculate_value_score(self, key_path: str) -> float:
         if key_path in self._critical_paths:

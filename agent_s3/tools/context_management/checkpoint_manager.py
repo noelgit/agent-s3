@@ -6,6 +6,7 @@ across different phases of the workflow, ensuring consistency between phases.
 
 import os
 import json
+import threading
 import uuid
 from datetime import datetime
 from typing import Dict, List, Any, Tuple, Optional
@@ -421,6 +422,8 @@ class CheckpointManager:
         self.compression = compression
         self.checkpoints: Dict[str, ContextCheckpoint] = {}
         self._last_auto_checkpoint = datetime.now()
+        # Thread safety lock for atomic operations
+        self._checkpoint_lock = threading.Lock()
 
     def _checkpoint_path(self, checkpoint_id: str) -> str:
         return os.path.join(self.checkpoint_dir, f"{checkpoint_id}.json")
@@ -438,23 +441,25 @@ class CheckpointManager:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         checkpoint = ContextCheckpoint(context, description=description, metadata=metadata)
-        with open(self._checkpoint_path(checkpoint.checkpoint_id), "w") as f:
-            json.dump(checkpoint.to_dict(), f, indent=2)
-        self.checkpoints[checkpoint.checkpoint_id] = checkpoint
-        self._prune_checkpoints()
+        with self._checkpoint_lock:
+            with open(self._checkpoint_path(checkpoint.checkpoint_id), "w") as f:
+                json.dump(checkpoint.to_dict(), f, indent=2)
+            self.checkpoints[checkpoint.checkpoint_id] = checkpoint
+            self._prune_checkpoints()
         return checkpoint.checkpoint_id
 
     def get_checkpoint(self, checkpoint_id: str) -> Optional[ContextCheckpoint]:
-        if checkpoint_id in self.checkpoints:
-            return self.checkpoints[checkpoint_id]
-        path = self._checkpoint_path(checkpoint_id)
-        if not os.path.exists(path):
-            return None
-        with open(path, "r") as f:
-            data = json.load(f)
-        checkpoint = ContextCheckpoint.from_dict(data)
-        self.checkpoints[checkpoint_id] = checkpoint
-        return checkpoint
+        with self._checkpoint_lock:
+            if checkpoint_id in self.checkpoints:
+                return self.checkpoints[checkpoint_id]
+            path = self._checkpoint_path(checkpoint_id)
+            if not os.path.exists(path):
+                return None
+            with open(path, "r") as f:
+                data = json.load(f)
+            checkpoint = ContextCheckpoint.from_dict(data)
+            self.checkpoints[checkpoint_id] = checkpoint
+            return checkpoint
 
     def list_checkpoints(self) -> List[Dict[str, Any]]:
         checkpoints = []
@@ -473,10 +478,11 @@ class CheckpointManager:
         return checkpoint.context if checkpoint else None
 
     def delete_checkpoint(self, checkpoint_id: str) -> bool:
-        self.checkpoints.pop(checkpoint_id, None)
-        path = self._checkpoint_path(checkpoint_id)
-        if os.path.exists(path):
-            os.remove(path)
+        with self._checkpoint_lock:
+            self.checkpoints.pop(checkpoint_id, None)
+            path = self._checkpoint_path(checkpoint_id)
+            if os.path.exists(path):
+                os.remove(path)
             return True
         return False
 

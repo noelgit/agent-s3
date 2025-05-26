@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import re
 import secrets
 import stat
 import sys
@@ -56,9 +57,72 @@ except ImportError:
 GITHUB_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID", "")
 GITHUB_CLIENT_SECRET = os.environ.get("GITHUB_CLIENT_SECRET", "")
 GITHUB_REDIRECT_URI = "http://localhost:8000/callback"
+
+# Initialize logger
+logger = logging.getLogger(__name__)
 GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize"
 GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 GITHUB_API_URL = "https://api.github.com"
+
+
+def _generate_secure_state() -> str:
+    """Generate a cryptographically secure state parameter for OAuth.
+    
+    Returns:
+        A secure random state string with timestamp and validation
+    """
+    # Generate base random state
+    base_state = secrets.token_urlsafe(24)
+    
+    # Add timestamp for validation
+    timestamp = str(int(time.time()))
+    
+    # Combine and encode
+    state_data = f"{base_state}:{timestamp}"
+    
+    # Add additional entropy
+    entropy = secrets.token_urlsafe(8)
+    
+    return f"{state_data}:{entropy}"
+
+
+def _validate_state_security(received_state: str, expected_state: str) -> bool:
+    """Validate OAuth state parameter with enhanced security checks.
+    
+    Args:
+        received_state: State received from OAuth callback
+        expected_state: Expected state we generated
+        
+    Returns:
+        True if state is valid and secure
+    """
+    if not received_state or not expected_state:
+        return False
+        
+    # Basic equality check
+    if received_state != expected_state:
+        return False
+        
+    # Parse state components
+    try:
+        parts = expected_state.split(':')
+        if len(parts) != 3:
+            return False
+            
+        _, timestamp_str, _ = parts
+        timestamp = int(timestamp_str)
+        
+        # Check if state is not too old (5 minutes max)
+        current_time = int(time.time())
+        if current_time - timestamp > 300:
+            logger.warning("OAuth state expired")
+            return False
+            
+        return True
+        
+    except (ValueError, IndexError):
+        logger.error("Invalid state format")
+        return False
 
 # Token storage location
 TOKEN_FILE = os.path.expanduser("~/.agent_s3/github_token.json")
@@ -153,7 +217,7 @@ def load_token() -> Optional[Dict[str, Any]]:
 
 
 def validate_token(token: str) -> bool:
-    """Validate that the token is still valid.
+    """Validate that the token is still valid with comprehensive checks.
 
     Args:
         token: The GitHub OAuth token to validate
@@ -161,16 +225,52 @@ def validate_token(token: str) -> bool:
     Returns:
         True if the token is valid, False otherwise
     """
+    if not token or not isinstance(token, str) or len(token.strip()) == 0:
+        return False
+        
+    # Validate token format (GitHub tokens are typically 40-50 chars alphanumeric)
+    if not re.match(r'^[a-zA-Z0-9_]{20,50}$', token.strip()):
+        return False
+    
     headers = {
         "Authorization": f"token {token}",
         "Accept": "application/vnd.github.v3+json",
     }
-    response = requests.get(
-        f"{GITHUB_API_URL}/user",
-        headers=headers,
-        timeout=HTTP_DEFAULT_TIMEOUT,
-    )
-    return response.status_code == 200
+    
+    try:
+        response = requests.get(
+            f"{GITHUB_API_URL}/user",
+            headers=headers,
+            timeout=HTTP_DEFAULT_TIMEOUT,
+        )
+        
+        # Check for successful authentication
+        if response.status_code != 200:
+            return False
+            
+        # Validate response content
+        try:
+            user_data = response.json()
+            # Ensure we got valid user data
+            if not isinstance(user_data, dict) or 'id' not in user_data:
+                return False
+        except (ValueError, KeyError):
+            return False
+            
+        # Check token scopes if available
+        scopes = response.headers.get('X-OAuth-Scopes', '')
+        required_scopes = {'repo', 'user'}
+        available_scopes = set(scope.strip() for scope in scopes.split(',') if scope.strip())
+        
+        # Warn if missing critical scopes but don't fail validation
+        if not required_scopes.intersection(available_scopes):
+            logger.warning("Token lacks required scopes for full functionality")
+            
+        return True
+        
+    except requests.RequestException as e:
+        logger.error(f"Token validation failed: {e}")
+        return False
 
 
 class GitHubOAuthHandler(BaseHTTPRequestHandler):
@@ -188,12 +288,12 @@ class GitHubOAuthHandler(BaseHTTPRequestHandler):
             # Extract the authorization code
             query = parse_qs(parsed_url.query)
             if "code" in query and "state" in query:
-                # Verify state parameter to prevent CSRF attacks
+                # Verify state parameter to prevent CSRF attacks with enhanced validation
                 received_state = query["state"][0]
-                if received_state != GitHubOAuthHandler.expected_state:
+                if not _validate_state_security(received_state, GitHubOAuthHandler.expected_state):
                     self._send_error_response(
                         "Authentication Failed",
-                        "Invalid state parameter - possible CSRF attack.",
+                        "Invalid or expired state parameter - possible CSRF attack.",
                     )
                     return
 
@@ -270,8 +370,8 @@ def authenticate_user() -> Optional[str]:
         )
         return None
 
-    # Get new token via OAuth
-    state = secrets.token_urlsafe(16)
+    # Get new token via OAuth with enhanced security
+    state = _generate_secure_state()
     GitHubOAuthHandler.expected_state = state
     auth_params = {
         "client_id": GITHUB_CLIENT_ID,

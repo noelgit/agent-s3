@@ -128,6 +128,8 @@ class TerminalExecutor:
                 del execution_env[dangerous_var]
 
         # Execute command with exception handling
+        proc = None
+        timer = None
         try:
             cmd_list = shlex.split(command)
             proc = subprocess.Popen(
@@ -159,18 +161,14 @@ class TerminalExecutor:
                     output_chunks.append("\n... Output truncated due to size limit ...")
                     break
 
-            try:
-                proc.wait()
-                output = ''.join(output_chunks)
+            proc.wait()
+            output = ''.join(output_chunks)
 
-                # Reset failure count on success
-                if proc.returncode == 0:
-                    self.failure_count = 0
+            # Reset failure count on success
+            if proc.returncode == 0:
+                self.failure_count = 0
 
-                return proc.returncode, output
-            finally:
-                # Ensure timer is always canceled, even if an exception occurs
-                timer.cancel()
+            return proc.returncode, output
 
         except Exception as e:
             # Log error and return
@@ -180,11 +178,28 @@ class TerminalExecutor:
             self.failure_count += 1
             self.last_failure_time = current_time
 
-            # Make sure to cancel the timer in case of exception
-            if 'timer' in locals():
-                timer.cancel()
-
             return 1, f"Error executing command: {e}"
+            
+        finally:
+            # Ensure timer is always canceled
+            if timer:
+                timer.cancel()
+            
+            # Ensure process is properly terminated and cleaned up
+            if proc:
+                try:
+                    if proc.poll() is None:  # Process is still running
+                        proc.terminate()
+                        # Wait briefly for graceful termination
+                        try:
+                            proc.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            # Force kill if it doesn't terminate gracefully
+                            proc.kill()
+                            proc.wait()
+                except Exception:
+                    # Ignore errors during cleanup
+                    pass
 
     def run_command_in_background(self, command: str, env: Optional[Dict[str, str]] = None) -> str:
         """

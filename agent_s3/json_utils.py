@@ -236,8 +236,24 @@ def repair_json_structure(
     data: Dict[str, Any],
     schema: Dict[str, Any],
     default_generators: Dict[str, Callable] | None = None,
+    _depth: int = 0,
+    _visited: set | None = None,
 ) -> Dict[str, Any]:
-    """Attempt to repair a JSON structure to match a schema."""
+    """Attempt to repair a JSON structure to match a schema with recursion protection."""
+
+    # Prevent infinite recursion
+    if _depth > 50:  # Maximum recursion depth
+        raise ValueError("JSON repair exceeded maximum recursion depth")
+    
+    if _visited is None:
+        _visited = set()
+    
+    # Check for circular references using object id
+    data_id = id(data)
+    if data_id in _visited:
+        return {}  # Return empty dict for circular references
+    
+    _visited.add(data_id)
 
     if not default_generators:
         default_generators = {}
@@ -257,36 +273,52 @@ def repair_json_structure(
             return {}
         return None
 
-    def _repair_value(value: Any, expected: Any) -> Any:
+    def _repair_value(value: Any, expected: Any, current_depth: int) -> Any:
         """Recursively repair a value according to the expected schema."""
+        if current_depth > 50:  # Prevent deep nesting
+            return _default_for_type(expected) if hasattr(expected, '__class__') else None
+            
         if isinstance(expected, dict):
             if not isinstance(value, dict):
                 value = {}
-            return repair_json_structure(value, expected, default_generators)
+            return repair_json_structure(
+                value, expected, default_generators, current_depth + 1, _visited.copy()
+            )
         if isinstance(expected, list):
             item_schema = expected[0] if expected else None
             if not isinstance(value, list):
                 value = []
             if item_schema is None:
                 return value
-            return [_repair_value(item, item_schema) for item in value]
+            # Limit list size to prevent memory exhaustion
+            if len(value) > 1000:
+                value = value[:1000]
+            return [_repair_value(item, item_schema, current_depth + 1) for item in value]
         if not isinstance(value, expected):
             return _default_for_type(expected)
         return value
 
-    repaired: Dict[str, Any] = {}
+    try:
+        repaired: Dict[str, Any] = {}
 
-    for key, expected_type in schema.items():
-        if key not in data:
-            if key in default_generators:
-                repaired[key] = default_generators[key]()
-            else:
-                repaired[key] = _repair_value(None, expected_type)
-            continue
+        for key, expected_type in schema.items():
+            if key not in data:
+                if key in default_generators:
+                    try:
+                        repaired[key] = default_generators[key]()
+                    except Exception:
+                        # If default generator fails, use type default
+                        repaired[key] = _repair_value(None, expected_type, _depth + 1)
+                else:
+                    repaired[key] = _repair_value(None, expected_type, _depth + 1)
+                continue
 
-        repaired[key] = _repair_value(data[key], expected_type)
+            repaired[key] = _repair_value(data[key], expected_type, _depth + 1)
 
-    return repaired
+        return repaired
+    finally:
+        # Clean up visited set for this level
+        _visited.discard(data_id)
 
 
 def validate_and_repair_json(
@@ -297,6 +329,7 @@ def validate_and_repair_json(
 ) -> Tuple[bool, Dict[str, Any], Optional[str]]:
     """
     Combined function to extract, validate, and optionally repair JSON from an LLM response.
+    Uses atomic operations to prevent data corruption during repair.
 
     Args:
         response_text: The LLM response text
@@ -310,11 +343,23 @@ def validate_and_repair_json(
         - data: The extracted and optionally repaired JSON data
         - error_message: Error message if unsuccessful, or repair notes if successful with repairs
     """
+    import copy
+    
+    # Input validation
+    if not isinstance(response_text, str):
+        return False, {}, "Invalid input: response_text must be a string"
+    
+    if not isinstance(schema, dict):
+        return False, {}, "Invalid input: schema must be a dictionary"
+    
     # Extract and parse JSON
     success, data, error_message = parse_json_from_llm_response(response_text)
 
     if not success:
         return False, {}, error_message
+
+    # Create a deep copy of the original data for atomic operations
+    original_data = copy.deepcopy(data)
 
     # Validate against schema
     is_valid, validation_errors = validate_json_against_schema(data, schema)
@@ -325,7 +370,9 @@ def validate_and_repair_json(
     # Attempt repair if validation failed
     if default_generators:
         try:
-            repaired_data = repair_json_structure(data, schema, default_generators)
+            # Perform repair on a copy to ensure atomicity
+            data_copy = copy.deepcopy(original_data)
+            repaired_data = repair_json_structure(data_copy, schema, default_generators)
 
             # Validate the repaired data
             repaired_valid, repaired_errors = validate_json_against_schema(
@@ -333,7 +380,7 @@ def validate_and_repair_json(
             )
 
             if repaired_valid:
-                # Repaired successfully
+                # Repaired successfully - return the atomic result
                 return (
                     True,
                     repaired_data,
