@@ -173,6 +173,7 @@ class ConfigModel(BaseModel):
     check_auth: bool = True
     sandbox_environment: bool = True
     interactive: bool = True
+    allow_interactive_clarification: bool = True
     openrouter_key: str = os.environ.get("OPENROUTER_KEY", "")
     openai_key: str = os.environ.get("OPENAI_KEY", "")
     encryption_key: str = os.environ.get("AGENT_S3_ENCRYPTION_KEY", "")
@@ -254,6 +255,7 @@ class Config:
     @property
     def config(self) -> Dict[str, Any]:
         """Dictionary representation for backward compatibility."""
+        self._config_dict = self.settings.dict()
         return self._config_dict
 
     @config.setter

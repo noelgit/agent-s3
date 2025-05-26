@@ -23,3 +23,17 @@ def test_invalid_config_file(tmp_path):
     with pytest.raises(ValueError):
         cfg.load(str(file_path))
 
+
+def test_allow_interactive_clarification_defaults(monkeypatch, tmp_path):
+    """Verify default and custom values for allow_interactive_clarification."""
+    monkeypatch.chdir(tmp_path)
+    cfg = Config()
+    cfg.load()
+    assert cfg.settings.allow_interactive_clarification is True
+
+    updated = cfg.config
+    updated["allow_interactive_clarification"] = False
+    cfg.config = updated
+    assert cfg.settings.allow_interactive_clarification is False
+    assert cfg.config["allow_interactive_clarification"] is False
+
