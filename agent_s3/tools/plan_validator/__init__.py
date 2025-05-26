@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Tuple
 
 from .validator import PlanValidator
 from .ast_utils import CodeAnalyzer, PlanValidationError, validate_code_syntax
-from .config import RESERVED_ENV_VARS, TOKEN_BUDGET_LIMITS
+
 from .structural_checks import (
     validate_duplicate_symbols,
     validate_identifier_hygiene,

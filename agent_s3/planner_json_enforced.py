@@ -26,7 +26,6 @@ from agent_s3.tools.context_management.token_budget import TokenEstimator
 
 # Import from the planning module
 from agent_s3.planning import (
-    validate_json_schema,
     repair_json_structure,
     get_consolidated_plan_system_prompt,
     get_implementation_planning_system_prompt,

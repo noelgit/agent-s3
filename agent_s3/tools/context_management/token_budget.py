@@ -13,7 +13,7 @@ import tiktoken
 import os
 import ast
 from abc import ABC, abstractmethod
-from typing import Dict, List, Any, Optional, Tuple, Callable
+from typing import Dict, List, Any, Optional, Callable
 
 logger = logging.getLogger(__name__)
 

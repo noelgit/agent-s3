@@ -10,9 +10,8 @@ from __future__ import annotations
 import json
 import logging
 import re
-from pathlib import Path
 import os
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Set
 
 from agent_s3.security_utils import sanitize_prompt_text
 
