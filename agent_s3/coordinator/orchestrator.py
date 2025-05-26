@@ -631,11 +631,17 @@ class WorkflowOrchestrator:
         try:
             self.coordinator.env_tool.activate_virtual_env()
             self.coordinator.test_runner_tool.detect_runner()
-            success, output = self.coordinator.test_runner_tool.run_tests()
-            coverage = 0.0
-            if success and hasattr(self.coordinator.test_runner_tool, "parse_coverage_report"):
+            test_result = self.coordinator.test_runner_tool.run_tests()
+            success = test_result.get("success", False)
+            output = test_result.get("output", "")
+            coverage = test_result.get("coverage")
+            if success and not coverage:
                 coverage = self.coordinator.test_runner_tool.parse_coverage_report()
-            return {"success": success, "output": output, "coverage": coverage}
+            return {
+                "success": success,
+                "output": output,
+                "coverage": coverage or 0.0,
+            }
         except Exception as exc:  # pragma: no cover - safety net
             self.coordinator.scratchpad.log("Coordinator", f"Test execution failed: {exc}", level=self.coordinator.LogLevel.ERROR)
             return {"success": False, "output": str(exc), "coverage": 0.0}

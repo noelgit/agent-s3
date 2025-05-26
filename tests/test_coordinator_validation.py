@@ -66,10 +66,10 @@ def test_validation_phase_all_pass(coordinator):
     # Set up mocks for successful validation
     coordinator.database_manager.setup_database.return_value = {"success": True}
     coordinator.bash_tool.run_command.side_effect = [(0, "No lint errors"), (0, "No type errors")]
-    coordinator.run_tests = MagicMock(return_value={"success": True, "output": "All tests passed", "coverage": 80.0})
+    coordinator.orchestrator._run_tests = MagicMock(return_value={"success": True, "output": "All tests passed", "coverage": 80.0})
 
     # Execute
-    result = coordinator._run_validation_phase()
+    result = coordinator.orchestrator._run_validation_phase()
 
     # Assert
     assert result["success"] is True  # Validation passed
@@ -83,7 +83,7 @@ def test_validation_phase_all_pass(coordinator):
     coordinator.database_manager.setup_database.assert_called()
     coordinator.database_manager.database_tool.get_schema_info.assert_called()
     assert coordinator.bash_tool.run_command.call_count == 2
-    coordinator.run_tests.assert_called_once()
+    coordinator.orchestrator._run_tests.assert_called_once()
 
 def test_validation_phase_database_failure(coordinator):
     """Test validation phase with database connection failure."""
@@ -94,7 +94,7 @@ def test_validation_phase_database_failure(coordinator):
     }
 
     # Execute
-    result = coordinator._run_validation_phase()
+    result = coordinator.orchestrator._run_validation_phase()
 
     # Assert
     assert result["success"] is False  # Validation failed
@@ -105,7 +105,7 @@ def test_validation_phase_database_failure(coordinator):
     coordinator.database_manager.setup_database.assert_called()
     coordinator.database_manager.database_tool.get_schema_info.assert_not_called()
     coordinator.bash_tool.run_command.assert_not_called()
-    coordinator.run_tests.assert_not_called()
+    coordinator.orchestrator._run_tests.assert_not_called()
 
 def test_validation_phase_lint_failure(coordinator):
     """Test validation phase with linting failure."""
@@ -114,7 +114,7 @@ def test_validation_phase_lint_failure(coordinator):
     coordinator.bash_tool.run_command.side_effect = [(1, "Lint errors found"), (0, "No type errors")]
 
     # Execute
-    result = coordinator._run_validation_phase()
+    result = coordinator.orchestrator._run_validation_phase()
 
     # Assert
     assert result["success"] is False  # Validation failed
@@ -125,7 +125,7 @@ def test_validation_phase_lint_failure(coordinator):
     coordinator.database_manager.setup_database.assert_called()
     coordinator.database_manager.database_tool.get_schema_info.assert_called()
     coordinator.bash_tool.run_command.assert_called_once_with("flake8 .", timeout=120)
-    coordinator.run_tests.assert_not_called()
+    coordinator.orchestrator._run_tests.assert_not_called()
 
 def test_validation_phase_type_check_failure(coordinator):
     """Test validation phase with type checking failure."""
@@ -134,7 +134,7 @@ def test_validation_phase_type_check_failure(coordinator):
     coordinator.bash_tool.run_command.side_effect = [(0, "No lint errors"), (1, "Type errors found")]
 
     # Execute
-    result = coordinator._run_validation_phase()
+    result = coordinator.orchestrator._run_validation_phase()
 
     # Assert
     assert result["success"] is False  # Validation failed
@@ -145,21 +145,21 @@ def test_validation_phase_type_check_failure(coordinator):
     coordinator.database_manager.setup_database.assert_called()
     coordinator.database_manager.database_tool.get_schema_info.assert_called()
     assert coordinator.bash_tool.run_command.call_count == 2
-    coordinator.run_tests.assert_not_called()
+    coordinator.orchestrator._run_tests.assert_not_called()
 
 def test_validation_phase_test_failure(coordinator):
     """Test validation phase with test execution failure."""
     # Set up mocks for successful db/lint/type validation but test failure
     coordinator.database_manager.setup_database.return_value = {"success": True}
     coordinator.bash_tool.run_command.side_effect = [(0, "No lint errors"), (0, "No type errors")]
-    coordinator.run_tests = MagicMock(return_value={
+    coordinator.orchestrator._run_tests = MagicMock(return_value={
         "success": False,
         "output": "Test failures detected",
         "coverage": 50.0,
     })
 
     # Execute
-    result = coordinator._run_validation_phase()
+    result = coordinator.orchestrator._run_validation_phase()
 
     # Assert
     assert result["success"] is False  # Validation failed
@@ -171,21 +171,21 @@ def test_validation_phase_test_failure(coordinator):
     coordinator.database_manager.setup_database.assert_called()
     coordinator.database_manager.database_tool.get_schema_info.assert_called()
     assert coordinator.bash_tool.run_command.call_count == 2
-    coordinator.run_tests.assert_called_once()
+    coordinator.orchestrator._run_tests.assert_called_once()
 
 
 def test_validation_phase_mutation_failure(coordinator):
     """Test validation fails when mutation score is below threshold."""
     coordinator.database_manager.setup_database.return_value = {"success": True}
     coordinator.bash_tool.run_command.side_effect = [(0, "No lint errors"), (0, "No type errors")]
-    coordinator.run_tests = MagicMock(return_value={"success": True, "output": "All tests passed", "coverage": 80.0})
+    coordinator.orchestrator._run_tests = MagicMock(return_value={"success": True, "output": "All tests passed", "coverage": 80.0})
     coordinator.config.config["mutation_score_threshold"] = 75.0
     coordinator.test_critic.run_analysis.return_value = {
         "verdict": None,
         "details": {"mutation_score": 60.0},
     }
 
-    result = coordinator._run_validation_phase()
+    result = coordinator.orchestrator._run_validation_phase()
 
     assert result["success"] is False
     assert result["step"] == "mutation"
@@ -197,14 +197,14 @@ def test_validation_phase_invalid_threshold(coordinator):
     """Test invalid mutation_score_threshold defaults to 70.0."""
     coordinator.database_manager.setup_database.return_value = {"success": True}
     coordinator.bash_tool.run_command.side_effect = [(0, "No lint errors"), (0, "No type errors")]
-    coordinator.run_tests = MagicMock(return_value={"success": True, "output": "All tests passed", "coverage": 80.0})
+    coordinator.orchestrator._run_tests = MagicMock(return_value={"success": True, "output": "All tests passed", "coverage": 80.0})
     coordinator.config.config["mutation_score_threshold"] = "invalid"
     coordinator.test_critic.run_analysis.return_value = {
         "verdict": None,
         "details": {"mutation_score": 60.0},
     }
 
-    result = coordinator._run_validation_phase()
+    result = coordinator.orchestrator._run_validation_phase()
 
     assert result["success"] is False
     assert result["step"] == "mutation"
@@ -221,7 +221,7 @@ def test_validation_phase_database_exception(coordinator):
     coordinator.database_manager.setup_database.side_effect = Exception("Database exception")
 
     # Execute
-    result = coordinator._run_validation_phase()
+    result = coordinator.orchestrator._run_validation_phase()
 
     # Assert
     assert result["success"] is False  # Validation fails on exception
@@ -230,7 +230,7 @@ def test_validation_phase_database_exception(coordinator):
     # Verify db validation was attempted and subsequent steps were skipped
     coordinator.database_manager.setup_database.assert_called()
     coordinator.bash_tool.run_command.assert_not_called()
-    coordinator.run_tests.assert_not_called()
+    coordinator.orchestrator._run_tests.assert_not_called()
 
 # Test run_tests method
 
@@ -245,7 +245,7 @@ def test_run_tests_success(coordinator):
     # Mock path exists
     with patch('os.path.exists', return_value=True):
         # Execute
-        result = coordinator.run_tests()
+        result = coordinator.orchestrator._run_tests()
 
         # Assert
         assert result["success"] is True
@@ -264,7 +264,7 @@ def test_run_tests_failure(coordinator):
     coordinator.test_runner_tool.run_tests.return_value = (False, "Test failures detected")
 
     # Execute
-    result = coordinator.run_tests()
+    result = coordinator.orchestrator._run_tests()
 
     # Assert
     assert result["success"] is False
@@ -298,7 +298,7 @@ def test_run_tests_with_database_setup(coordinator):
     # Mock path exists
     with patch('os.path.exists', return_value=False):
         # Execute
-        result = coordinator.run_tests()
+        result = coordinator.orchestrator._run_tests()
 
         # Assert
         assert result["success"] is True
