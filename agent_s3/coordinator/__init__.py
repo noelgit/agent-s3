@@ -10,13 +10,18 @@ import os
 import re
 import traceback
 from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime
 
 # Third-party imports
 # None required
 
 # Local imports
 from agent_s3.config import Config
-from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager, LogLevel
+from agent_s3.enhanced_scratchpad_manager import (
+    EnhancedScratchpadManager,
+    LogLevel,
+    Section,
+)
 from agent_s3.implementation_manager import ImplementationManager
 from agent_s3.error_handler import ErrorHandler
 
@@ -533,6 +538,53 @@ class Coordinator:
         if interaction.get("error"):
             print("## Error")
             print(interaction.get("error"))
+
+    def debug_last_test(self) -> Optional[str]:
+        """Attempt to debug the most recent failing test output."""
+        last = self.progress_tracker.get_latest_progress()
+        if not last or "output" not in last:
+            return None
+
+        self.scratchpad.start_section(Section.DEBUGGING, "Coordinator")
+        output = last["output"]
+        try:
+            context = self.error_context_manager.collect_error_context(
+                error_message=output
+            )
+            attempted, result = self.error_context_manager.attempt_automated_recovery(
+                context, context
+            )
+
+            if attempted and "failed" not in str(result).lower():
+                self.scratchpad.log(
+                    "Coordinator",
+                    f"Automated recovery succeeded: {result}",
+                    level=LogLevel.INFO,
+                )
+
+            if not attempted or "failed" in str(result).lower():
+                debug_result = self.debugging_manager.handle_error(
+                    error_message=output,
+                    traceback_text=output,
+                    file_path=context.get("parsed_error", {}).get("file_paths", [None])[0],
+                    line_number=context.get("parsed_error", {}).get("line_numbers", [None])[0],
+                )
+                self.scratchpad.log(
+                    "Coordinator",
+                    f"Advanced debugging completed: {debug_result.get('description')}",
+                    level=LogLevel.INFO if debug_result.get("success") else LogLevel.WARNING,
+                )
+            return None
+        except Exception as exc:  # pragma: no cover - defensive
+            self.progress_tracker.update_progress({
+                "phase": "debug",
+                "status": "failed",
+                "error": str(exc),
+                "timestamp": datetime.now().isoformat(),
+            })
+            return f"Error during finalization: {exc}"
+        finally:
+            self.scratchpad.end_section(Section.DEBUGGING)
     
     # _execute_pre_planning_phase method removed as it's redundant with inline implementation in run_task
     
