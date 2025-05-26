@@ -33,7 +33,7 @@ try:
     from agent_s3.tools.embedding_client import EmbeddingClient
     from agent_s3.tools.incremental_indexing_adapter import install_incremental_indexing
 except ImportError as e:
-    logger.error("%s", Error importing Agent-S3 modules: {e})
+    logger.error("%s", f"Error importing Agent-S3 modules: {e}")
     logger.error("Make sure you're running this script from the root of the Agent-S3 repository")
     sys.exit(1)
 
@@ -61,7 +61,7 @@ def main():
 
     # Validate repository path
     if not os.path.isdir(args.repo_path):
-        logger.error("%s", Repository path does not exist or is not a directory: {args.repo_path})
+        logger.error("%s", f"Repository path does not exist or is not a directory: {args.repo_path}")
         sys.exit(1)
 
     # Create dependencies
@@ -92,7 +92,7 @@ def main():
         )
 
         # Perform initial indexing
-        logger.info("%s", {'Full' if args.full else 'Incremental'} indexing of repository: {args.repo_path})
+        logger.info("%s", f"{'Full' if args.full else 'Incremental'} indexing of repository: {args.repo_path}")
         start_time = time.time()
         result = adapter.update_index(
             force_full=args.full,
@@ -101,43 +101,43 @@ def main():
         duration = time.time() - start_time
 
         # Display results
-        logger.info("%s", Indexing completed in {duration:.2f} seconds)
-        logger.info("%s", Files indexed: {result.get('files_indexed', 0)})
-        logger.info("%s", Files skipped: {result.get('files_skipped', 0)})
+        logger.info("Indexing completed in %.2f seconds", duration)
+        logger.info("Files indexed: %s", result.get('files_indexed', 0))
+        logger.info("Files skipped: %s", result.get('files_skipped', 0))
 
         # Get index stats
         stats = adapter.get_index_stats()
         if 'partitions' in stats:
             partition_stats = stats['partitions']
-            logger.info("%s", Total partitions: {partition_stats.get('total_partitions', 0)})
-            logger.info("%s", Total files in index: {partition_stats.get('total_files', 0)})
+            logger.info("%s", f"Total partitions: {partition_stats.get('total_partitions', 0)}")
+            logger.info("%s", f"Total files in index: {partition_stats.get('total_files', 0)}")
 
         # Enable watch mode if requested
         if args.watch:
-            logger.info("%s", Enabling watch mode for repository: {args.repo_path})
+            logger.info("%s", f"Enabling watch mode for repository: {args.repo_path}")
             watch_id = adapter.enable_watch_mode(args.repo_path)
             if watch_id:
-                logger.info("%s", Watch mode enabled with ID: {watch_id})
+                logger.info("%s", f"Watch mode enabled with ID: {watch_id}")
                 logger.info("Press Ctrl+C to stop watching")
             else:
                 logger.error("Failed to enable watch mode")
 
         # Perform search if query provided
         if args.search:
-            logger.info("%s", Searching for: {args.search})
+            logger.info("%s", f"Searching for: {args.search}")
             results = code_analysis_tool.search_code(args.search, top_k=5)
 
             # Display results
-            logger.info("%s", Found {len(results)} results:)
+            logger.info("%s", f"Found {len(results)} results:")
             for i, result in enumerate(results):
-                logger.info("%s", Result {i+1}:)
-                logger.info("%s",   File: {result.get('file', 'Unknown)}")
-                logger.info("%s",   Score: {result.get('score', 0):.4f})
+                logger.info("%s", f"Result {i+1}:")
+                logger.info("%s", f"  File: {result.get('file', 'Unknown')}")
+                logger.info("%s", f"  Score: {result.get('score', 0):.4f}")
 
                 # Display a snippet of content
                 content = result.get('content', '')
                 snippet = content[:200] + "..." if len(content) > 200 else content
-                logger.info("%s",   Snippet: {snippet})
+                logger.info("%s", f"  Snippet: {snippet}")
                 logger.info("-----")
 
         # If watch mode is enabled, keep the script running
