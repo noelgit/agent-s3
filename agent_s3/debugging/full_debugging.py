@@ -156,7 +156,7 @@ def execute_full_debugging(
         try:
             for file_path, content in fixes.items():
                 # Validate file path - must exist or be in expected directories
-                if not os.path.exists(file_path) and not is_safe_new_file(file_path, error_context):
+                if not os.path.exists(file_path) and not is_safe_new_file(file_path, error_context.file_path):
                     scratchpad.log(
                         role="DebuggingManager",
                         message=f"Skipping invalid file path: {file_path}",
