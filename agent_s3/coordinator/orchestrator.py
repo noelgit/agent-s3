@@ -584,7 +584,7 @@ class WorkflowOrchestrator:
                     "coverage": None,
                 }
 
-            lint_exit, lint_output = self.coordinator.bash_tool.run_command("flake8 .", timeout=120)
+            lint_exit, lint_output = self.coordinator.bash_tool.run_command("ruff check .", timeout=120)
             results["lint_output"] = lint_output
             if lint_exit != 0:
                 results.update({"success": False, "step": "lint"})
