@@ -1249,6 +1249,116 @@ class ContextManager:
 
         return self._dependency_graph
 
+    def _update_dependency_graph(self, files: List[str]) -> None:
+        """Update portions of the dependency graph for the given files.
+
+        This re-analyzes each supplied file using :class:`StaticAnalyzer` and
+        merges the resulting nodes and edges into ``self._dependency_graph``.
+        Existing nodes from the same files are replaced. Edges referencing moved
+        or renamed nodes are updated when possible to maintain consistency.
+
+        Args:
+            files: List of file paths to (re)analyze.
+        """
+
+        if not files:
+            return
+
+        try:
+            from agent_s3.tools.static_analyzer import StaticAnalyzer
+        except Exception as exc:  # pragma: no cover - import error unlikely
+            logger.error("StaticAnalyzer not available: %s", exc)
+            return
+
+        file_tool = getattr(self, "_file_tool", None) or self._tool_registry.get_tool_by_capability(
+            ToolCapability.FILE_OPERATIONS
+        )
+        project_root = os.getcwd()
+        if file_tool and hasattr(file_tool, "get_workspace_root"):
+            try:
+                project_root = file_tool.get_workspace_root()
+            except Exception:  # pragma: no cover - defensive
+                project_root = os.getcwd()
+
+        tech_detector = getattr(self, "_tech_stack_detector", None) or self._tool_registry.get_tool_by_capability(
+            ToolCapability.TECH_STACK_DETECTION
+        )
+        tech_stack = None
+        if tech_detector and hasattr(tech_detector, "detect_tech_stack"):
+            try:  # pragma: no cover - errors logged
+                tech_stack = tech_detector.detect_tech_stack()
+            except Exception as exc:
+                logger.warning("Tech stack detection failed: %s", exc)
+
+        analyzer = StaticAnalyzer(file_tool=file_tool, project_root=project_root)
+
+        new_nodes: List[Dict[str, Any]] = []
+        new_edges: List[Dict[str, Any]] = []
+        for fp in files:
+            try:
+                result = analyzer.analyze_file_with_tech_stack(fp, tech_stack, project_root)
+                nodes = result.get("nodes", [])
+                edges = result.get("edges", [])
+                if hasattr(analyzer, "resolve_dependency_targets"):
+                    try:
+                        edges = analyzer.resolve_dependency_targets(nodes, edges)
+                    except Exception as exc:  # pragma: no cover - analyzer errors
+                        logger.warning("Dependency target resolution failed for %s: %s", fp, exc)
+                new_nodes.extend(nodes)
+                new_edges.extend(edges)
+            except Exception as exc:
+                logger.error("Error analyzing %s: %s", fp, exc)
+
+        if not new_nodes and not new_edges:
+            return
+
+        graph = self._dependency_graph
+        nodes = graph.setdefault("nodes", {})
+        edges = graph.setdefault("edges", [])
+
+        # Track existing nodes for possible mapping
+        name_type_to_old_id: Dict[tuple, str] = {}
+        for nid, node in nodes.items():
+            if node.get("path") in files and node.get("name"):
+                name_type_to_old_id[(node["name"], node.get("type"))] = nid
+
+        # Determine node replacements based on name/type matches
+        id_mapping: Dict[str, str] = {}
+        for n in new_nodes:
+            key = (n.get("name"), n.get("type"))
+            old_id = name_type_to_old_id.get(key)
+            if old_id:
+                id_mapping[old_id] = n["id"]
+
+        removed_ids: Set[str] = set(id_mapping.keys())
+        for rid in removed_ids:
+            nodes.pop(rid, None)
+
+        updated_edges: List[Dict[str, Any]] = []
+        for e in edges:
+            src = id_mapping.get(e.get("source"), e.get("source"))
+            tgt = id_mapping.get(e.get("target"), e.get("target"))
+
+            if src in removed_ids and src not in id_mapping:
+                continue
+            if tgt in removed_ids and tgt not in id_mapping:
+                continue
+
+            if src != e.get("source") or tgt != e.get("target"):
+                e = e.copy()
+                e["source"] = src
+                e["target"] = tgt
+            updated_edges.append(e)
+
+        # Insert new nodes and edges
+        for n in new_nodes:
+            nodes[n["id"]] = n
+        updated_edges.extend(new_edges)
+
+        graph["nodes"] = nodes
+        graph["edges"] = updated_edges
+        self._graph_last_updated = time.time()
+
     def get_file_dependencies(self, file_path: str) -> List[str]:
         """
         Get files that the specified file depends on.
