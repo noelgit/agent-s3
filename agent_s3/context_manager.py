@@ -315,8 +315,27 @@ class ContextManager:
 
     @staticmethod
     def _validate_path(path: str) -> None:
+        """Validate that the provided path stays within the workspace.
+
+        Symlinks are resolved to their real locations to prevent bypassing the
+        workspace boundary checks through link traversal.
+        """
+
         normalized = os.path.normpath(path)
-        if os.path.isabs(normalized) and not normalized.startswith(os.getcwd()):
+        workspace_root = os.path.realpath(os.getcwd())
+
+        # Resolve the absolute path including any symlinks
+        candidate = (
+            normalized
+            if os.path.isabs(normalized)
+            else os.path.join(workspace_root, normalized)
+        )
+        resolved = os.path.realpath(candidate)
+
+        # Ensure the resolved path is within the workspace directory
+        if os.path.commonpath([workspace_root, resolved]) != workspace_root:
             raise ValueError("Invalid absolute path outside workspace")
+
+        # Reject paths that explicitly navigate upward
         if ".." in normalized.split(os.sep):
             raise ValueError("Path traversal detected")
