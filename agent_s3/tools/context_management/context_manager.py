@@ -669,38 +669,65 @@ class ContextManager:
             logger.warning("No file tool available for context refinement")
             return
 
+        file_infos = []
+
+        # Preload file contents and compute keyword scores
+        for index, file_path in enumerate(prioritized_files):
+            try:
+                content = file_tool.read_file(file_path)
+            except Exception as e:  # pragma: no cover - log only
+                logger.error(f"Error reading file {file_path}: {e}")
+                continue
+
+            if not content:
+                continue
+
+            content_tokens = self.token_budget_analyzer.get_token_count(content)
+
+            # Skip extremely large files
+            if content_tokens > (max_tokens * 0.4):
+                logger.info(f"Skipping large file {file_path} ({content_tokens} tokens)")
+                continue
+
+            keyword_score = 0
+            if task_keywords:
+                lowered = content.lower()
+                for kw in task_keywords:
+                    if kw.lower() in lowered:
+                        keyword_score += 1
+
+            file_infos.append({
+                "index": index,
+                "path": file_path,
+                "content": content,
+                "tokens": content_tokens,
+                "score": keyword_score,
+            })
+
+        # Sort files by keyword score (higher first) while preserving original order
+        file_infos.sort(key=lambda x: (-x["score"], x["index"]))
+
         context_files = {}
         tokens_used = 0
 
-        for file_path in prioritized_files:
+        for info in file_infos:
             if tokens_used >= max_tokens:
                 break
 
-            try:
-                content = file_tool.read_file(file_path)
-                if not content:
-                    continue
+            file_path = info["path"]
+            content = info["content"]
+            content_tokens = info["tokens"]
 
-                content_tokens = self.token_budget_analyzer.get_token_count(content)
-
-                # Skip extremely large files or truncate them
-                if content_tokens > (max_tokens * 0.4):  # Skip if file would use >40% of budget
-                    logger.info(f"Skipping large file {file_path} ({content_tokens} tokens)")
-                    continue
-
-                if tokens_used + content_tokens <= max_tokens:
-                    context_files[file_path] = content
-                    tokens_used += content_tokens
-                else:
-                    # We'd exceed budget - see if we can truncate
-                    remaining_tokens = max_tokens - tokens_used
-                    if remaining_tokens > 100:  # Only worth including if we can get a meaningful amount
-                        truncated = content[:remaining_tokens * 4]  # Rough estimate of chars to tokens
-                        truncated += "\n... [truncated due to token budget]"
-                        context_files[file_path] = truncated
-                        tokens_used = max_tokens  # Consider budget fully used
-            except Exception as e:
-                logger.error(f"Error reading file {file_path}: {e}")
+            if tokens_used + content_tokens <= max_tokens:
+                context_files[file_path] = content
+                tokens_used += content_tokens
+            else:
+                remaining_tokens = max_tokens - tokens_used
+                if remaining_tokens > 100:
+                    truncated = content[:remaining_tokens * 4]
+                    truncated += "\n... [truncated due to token budget]"
+                    context_files[file_path] = truncated
+                    tokens_used = max_tokens
 
         # Update the context with the refined file contents
         with self._context_lock:
