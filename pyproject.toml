@@ -89,7 +89,13 @@ testpaths = ["tests"]
 line-length = 88
 target-version = "py310"
 exclude = [
-    "**",
+    "build/",
+    "dist/",
+    ".venv/",
+    "venv/",
+    "env/",
+    ".tox/",
+    "node_modules/",
 ]
 
 [tool.mypy]

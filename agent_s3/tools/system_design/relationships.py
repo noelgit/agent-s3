@@ -6,7 +6,7 @@ import re
 from collections import defaultdict
 from typing import Any, Dict, List, Tuple
 
-from .constants import ErrorMessages, logger
+from .constants import ErrorMessages
 
 
 def validate_component_relationships(system_design: Dict[str, Any]) -> List[Dict[str, Any]]:
