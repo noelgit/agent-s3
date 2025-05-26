@@ -5,14 +5,14 @@
   "dependencies": {
     "dompurify": "^3.0.9",
     "highlight.js": "^11.9.0",
-    "marked": "^12.0.0",
+    "marked": "^4.3.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "^3.0.1"
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "NODE_OPTIONS=--openssl-legacy-provider react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

@@ -3,11 +3,17 @@
   "displayName": "Agent-S3",
   "description": "AI coding agent with GitHub issue tracking",
   "version": "0.1.0",
+  "publisher": "agent-s3-team",
   "engines": {
-    "vscode": "^1.60.0"
+    "vscode": "^1.99.0"
   },
   "categories": [
     "Other"
+  ],
+  "activationEvents": [
+    "onCommand:agent-s3.init",
+    "onCommand:agent-s3.help",
+    "onCommand:agent-s3.request"
   ],
   "main": "./out/extension.js",
   "contributes": {

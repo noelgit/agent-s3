@@ -6,14 +6,12 @@ import DOMPurify from 'dompurify';
 import './ChatView.css';
 
 // Configure markdown parser with syntax highlighting
-marked.use({
-  renderer: {
-    code(code: string, lang?: string) {
-      if (lang && hljs.getLanguage(lang)) {
-        return `<pre><code class="hljs language-${lang}">${hljs.highlight(code, { language: lang }).value}</code></pre>`;
-      }
-      return `<pre><code class="hljs">${hljs.highlightAuto(code).value}</code></pre>`;
+(marked as any).setOptions({
+  highlight: (code: string, lang: string) => {
+    if (lang && hljs.getLanguage(lang)) {
+      return hljs.highlight(code, { language: lang }).value;
     }
+    return hljs.highlightAuto(code).value;
   }
 });
 
@@ -345,7 +343,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
    * Render message content with format (including code blocks, links, etc)
    */
   const renderMessageContent = (content: string) => {
-    const rawHtml = marked.parse(content);
+    const rawHtml = marked.parse(content) as string;
     const cleanHtml = DOMPurify.sanitize(rawHtml, {
       ADD_TAGS: ['button', 'input'],
       ADD_ATTR: ['data-action', 'type', 'placeholder']

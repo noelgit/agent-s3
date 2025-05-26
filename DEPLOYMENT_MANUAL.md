@@ -145,7 +145,7 @@ npm run compile
 # Build webview UI (may take several minutes)
 npm run build-webview || echo "Build may fail due to dependency conflicts - check logs"
 
-# Package extension
+# Package extension (may take several minutes)
 vsce package --allow-missing-repository
 
 # Verify extension package
@@ -158,10 +158,26 @@ Expected output:
 agent-s3-0.1.0.vsix
 ```
 
-**Note**: If webview-ui build fails due to dependency conflicts:
-- The extension can still be packaged without the webview UI
-- Webview UI build issues are common with older react-scripts versions
-- Consider updating to newer React/TypeScript versions in production
+**Note**: Webview-UI Node.js Compatibility Fix Required:
+If you encounter `ERR_OSSL_EVP_UNSUPPORTED` errors with Node.js 18+:
+
+1. Add to `vscode/webview-ui/package.json` scripts:
+   ```json
+   "build": "NODE_OPTIONS=--openssl-legacy-provider react-scripts build"
+   ```
+
+2. Downgrade marked.js in `vscode/webview-ui/package.json`:
+   ```json
+   "marked": "^4.3.0"
+   ```
+
+3. Add to `vscode/webview-ui/.env`:
+   ```
+   SKIP_PREFLIGHT_CHECK=true
+   NODE_OPTIONS=--openssl-legacy-provider
+   ```
+
+These fixes resolve OpenSSL 3.0 compatibility issues with older webpack versions.
 
 ### 2.3 Build Webview UI (Standalone)
 
