@@ -144,6 +144,7 @@ pip check
 - Resilient LLM calls with retry, exponential backoff, and fallback strategies (`agent_s3.llm_utils.call_llm_with_retry`)
 - Multi-phase task orchestration: pre-planning, feature group processing, code generation, execution/testing, and optional PR creation in `agent_s3.coordinator`
 - Iterative code generation & refinement (`agent_s3.code_generator`) with automated linting, testing, and diff-based user approvals
+- `generate_code` returns a mapping of file paths to code strings, using `None` when a file fails to generate
 - Retrieval-Augmented Generation (RAG) context: embedding-based search (`agent_s3.tools.embedding_client`) and hierarchical summarization (`agent_s3.tools.memory_manager`)
 - Tech stack detection with versioning and best practice identification (`agent_s3.tools.tech_stack_manager`)
 - Secure file operations (`FileTool`), sandboxed shell execution (`BashTool`, `TerminalExecutor`), and database interactions (`DatabaseTool`)

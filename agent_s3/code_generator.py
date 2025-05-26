@@ -28,8 +28,13 @@ class CodeGenerator:
         self.max_refinement_attempts = 2
 
     # ------------------------------------------------------------------
-    def generate_code(self, plan: Dict[str, Any], tech_stack: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
-        """Generate code for all files in the implementation plan."""
+    def generate_code(
+        self, plan: Dict[str, Any], tech_stack: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Optional[str]]:
+        """Generate code for all files in the implementation plan.
+
+        Failed generations will return ``None`` for that file path.
+        """
         self.scratchpad.log("CodeGenerator", "Starting agentic code generation")
         implementation_plan = plan.get("implementation_plan", {})
         tests = plan.get("tests", {})
@@ -44,12 +49,14 @@ class CodeGenerator:
                 "CodeGenerator", "No files found in implementation plan", level=LogLevel.ERROR
             )
             return {}
-        results: Dict[str, str] = {}
+        results: Dict[str, Optional[str]] = {}
         for file_path, implementation_details in files:
             self.scratchpad.log("CodeGenerator", f"Processing file {file_path}")
             context = self.context_manager.prepare_file_context(file_path, implementation_details)
-            generated_code = self.generate_file(file_path, implementation_details, tests, context)
-            results[file_path] = generated_code
+            generated_code = self.generate_file(
+                file_path, implementation_details, tests, context
+            )
+            results[file_path] = generated_code if generated_code else None
         self.scratchpad.log("CodeGenerator", f"Completed generation of {len(results)} files")
         return results
 

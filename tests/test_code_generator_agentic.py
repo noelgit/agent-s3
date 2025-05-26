@@ -245,3 +245,23 @@ def test_func():
         assert result["file2.py"] == "content2"
         assert code_generator.generate_file.call_count == 2
 
+    def test_generate_code_returns_none_on_failure(self, mock_coordinator):
+        """When file generation returns an empty string, the result should be None."""
+        code_generator = CodeGenerator(mock_coordinator)
+
+        code_generator._extract_files_from_plan = MagicMock(return_value=[
+            ("file1.py", [{"function": "func1"}])
+        ])
+        code_generator._prepare_file_context = MagicMock(return_value={})
+        code_generator.generate_file = MagicMock(return_value="")
+
+        plan = {
+            "implementation_plan": {"file1.py": []},
+            "tests": {},
+            "group_name": "Test Group"
+        }
+
+        result = code_generator.generate_code(plan)
+
+        assert result["file1.py"] is None
+
