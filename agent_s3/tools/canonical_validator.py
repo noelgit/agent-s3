@@ -312,8 +312,8 @@ def validate_and_repair_canonical_implementations(
     repaired_plan = json.loads(json.dumps(implementation_plan))
 
     # Group issues by type
-    duplicate_issues = [i for i in canonical_issues if i["issue_type"] == "duplicate_implementation"]
-    path_issues = [i for i in canonical_issues if i["issue_type"] in [
+    duplicate_issues = [i for i in canonical_result.issues if i["issue_type"] == "duplicate_implementation"]
+    path_issues = [i for i in canonical_result.issues if i["issue_type"] in [
         "missing_canonical_path", "mismatched_canonical_path", "unused_canonical_path"
     ]]
 

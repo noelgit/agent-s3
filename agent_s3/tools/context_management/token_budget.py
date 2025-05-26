@@ -966,7 +966,8 @@ class TaskAdaptiveAllocation(DynamicAllocationStrategy):
 
         # Create a priority scorer
         def priority_scorer(file_path, content, task_type, priorities=priorities,
-             task_keywords=task_keywords):  # Pass keywords            score = priorities.get("code_context", 1.0)
+             task_keywords=task_keywords):  # Pass keywords
+            score = priorities.get("code_context", 1.0)
             # Apply any task-specific scorers
             for scorer_name, scorer_fn in scorers.items():
                 score *= scorer_fn(file_path, content, task_type)

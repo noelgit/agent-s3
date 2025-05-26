@@ -24,7 +24,7 @@ def sanitize_prompt_text(text: str) -> str:
 
     if not isinstance(text, str):
         raise TypeError("text must be a string")
-    return PROMPT_BREAK_PATTERN.sub("\`\`\`", text)
+    return PROMPT_BREAK_PATTERN.sub(r"\`\`\`", text)
 
 
 def redact_sensitive_headers(headers: MutableMapping[str, str]) -> Dict[str, str]:

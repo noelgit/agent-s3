@@ -6,9 +6,9 @@ from unittest.mock import MagicMock, patch
 from agent_s3.code_generator import CodeGenerator
 from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager
 from agent_s3.config import Config # Added import
-from agent_s3.llm_utils import LLMUtils # Added import
-from agent_s3.tools.file_tool import FileTools # Corrected import
-from agent_s3.tools.bash_tool import BashTools # Corrected import
+from agent_s3 import llm_utils # Added import
+from agent_s3.tools.file_tool import FileTool # Corrected import
+from agent_s3.tools.bash_tool import BashTool # Corrected import
 from agent_s3.router_agent import RouterAgent # Added import
 
 
@@ -20,9 +20,9 @@ class TestCodeGeneratorAgentic:
         """Create a mock coordinator."""
         coordinator = MagicMock()
         coordinator.config = MagicMock(spec=Config) # Added
-        coordinator.llm_utils = MagicMock(spec=LLMUtils) # Added
-        coordinator.file_tool = MagicMock(spec=FileTools) # Changed spec
-        coordinator.bash_tool = MagicMock(spec=BashTools) # Changed spec
+        coordinator.llm_utils = MagicMock() # Added
+        coordinator.file_tool = MagicMock(spec=FileTool) # Changed spec
+        coordinator.bash_tool = MagicMock(spec=BashTool) # Changed spec
         coordinator.router_agent = MagicMock(spec=RouterAgent) # Changed spec
         coordinator.scratchpad = MagicMock(spec=EnhancedScratchpadManager)
         return coordinator

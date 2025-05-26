@@ -691,7 +691,6 @@ class DebuggingManager:
         if response is None:
             return ""
         # Look for code blocks with triple backticks
-        import re
         pattern = r'```(?:\w*\n|\n)?(.*?)```'
         matches = re.findall(pattern, response, re.DOTALL)
 

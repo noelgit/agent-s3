@@ -8,6 +8,42 @@ from typing import Any, Dict, List, Set
 from .constants import ErrorMessages
 
 
+def extract_component_dependencies(system_design: Dict[str, Any]) -> tuple[List[str], Dict[str, List[str]]]:
+    """Extract components and their dependencies from system design."""
+    components = []
+    dependencies = {}
+    
+    # Extract components from code elements
+    for element in system_design.get("code_elements", []):
+        if isinstance(element, dict) and "element_id" in element:
+            component = element["element_id"]
+            if component not in components:
+                components.append(component)
+                dependencies[component] = []
+            
+            # Extract dependencies from element
+            for dep in element.get("dependencies", []):
+                if isinstance(dep, str) and dep not in dependencies[component]:
+                    dependencies[component].append(dep)
+    
+    return components, dependencies
+
+
+def calculate_coupling_scores(components: List[str], dependencies: Dict[str, List[str]]) -> Dict[str, float]:
+    """Calculate coupling scores for components."""
+    scores = {}
+    
+    for component in components:
+        deps = dependencies.get(component, [])
+        # Simple coupling score: 1.0 - (number of dependencies / total components)
+        if len(components) > 1:
+            scores[component] = max(0.0, 1.0 - len(deps) / (len(components) - 1))
+        else:
+            scores[component] = 1.0
+    
+    return scores
+
+
 def validate_code_elements(system_design: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Validate code elements in the system design."""
     issues: List[Dict[str, Any]] = []

@@ -34,7 +34,7 @@ try:
     STATIC_ANALYZER_AVAILABLE = True
 except ImportError:
     STATIC_ANALYZER_AVAILABLE = False
-    logger.info("Static analyzer not available - using only semantic search")
+    # Note: logger not available yet, so we'll log this later
 
 # Define weights for hybrid search
 DENSE_WEIGHT = 0.7  # Weight for dense embedding-based search
@@ -53,6 +53,9 @@ QUERY_SIMILARITY_THRESHOLD = 0.85  # High threshold to avoid false positives
 USE_ENHANCED_ANALYSIS = True  # Can be configured via config
 
 logger = logging.getLogger(__name__)
+
+if not STATIC_ANALYZER_AVAILABLE:
+    logger.info("Static analyzer not available - using only semantic search")
 
 DEFAULT_QUERY_CACHE_MAX_AGE = 3600  # Default to 1 hour in seconds
 DEFAULT_MAX_QUERY_THEMES = 50       # Default max number of query themes to cache

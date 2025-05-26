@@ -147,7 +147,7 @@ class Planner:
         Returns:
             Properly formatted system prompt string
         """
-        return """You are a senior software architect and test implementation expert. Your task is to analyze a feature group, perform an architecture review, and then, based on that review and the original input, create comprehensive tests and a detailed implementation plan.
+        return r"""You are a senior software architect and test implementation expert. Your task is to analyze a feature group, perform an architecture review, and then, based on that review and the original input, create comprehensive tests and a detailed implementation plan.
 
 CRITICAL INSTRUCTION: You MUST respond in valid JSON format ONLY, conforming EXACTLY to this schema:
 {
