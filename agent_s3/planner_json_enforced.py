@@ -50,7 +50,7 @@ from agent_s3.planning import (
 # Extracted functions are now imported from the planning module
 
 
-def repair_json_structure(data: Dict[str, Any]) -> Dict[str, Any]:
+def repair_json_structure_basic(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Attempt to repair a JSON structure to match the expected schema.
 
@@ -1155,20 +1155,8 @@ Please maintain the intent of the original test requirements while enriching the
             json_str = extract_json_from_text(response_text)
             if json_str:
                 try:
-                    # Basic schema for validation
-                    schema = {
-                        "refined_test_requirements": {
-                            "unit_tests": [],
-                            "integration_tests": [],
-                            "property_based_tests": [],
-                            "acceptance_tests": [],
-                            "test_strategy": {}
-                        },
-                        "discussion": ""
-                    }
-
                     partial_data = json.loads(json_str)
-                    repaired_data = repair_json_structure(partial_data, schema)
+                    repaired_data = repair_json_structure(partial_data)
 
                     if "refined_test_requirements" in repaired_data:
                         logger.info("JSON structure repaired successfully")
@@ -2532,28 +2520,13 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                 logger.warning("Direct JSON parsing failed: %s", json_error)
                 logger.info("Attempting JSON repair sequence")
 
-                # Define comprehensive schema for validation and repair
-                schema = {
-                    "implementation_plan": {},
-                    "implementation_strategy": {
-                        "development_sequence": [],
-                        "dependency_management": {
-                            "external_dependencies": [],
-                            "internal_dependencies": []
-                        },
-                        "refactoring_needs": [],
-                        "canonical_implementation_paths": {}
-                    },
-                    "discussion": ""
-                }
-
                 # Multiple repair attempts with different strategies
                 repair_strategies = [
                     # Strategy 1: Basic quote replacement and repair
-                    lambda js: repair_json_structure(json.loads(js.replace("'", '"')), schema),
+                    lambda js: repair_json_structure(json.loads(js.replace("'", '"'))),
 
                     # Strategy 2: Remove trailing commas in arrays/objects that cause syntax errors
-                    lambda js: repair_json_structure(json.loads(re.sub(r',\s*([}\]])', r'\1', js.replace("'", '"'))), schema),
+                    lambda js: repair_json_structure(json.loads(re.sub(r',\s*([}\]])', r'\1', js.replace("'", '"')))),
 
                     # Strategy 3: Extract just the implementation_plan object if it's identifiable
                     lambda js: {"implementation_plan": json.loads(re.search(r'"implementation_plan"\s*:\s*(\{.*?\})', js, re.DOTALL).group(1))}
@@ -3009,21 +2982,6 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                     )
 
                     try:
-                        # Basic schema for validation
-                        schema = {
-                            "implementation_plan": {},
-                            "implementation_strategy": {
-                                "development_sequence": [],
-                                "dependency_management": {
-                                    "external_dependencies": [],
-                                    "internal_dependencies": []
-                                },
-                                "refactoring_needs": [],
-                                "canonical_implementation_paths": {}
-                            },
-                            "discussion": ""
-                        }
-
                         # Basic text cleaning - replace single quotes, fix trailing commas
                         cleaned = re.sub(r',\s*([}\]])', r'\1', candidate.replace("'", '"'))
 
@@ -3040,7 +2998,7 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                                 logger.warning("Parsed data missing implementation_plan")
                         except json.JSONDecodeError:
                             # Try repair
-                            parsed_data = repair_json_structure(json.loads(cleaned), schema)
+                            parsed_data = repair_json_structure(json.loads(cleaned))
 
                             if "implementation_plan" in parsed_data:
                                 logger.info("Successfully repaired candidate %d", i + 1)
