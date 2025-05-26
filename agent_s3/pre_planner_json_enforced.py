@@ -26,9 +26,9 @@ from agent_s3.json_utils import (
     extract_json_from_text,
     get_openrouter_json_params,
     validate_json_schema,
-    repair_json_structure,
     sanitize_text,
 )
+from agent_s3.planning import repair_json_structure
 from agent_s3.pre_planning_validator import PrePlanningValidator
 from agent_s3.pre_planner_repair import ensure_element_id_consistency
 
