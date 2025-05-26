@@ -241,4 +241,76 @@ class TestEnforcedJsonCoordinatorIntegration:
         # Verify the right function was called with the right arguments
         mock_call.assert_called_once_with(mock_coordinator.router_agent, task)
 
+    def test_validator_repair_plan_used(self, mock_coordinator):
+        """Ensure repaired plans are utilized by the coordinator."""
+
+        original_plan = {
+            "original_request": "Fix bug",
+            "feature_groups": [
+                {
+                    "group_name": "G1",
+                    "group_description": "desc",
+                    "features": [
+                        {
+                            "name": "F1",
+                            "description": "d",
+                            "files_affected": [],
+                            "test_requirements": {},
+                            "dependencies": {},
+                            "risk_assessment": {},
+                            "system_design": {},
+                        }
+                    ],
+                }
+            ],
+        }
+        repaired_plan = {**original_plan, "repaired": True}
+
+        class FakeValidator:
+            def __init__(self):
+                self.calls = 0
+
+            def validate_all(self, data):
+                self.calls += 1
+                if self.calls == 1:
+                    return False, ["missing"], data
+                return True, [], data
+
+            def repair_plan(self, data, errors):
+                return repaired_plan, True
+
+        router_agent = MagicMock()
+        router_agent.run.return_value = json.dumps(original_plan)
+        mock_coordinator.router_agent = router_agent
+
+        with patch(
+            "agent_s3.pre_planner_json_enforced.validate_json_schema",
+            return_value=(True, ""),
+        ), patch(
+            "agent_s3.pre_planner_json_enforced.PrePlannerJsonValidator",
+            FakeValidator,
+        ), patch(
+            "agent_s3.pre_planner_json_enforced.validate_pre_plan",
+            return_value=(True, ""),
+        ), patch(
+            "agent_s3.pre_planner_json_enforced.validate_pre_planning_for_planner",
+            return_value=(True, ""),
+        ), patch(
+            "agent_s3.pre_planner_json_enforced.ensure_element_id_consistency",
+            side_effect=lambda d: d,
+        ), patch(
+            "agent_s3.pre_planner_json_enforced.ComplexityAnalyzer"
+        ) as mock_complex:
+            mock_complex.return_value.assess_complexity.return_value = {
+                "is_complex": False,
+                "complexity_score": 1,
+                "complexity_factors": [],
+            }
+
+            result = pre_planner_json_enforced.integrate_with_coordinator(
+                mock_coordinator, "Fix bug"
+            )
+
+        assert result["pre_planning_data"] == repaired_plan
+
 
