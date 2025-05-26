@@ -314,8 +314,12 @@ def integrate_with_coordinator(
 
     mode = "enforced_json"
     config = getattr(coordinator, "config", None)
+    allow_interactive_clarification = True
     if config and isinstance(getattr(config, "config", None), dict):
         mode = config.config.get("pre_planning_mode", "enforced_json")
+        allow_interactive_clarification = config.config.get(
+            "allow_interactive_clarification", True
+        )
     if not isinstance(mode, str):
         mode = "enforced_json"
 
@@ -333,10 +337,14 @@ def integrate_with_coordinator(
             task_description,
             context,
             max_preplanning_attempts=max_preplanning_attempts,
+            allow_interactive_clarification=allow_interactive_clarification,
         )
     else:
         success, pre_planning_data = call_pre_planner_with_enforced_json(
-            router_agent, task_description, context
+            router_agent,
+            task_description,
+            context,
+            allow_interactive_clarification=allow_interactive_clarification,
         )
 
     if success:
@@ -923,7 +931,10 @@ You MUST follow these steps IN ORDER to produce a valid pre-planning JSON:
 
 
 def call_pre_planner_with_enforced_json(
-    router_agent, task_description: str, context: Optional[Dict[str, Any]] = None
+    router_agent,
+    task_description: str,
+    context: Optional[Dict[str, Any]] = None,
+    allow_interactive_clarification: bool = True,
 ) -> Tuple[bool, Dict[str, Any]]:
     """
     Run the JSON-enforced pre-planning workflow using the router_agent.
@@ -934,6 +945,8 @@ def call_pre_planner_with_enforced_json(
         router_agent: The agent responsible for LLM calls (must have a .run() method)
         task_description: The user-provided task description
         context: Optional context dictionary
+        allow_interactive_clarification: Enable interactive clarification when
+            ``True``. Unused currently but accepted for API parity.
 
     Returns:
         Tuple of (success: bool, pre_planning_data: dict)

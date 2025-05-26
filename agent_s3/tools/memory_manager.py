@@ -278,6 +278,31 @@ class MemoryManager:
                 )
                 self._save_embedding_access_log()
 
+    def _verify_manifest(self) -> None:
+        """Create the manifest file if it doesn't exist."""
+        try:
+            if not self.manifest_path.exists():
+                self.manifest_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(self.manifest_path, "w", encoding="utf-8") as f:
+                    json.dump({}, f)
+        except OSError:
+            logger.error("Failed to verify manifest", exc_info=True)
+
+    def _update_manifest(self) -> None:
+        """Safely update the manifest file."""
+        try:
+            data: Dict[str, Any] = {}
+            if self.manifest_path.exists():
+                with open(self.manifest_path, "r", encoding="utf-8") as f:
+                    try:
+                        data = json.load(f) or {}
+                    except json.JSONDecodeError:
+                        data = {}
+            with open(self.manifest_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+        except OSError:
+            logger.error("Failed to update manifest", exc_info=True)
+
     def apply_progressive_eviction(self, force=False):
         """
         Apply progressive embedding eviction strategy based on access patterns.

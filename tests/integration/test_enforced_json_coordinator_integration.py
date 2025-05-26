@@ -159,7 +159,9 @@ class TestEnforcedJsonCoordinatorIntegration:
         assert result["success"] is True
         assert result["uses_enforced_json"] is True
         mock_call.assert_called_once_with(
-            mock_coordinator.router_agent, "Implement user authentication system"
+            mock_coordinator.router_agent,
+            "Implement user authentication system",
+            allow_interactive_clarification=True,
         )
 
     @patch('agent_s3.pre_planner_json_enforced.integrate_with_coordinator')
@@ -182,7 +184,11 @@ class TestEnforcedJsonCoordinatorIntegration:
                 mock_coordinator, "Test task"
             )
 
-        mock_call.assert_called_once_with(mock_coordinator.router_agent, "Test task")
+        mock_call.assert_called_once_with(
+            mock_coordinator.router_agent,
+            "Test task",
+            allow_interactive_clarification=True,
+        )
 
     @patch('agent_s3.pre_planner_json_enforced.call_pre_planner_with_enforced_json')
     def test_direct_integration_with_coordinator(self, mock_call, mock_coordinator):
@@ -239,7 +245,11 @@ class TestEnforcedJsonCoordinatorIntegration:
         assert "complexity_score" in result
 
         # Verify the right function was called with the right arguments
-        mock_call.assert_called_once_with(mock_coordinator.router_agent, task)
+        mock_call.assert_called_once_with(
+            mock_coordinator.router_agent,
+            task,
+            allow_interactive_clarification=True,
+        )
 
     def test_validator_repair_plan_used(self, mock_coordinator):
         """Ensure repaired plans are utilized by the coordinator."""
