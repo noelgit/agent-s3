@@ -26,8 +26,7 @@ class ContextHierarchyManager:
         try:
             if primary_file and hasattr(self.context_manager, '_refine_current_context'):
                 self.context_manager._refine_current_context(file_paths, max_tokens=max_token_count)
-                with self.context_manager._context_lock:
-                    context_files = self.context_manager.current_context.get("files", {})
+                context_files = self.context_manager.get_current_context_snapshot().get("files", {})
                 context["relevant_code"] = context_files
             elif hasattr(self.context_manager, 'get_context'):
                 cm_context = self.context_manager.get_context()
