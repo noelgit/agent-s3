@@ -334,8 +334,7 @@ def test_gather_context_uses_lock_and_copy():
     cm.allocation_strategy = Mock()
     cm.allocation_strategy.allocate.return_value = {"optimized_context": {}}
 
-    with cm._context_lock:
-        cm.current_context = {"code_context": {"a.py": "print('hi')"}}
+    cm.update_context({"code_context": {"a.py": "print('hi')"}})
 
     dummy_lock = DummyLock()
     cm._context_lock = dummy_lock

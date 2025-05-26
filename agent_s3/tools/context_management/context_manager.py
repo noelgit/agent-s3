@@ -758,7 +758,20 @@ class ContextManager:
         Returns:
             An optimized context dictionary.
         """
-        # ...existing code...
+        # Update the context with the latest task information
+        updates: Dict[str, Any] = {}
+        if current_files is not None:
+            updates["current_files"] = current_files
+        if task_description is not None:
+            updates["task_description"] = task_description
+        if task_type is not None:
+            updates["task_type"] = task_type
+        if related_files is not None:
+            updates["related_files"] = related_files
+
+        if updates:
+            self.update_context(updates)
+
         # Use the configured allocation strategy
         # The allocation strategy (e.g., TaskAdaptiveAllocation) should internally use task_keywords
         with self._context_lock:
