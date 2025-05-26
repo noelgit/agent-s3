@@ -4,6 +4,7 @@ import unittest
 
 from agent_s3.pre_planning_validator import PrePlanningValidator
 
+
 class TestPrePlanningValidator(unittest.TestCase):
     """Tests for the PrePlanningValidator class."""
 
@@ -22,17 +23,43 @@ class TestPrePlanningValidator(unittest.TestCase):
                             "name": "User Authentication",
                             "description": "Allow users to sign up and log in with secure credentials",
                             "complexity": 3,
-                            "implementation_steps": ["Setup auth API", "Create login form", "Implement session management"],
+                            "implementation_steps": [
+                                {"id": "step1", "description": "Setup auth API"},
+                                {"id": "step2", "description": "Create login form"},
+                                {
+                                    "id": "step3",
+                                    "description": "Implement session management",
+                                },
+                            ],
                             "risk_assessment": {
                                 "risk_level": "high",
-                                "concerns": ["Security vulnerabilities", "Data privacy issues"]
+                                "concerns": [
+                                    "Security vulnerabilities",
+                                    "Data privacy issues",
+                                ],
+                                "security_concerns": [
+                                    "password storage",
+                                    "session hijacking",
+                                ],
                             },
                             "test_requirements": {
-                                "unit_tests": ["Test password hashing", "Test login validation"],
-                                "integration_tests": ["Test auth flow"]
-                            }
+                                "unit_tests": [
+                                    {
+                                        "description": "Test password hashing security",
+                                        "implementation_step_id": "step1",
+                                    }
+                                ],
+                                "integration_tests": [
+                                    {
+                                        "description": "Test auth flow with token",
+                                        "implementation_step_id": "step3",
+                                    }
+                                ],
+                            },
+                            "files_affected": ["auth_module.py"],
+                            "dependencies": {},
                         }
-                    ]
+                    ],
                 }
             ]
         }
@@ -56,6 +83,7 @@ class TestPrePlanningValidator(unittest.TestCase):
         self.assertTrue(is_valid)
         self.assertEqual(result["metadata"]["feature_count"], 1)
         self.assertEqual(result["metadata"]["group_count"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
