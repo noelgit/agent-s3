@@ -20,6 +20,7 @@ class CompressionManager:
         self,
         compression_threshold: int = 32000,
         min_compression_ratio: float = 0.7,
+        summarization_threshold: int = 200,
         strategies: Optional[List[CompressionStrategy]] = None
     ):
         """
@@ -28,24 +29,36 @@ class CompressionManager:
         Args:
             compression_threshold: Token threshold to trigger compression
             min_compression_ratio: Minimum compression ratio to accept
+            summarization_threshold: Default threshold for summarization
             strategies: List of compression strategies to use
         """
         self.compression_threshold = compression_threshold
         self.min_compression_ratio = min_compression_ratio
+        self.summarization_threshold = summarization_threshold
         self.strategies = strategies or [
             SemanticSummarizer(),
             KeyInfoExtractor(),
             ReferenceCompressor()
         ]
+        self.set_summarization_threshold(summarization_threshold)
 
     def set_summarization_threshold(self, threshold: int) -> None:
-        """Set summarization threshold for strategies that support it."""
+        """Set summarization threshold for strategies that support it.
+
+        Args:
+            threshold: Line count threshold triggering summarization.
+        """
+        self.summarization_threshold = threshold
         for strategy in self.strategies:
             if hasattr(strategy, "summarization_threshold"):
                 strategy.summarization_threshold = threshold
 
     def set_compression_ratio(self, ratio: float) -> None:
-        """Set the minimum compression ratio accepted."""
+        """Set the minimum compression ratio accepted.
+
+        Args:
+            ratio: Maximum acceptable ratio of compressed to original size.
+        """
         self.min_compression_ratio = ratio
 
     def need_compression(self, context: Dict[str, Any], token_count: Optional[int] = None) -> bool:
