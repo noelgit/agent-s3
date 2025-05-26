@@ -124,7 +124,7 @@ def test_validation_phase_lint_failure(coordinator):
     # Verify validations were performed up to the failing point
     coordinator.database_manager.setup_database.assert_called()
     coordinator.database_manager.database_tool.get_schema_info.assert_called()
-    coordinator.bash_tool.run_command.assert_called_once_with("flake8 .", timeout=120)
+    coordinator.bash_tool.run_command.assert_called_once_with("ruff check .", timeout=120)
     coordinator.orchestrator._run_tests.assert_not_called()
 
 def test_validation_phase_type_check_failure(coordinator):
