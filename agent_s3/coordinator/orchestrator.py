@@ -387,54 +387,76 @@ class WorkflowOrchestrator:
         all_changes: Dict[str, str] = {}
         git_tool = self.registry.get_tool("git_tool")
         overall_success = False
+        max_attempts = int(self.coordinator.config.config.get("max_attempts", 1))
+
         for plan in plans:
             # Check workflow control before each plan
             if not self._check_workflow_control():
                 break
-                
-            stash_created = False
-            if git_tool:
-                rc, _ = git_tool.run_git_command(
-                    "stash push --keep-index --include-untracked -m 'agent-s3-temp'"
+
+            group_name = plan.get("group_name", "unknown")
+            attempt = 0
+
+            while attempt < max_attempts:
+                attempt += 1
+                stash_created = False
+                if git_tool:
+                    rc, _ = git_tool.run_git_command(
+                        "stash push --keep-index --include-untracked -m 'agent-s3-temp'"
+                    )
+                    stash_created = rc == 0
+
+                self._set_current_phase("code_generation")
+                if not self._check_workflow_control():
+                    if stash_created and git_tool:
+                        git_tool.run_git_command("stash pop --index")
+                    break
+
+                changes = self.coordinator.code_generator.generate_code(
+                    plan, tech_stack=self.coordinator.tech_stack
                 )
-                stash_created = rc == 0
 
-            self._set_current_phase("code_generation")
-            if not self._check_workflow_control():
+                if not self._apply_changes_and_manage_dependencies(changes):
+                    if stash_created and git_tool:
+                        git_tool.run_git_command("stash pop --index")
+                    break
+
+                self._set_current_phase("validation")
+                if not self._check_workflow_control():
+                    if stash_created and git_tool:
+                        git_tool.run_git_command("stash pop --index")
+                    break
+
+                validation = self._run_validation_phase()
+
+                if validation.get("success"):
+                    all_changes.update(changes)
+                    overall_success = True
+                    if stash_created and git_tool:
+                        git_tool.run_git_command("stash drop")
+                    break
+
+                self.coordinator.debugging_manager.handle_error(
+                    error_message=f"Validation step '{validation.get('step')}' failed",
+                    traceback_text=validation.get("output", ""),
+                    metadata={"plan": plan, "validation_step": validation.get("step")},
+                )
+
+                modifications = self.coordinator.prompt_moderator.request_debugging_guidance(
+                    group_name, attempt
+                )
+
+                if modifications:
+                    plan = self.coordinator.feature_group_processor.update_plan_with_modifications(
+                        plan, modifications
+                    )
+                else:
+                    if stash_created and git_tool:
+                        git_tool.run_git_command("stash pop --index")
+                    break
+
                 if stash_created and git_tool:
                     git_tool.run_git_command("stash pop --index")
-                break
-
-            changes = self.coordinator.code_generator.generate_code(plan, tech_stack=self.coordinator.tech_stack)
-
-            if not self._apply_changes_and_manage_dependencies(changes):
-                if stash_created and git_tool:
-                    git_tool.run_git_command("stash pop --index")
-                continue
-
-            self._set_current_phase("validation")
-            if not self._check_workflow_control():
-                if stash_created and git_tool:
-                    git_tool.run_git_command("stash pop --index")
-                break
-
-            validation = self._run_validation_phase()
-
-            if validation.get("success"):
-                all_changes.update(changes)
-                overall_success = True
-                if stash_created and git_tool:
-                    git_tool.run_git_command("stash drop")
-                continue
-
-            self.coordinator.debugging_manager.handle_error(
-                error_message=f"Validation step '{validation.get('step')}' failed",
-                traceback_text=validation.get("output", ""),
-                metadata={"plan": plan, "validation_step": validation.get("step")},
-            )
-
-            if stash_created and git_tool:
-                git_tool.run_git_command("stash pop --index")
 
         return all_changes, overall_success
 
