@@ -312,3 +312,41 @@ def test_log_metrics_uses_estimator():
 
     estimator_mock.estimate_tokens_for_context.assert_called_once_with(context)
     cm.adaptive_config_manager.log_token_usage.assert_called_once()
+
+
+def test_gather_context_refines_and_updates():
+    """Gather context should refine files and include task metadata."""
+    # Patch CompressionManager methods expected by ContextManager
+    from agent_s3.tools.context_management.compression.manager import CompressionManager
+
+    CompressionManager.set_summarization_threshold = lambda self, v: None
+    CompressionManager.set_compression_ratio = lambda self, v: None
+
+    cm = ContextManager()
+
+    # Mock refinement to populate context with provided file data
+    def refine_mock(files, max_tokens=None, task_keywords=None):
+        cm.update_context({"files": {f: f"content:{f}" for f in files}})
+
+    cm._refine_current_context = refine_mock
+
+    captured = {}
+
+    def allocate_mock(ctx, task_type=None, task_keywords=None):
+        captured["ctx"] = ctx
+        return {"optimized_context": ctx, "allocation_report": {}}
+
+    cm.allocation_strategy.allocate = allocate_mock
+
+    result = cm.gather_context(
+        current_files=["a.py"],
+        task_description="Fix bug",
+        task_type="debugging",
+        related_files=["b.py"],
+        task_keywords=["fix"],
+    )
+
+    assert "a.py" in result.get("files", {})
+    assert "b.py" in result.get("files", {})
+    assert captured["ctx"]["task"]["description"] == "Fix bug"
+    assert captured["ctx"]["task"]["type"] == "debugging"

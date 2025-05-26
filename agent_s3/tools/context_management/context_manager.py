@@ -731,16 +731,48 @@ class ContextManager:
         Returns:
             An optimized context dictionary.
         """
-        # ...existing code...
-        # Use the configured allocation strategy
-        # The allocation strategy (e.g., TaskAdaptiveAllocation) should internally use task_keywords
+        # Combine current and related files
+        files_to_refine: List[str] = []
+        if current_files:
+            files_to_refine.extend(current_files)
+        if related_files:
+            for f in related_files:
+                if f not in files_to_refine:
+                    files_to_refine.append(f)
+
+        # Refine context with provided files
+        if files_to_refine:
+            self._refine_current_context(files_to_refine, max_tokens=max_tokens,
+                                        task_keywords=task_keywords)
+
+        # Update task metadata in the context
+        with self._context_lock:
+            if task_description:
+                self._update_nested_dict(self.current_context,
+                                         ["task", "description"], task_description)
+            if task_type:
+                self._update_nested_dict(self.current_context,
+                                         ["task", "type"], task_type)
+            if related_files:
+                self._update_nested_dict(self.current_context,
+                                         ["task", "related_files"], related_files)
+
+            context_copy = copy.deepcopy(self.current_context)
+
+        # Use the configured allocation strategy while holding a copy of context
         allocation_result = self.allocation_strategy.allocate(
-            self.current_context,
+            context_copy,
             task_type=task_type,
-            task_keywords=task_keywords,  # Pass keywords here
+            task_keywords=task_keywords,
         )
-        return allocation_result["optimized_context"]
-        # ...existing code...
+
+        optimized = allocation_result["optimized_context"]
+
+        # Update current context with the optimized result
+        with self._context_lock:
+            self.current_context = optimized
+
+        return optimized
 
     def set_allocation_strategy(self, strategy: 'DynamicAllocationStrategy') -> None:
         """
@@ -928,7 +960,7 @@ class ContextManager:
                 # Update background optimization settings
                 background_opt = cm_config.get("background_optimization", {})
                 if background_opt:
-                    enabled = background_opt.get("enabled")
+                    _ = background_opt.get("enabled")
                     interval = background_opt.get("interval")
 
                     # Background optimization always enabled
