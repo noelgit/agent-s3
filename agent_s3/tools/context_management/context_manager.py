@@ -734,8 +734,11 @@ class ContextManager:
         # ...existing code...
         # Use the configured allocation strategy
         # The allocation strategy (e.g., TaskAdaptiveAllocation) should internally use task_keywords
+        with self._context_lock:
+            context_copy = copy.deepcopy(self.current_context)
+
         allocation_result = self.allocation_strategy.allocate(
-            self.current_context,
+            context_copy,
             task_type=task_type,
             task_keywords=task_keywords,  # Pass keywords here
         )
