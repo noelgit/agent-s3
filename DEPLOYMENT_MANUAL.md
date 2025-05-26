@@ -155,8 +155,10 @@ cd ..
 
 Expected output:
 ```
-agent-s3-0.1.0.vsix
+agent-s3-0.1.0.vsix (approximately 1.1MB)
 ```
+
+**Performance Note**: The `.vscodeignore` file excludes development files, reducing package size from ~212MB to ~1MB and significantly speeding up the packaging process.
 
 **Note**: Webview-UI Node.js Compatibility Fix Required:
 If you encounter `ERR_OSSL_EVP_UNSUPPORTED` errors with Node.js 18+:

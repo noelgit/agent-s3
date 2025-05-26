@@ -1,0 +1,43 @@
+# Development files
+.vscode/**
+.vscode-test/**
+src/**
+**/*.ts
+**/*.map
+.gitignore
+tsconfig.json
+.eslintrc.json
+
+# Webview UI source files and development dependencies
+webview-ui/src/**
+webview-ui/public/**
+webview-ui/node_modules/**
+webview-ui/package-lock.json
+webview-ui/.env
+webview-ui/tsconfig.json
+
+# Keep only the built webview-ui
+!webview-ui/build/**
+
+# Node.js dependencies (will be bundled separately)
+node_modules/**
+**/node_modules/**
+
+# Logs and temp files
+*.log
+logs/**
+.DS_Store
+*.vsix
+
+# Test files
+test/**
+tests/**
+**/*.test.js
+**/*.test.ts
+
+# Documentation (keep README.md)
+CHANGELOG.md
+docs/**
+
+# Build artifacts we don't need in the extension
+out/**/*.map
