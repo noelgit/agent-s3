@@ -50,8 +50,10 @@ def generate_refined_test_specifications(
         test_requirements, system_design, context
     )
 
-    # Get system prompt (using fallback since function not available)
-    system_prompt = "You are an expert test specification analyst. Refine the test specifications based on the provided context."
+    # Get system prompt for test specification refinement
+    from ..planner_json_enforced import get_test_specification_refinement_system_prompt
+
+    system_prompt = get_test_specification_refinement_system_prompt()
 
     # Get LLM configuration with reasonable defaults
     config = _get_test_specification_config()
