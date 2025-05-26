@@ -16,6 +16,7 @@ Description: Release notes for Agent-S3.
 - `SUPABASE_SERVICE_ROLE_KEY` – key used for privileged Supabase operations.
 - `SUPABASE_ANON_KEY` – optional key for anonymous access when applicable.
 - `SUPABASE_FUNCTION_NAME` – optional name of the Supabase function used for LLM calls.
+- `ALLOW_INTERACTIVE_CLARIFICATION` – optional flag (default: `True`) enabling interactive clarification questions.
 - `MAX_CLARIFICATION_ROUNDS` – optional number of clarification rounds allowed during pre-planning (default: `3`).
 - `MAX_PREPLANNING_ATTEMPTS` – optional number of retries for generating pre-planning data (default: `2`).
 

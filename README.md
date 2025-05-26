@@ -351,6 +351,8 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   - `SUPABASE_ANON_KEY` for client requests
   - `SUPABASE_FUNCTION_NAME` (optional, defaults to `call-llm`)
   - `USE_REMOTE_LLM` to toggle remote LLM usage
+  - `ALLOW_INTERACTIVE_CLARIFICATION` (optional, defaults to `True`)
+    enables clarifying questions during pre-planning
   - `MAX_CLARIFICATION_ROUNDS` (optional, defaults to `3`) limits pre-planning clarification exchanges
   - `MAX_PREPLANNING_ATTEMPTS` (optional, defaults to `2`) sets the maximum number of retries when generating pre-planning data
   - `pre_planning_mode` selects `off`, `json`, or `enforced_json` workflow. See `docs/pre_planning_workflow.md` for details.
@@ -370,6 +372,7 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
   SUPABASE_FUNCTION_NAME=call-llm
   USE_REMOTE_LLM=true
+  ALLOW_INTERACTIVE_CLARIFICATION=True
   MAX_CLARIFICATION_ROUNDS=3
   MAX_PREPLANNING_ATTEMPTS=2
   ```
