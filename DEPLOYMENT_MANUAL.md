@@ -205,8 +205,16 @@ cd ../..
 # Install test dependencies if not already installed
 pip install pytest
 
-# Run unit tests
+# Ensure package is installed in development mode
+pip install -e .
+
+# Run unit tests (some import issues may occur with full test suite)
 python -m pytest tests/ -v
+
+# Alternative: Run individual test files to avoid collection conflicts
+python -m pytest tests/test_config_pydantic.py -v
+python -m pytest tests/test_code_generator.py -v
+python -m pytest tests/test_file_tool_paths.py -v
 
 # Run specific test suites
 python -m pytest tests/test_deployment_manager.py -v
