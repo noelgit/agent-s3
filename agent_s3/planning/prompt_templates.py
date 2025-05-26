@@ -19,20 +19,18 @@ def get_personas_content() -> str:
             return personas_path.read_text(encoding='utf-8')
         else:
             logger.warning("personas.md file not found, using default personas")
-            # --- Using default personas from original code ---
-            return """
-            ## Business Development Manager
-            Clarify why we're building this feature, whom it serves, and what real-world scenarios it must cover.
+            return """## Business Development Manager
+Clarify why we're building this feature, whom it serves, and what real-world scenarios it must cover.
 
-            ## Expert Coder
-            Define how the feature will be built—step by step, with tech choices, data models, and file breakdown.
+## Expert Coder
+Define how the feature will be built—step by step, with tech choices, data models, and file breakdown.
 
-            ## Reviewer
-            Ensure the proposed solution is logically consistent and covers all functional scenarios.
+## Reviewer
+Ensure the proposed solution is logically consistent and covers all functional scenarios.
 
-            ## Validator
-            Confirm the solution adheres to best practices and organizational guidelines.
-            """
+## Validator
+Confirm the solution adheres to best practices and organizational guidelines.
+"""
     except Exception as e:
         logger.error("Error loading personas content: %s", str(e))
         return "Error loading personas content. Using default expert personas."
@@ -45,16 +43,16 @@ def get_coding_guidelines() -> str:
         if guidelines_path.exists():
             return guidelines_path.read_text(encoding='utf-8')
         else:
-            logger.warning("copilot-instructions.md file not found, using default guidelines")
-            # --- Using default guidelines from original code ---
-            return """
-            # Coding Guidelines
+            logger.warning(
+                "copilot-instructions.md file not found, using default guidelines"
+            )
+            return """# Coding Guidelines
 
-            - Follow best practices for security, performance, and code quality
-            - Write clean, modular code with proper error handling
-            - Include comprehensive tests for all functionality
-            - Follow project-specific conventions and patterns
-            """
+- Follow best practices for security, performance, and code quality
+- Write clean, modular code with proper error handling
+- Include comprehensive tests for all functionality
+- Follow project-specific conventions and patterns
+"""
     except Exception as e:
         logger.error("Error loading coding guidelines: %s", str(e))
         return "Error loading coding guidelines. Using default standards."
