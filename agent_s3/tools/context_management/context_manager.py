@@ -731,7 +731,18 @@ class ContextManager:
         Returns:
             An optimized context dictionary.
         """
-        # ...existing code...
+        # Update the current context with provided parameters
+        if current_files:
+            self.update_context({"files": {f: "" for f in current_files}})
+
+        if task_description or task_type:
+            task_info: Dict[str, Any] = {}
+            if task_description:
+                task_info["description"] = task_description
+            if task_type:
+                task_info["type"] = task_type
+            self.update_context({"task": task_info})
+
         # Use the configured allocation strategy
         # The allocation strategy (e.g., TaskAdaptiveAllocation) should internally use task_keywords
         with self._context_lock:
@@ -1009,6 +1020,10 @@ class ContextManager:
         """Get the current context."""
         with self._context_lock:
             return copy.deepcopy(self.current_context)
+
+    def get_current_context_snapshot(self) -> Dict[str, Any]:
+        """Return a snapshot of the current context state."""
+        return self.get_context()
 
     def update_context(self, updates: Dict[str, Any]) -> None:
         """

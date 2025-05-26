@@ -345,3 +345,23 @@ def test_gather_context_uses_lock_and_copy():
     called_context = cm.allocation_strategy.allocate.call_args[0][0]
     assert called_context == {"code_context": {"a.py": "print('hi')"}}
     assert called_context is not cm.current_context
+
+
+def test_gather_context_refines_and_updates():
+    cm = ContextManager()
+
+    cm.allocation_strategy = Mock()
+    cm.allocation_strategy.allocate.return_value = {"optimized_context": {}}
+
+    result = cm.gather_context(
+        current_files=["foo.py"],
+        task_description="desc",
+        task_type="debug",
+    )
+
+    snapshot = cm.get_current_context_snapshot()
+
+    assert result == {}
+    assert "files" in snapshot
+    assert "task" in snapshot and "description" in snapshot["task"]
+    assert "task" in snapshot and "type" in snapshot["task"]
