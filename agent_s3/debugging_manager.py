@@ -784,8 +784,10 @@ class DebuggingManager:
             # In case of any errors, fall back to current directory
             return os.getcwd()
 
-    def _extract_code_from_response(self, response: str) -> Optional[str]:
+    def _extract_code_from_response(self, response: Optional[str]) -> Optional[str]:
         """Extract code from a response."""
+        if response is None:
+            return ""
         # Look for code blocks with triple backticks
         import re
         pattern = r'```(?:\w*\n|\n)?(.*?)```'

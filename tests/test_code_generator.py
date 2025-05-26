@@ -199,5 +199,22 @@ class TestCodeGenerator(unittest.TestCase):
         self.assertEqual(result, "good_code")
         debug_manager.analyze_issue.assert_called_once()
 
+    def test_generate_with_validation_handles_llm_failure(self):
+        """LLM returning None should result in empty code and no validation."""
+        file_path = "module.py"
+
+        # LLM fails to return a response
+        self.mock_coordinator.router_agent.call_llm_by_role.return_value = None
+
+        # Validator should not be called when generation fails
+        self.code_generator.validator.validate_generated_code = MagicMock()
+
+        result = self.code_generator._generate_with_validation(
+            file_path, "sys", "user", max_validation_attempts=1
+        )
+
+        self.assertEqual(result, "")
+        self.code_generator.validator.validate_generated_code.assert_not_called()
+
 if __name__ == '__main__':
     unittest.main()
