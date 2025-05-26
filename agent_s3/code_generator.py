@@ -124,18 +124,36 @@ class CodeGenerator:
             f"Generate the code for file: {file_path}\n\n{existing_code_str}\n\nImplementation details:\n{functions_str}\n"
             f"{test_cases_str}\n{related_files_str}\nWrite the complete code for {file_path} that implements all the specified functionality."
         )
-        generated_code = self._generate_with_validation(file_path, system_prompt, user_prompt)
+        generated_code = self._generate_with_validation(
+            file_path,
+            system_prompt,
+            user_prompt,
+            config=self.coordinator.config.config,
+        )
         return generated_code
 
     # ------------------------------------------------------------------
     def _generate_with_validation(
-        self, file_path: str, system_prompt: str, user_prompt: str, max_validation_attempts: Optional[int] = None
+        self,
+        file_path: str,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        config: Optional[Dict[str, Any]] = None,
+        max_validation_attempts: Optional[int] = None,
     ) -> str:
         self.scratchpad.log("CodeGenerator", f"Generating initial code for {file_path}")
         if max_validation_attempts is None:
             max_validation_attempts = self.max_validation_attempts
+        base_config = self.coordinator.config.config if hasattr(self.coordinator, "config") else {}
+        if config is not None:
+            base_config = {**base_config, **config}
+        call_config = {**base_config, "temperature": 0.2}
         response = self.coordinator.router_agent.call_llm_by_role(
-            role="generator", system_prompt=system_prompt, user_prompt=user_prompt, config={"temperature": 0.2}
+            role="generator",
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            config=call_config,
         )
         generated_code = self._extract_code_from_response(response, file_path)
         for attempt in range(max_validation_attempts):
@@ -231,8 +249,13 @@ class CodeGenerator:
             f"```python\n{original_code}\n```\n\nThese are the validation issues that need to be fixed:\n"
             f"{json.dumps(validation_issues, indent=2)}\n\nPlease fix the code and return only the fixed code."
         )
+        base_config = self.coordinator.config.config if hasattr(self.coordinator, "config") else {}
+        call_config = {**base_config, "temperature": 0.1}
         response = self.coordinator.router_agent.call_llm_by_role(
-            role="generator", system_prompt=system_prompt, user_prompt=user_prompt, config={"temperature": 0.1}
+            role="generator",
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            config=call_config,
         )
         refined_code = self._extract_code_from_response(response, file_path)
         if not refined_code or len(refined_code.strip()) < 10:

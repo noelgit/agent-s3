@@ -66,11 +66,15 @@ class CodeValidator:
             f"The following code for '{file_path}' fails tests:\n```python\n{code}\n```\n\n"
             f"Test failures:\n{details}\n\nPlease update the code so that the tests pass. Return only the fixed code."
         )
+        base_config = (
+            self.coordinator.config.config if hasattr(self.coordinator, "config") else {}
+        )
+        call_config = {**base_config, "temperature": 0.1}
         response = self.coordinator.router_agent.call_llm_by_role(
             role="generator",
             system_prompt=system_prompt,
             user_prompt=user_prompt,
-            config={"temperature": 0.1},
+            config=call_config,
         )
         refined = self._extract_code_from_response(response, file_path)
         return refined if refined else code

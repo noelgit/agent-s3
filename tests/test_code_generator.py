@@ -1,13 +1,11 @@
 """Unit tests for the CodeGenerator module."""
 
 import unittest
-from unittest.mock import MagicMock, patch, mock_open
-import json
+from unittest.mock import MagicMock
 import tempfile
 
 try:
     from agent_s3.code_generator import CodeGenerator
-    from agent_s3.context_manager import ContextManager
     from agent_s3.debug_utils import DebugUtils
     from agent_s3.enhanced_scratchpad_manager import (
         EnhancedScratchpadManager,
@@ -191,7 +189,11 @@ class TestCodeGenerator(unittest.TestCase):
         self.code_generator.debug_utils = DebugUtils(debug_manager, self.code_generator.scratchpad)
 
         result = self.code_generator._generate_with_validation(
-            file_path, "sys", "user", max_validation_attempts=1
+            file_path,
+            "sys",
+            "user",
+            config=self.mock_coordinator.config.config,
+            max_validation_attempts=1,
         )
 
         self.assertEqual(result, "good_code")
