@@ -973,6 +973,11 @@ def call_pre_planner_with_enforced_json(
         f" Last error: {last_error}"
     )
     fallback_data = create_fallback_pre_planning_output(task_description)
+    # Validate fallback data to ensure it meets minimum requirements
+    valid, validation_msg = validate_preplan_all(fallback_data)
+    if not valid:
+        logger.error("Fallback validation failed: %s", validation_msg)
+        return False, {"pre_planning_data": fallback_data, "error": validation_msg}
     return False, fallback_data
 
 
