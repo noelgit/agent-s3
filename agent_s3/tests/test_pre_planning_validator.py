@@ -22,14 +22,33 @@ class TestPrePlanningValidator(unittest.TestCase):
                             "name": "User Authentication",
                             "description": "Allow users to sign up and log in with secure credentials",
                             "complexity": 3,
-                            "implementation_steps": ["Setup auth API", "Create login form", "Implement session management"],
+                            "implementation_steps": [
+                                {"id": "s1", "description": "Setup auth API"},
+                                {"id": "s2", "description": "Create login form"},
+                                {"id": "s3", "description": "Implement session management"}
+                            ],
                             "risk_assessment": {
                                 "risk_level": "high",
-                                "concerns": ["Security vulnerabilities", "Data privacy issues"]
+                                "concerns": ["Security vulnerabilities", "Data privacy issues"],
+                                "security_concerns": ["password handling"]
                             },
                             "test_requirements": {
-                                "unit_tests": ["Test password hashing", "Test login validation"],
-                                "integration_tests": ["Test auth flow"]
+                                "unit_tests": [
+                                    {
+                                        "description": "password hashing validation",
+                                        "implementation_step_id": "s1",
+                                    },
+                                    {
+                                        "description": "login validation",
+                                        "implementation_step_id": "s2",
+                                    }
+                                ],
+                                "integration_tests": [
+                                    {
+                                        "description": "auth flow",
+                                        "implementation_step_id": "s3",
+                                    }
+                                ]
                             }
                         }
                     ]
