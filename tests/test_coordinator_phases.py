@@ -525,3 +525,23 @@ def test_implementation_multiple_plans_processed_sequentially(coordinator):
     assert coordinator._run_validation_phase.call_count == 2
     assert changes == {"auth.py": "code1", "billing.py": "code2"}
     assert success is True
+
+
+def test_implementation_handles_generation_none(coordinator):
+    coordinator.config.config["max_attempts"] = 1
+    plan = {"plan_id": "1", "group_name": "auth"}
+
+    coordinator.code_generator.generate_code.side_effect = [
+        {"auth.py": None},
+        {"auth.py": "code"},
+    ]
+    coordinator._apply_changes_and_manage_dependencies.return_value = True
+    coordinator._run_validation_phase.return_value = {"success": True, "step": None}
+    coordinator.prompt_moderator.request_debugging_guidance.return_value = "Fix"
+    coordinator.feature_group_processor.update_plan_with_modifications.return_value = plan
+
+    changes, success = coordinator._implementation_workflow([plan])
+
+    coordinator.prompt_moderator.request_debugging_guidance.assert_called_once_with("auth", 1)
+    assert changes == {"auth.py": "code"}
+    assert success is True

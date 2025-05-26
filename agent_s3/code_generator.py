@@ -29,7 +29,9 @@ class CodeGenerator:
         self._generation_attempts: Dict[str, int] = {}
 
     # ------------------------------------------------------------------
-    def generate_code(self, plan: Dict[str, Any], tech_stack: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
+    def generate_code(
+        self, plan: Dict[str, Any], tech_stack: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Optional[str]]:
         """Generate code for all files in the implementation plan."""
         self.scratchpad.log("CodeGenerator", "Starting agentic code generation")
         implementation_plan = plan.get("implementation_plan", {})
@@ -45,11 +47,13 @@ class CodeGenerator:
                 "CodeGenerator", "No files found in implementation plan", level=LogLevel.ERROR
             )
             return {}
-        results: Dict[str, str] = {}
+        results: Dict[str, Optional[str]] = {}
         for file_path, implementation_details in files:
             self.scratchpad.log("CodeGenerator", f"Processing file {file_path}")
             context = self.context_manager.prepare_file_context(file_path, implementation_details)
-            generated_code = self.generate_file(file_path, implementation_details, tests, context)
+            generated_code = self.generate_file(
+                file_path, implementation_details, tests, context
+            )
             results[file_path] = generated_code
         self.scratchpad.log("CodeGenerator", f"Completed generation of {len(results)} files")
         return results
@@ -78,7 +82,7 @@ class CodeGenerator:
         implementation_details: List[Dict[str, Any]],
         tests: Dict[str, Any],
         context: Dict[str, Any],
-    ) -> str:
+    ) -> Optional[str]:
         """Generate code for a single file with validation and tests."""
         system_prompt = self.context_manager.create_generation_prompt(context)
         functions_str = "\n\n".join(
@@ -129,8 +133,18 @@ class CodeGenerator:
 
     # ------------------------------------------------------------------
     def _generate_with_validation(
-        self, file_path: str, system_prompt: str, user_prompt: str, max_validation_attempts: Optional[int] = None
-    ) -> str:
+        self,
+        file_path: str,
+        system_prompt: str,
+        user_prompt: str,
+        max_validation_attempts: Optional[int] = None,
+    ) -> Optional[str]:
+        """Generate, validate, and test code for a single file.
+
+        Returns ``None`` if tests continue to fail after automated refinement
+        attempts. This allows callers to detect when manual intervention is
+        required before proceeding with further workflow steps.
+        """
         self.scratchpad.log("CodeGenerator", f"Generating initial code for {file_path}")
         if max_validation_attempts is None:
             max_validation_attempts = self.max_validation_attempts
@@ -166,27 +180,35 @@ class CodeGenerator:
         test_results = self.validator.run_tests(file_path, generated_code)
         if not test_results.get("success", True):
             self.scratchpad.log(
-                "CodeGenerator", f"Tests failed for {file_path}: {test_results.get('issues')}", level=LogLevel.WARNING
+                "CodeGenerator",
+                f"Tests failed for {file_path}: {test_results.get('issues')}",
+                level=LogLevel.WARNING,
             )
-            refined_code = self.validator.refine_based_on_test_results(file_path, generated_code, test_results)
+            refined_code = self.validator.refine_based_on_test_results(
+                file_path, generated_code, test_results
+            )
             try:
                 ast.parse(refined_code)
                 generated_code = refined_code
                 final_results = self.validator.run_tests(file_path, generated_code)
                 if final_results.get("success", False):
-                    self.scratchpad.log("CodeGenerator", f"All tests now pass for {file_path}")
+                    self.scratchpad.log(
+                        "CodeGenerator", f"All tests now pass for {file_path}"
+                    )
                 else:
                     self.scratchpad.log(
                         "CodeGenerator",
                         f"Some tests still fail after refinement: {final_results.get('issues')}",
                         level=LogLevel.WARNING,
                     )
+                    return None
             except SyntaxError:
                 self.scratchpad.log(
                     "CodeGenerator",
                     "Test-based refinement produced invalid code, keeping previous version",
                     level=LogLevel.WARNING,
                 )
+                return None
         else:
             self.scratchpad.log("CodeGenerator", f"All tests pass for {file_path}")
         return generated_code

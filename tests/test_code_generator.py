@@ -197,5 +197,21 @@ class TestCodeGenerator(unittest.TestCase):
         self.assertEqual(result, "good_code")
         debug_manager.analyze_issue.assert_called_once()
 
+    def test_generate_with_validation_returns_none_on_failed_tests(self):
+        """Return None when tests continue to fail after refinement."""
+        file_path = "module.py"
+
+        self.mock_coordinator.router_agent.call_llm_by_role.return_value = "```python\nvalid_code\n```"
+        self.code_generator.validator.validate_generated_code = MagicMock(return_value=(True, []))
+        self.code_generator.validator.run_tests = MagicMock(
+            side_effect=[{"success": False, "issues": ["fail"]}, {"success": False, "issues": ["fail"]}]
+        )
+        self.code_generator.validator.refine_based_on_test_results = MagicMock(return_value="refined")
+
+        with patch("ast.parse"):
+            result = self.code_generator._generate_with_validation(file_path, "sys", "user")
+
+        self.assertIsNone(result)
+
 if __name__ == '__main__':
     unittest.main()

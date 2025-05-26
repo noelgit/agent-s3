@@ -405,7 +405,39 @@ class WorkflowOrchestrator:
                     git_tool.run_git_command("stash pop --index")
                 break
 
-            changes = self.coordinator.code_generator.generate_code(plan, tech_stack=self.coordinator.tech_stack)
+            changes = self.coordinator.code_generator.generate_code(
+                plan, tech_stack=self.coordinator.tech_stack
+            )
+
+            if any(content is None for content in changes.values()):
+                self.coordinator.scratchpad.log(
+                    "Coordinator",
+                    "Code generation failed for at least one file",
+                    level=self.coordinator.LogLevel.ERROR,
+                )
+                self.coordinator.debugging_manager.handle_error(
+                    error_message="code_generation_failed",
+                    traceback_text="returned None",
+                    metadata={"plan": plan},
+                )
+                guidance = None
+                if hasattr(self.coordinator, "prompt_moderator"):
+                    guidance = self.coordinator.prompt_moderator.request_debugging_guidance(
+                        plan.get("group_name", "unknown"),
+                        self.coordinator.config.config.get("max_attempts", 1),
+                    )
+                if guidance and hasattr(self.coordinator, "feature_group_processor"):
+                    plan = self.coordinator.feature_group_processor.update_plan_with_modifications(
+                        plan, guidance
+                    )
+                    changes = self.coordinator.code_generator.generate_code(
+                        plan, tech_stack=self.coordinator.tech_stack
+                    )
+
+                if any(content is None for content in changes.values()):
+                    if stash_created and git_tool:
+                        git_tool.run_git_command("stash pop --index")
+                    continue
 
             if not self._apply_changes_and_manage_dependencies(changes):
                 if stash_created and git_tool:
