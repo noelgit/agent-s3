@@ -130,7 +130,7 @@ def _determine_restart_strategy(error_context, debug_history) -> Tuple[RestartSt
     elif error_context.category in [
         ErrorCategory.PERMISSION,
         ErrorCategory.NETWORK,
-        ErrorCategory.DATABASE, 
+        ErrorCategory.DATABASE,
         ErrorCategory.MEMORY
     ]:
         # These may be environmental/system issues, consider modifying request

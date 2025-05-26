@@ -7,7 +7,7 @@ from .prompt_templates import (
     get_coding_guidelines,
 )
 from .llm_integration import (
-    call_llm_with_retry, 
+    call_llm_with_retry,
     parse_and_validate_json,
     get_openrouter_params,
     JSONPlannerError,
@@ -25,7 +25,7 @@ from .semantic_validation import (
 
 __all__ = [
     'validate_json_schema',
-    'repair_json_structure', 
+    'repair_json_structure',
     'get_consolidated_plan_system_prompt',
     'get_personas_content',
     'get_coding_guidelines',

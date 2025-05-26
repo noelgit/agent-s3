@@ -13,7 +13,7 @@ from .config_explainer import ConfigExplainer
 
 __all__ = [
     'ProjectProfiler',
-    'ConfigTemplateManager', 
+    'ConfigTemplateManager',
     'AdaptiveConfigManager',
     'MetricsCollector',
     'ConfigExplainer',

@@ -33,7 +33,7 @@ from .validation_helpers import (
 
 __all__ = [
     'check_function_naming_consistency',
-    'check_implementation_complexity', 
+    'check_implementation_complexity',
     'check_dependency_management',
     'find_circular_dependencies',
     'check_error_handling_patterns',

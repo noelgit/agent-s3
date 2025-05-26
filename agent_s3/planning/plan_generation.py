@@ -46,7 +46,7 @@ def generate_refined_test_specifications(
 
     # Create user prompt for test specification refinement
     user_prompt = _create_test_specification_user_prompt(
-        feature_group, architecture_review, task_description, 
+        feature_group, architecture_review, task_description,
         test_requirements, system_design, context
     )
 
@@ -304,9 +304,9 @@ Please regenerate the consolidated plan incorporating the requested modification
 
 
 def _validate_feature_structure(
-    feature: Dict[str, Any], 
-    group_idx: int, 
-    feature_idx: int, 
+    feature: Dict[str, Any],
+    group_idx: int,
+    feature_idx: int,
     compatibility_issues: List[str]
 ) -> None:
     """Validate the structure of a feature."""
@@ -348,7 +348,7 @@ def _get_plan_generation_config() -> Dict[str, Any]:
 def _create_fallback_test_specifications(feature_group: Dict[str, Any]) -> Dict[str, Any]:
     """Create fallback test specifications when generation fails."""
     logger.warning("Creating fallback test specifications")
-    
+
     return {
         "feature_group_name": feature_group.get("group_name", "Unknown"),
         "refined_test_specifications": {
@@ -369,12 +369,12 @@ def _create_fallback_test_specifications(feature_group: Dict[str, Any]) -> Dict[
 def _create_fallback_plan(original_plan: Dict[str, Any], task_description: str) -> Dict[str, Any]:
     """Create fallback plan when regeneration fails."""
     logger.warning("Creating fallback plan")
-    
+
     # Return the original plan with a modification note
     fallback_plan = original_plan.copy()
     fallback_plan["modification_status"] = "fallback"
     fallback_plan["modification_note"] = f"Could not regenerate plan for: {task_description}"
-    
+
     return fallback_plan
 
 

@@ -87,7 +87,7 @@ def validate_implementation_security(
     access_control_issues = check_access_control(implementation_plan)
 
     # Combine all security issues
-    all_security_issues = (security_issues + input_validation_issues + auth_issues + 
+    all_security_issues = (security_issues + input_validation_issues + auth_issues +
                           data_sanitization_issues + secure_comm_issues + access_control_issues)
 
     # Check if security concerns from architecture review are addressed
@@ -128,7 +128,7 @@ def validate_implementation_security(
 def check_input_validation(implementation_plan: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Check for proper input validation in implementation plan."""
     issues = []
-    
+
     functions_with_external_input = []
     functions_with_validation = []
 
@@ -155,7 +155,7 @@ def check_input_validation(implementation_plan: Dict[str, Any]) -> List[Dict[str
     # Calculate validation coverage
     if functions_with_external_input:
         validation_coverage = len(functions_with_validation) / len(functions_with_external_input)
-        
+
         if validation_coverage < 0.8:  # Less than 80% coverage
             issues.append({
                 "type": "insufficient_input_validation",
@@ -175,7 +175,7 @@ def check_input_validation(implementation_plan: Dict[str, Any]) -> List[Dict[str
 def check_authentication_requirements(implementation_plan: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Check for proper authentication implementation."""
     issues = []
-    
+
     auth_related_functions = []
     secure_auth_functions = []
 
@@ -202,7 +202,7 @@ def check_authentication_requirements(implementation_plan: Dict[str, Any]) -> Li
     # Check authentication security coverage
     if auth_related_functions:
         auth_coverage = len(secure_auth_functions) / len(auth_related_functions)
-        
+
         if auth_coverage < 0.9:  # Less than 90% coverage
             issues.append({
                 "type": "insecure_authentication",
@@ -221,7 +221,7 @@ def check_authentication_requirements(implementation_plan: Dict[str, Any]) -> Li
 def check_data_sanitization(implementation_plan: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Check for proper data sanitization."""
     issues = []
-    
+
     data_handling_functions = []
     sanitizing_functions = []
 
@@ -247,7 +247,7 @@ def check_data_sanitization(implementation_plan: Dict[str, Any]) -> List[Dict[st
     # Check sanitization coverage
     if data_handling_functions:
         sanitization_coverage = len(sanitizing_functions) / len(data_handling_functions)
-        
+
         if sanitization_coverage < 0.7:  # Less than 70% coverage
             issues.append({
                 "type": "insufficient_data_sanitization",
@@ -266,7 +266,7 @@ def check_data_sanitization(implementation_plan: Dict[str, Any]) -> List[Dict[st
 def check_secure_communication(implementation_plan: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Check for secure communication practices."""
     issues = []
-    
+
     communication_functions = []
     secure_communication_functions = []
 
@@ -292,7 +292,7 @@ def check_secure_communication(implementation_plan: Dict[str, Any]) -> List[Dict
     # Check secure communication coverage
     if communication_functions:
         secure_comm_coverage = len(secure_communication_functions) / len(communication_functions)
-        
+
         if secure_comm_coverage < 1.0:  # Should be 100%
             issues.append({
                 "type": "insecure_communication",
@@ -311,7 +311,7 @@ def check_secure_communication(implementation_plan: Dict[str, Any]) -> List[Dict
 def check_access_control(implementation_plan: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Check for proper access control implementation."""
     issues = []
-    
+
     protected_functions = []
     access_controlled_functions = []
 
@@ -337,7 +337,7 @@ def check_access_control(implementation_plan: Dict[str, Any]) -> List[Dict[str, 
     # Check access control coverage
     if protected_functions:
         access_control_coverage = len(access_controlled_functions) / len(protected_functions)
-        
+
         if access_control_coverage < 0.9:  # Less than 90% coverage
             issues.append({
                 "type": "insufficient_access_control",
@@ -356,34 +356,34 @@ def check_access_control(implementation_plan: Dict[str, Any]) -> List[Dict[str, 
 def _check_security_category(implementation_plan: Dict[str, Any], category: str, config: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Check a specific security category against the implementation plan."""
     issues = []
-    
+
     relevant_functions = []
     compliant_functions = []
-    
+
     keywords = config["keywords"]
     patterns = config["patterns"]
-    
+
     for file_path, functions in implementation_plan.items():
         if not isinstance(functions, list):
             continue
-            
+
         for function in functions:
             if not isinstance(function, dict):
                 continue
-                
+
             # Check if function is relevant to this security category
             if _is_relevant_to_security_category(function, keywords, patterns):
                 relevant_functions.append(f"{file_path}::{function.get('function', 'unknown')}")
-                
+
                 # Check if it properly implements security measures
                 if _implements_security_measures(function, keywords, patterns):
                     compliant_functions.append(f"{file_path}::{function.get('function', 'unknown')}")
-    
+
     # Check coverage
     if relevant_functions:
         coverage = len(compliant_functions) / len(relevant_functions)
         required_coverage = config["required_coverage"]
-        
+
         if coverage < required_coverage:
             issues.append({
                 "type": f"insufficient_{category}",
@@ -397,7 +397,7 @@ def _check_security_category(implementation_plan: Dict[str, Any], category: str,
                     "recommendation": f"Improve {category} implementation to meet security standards"
                 }
             })
-    
+
     return issues
 
 
@@ -475,15 +475,15 @@ def _has_access_control(description: str, impl_steps: List[str]) -> bool:
 def _is_relevant_to_security_category(function: Dict[str, Any], keywords: List[str], patterns: List[str]) -> bool:
     """Check if function is relevant to a security category."""
     text = f"{function.get('function', '')} {function.get('description', '')}"
-    
+
     # Check keywords
     if any(keyword in text.lower() for keyword in keywords):
         return True
-    
+
     # Check patterns
     if any(re.search(pattern, text.lower()) for pattern in patterns):
         return True
-    
+
     return False
 
 
@@ -491,7 +491,7 @@ def _implements_security_measures(function: Dict[str, Any], keywords: List[str],
     """Check if function implements appropriate security measures."""
     impl_steps = function.get("implementation_steps", [])
     security_text = " ".join(impl_steps) if impl_steps else ""
-    
+
     # Look for security-related implementation
     security_patterns = [r"implement.*security", r"add.*validation", r"secure.*implement", r"protect.*against"]
     return any(re.search(pattern, security_text.lower()) for pattern in security_patterns)

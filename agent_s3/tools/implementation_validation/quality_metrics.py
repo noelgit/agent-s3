@@ -215,7 +215,7 @@ def check_dependency_management(implementation_plan: Dict[str, Any]) -> List[Dic
             for step in impl_steps:
                 if isinstance(step, str):
                     # Look for import statements or function calls
-                    _extract_implicit_dependencies(step, file_path, function, 
+                    _extract_implicit_dependencies(step, file_path, function,
                                                 file_dependencies, function_dependencies)
 
     # Check for circular dependencies
@@ -348,7 +348,7 @@ def check_error_handling_patterns(implementation_plan: Dict[str, Any]) -> List[D
             "message": "Many different error handling patterns detected",
             "details": {
                 "pattern_count": len(error_patterns),
-                "common_patterns": dict(sorted(error_patterns.items(), 
+                "common_patterns": dict(sorted(error_patterns.items(),
                                              key=lambda x: x[1], reverse=True)[:5]),
                 "recommendation": "Standardize on common error handling patterns"
             }
@@ -377,7 +377,7 @@ def check_solid_principles(implementation_plan: Dict[str, Any]) -> List[Dict[str
         if len(functions) > 20:  # Too many functions in one file
             issues.append({
                 "type": "srp_violation",
-                "severity": "medium", 
+                "severity": "medium",
                 "message": f"File {file_path} may violate Single Responsibility Principle",
                 "details": {
                     "function_count": len(functions),
@@ -410,10 +410,10 @@ def check_solid_principles(implementation_plan: Dict[str, Any]) -> List[Dict[str
 
 
 def _extract_implicit_dependencies(
-    step: str, 
-    file_path: str, 
+    step: str,
+    file_path: str,
     function: Dict[str, Any],
-    file_dependencies: Dict[str, Set[str]], 
+    file_dependencies: Dict[str, Set[str]],
     function_dependencies: Dict[str, Set[str]]
 ) -> None:
     """Extract implicit dependencies from implementation step text."""

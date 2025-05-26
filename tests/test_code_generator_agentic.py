@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 from agent_s3.code_generator import CodeGenerator
 from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager
 from agent_s3.config import Config # Added import
-from agent_s3 import llm_utils # Added import
 from agent_s3.tools.file_tool import FileTool # Corrected import
 from agent_s3.tools.bash_tool import BashTool # Corrected import
 from agent_s3.router_agent import RouterAgent # Added import
@@ -170,7 +169,7 @@ class TestCodeGeneratorAgentic:
         code_generator = CodeGenerator(mock_coordinator)
         file_path = "agent_s3/test_module.py"
         invalid_code = "def test_func()\n    \n    return undefined_variable"  # Missing colon and undefined variable
-        
+
         # Simulate ruff finding an error and mypy finding an error
         mock_coordinator.bash_tool.run_command.side_effect = [
             (1, "E999 SyntaxError: invalid syntax", ""), # ruff error

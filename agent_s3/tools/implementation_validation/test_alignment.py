@@ -93,12 +93,12 @@ def extract_assertions(test_implementations: Dict[str, Any]) -> Dict[str, List[s
             # Extract from structured test data
             test_cases = test_content.get("test_cases", [])
             file_assertions = []
-            
+
             for test_case in test_cases:
                 if isinstance(test_case, dict):
                     test_assertions = test_case.get("assertions", [])
                     file_assertions.extend(test_assertions)
-            
+
             if file_assertions:
                 assertions[test_file] = file_assertions
 
@@ -133,12 +133,12 @@ def extract_edge_cases(test_implementations: Dict[str, Any]) -> Dict[str, List[s
             # Extract from structured test data
             test_cases = test_content.get("test_cases", [])
             file_edge_cases = []
-            
+
             for test_case in test_cases:
                 if isinstance(test_case, dict):
                     case_edge_cases = test_case.get("edge_cases", [])
                     file_edge_cases.extend(case_edge_cases)
-            
+
             if file_edge_cases:
                 edge_cases[test_file] = file_edge_cases
 
@@ -173,7 +173,7 @@ def extract_expected_behaviors(test_implementations: Dict[str, Any]) -> Dict[str
             # Extract from structured test data
             test_cases = test_content.get("test_cases", [])
             file_behaviors = []
-            
+
             for test_case in test_cases:
                 if isinstance(test_case, dict):
                     description = test_case.get("description", "")
@@ -182,7 +182,7 @@ def extract_expected_behaviors(test_implementations: Dict[str, Any]) -> Dict[str
                         file_behaviors.append(description)
                     if expected:
                         file_behaviors.append(expected)
-            
+
             if file_behaviors:
                 behaviors[test_file] = file_behaviors
 
@@ -218,12 +218,12 @@ def _analyze_test_coverage(test_data: Dict[str, Any], implementation_functions: 
 
     for impl_file, functions in implementation_functions.items():
         file_coverage = {}
-        
+
         for function_name in functions:
             # Check if function is tested
             is_tested = _function_has_tests(function_name, test_data)
             file_coverage[function_name] = is_tested
-        
+
         coverage[impl_file] = file_coverage
 
     return coverage
@@ -239,7 +239,7 @@ def _check_function_coverage(test_coverage: Dict[str, Dict[str, bool]], implemen
 
     for file_path, functions in implementation_functions.items():
         file_coverage = test_coverage.get(file_path, {})
-        
+
         for function_name in functions:
             total_functions += 1
             if file_coverage.get(function_name, False):
@@ -278,7 +278,7 @@ def _check_assertion_alignment(implementation_plan: Dict[str, Any], test_data: D
 
     # Check if implementation addresses assertions
     unaddressed_assertions = []
-    
+
     for test_file, assertions in test_assertions.items():
         for assertion in assertions:
             # Check if any implementation step addresses this assertion
@@ -313,7 +313,7 @@ def _check_edge_case_coverage(implementation_plan: Dict[str, Any], test_data: Di
 
     # Check if implementation handles edge cases
     unhandled_edge_cases = []
-    
+
     for test_file, edge_cases in test_edge_cases.items():
         for edge_case in edge_cases:
             # Check if implementation handles this edge case
@@ -341,7 +341,7 @@ def _check_error_handling_alignment(implementation_plan: Dict[str, Any], test_da
 
     # Extract expected errors from tests
     expected_errors = _extract_expected_errors_from_tests(test_data)
-    
+
     # Extract implemented error handling
     implemented_errors = _extract_implemented_error_handling(implementation_plan)
 
@@ -369,7 +369,7 @@ def _check_error_handling_alignment(implementation_plan: Dict[str, Any], test_da
 def _extract_assertions_from_code(code: str) -> List[str]:
     """Extract assertion statements from test code."""
     assertions = []
-    
+
     # Common assertion patterns
     patterns = [
         r'assert\\s+(.+)',
@@ -380,18 +380,18 @@ def _extract_assertions_from_code(code: str) -> List[str]:
         r'\\.toEqual\\s*\\((.+?)\\)',
         r'\\.toBe\\s*\\((.+?)\\)'
     ]
-    
+
     for pattern in patterns:
         matches = re.findall(pattern, code, re.MULTILINE)
         assertions.extend(matches)
-    
+
     return assertions
 
 
 def _extract_edge_cases_from_code(code: str) -> List[str]:
     """Extract edge cases from test code."""
     edge_cases = []
-    
+
     # Look for edge case indicators
     patterns = [
         r'edge\\s+case[:\\s]+(.+)',
@@ -401,18 +401,18 @@ def _extract_edge_cases_from_code(code: str) -> List[str]:
         r'null\\s+(.+)',
         r'invalid\\s+(.+)'
     ]
-    
+
     for pattern in patterns:
         matches = re.findall(pattern, code.lower(), re.MULTILINE)
         edge_cases.extend(matches)
-    
+
     return edge_cases
 
 
 def _extract_behaviors_from_code(code: str) -> List[str]:
     """Extract expected behaviors from test descriptions."""
     behaviors = []
-    
+
     # Look for test descriptions
     patterns = [
         r'"""([^"]+)"""',
@@ -421,11 +421,11 @@ def _extract_behaviors_from_code(code: str) -> List[str]:
         r'describe\\s*\\(["\']([^"\']+)["\']',
         r'it\\s*\\(["\']([^"\']+)["\']'
     ]
-    
+
     for pattern in patterns:
         matches = re.findall(pattern, code, re.MULTILINE | re.DOTALL)
         behaviors.extend(matches)
-    
+
     return behaviors
 
 
@@ -441,54 +441,54 @@ def _function_has_tests(function_name: str, test_data: Dict[str, Any]) -> bool:
 def _assertion_addressed_in_implementation(assertion: str, implementation_plan: Dict[str, Any]) -> bool:
     """Check if an assertion is addressed in the implementation."""
     assertion_keywords = assertion.lower().split()
-    
+
     for file_path, functions in implementation_plan.items():
         if not isinstance(functions, list):
             continue
-            
+
         for function in functions:
             if not isinstance(function, dict):
                 continue
-                
+
             # Check implementation steps and description
             impl_text = f"{function.get('description', '')} {' '.join(function.get('implementation_steps', []))}"
-            
+
             # Simple keyword matching
             if any(keyword in impl_text.lower() for keyword in assertion_keywords if len(keyword) > 3):
                 return True
-    
+
     return False
 
 
 def _edge_case_handled_in_implementation(edge_case: str, implementation_plan: Dict[str, Any]) -> bool:
     """Check if an edge case is handled in the implementation."""
     edge_case_keywords = edge_case.lower().split()
-    
+
     for file_path, functions in implementation_plan.items():
         if not isinstance(functions, list):
             continue
-            
+
         for function in functions:
             if not isinstance(function, dict):
                 continue
-                
+
             # Check error handling and implementation steps
             error_handling = function.get('error_handling', [])
             impl_steps = function.get('implementation_steps', [])
-            
+
             all_text = f"{' '.join(impl_steps)} {' '.join(str(eh) for eh in error_handling)}"
-            
+
             # Check for edge case handling
             if any(keyword in all_text.lower() for keyword in edge_case_keywords if len(keyword) > 3):
                 return True
-    
+
     return False
 
 
 def _extract_expected_errors_from_tests(test_data: Dict[str, Any]) -> List[str]:
     """Extract expected errors from test implementations."""
     expected_errors = []
-    
+
     for test_file, test_content in test_data.items():
         if isinstance(test_content, str):
             # Look for error expectations in tests
@@ -498,26 +498,26 @@ def _extract_expected_errors_from_tests(test_data: Dict[str, Any]) -> List[str]:
                 r'pytest\\.raises\\s*\\(([^)]+)\\)',
                 r'throws?\\s*\\(([^)]+)\\)'
             ]
-            
+
             for pattern in patterns:
                 matches = re.findall(pattern, test_content)
                 expected_errors.extend(matches)
-    
+
     return expected_errors
 
 
 def _extract_implemented_error_handling(implementation_plan: Dict[str, Any]) -> List[str]:
     """Extract implemented error handling from implementation plan."""
     implemented_errors = []
-    
+
     for file_path, functions in implementation_plan.items():
         if not isinstance(functions, list):
             continue
-            
+
         for function in functions:
             if not isinstance(function, dict):
                 continue
-                
+
             error_handling = function.get('error_handling', [])
             for error_case in error_handling:
                 if isinstance(error_case, dict):
@@ -526,5 +526,5 @@ def _extract_implemented_error_handling(implementation_plan: Dict[str, Any]) -> 
                         implemented_errors.append(error_type)
                 elif isinstance(error_case, str):
                     implemented_errors.append(error_case)
-    
+
     return implemented_errors

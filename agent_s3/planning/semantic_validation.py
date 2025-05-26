@@ -63,13 +63,13 @@ def validate_planning_semantic_coherence(
 
         # Generate LLM-based semantic validation
         llm_validation = _perform_llm_semantic_validation(
-            router_agent, architecture_review, refined_test_specs, 
+            router_agent, architecture_review, refined_test_specs,
             test_implementations, implementation_plan, task_description, context
         )
 
         # Combine all validation results
         final_results = _combine_validation_results(
-            validation_results, cross_validation_results, 
+            validation_results, cross_validation_results,
             coherence_metrics, llm_validation
         )
 
@@ -127,7 +127,7 @@ def _perform_cross_validation(
 
 
 def _calculate_coherence_metrics(
-    validation_results: Dict[str, Any], 
+    validation_results: Dict[str, Any],
     cross_validation_results: Dict[str, Any]
 ) -> Dict[str, Any]:
     """Calculate overall coherence metrics."""
@@ -167,14 +167,14 @@ def _calculate_coherence_metrics(
 
 
 def _perform_llm_semantic_validation(
-    router_agent, architecture_review, refined_test_specs, 
+    router_agent, architecture_review, refined_test_specs,
     test_implementations, implementation_plan, task_description, context
 ) -> Dict[str, Any]:
     """Perform LLM-based semantic validation."""
     try:
         # Create user prompt for semantic validation
         user_prompt = _create_semantic_validation_prompt(
-            architecture_review, refined_test_specs, test_implementations, 
+            architecture_review, refined_test_specs, test_implementations,
             implementation_plan, task_description, context
         )
 
@@ -321,7 +321,7 @@ def _validate_implementation_test_alignment(implementation_plan, test_implementa
 
 
 def _create_semantic_validation_prompt(
-    architecture_review, refined_test_specs, test_implementations, 
+    architecture_review, refined_test_specs, test_implementations,
     implementation_plan, task_description, context
 ) -> str:
     """Create prompt for LLM-based semantic validation."""
@@ -390,7 +390,7 @@ def _calculate_syntax_validation_percentage(validation_issues: List[Dict[str, An
     """Calculate the percentage of syntax validation issues."""
     if not validation_issues:
         return 100.0
-    
+
     syntax_issues = [issue for issue in validation_issues if issue.get("category") == "syntax"]
     return max(0.0, 100.0 - (len(syntax_issues) / len(validation_issues) * 100))
 
@@ -399,6 +399,6 @@ def _calculate_traceability_coverage(validation_issues: List[Dict[str, Any]]) ->
     """Calculate traceability coverage percentage."""
     if not validation_issues:
         return 100.0
-    
+
     traceability_issues = [issue for issue in validation_issues if "traceability" in issue.get("type", "")]
     return max(0.0, 100.0 - (len(traceability_issues) / len(validation_issues) * 100))

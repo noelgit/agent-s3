@@ -130,7 +130,7 @@ class EnhancedWebSocketServer:
                                           self._handle_stream_end)
         self.message_bus.register_handler(MessageType.STREAM_INTERACTIVE,
                                           self._handle_stream_interactive)
-        
+
         # Workflow control handlers
         self.message_bus.register_handler(MessageType.PROGRESS_RESPONSE,
                                           self._handle_progress_response)
@@ -380,7 +380,7 @@ class EnhancedWebSocketServer:
             message: The message to handle
         """
         asyncio.create_task(self.broadcast_message(message))
-    
+
     def _handle_progress_response(self, message: Message):
         """Handle progress response messages from UI (pause/resume/stop/cancel).
 
@@ -389,9 +389,9 @@ class EnhancedWebSocketServer:
         """
         content = message.content
         action = content.get("action", "")
-        
+
         logger.info(f"Received workflow control action: {action}")
-        
+
         # Find the coordinator instance and handle the control action
         try:
             # Get the coordinator from the registry if available
@@ -405,7 +405,7 @@ class EnhancedWebSocketServer:
                             break
                     if coordinator:
                         break
-            
+
             if coordinator and hasattr(coordinator, 'orchestrator'):
                 orchestrator = coordinator.orchestrator
                 if action == "pause":
@@ -420,10 +420,10 @@ class EnhancedWebSocketServer:
                     logger.warning(f"Unknown workflow control action: {action}")
             else:
                 logger.warning("Could not find coordinator/orchestrator to handle workflow control")
-                
+
         except Exception as e:
             logger.error(f"Error handling workflow control action '{action}': {e}")
-    
+
     def _handle_workflow_control(self, message: Message):
         """Handle direct workflow control messages.
 
@@ -432,7 +432,7 @@ class EnhancedWebSocketServer:
         """
         # This is mainly for internal workflow control, just broadcast it
         asyncio.create_task(self.broadcast_message(message))
-    
+
     def _handle_workflow_status(self, message: Message):
         """Handle workflow status messages.
 
@@ -442,9 +442,9 @@ class EnhancedWebSocketServer:
         content = message.content
         status = content.get("status", "")
         phase = content.get("current_phase", "")
-        
+
         logger.info(f"Workflow status update: {status} (phase: {phase})")
-        
+
         # Broadcast status to all clients
         asyncio.create_task(self.broadcast_message(message))
 

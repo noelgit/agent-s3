@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 from agent_s3.code_generator import CodeGenerator
 from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager
 from agent_s3.config import Config
-from agent_s3 import llm_utils
 from agent_s3.tools.file_tool import FileTool
 from agent_s3.tools.bash_tool import BashTool
 from agent_s3.debugging_manager import DebuggingManager

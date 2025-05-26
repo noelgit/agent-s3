@@ -1424,30 +1424,30 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
         try:
             # Check if there's a GitHub token available (indicates GitHub integration is ready)
             import os
-            github_token = (os.getenv('GITHUB_TOKEN') or 
-                          os.getenv('GH_TOKEN') or 
+            github_token = (os.getenv('GITHUB_TOKEN') or
+                          os.getenv('GH_TOKEN') or
                           os.getenv('GITHUB_ACCESS_TOKEN') or
                           os.getenv('AGENT_S3_GITHUB_TOKEN'))
-            
+
             if github_token:
                 notification = (
                     "\n" + "🔗 " + "="*60 + "\n"
                     "GitHub Integration Active:\n"
-                    "• A GitHub issue will be created automatically for this approved plan\n" 
+                    "• A GitHub issue will be created automatically for this approved plan\n"
                     "• A pull request will be created when implementation is complete\n"
                     "• Check your repository for updates after completion\n"
                     "="*60 + "\n"
                 )
-                
-                # Display via appropriate UI  
+
+                # Display via appropriate UI
                 if self.is_vscode_mode():
                     self.vscode_bridge.send_terminal_output(notification)
                 else:
                     print(notification)
-                    
+
                 if self.scratchpad:
                     self.scratchpad.log("Moderator", "Notified user about GitHub integration")
-                    
+
         except Exception:
             # Silent failure - GitHub integration notification should never break the workflow
             pass

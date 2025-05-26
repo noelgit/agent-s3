@@ -21,13 +21,13 @@ def decompress_helper(compressed_data):
 def test_basic_compression():
     """Test basic compression and decompression."""
     original_data = "This is a test string with some content to compress."
-    
+
     # Compress the data
     compressed = compress_helper(original_data)
-    
+
     # Check that the compressed data is different
     assert compressed != original_data.encode('utf-8')
-    
+
     # Decompress the data and verify it matches the original
     decompressed = decompress_helper(compressed)
     assert decompressed == original_data
@@ -43,17 +43,17 @@ def test_json_compression():
             "key2": "value2"
         }
     }
-    
+
     # Convert to JSON string
     json_data = json.dumps(original_data)
-    
+
     # Compress the JSON data
     compressed = compress_helper(json_data)
-    
+
     # Decompress and verify
     decompressed = decompress_helper(compressed)
     assert decompressed == json_data
-    
+
     # Check that we can parse the JSON back to its original form
     parsed_data = json.loads(decompressed)
     assert parsed_data == original_data

@@ -311,7 +311,7 @@ IMPORTANT: You MUST perform the following two steps sequentially to generate the
 *   **The final generated implementation code derived from this plan MUST pass the tests generated within this same plan.**
 """
 
-    def get_consolidated_plan_user_prompt(self, feature_group: Dict[str, Any], task_description: str, 
+    def get_consolidated_plan_user_prompt(self, feature_group: Dict[str, Any], task_description: str,
                                         context: Optional[Dict[str, Any]] = None) -> str:
         """
         Get the user prompt for the consolidated planning LLM call.

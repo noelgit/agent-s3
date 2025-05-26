@@ -90,23 +90,23 @@ def extract_json_from_response(response: str) -> Optional[Dict[str, Any]]:
     # Try to find JSON content between code blocks
     pattern = r'```json\s*(.*?)\s*```'
     matches = re.findall(pattern, response, re.DOTALL)
-    
+
     if matches:
         try:
             return json.loads(matches[0])
         except json.JSONDecodeError:
             pass
-    
+
     # Try to find JSON content without code blocks
     pattern = r'\{.*\}'
     matches = re.findall(pattern, response, re.DOTALL)
-    
+
     for match in matches:
         try:
             return json.loads(match)
         except json.JSONDecodeError:
             continue
-    
+
     return None
 
 
@@ -115,17 +115,17 @@ def extract_restart_strategy_from_response(response: str) -> Optional[str]:
     # Look for strategy section
     pattern = r'(?:##\s*Restart Strategy|Strategy)\s*:\s*(.*?)(?:\n##|\Z)'
     matches = re.findall(pattern, response, re.DOTALL)
-    
+
     if matches:
         return matches[0].strip()
-    
+
     # Look for bullet point strategy
     pattern = r'(?:Strategy|Approach)\s*:\s*\*\s*(.*?)(?:\n|$)'
     matches = re.findall(pattern, response)
-    
+
     if matches:
         return matches[0].strip()
-    
+
     return None
 
 
@@ -136,12 +136,12 @@ def extract_error_category_from_response(response: str) -> Optional[str]:
         'syntax_error', 'type_error', 'import_error', 'runtime_error',
         'test_failure', 'dependency_error', 'configuration_error'
     ]
-    
+
     response_lower = response.lower()
     for category in categories:
         if category.replace('_', ' ') in response_lower or category in response_lower:
             return category
-    
+
     return None
 
 
@@ -154,12 +154,12 @@ def extract_file_paths_from_response(response: str) -> list[str]:
         r'(?:file|path):\s*([^\s]+\.[a-z]+)',  # File declarations
         r'/[a-zA-Z0-9_/.-]+\.[a-z]+',  # Unix-style paths
     ]
-    
+
     file_paths = set()
     for pattern in patterns:
         matches = re.findall(pattern, response)
         file_paths.update(matches)
-    
+
     return list(file_paths)
 
 
@@ -171,16 +171,16 @@ def extract_suggested_commands_from_response(response: str) -> list[str]:
         r'(?:run|execute|try):\s*([^\n]+)',  # Command suggestions
         r'\$\s*([^\n]+)',  # Shell commands
     ]
-    
+
     commands = set()
     for pattern in patterns:
         matches = re.findall(pattern, response)
         commands.update(matches)
-    
+
     # Filter out non-command text
     filtered_commands = []
     for cmd in commands:
         if any(keyword in cmd.lower() for keyword in ['python', 'pip', 'pytest', 'mypy', 'git', 'npm']):
             filtered_commands.append(cmd.strip())
-    
+
     return filtered_commands

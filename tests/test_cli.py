@@ -1,16 +1,17 @@
 # tests/test_cli.py
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)))
-
 import unittest
-from unittest.mock import patch, MagicMock
 import types
+from unittest.mock import patch, MagicMock
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)))
 
 # Provide a dummy Coordinator to avoid heavy imports during testing
 sys.modules['agent_s3.coordinator'] = types.SimpleNamespace(Coordinator=object)
 sys.modules['agent_s3.router_agent'] = types.SimpleNamespace(RouterAgent=object)
 sys.modules['agent_s3.config'] = types.SimpleNamespace(Config=object)
+
 from agent_s3.cli import process_command
 
 

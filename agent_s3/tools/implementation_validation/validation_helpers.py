@@ -404,15 +404,15 @@ def _validate_function_signature(signature: str, file_path: str) -> List[Dict[st
 
 
 def _parse_test_content_for_requirements(
-    test_content: str, 
-    test_requirements: Dict[str, List[Dict[str, Any]]], 
+    test_content: str,
+    test_requirements: Dict[str, List[Dict[str, Any]]],
     test_file: str
 ) -> None:
     """Parse test content string to extract requirements."""
     # Look for test functions and their requirements
     test_function_pattern = r'def\\s+test_([^(]+)\\s*\\([^)]*\\):'
     matches = re.findall(test_function_pattern, test_content)
-    
+
     for test_name in matches:
         # Determine test type based on name patterns
         if any(keyword in test_name.lower() for keyword in ['unit', 'single', 'isolated']):
@@ -427,7 +427,7 @@ def _parse_test_content_for_requirements(
             test_type = 'error_scenarios'
         else:
             test_type = 'unit_tests'  # Default
-        
+
         test_requirements[test_type].append({
             "test_name": test_name,
             "test_file": test_file,
@@ -436,8 +436,8 @@ def _parse_test_content_for_requirements(
 
 
 def _extract_structured_test_requirements(
-    test_content: Dict[str, Any], 
-    test_requirements: Dict[str, List[Dict[str, Any]]], 
+    test_content: Dict[str, Any],
+    test_requirements: Dict[str, List[Dict[str, Any]]],
     test_file: str
 ) -> None:
     """Extract requirements from structured test data."""
@@ -449,7 +449,7 @@ def _extract_structured_test_requirements(
                 test_type = test_case.get("type", "unit_tests")
                 if test_type not in test_requirements:
                     test_type = "unit_tests"
-                
+
                 test_requirements[test_type].append({
                     "test_name": test_case.get("name", "unknown"),
                     "test_file": test_file,

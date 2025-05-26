@@ -49,7 +49,7 @@ def get_related_files(file_path: str, content: str, file_tool: Any = None) -> Di
                         else:
                             with open(path, 'r', encoding='utf-8') as f:
                                 related_content = f.read()
-                        
+
                         if related_content:
                             related_files[path] = related_content
                             break  # Found a matching file, stop trying other patterns
@@ -131,7 +131,7 @@ def analyze_error_context(error_message: str, traceback_text: str, file_path: Op
         'related_imports': _extract_imports_from_traceback(traceback_text),
         'suggestions': _generate_quick_suggestions(error_message, traceback_text),
     }
-    
+
     return context
 
 
@@ -142,27 +142,27 @@ def get_file_dependencies(file_path: str, content: str) -> Dict[str, list]:
         'file_references': [],
         'potential_modules': [],
     }
-    
+
     # Extract imports
     import_patterns = [
         r'(?:^|\n)import\s+([^\s#]+)',
         r'(?:^|\n)from\s+([^\s#]+)\s+import',
     ]
-    
+
     for pattern in import_patterns:
         matches = re.findall(pattern, content, re.MULTILINE)
         dependencies['imports'].extend(matches)
-    
+
     # Extract file references
     file_ref_pattern = r'[\'\"]([.\w/\\-]+\.(py|js|ts|json|yaml|yml))[\'\"]'
     file_matches = re.findall(file_ref_pattern, content)
     dependencies['file_references'] = [match[0] for match in file_matches]
-    
+
     # Extract potential module references
     module_pattern = r'(?:^|\n)([a-zA-Z_][a-zA-Z0-9_]*)\.'
     module_matches = re.findall(module_pattern, content, re.MULTILINE)
     dependencies['potential_modules'] = list(set(module_matches))
-    
+
     return dependencies
 
 
@@ -182,14 +182,14 @@ def _is_standard_library_import(module_name: str) -> bool:
         "zipfile", "tarfile", "gzip", "bz2", "lzma", "zlib", "configparser",
         "argparse", "getopt", "warnings", "traceback", "unittest",
     }
-    
+
     return module_name.split('.')[0] in standard_modules
 
 
 def _get_possible_import_paths(module_name: str, file_path: str) -> list[str]:
     """Get possible file paths for a module import."""
     possible_paths = []
-    
+
     # For relative imports, look relative to current file
     if module_name.startswith('.'):
         base_dir = os.path.dirname(file_path)
@@ -207,12 +207,12 @@ def _get_possible_import_paths(module_name: str, file_path: str) -> list[str]:
         if project_root:
             possible_paths.append(os.path.join(project_root, f"{module_root}.py"))
             possible_paths.append(os.path.join(project_root, module_root, "__init__.py"))
-            
+
             # For nested modules
             if len(components) > 1:
                 nested_path = os.path.join(project_root, *components[:-1], f"{components[-1]}.py")
                 possible_paths.append(nested_path)
-    
+
     return possible_paths
 
 
@@ -226,7 +226,7 @@ def _extract_error_type(error_message: str) -> str:
     """Extract the type of error from an error message."""
     error_types = {
         'SyntaxError': 'syntax_error',
-        'TypeError': 'type_error', 
+        'TypeError': 'type_error',
         'NameError': 'name_error',
         'AttributeError': 'attribute_error',
         'ImportError': 'import_error',
@@ -237,11 +237,11 @@ def _extract_error_type(error_message: str) -> str:
         'FileNotFoundError': 'file_not_found',
         'PermissionError': 'permission_error',
     }
-    
+
     for error_class, error_type in error_types.items():
         if error_class in error_message:
             return error_type
-    
+
     return 'unknown_error'
 
 
@@ -252,52 +252,52 @@ def _extract_error_location(traceback_text: str, file_path: Optional[str] = None
         'line': None,
         'function': None,
     }
-    
+
     # Extract line number
     line_pattern = r'line (\d+)'
     line_matches = re.findall(line_pattern, traceback_text)
     if line_matches:
         location['line'] = int(line_matches[-1])
-    
+
     # Extract function name
     function_pattern = r'in (\w+)'
     function_matches = re.findall(function_pattern, traceback_text)
     if function_matches:
         location['function'] = function_matches[-1]
-    
+
     return location
 
 
 def _extract_imports_from_traceback(traceback_text: str) -> list[str]:
     """Extract import-related information from traceback."""
     imports = []
-    
+
     # Look for import statements in traceback
     import_pattern = r'(?:import|from)\s+([^\s]+)'
     matches = re.findall(import_pattern, traceback_text)
     imports.extend(matches)
-    
+
     return list(set(imports))
 
 
 def _generate_quick_suggestions(error_message: str, traceback_text: str) -> list[str]:
     """Generate quick suggestions based on error patterns."""
     suggestions = []
-    
+
     if 'ModuleNotFoundError' in error_message:
         suggestions.append("Check if the module is installed or if the import path is correct")
         suggestions.append("Verify that the module is in your Python path")
-    
+
     if 'SyntaxError' in error_message:
         suggestions.append("Check for missing parentheses, brackets, or quotes")
         suggestions.append("Verify proper indentation")
-    
+
     if 'TypeError' in error_message:
         suggestions.append("Check function arguments and their types")
         suggestions.append("Verify that you're calling methods on the correct object types")
-    
+
     if 'AttributeError' in error_message:
         suggestions.append("Check if the attribute or method exists on the object")
         suggestions.append("Verify the object type and available methods")
-    
+
     return suggestions

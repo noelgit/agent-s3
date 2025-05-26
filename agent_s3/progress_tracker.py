@@ -166,12 +166,12 @@ class ProgressTracker:
         # Stream via WebSocket if configured
         if self.websocket_server:
             self._stream_via_websocket(entry)
-    
+
     def send_progress_indicator(
-        self, 
-        title: str, 
-        percentage: float, 
-        steps: List[Dict[str, Any]], 
+        self,
+        title: str,
+        percentage: float,
+        steps: List[Dict[str, Any]],
         estimated_time_remaining: Optional[int] = None,
         cancelable: bool = True,
         pausable: bool = True,
@@ -180,10 +180,10 @@ class ProgressTracker:
         """Send a progress indicator message with workflow control capabilities."""
         if not self.websocket_server or not hasattr(self.websocket_server, "message_bus"):
             return
-            
+
         try:
             from .communication.message_protocol import Message, MessageType
-            
+
             progress_msg = Message(
                 type=MessageType.PROGRESS_INDICATOR,
                 content={
@@ -196,7 +196,7 @@ class ProgressTracker:
                     "stoppable": stoppable
                 }
             )
-            
+
             self.websocket_server.message_bus.publish(progress_msg)
         except Exception as e:
             self.logger.error("Failed to send progress indicator: %s", e)

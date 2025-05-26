@@ -7,7 +7,7 @@ class TestSecurityValidator:
     def setup_method(self):
         """Set up test fixtures."""
         self.validator = SecurityValidator()
-        
+
         # Sample architecture review
         self.architecture_review = {
             "architecture_review": {
@@ -27,7 +27,7 @@ class TestSecurityValidator:
                 ]
             }
         }
-        
+
         # Sample test requirements
         self.test_requirements = {
             "test_requirements": {
@@ -49,7 +49,7 @@ class TestSecurityValidator:
                 ]
             }
         }
-        
+
         # Sample test implementations
         self.test_implementations = {
             "tests": {

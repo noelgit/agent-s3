@@ -249,7 +249,7 @@ class DatabaseTool:
         """
         if not self.use_sqlalchemy:
             raise RuntimeError("SQLAlchemy not available for connection management")
-            
+
         if db_name not in self.connections:
             raise ValueError(f"Database '{db_name}' not configured or connection failed")
 

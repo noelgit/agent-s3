@@ -64,7 +64,7 @@ from .registry import CoordinatorRegistry
 # Configure module logger. The logging system should be configured by the
 # application entry point (e.g. the CLI) before importing this module.
 logger = logging.getLogger(__name__)
-        
+
 class Coordinator:
     """Coordinates the workflow phases for Agent-S3."""
 
@@ -82,7 +82,7 @@ class Coordinator:
         else:
             self.config = Config(config_path)
             self.config.load()
-            
+
         self.coordinator_config = CoordinatorRegistry(self.config)
         if github_token is not None:
             self.coordinator_config.github_token = github_token
@@ -119,15 +119,15 @@ class Coordinator:
             from agent_s3.command_processor import CommandProcessor
             self._command_processor = CommandProcessor(self)
         return self._command_processor
-    
+
     def _initialize_core_components(self) -> None:
         """Initialize core components and logging."""
         self.scratchpad = EnhancedScratchpadManager(self.config)
         self.progress_tracker = ProgressTracker(self.config)
-        
+
         if hasattr(self.progress_tracker, 'register_semantic_validation_phase'):
             self.progress_tracker.register_semantic_validation_phase()
-            
+
         self.task_state_manager = TaskStateManager(
             base_dir=os.path.join(
                 os.path.dirname(self.config.get_log_file_path("development")),
@@ -268,7 +268,7 @@ class Coordinator:
     def _initialize_workflow_components(self) -> None:
         """Initialize components related to workflow management."""
         memory_manager = self.coordinator_config.get_tool('memory_manager')
-        
+
         self.planner = Planner(
             config=self.config,
             scratchpad=self.scratchpad,
@@ -320,7 +320,7 @@ class Coordinator:
                 "phase": "initialization",
                 "status": "pending"
             })
-    
+
     def _extract_keywords_from_task(self, task_description: str) -> List[str]:
         """Extracts keywords from a task description.
 
@@ -335,25 +335,25 @@ class Coordinator:
         # Simple keyword extraction: lowercase, split by non-alphanumeric, filter short words and common stop words
         words = re.findall(r'\b\w+\b', task_description.lower())
         # Define a basic list of stop words, can be expanded
-        stop_words = {"a", "an", "the", "is", "are", "was", "were", "be", "been", "being", 
-                      "have", "has", "had", "do", "does", "did", "will", "would", "should", 
-                      "can", "could", "may", "might", "must", "and", "or", "but", "if", 
-                      "of", "at", "by", "for", "with", "about", "to", "from", "in", "out", 
-                      "on", "off", "over", "under", "again", "further", "then", "once", 
-                      "here", "there", "when", "where", "why", "how", "all", "any", "both", 
-                      "each", "few", "more", "most", "other", "some", "such", "no", "nor", 
-                      "not", "only", "own", "same", "so", "than", "too", "very", "s", "t", 
-                      "just", "don", "shouldve", "now", "d", "ll", "m", "o", "re", "ve", "y", 
-                      "ain", "aren", "couldn", "didn", "doesn", "hadn", "hasn", "haven", 
-                      "isn", "ma", "mightn", "mustn", "needn", "shan", "shouldn", "wasn", 
-                      "weren", "won", "wouldn", "i", "me", "my", "myself", "we", "our", 
-                      "ours", "ourselves", "you", "your", "yours", "yourself", "yourselves", 
-                      "he", "him", "his", "himself", "she", "her", "hers", "herself", "it", 
-                      "its", "itself", "they", "them", "their", "theirs", "themselves", 
-                      "what", "which", "who", "whom", "this", "that", "these", "those", 
-                      "am", "create", "update", "delete", "remove", "add", "implement", 
+        stop_words = {"a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
+                      "have", "has", "had", "do", "does", "did", "will", "would", "should",
+                      "can", "could", "may", "might", "must", "and", "or", "but", "if",
+                      "of", "at", "by", "for", "with", "about", "to", "from", "in", "out",
+                      "on", "off", "over", "under", "again", "further", "then", "once",
+                      "here", "there", "when", "where", "why", "how", "all", "any", "both",
+                      "each", "few", "more", "most", "other", "some", "such", "no", "nor",
+                      "not", "only", "own", "same", "so", "than", "too", "very", "s", "t",
+                      "just", "don", "shouldve", "now", "d", "ll", "m", "o", "re", "ve", "y",
+                      "ain", "aren", "couldn", "didn", "doesn", "hadn", "hasn", "haven",
+                      "isn", "ma", "mightn", "mustn", "needn", "shan", "shouldn", "wasn",
+                      "weren", "won", "wouldn", "i", "me", "my", "myself", "we", "our",
+                      "ours", "ourselves", "you", "your", "yours", "yourself", "yourselves",
+                      "he", "him", "his", "himself", "she", "her", "hers", "herself", "it",
+                      "its", "itself", "they", "them", "their", "theirs", "themselves",
+                      "what", "which", "who", "whom", "this", "that", "these", "those",
+                      "am", "create", "update", "delete", "remove", "add", "implement",
                       "make", "ensure", "fix", "refactor", "change", "modify", "develop"}
-        
+
         keywords = [word for word in words if word not in stop_words and len(word) > 2]
         # Return unique keywords
         return list(set(keywords))
@@ -367,11 +367,11 @@ class Coordinator:
             reraise=False  # Don't re-raise exceptions during shutdown
         ):
             self.scratchpad.log("Coordinator", "Shutting down Agent-S3 coordinator...")
-            
+
             # Stop planner observer if it exists
             if hasattr(self, 'planner') and self.planner and hasattr(self.planner, 'stop_observer'):
                 self.planner.stop_observer()
-            
+
             # Clean up context management
             if hasattr(self, 'context_manager') and self.context_manager:
                 try:
@@ -379,7 +379,7 @@ class Coordinator:
                     self.context_manager.stop_background_optimization()
                 except Exception as e:
                     self.scratchpad.log("Coordinator", f"Error stopping context management: {e}", level=LogLevel.ERROR)
-            
+
             # Save memory manager state
             if hasattr(self, 'memory_manager') and self.memory_manager and hasattr(self.memory_manager, 'save_state'):
                 self.memory_manager.save_state()
@@ -390,7 +390,7 @@ class Coordinator:
             # Close enhanced scratchpad
             if hasattr(self, 'scratchpad') and hasattr(self.scratchpad, 'close'):
                 self.scratchpad.close()
-            
+
             self.scratchpad.log("Coordinator", "Shutdown complete.")
 
     def get_current_context_snapshot(self, context_type: str = None, query: str = None):
@@ -401,7 +401,7 @@ class Coordinator:
             operation="get_current_context_snapshot"
         ):
             return self.context_registry.get_current_context_snapshot(context_type=context_type, query=query)
-    
+
     def _prepare_context(self, task_description: str) -> Dict[str, Any]:
         """Prepare context by gathering all relevant information.
 
@@ -429,14 +429,14 @@ class Coordinator:
                 if self.context_manager:
                     # Determine task type (can be enhanced later)
                     task_type = "planning"  # Default for pre-planning
-                    
+
                     gathered_context_items = self.context_manager.gather_context(
                         task_description=task_description,
                         task_type=task_type,
                         task_keywords=task_keywords,
-                        max_tokens=self.config.config.get('context_management', {}).get('max_tokens_for_pre_planning', 4000) 
+                        max_tokens=self.config.config.get('context_management', {}).get('max_tokens_for_pre_planning', 4000)
                     )
-                    
+
                     processed_gathered_context = {}
                     for item in gathered_context_items:
                         if item.file_path:
@@ -483,7 +483,7 @@ class Coordinator:
                 )
                 if deps_snapshot:
                     context.update(deps_snapshot)
-                
+
             except Exception as e:
                 self.scratchpad.log("Coordinator", f"Error preparing context: {e}\n{traceback.format_exc()}", level=LogLevel.WARNING)
             return context
@@ -585,9 +585,9 @@ class Coordinator:
             return f"Error during finalization: {exc}"
         finally:
             self.scratchpad.end_section(Section.DEBUGGING)
-    
+
     # _execute_pre_planning_phase method removed as it's redundant with inline implementation in run_task
-    
+
     def _present_pre_planning_results_to_user(self, pre_planning_results: Dict[str, Any]) -> Tuple[str, Optional[str]]:
         """Present the pre-planning results to the user and get their decision.
 
@@ -636,7 +636,7 @@ class Coordinator:
                     "Please describe your modifications:"
                 )
                 return "modify", modification
-                
+
     def plan_approval_loop(self, plan: Dict[str, Any], original_plan: Optional[Dict[str, Any]] = None) -> Tuple[str, Dict[str, Any]]:
         """Run the plan approval loop to get user approval for a plan.
         
@@ -657,23 +657,23 @@ class Coordinator:
             operation="plan_approval_loop"
         ):
             self.scratchpad.log("Coordinator", "Starting plan approval loop")
-            
+
             # Initialize loop variables
             current_plan = plan
             iteration = 0
             max_iterations = self.prompt_moderator.max_plan_iterations
-            
+
             # Create a static plan checker for validation
             from agent_s3.tools.static_plan_checker import StaticPlanChecker
             plan_checker = StaticPlanChecker(context_registry=self.context_registry)
-            
+
             while iteration < max_iterations:
                 iteration += 1
                 self.scratchpad.log("Coordinator", f"Plan approval iteration {iteration}/{max_iterations}")
-                
+
                 # Present the plan to the user
                 decision, modification_text = self.prompt_moderator.present_consolidated_plan(current_plan)
-                
+
                 if decision == "yes":
                     self.scratchpad.log("Coordinator", "User approved the plan")
                     return "yes", current_plan
@@ -682,22 +682,22 @@ class Coordinator:
                     return "no", current_plan
                 elif decision == "modify":
                     self.scratchpad.log("Coordinator", "User chose to modify the plan")
-                    
+
                     # Handle user modification
                     try:
                         # Import the regeneration function from planner_json_enforced
                         from agent_s3.planner_json_enforced import regenerate_consolidated_plan_with_modifications
-                        
+
                         # Regenerate the plan with modifications
                         modified_plan = regenerate_consolidated_plan_with_modifications(
                             self.router_agent,
                             current_plan,
                             modification_text
                         )
-                        
+
                         # Validate the modified plan
                         is_valid, validation_results = plan_checker.validate_plan(modified_plan, original_plan or current_plan)
-                        
+
                         if is_valid:
                             self.scratchpad.log("Coordinator", "Modified plan validation successful")
                             current_plan = modified_plan
@@ -709,12 +709,12 @@ class Coordinator:
                                 for error in critical_errors[:5]:  # Show only first 5 errors
                                     error_msg = error.get("message", str(error)) if isinstance(error, dict) else str(error)
                                     print(f"  - {error_msg}")
-                                
+
                                 # Ask if user wants to proceed anyway
                                 proceed_anyway = self.prompt_moderator.ask_yes_no_question(
                                     "The modified plan has validation errors. Do you want to proceed anyway?"
                                 )
-                                
+
                                 if proceed_anyway:
                                     self.scratchpad.log("Coordinator", "User chose to proceed with invalid plan")
                                     current_plan = modified_plan
@@ -729,7 +729,7 @@ class Coordinator:
                                     for warning in warnings[:5]:  # Show only first 5 warnings
                                         warning_msg = warning.get("message", str(warning)) if isinstance(warning, dict) else str(warning)
                                         print(f"  - {warning_msg}")
-                                
+
                                 # Proceed with the modified plan
                                 self.scratchpad.log("Coordinator", "Modified plan has warnings but no critical errors")
                                 current_plan = modified_plan
@@ -741,34 +741,34 @@ class Coordinator:
                             level=logging.ERROR,
                             reraise=False
                         )
-                        
+
                         print(f"\n❌ ERROR: Failed to apply modifications: {str(e)}")
-                        
+
                         # Ask if user wants to try again
                         try_again = self.prompt_moderator.ask_yes_no_question(
                             "Do you want to try modifying the plan again?"
                         )
-                        
+
                         if not try_again:
                             self.scratchpad.log("Coordinator", "User chose not to try modifying again")
                             return "no", current_plan
-                
+
                 # Check if we've reached the maximum number of iterations
                 if iteration >= max_iterations:
                     print(f"\n⚠️ Maximum number of modification iterations ({max_iterations}) reached.")
-                    
+
                     # Ask if user wants to proceed with the current plan
                     proceed = self.prompt_moderator.ask_yes_no_question(
                         "Do you want to proceed with the current plan?"
                     )
-                    
+
                     if proceed:
                         self.scratchpad.log("Coordinator", "User chose to proceed after max iterations")
                         return "yes", current_plan
                     else:
                         self.scratchpad.log("Coordinator", "User chose not to proceed after max iterations")
                         return "no", current_plan
-            
+
             # Default return if loop exits unexpectedly
             return "no", current_plan
 

@@ -59,7 +59,7 @@ class MessageType(Enum):
     CODE_SNIPPET = "code_snippet"
     FILE_TREE = "file_tree"
     TASK_BREAKDOWN = "task_breakdown"
-    
+
     # Workflow control messages
     WORKFLOW_CONTROL = "workflow_control"
     WORKFLOW_STATUS = "workflow_status"

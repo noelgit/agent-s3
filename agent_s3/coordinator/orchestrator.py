@@ -32,7 +32,7 @@ class WorkflowOrchestrator:
     def __init__(self, coordinator: "Coordinator", registry: CoordinatorRegistry) -> None:
         self.coordinator = coordinator
         self.registry = registry
-        
+
         # Workflow control state
         self.workflow_id = str(uuid.uuid4())
         self.workflow_state = "ready"  # ready, running, paused, stopped, completed, failed
@@ -48,63 +48,63 @@ class WorkflowOrchestrator:
     # ------------------------------------------------------------------
     # Workflow control methods
     # ------------------------------------------------------------------
-    
+
     def pause_workflow(self, reason: str = "User requested pause") -> bool:
         """Pause the current workflow execution."""
         with self.control_lock:
             if self.workflow_state != "running" or not self.can_pause:
                 return False
-            
+
             self.workflow_state = "paused"
             self.pause_event.clear()
             self.can_pause = False
             self.can_resume = True
-            
+
             self._broadcast_workflow_status(f"Workflow paused: {reason}")
             self.coordinator.scratchpad.log(
-                "Orchestrator", f"Workflow paused: {reason}", 
+                "Orchestrator", f"Workflow paused: {reason}",
                 level=self.coordinator.LogLevel.INFO
             )
             return True
-    
+
     def resume_workflow(self, reason: str = "User requested resume") -> bool:
         """Resume the paused workflow execution."""
         with self.control_lock:
             if self.workflow_state != "paused" or not self.can_resume:
                 return False
-            
+
             self.workflow_state = "running"
             self.pause_event.set()
             self.can_pause = True
             self.can_resume = False
-            
+
             self._broadcast_workflow_status(f"Workflow resumed: {reason}")
             self.coordinator.scratchpad.log(
-                "Orchestrator", f"Workflow resumed: {reason}", 
+                "Orchestrator", f"Workflow resumed: {reason}",
                 level=self.coordinator.LogLevel.INFO
             )
             return True
-    
+
     def stop_workflow(self, reason: str = "User requested stop") -> bool:
         """Stop the current workflow execution."""
         with self.control_lock:
             if self.workflow_state in ["stopped", "completed", "failed"]:
                 return False
-            
+
             self.workflow_state = "stopped"
             self.stop_event.set()
             self.pause_event.set()  # Unblock any paused operations
             self.can_pause = False
             self.can_resume = False
             self.can_stop = False
-            
+
             self._broadcast_workflow_status(f"Workflow stopped: {reason}")
             self.coordinator.scratchpad.log(
-                "Orchestrator", f"Workflow stopped: {reason}", 
+                "Orchestrator", f"Workflow stopped: {reason}",
                 level=self.coordinator.LogLevel.WARNING
             )
             return True
-    
+
     def get_workflow_status(self) -> Dict[str, Any]:
         """Get the current workflow status."""
         with self.control_lock:
@@ -116,13 +116,13 @@ class WorkflowOrchestrator:
                 "can_resume": self.can_resume,
                 "can_stop": self.can_stop
             }
-    
+
     def _check_workflow_control(self) -> bool:
         """Check workflow control state and handle pause/stop."""
         # Check for stop signal
         if self.stop_event.is_set():
             return False
-        
+
         # Handle pause state
         if not self.pause_event.is_set():
             self.coordinator.scratchpad.log(
@@ -130,25 +130,25 @@ class WorkflowOrchestrator:
                 level=self.coordinator.LogLevel.INFO
             )
             self.pause_event.wait()  # Block until resumed
-            
+
             # Check if stopped while paused
             if self.stop_event.is_set():
                 return False
-        
+
         return True
-    
+
     def _set_current_phase(self, phase: str):
         """Set the current workflow phase."""
         with self.control_lock:
             self.current_phase = phase
             if self.workflow_state == "running":
                 self._broadcast_workflow_status(f"Current phase: {phase}")
-    
+
     def _broadcast_workflow_status(self, message: str = ""):
         """Broadcast workflow status to UI."""
         try:
             from ..communication.message_protocol import Message, MessageType
-            
+
             status_msg = Message(
                 type=MessageType.WORKFLOW_STATUS,
                 content={
@@ -161,7 +161,7 @@ class WorkflowOrchestrator:
                     "message": message
                 }
             )
-            
+
             # Send via progress tracker if available
             if hasattr(self.coordinator, 'progress_tracker') and hasattr(self.coordinator.progress_tracker, 'message_bus'):
                 self.coordinator.progress_tracker.message_bus.publish(status_msg)
@@ -192,9 +192,9 @@ class WorkflowOrchestrator:
             self.can_pause = True
             self.can_resume = False
             self.can_stop = True
-        
+
         self._broadcast_workflow_status("Workflow started")
-        
+
         with self.coordinator.error_handler.error_context(
             phase="run_task",
             operation="run_task",
@@ -204,20 +204,20 @@ class WorkflowOrchestrator:
                 self._set_current_phase("planning")
                 if not self._check_workflow_control():
                     return
-                
+
                 plans = self._planning_workflow(task, pre_planning_input, from_design)
                 if not plans or not self._check_workflow_control():
                     return
-                
+
                 self._set_current_phase("implementation")
                 if not self._check_workflow_control():
                     return
-                    
+
                 changes, success = self._implementation_workflow(plans)
                 if success and self._check_workflow_control():
                     self._set_current_phase("finalization")
                     self._finalize_task(changes)
-                    
+
                 # Mark workflow as completed
                 with self.control_lock:
                     if self.workflow_state not in ["stopped", "failed"]:
@@ -225,16 +225,16 @@ class WorkflowOrchestrator:
                         self.can_pause = False
                         self.can_resume = False
                         self.can_stop = False
-                
+
                 self._broadcast_workflow_status("Workflow completed successfully")
-                
+
             except Exception as exc:  # pragma: no cover - safety net
                 with self.control_lock:
                     self.workflow_state = "failed"
                     self.can_pause = False
                     self.can_resume = False
                     self.can_stop = False
-                
+
                 self._broadcast_workflow_status(f"Workflow failed: {str(exc)}")
                 self.coordinator.error_handler.handle_exception(
                     exc=exc,
@@ -378,7 +378,7 @@ class WorkflowOrchestrator:
                 )
             if decision == "yes":
                 plans.append(consolidated_plan)
-                
+
                 # GitHub Integration: Create issue from approved plan
                 self._create_github_issue_for_plan(consolidated_plan, task)
 
@@ -661,78 +661,78 @@ class WorkflowOrchestrator:
 
     def _finalize_task(self, changes: Dict[str, str]) -> None:
         self.coordinator.scratchpad.log("Coordinator", "Task completed successfully")
-        
+
         # GitHub Integration: Create PR from successful implementation
         self._create_github_pr_for_implementation(changes)
-    
+
     # ------------------------------------------------------------------
     # GitHub Integration Methods
     # ------------------------------------------------------------------
-    
+
     def _create_github_issue_for_plan(self, consolidated_plan: Dict[str, Any], task_description: str) -> None:
         """Create GitHub issue from approved consolidated plan using existing GitTool."""
         try:
             git_tool = self.registry.get_tool("git_tool")
             if not git_tool or not git_tool.github_token:
                 return
-            
+
             # Generate issue content using the existing workflow patterns
             issue_title = self._generate_issue_title(task_description, consolidated_plan)
             issue_body = self._generate_issue_body(consolidated_plan, task_description)
-            
+
             # Create issue using existing GitTool
             issue_url = git_tool.create_github_issue(
                 title=issue_title,
                 body=issue_body,
                 labels=["enhancement", "agent-s3-generated"]
             )
-            
+
             if issue_url:
                 self.coordinator.scratchpad.log(
-                    "GitHub", 
+                    "GitHub",
                     f"Created issue: {issue_url}"
                 )
                 # Store for PR reference
                 setattr(self.coordinator, '_current_github_issue_url', issue_url)
-            
+
         except Exception as e:
             # Silent failure - log but don't interrupt workflow
             self.coordinator.scratchpad.log(
-                "GitHub", 
+                "GitHub",
                 f"Issue creation failed: {str(e)}"
             )
-    
+
     def _create_github_pr_for_implementation(self, changes: Dict[str, str]) -> None:
         """Create GitHub PR from successful implementation using existing GitTool."""
         try:
             git_tool = self.registry.get_tool("git_tool")
             if not git_tool or not git_tool.github_token:
                 return
-            
+
             # Generate PR content
             pr_title = self._generate_pr_title(changes)
             pr_body = self._generate_pr_body(changes)
-            
+
             # Create PR using existing GitTool
             pr_url = git_tool.create_pull_request(
                 title=pr_title,
                 body=pr_body,
                 draft=False
             )
-            
+
             if pr_url:
                 self.coordinator.scratchpad.log(
-                    "GitHub", 
+                    "GitHub",
                     f"Created PR: {pr_url}"
                 )
-                
+
         except Exception as e:
             # Silent failure - log but don't interrupt workflow
             self.coordinator.scratchpad.log(
-                "GitHub", 
+                "GitHub",
                 f"PR creation failed: {str(e)}"
             )
-    
+
     def _generate_issue_title(self, task_description: str, plan: Dict[str, Any]) -> str:
         """Generate descriptive issue title."""
         feature_group = plan.get('feature_group', {}).get('name', '')
@@ -740,22 +740,22 @@ class WorkflowOrchestrator:
             return f"Implement {feature_group}: {task_description[:80]}"
         else:
             return f"Agent-S3 Task: {task_description[:80]}"
-    
+
     def _generate_issue_body(self, plan: Dict[str, Any], task_description: str) -> str:
         """Generate comprehensive issue body from consolidated plan."""
         body_parts = []
-        
+
         # Header
         body_parts.append("# Agent-S3 Generated Implementation Task")
         body_parts.append("")
         body_parts.append(f"**Task Description:** {task_description}")
         body_parts.append("")
-        
+
         # Test Plan Section
         if 'test_plan' in plan or 'refined_test_specs' in plan:
             body_parts.append("## Test Plan")
             test_specs = plan.get('refined_test_specs', plan.get('test_plan', {}))
-            
+
             if isinstance(test_specs, dict):
                 for spec_name, spec_data in test_specs.items():
                     if isinstance(spec_data, dict):
@@ -769,7 +769,7 @@ class WorkflowOrchestrator:
                                     name = test_case.get('name', f'Test Case {i}')
                                     body_parts.append(f"- {name}")
             body_parts.append("")
-        
+
         # Implementation Plan Section
         if 'implementation_plan' in plan:
             body_parts.append("## Implementation Plan")
@@ -789,12 +789,12 @@ class WorkflowOrchestrator:
                                 else:
                                     body_parts.append(f"- {step}")
             body_parts.append("")
-        
+
         body_parts.append("---")
         body_parts.append("*This issue was automatically generated by Agent-S3*")
-        
+
         return "\n".join(body_parts)
-    
+
     def _generate_pr_title(self, changes: Dict[str, str]) -> str:
         """Generate descriptive PR title."""
         issue_url = getattr(self.coordinator, '_current_github_issue_url', None)
@@ -803,38 +803,38 @@ class WorkflowOrchestrator:
             return f"Implements #{issue_number}: Agent-S3 automated implementation"
         else:
             return f"Agent-S3 Implementation: {len(changes)} file(s) modified"
-    
+
     def _generate_pr_body(self, changes: Dict[str, str]) -> str:
         """Generate comprehensive PR body."""
         body_parts = []
-        
+
         # Header with issue reference
         issue_url = getattr(self.coordinator, '_current_github_issue_url', None)
         if issue_url and '#' in issue_url:
             issue_number = issue_url.split('/')[-1]
             body_parts.append(f"Closes #{issue_number}")
             body_parts.append("")
-        
+
         body_parts.append("# Agent-S3 Implementation")
         body_parts.append("")
         body_parts.append(f"**Summary:** Automated implementation affecting {len(changes)} file(s)")
         body_parts.append("")
-        
+
         # Changes made
         body_parts.append("## Files Modified")
         for file_path in changes.keys():
             change_type = "created" if not os.path.exists(file_path) else "modified"
             body_parts.append(f"- **{change_type.title()}:** `{file_path}`")
         body_parts.append("")
-        
+
         # Validation results
         body_parts.append("## Validation Results")
         body_parts.append("- ✅ Implementation validation passed")
         body_parts.append("- ✅ Security validation passed")
         body_parts.append("- ✅ Syntax validation passed")
         body_parts.append("")
-        
+
         body_parts.append("---")
         body_parts.append("*This pull request was automatically generated by Agent-S3*")
-        
+
         return "\n".join(body_parts)
