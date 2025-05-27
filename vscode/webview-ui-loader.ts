@@ -96,9 +96,14 @@ export class InteractiveWebviewManager {
    * Get the webview content
    */
   private getWebviewContent(webview: vscode.Webview): string {
-    // Local path to the bundled React app
-    const webviewPath = path.join(this.extensionUri.fsPath, "webview-ui");
-    const indexPath = path.join(webviewPath, "index.html");
+    // Local path to the React app and possible build directory
+    const webviewRoot = path.join(this.extensionUri.fsPath, "webview-ui");
+    const buildIndexPath = path.join(webviewRoot, "build", "index.html");
+    const devIndexPath = path.join(webviewRoot, "index.html");
+
+    const indexPath = fs.existsSync(buildIndexPath)
+      ? buildIndexPath
+      : devIndexPath;
 
     // Read the HTML file
     let html = fs.existsSync(indexPath)
@@ -119,7 +124,8 @@ export class InteractiveWebviewManager {
     html = html.replace(/<style/g, `<style nonce="${nonce}"`);
 
     // Replace paths with proper webview URIs
-    html = this.replaceResourcePaths(html, webview, webviewPath);
+    const resourceBase = path.dirname(indexPath);
+    html = this.replaceResourcePaths(html, webview, resourceBase);
 
     return html;
   }
@@ -196,8 +202,9 @@ export class InteractiveWebviewManager {
         return match;
       }
 
-      // Create a URI for the resource
-      const resourcePath = path.join(basePath, src);
+      // Normalize the relative path to avoid issues with leading slashes
+      const cleaned = src.replace(/^\/?/, "").replace(/^\.\//, "");
+      const resourcePath = path.join(basePath, cleaned);
       const uri = webview.asWebviewUri(vscode.Uri.file(resourcePath));
 
       return `src="${uri}"`;
@@ -210,8 +217,8 @@ export class InteractiveWebviewManager {
         return match;
       }
 
-      // Create a URI for the resource
-      const resourcePath = path.join(basePath, href);
+      const cleaned = href.replace(/^\/?/, "").replace(/^\.\//, "");
+      const resourcePath = path.join(basePath, cleaned);
       const uri = webview.asWebviewUri(vscode.Uri.file(resourcePath));
 
       return `href="${uri}"`;
