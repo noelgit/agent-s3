@@ -28,6 +28,7 @@ from agent_s3.errors import PlanningError
 from agent_s3.planning import (
     repair_json_structure,
     get_consolidated_plan_system_prompt,
+    get_stage_system_prompt,
     JSONPlannerError,
     validate_planning_semantic_coherence,
 )
@@ -318,8 +319,8 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
 
     # Call the LLM with enhanced retry logic
     try:
-        # Use the consolidated planning system prompt
-        system_prompt = get_consolidated_plan_system_prompt()
+        # Use a stage-specific planning system prompt for implementation planning
+        system_prompt = get_stage_system_prompt("implementation_plan")
 
         # Use improved retry logic for LLM calls with exponential backoff
         max_retries = 3  # Increased from 2 to 3 for better reliability
