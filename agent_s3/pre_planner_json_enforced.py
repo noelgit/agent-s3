@@ -15,13 +15,10 @@ Key responsibilities:
 import json
 import logging
 import os
-import time  # Added for potential delays in retry
 from typing import Dict, Any, Optional, Tuple, List, Union, Callable
 
 from agent_s3.progress_tracker import progress_tracker
-
-from agent_s3.pre_planning_errors import PrePlanningError
-
+from agent_s3.errors import PrePlanningError
 from agent_s3.json_utils import (
     extract_json_from_text,
     get_openrouter_json_params,
@@ -29,8 +26,15 @@ from agent_s3.json_utils import (
     sanitize_text,
 )
 from agent_s3.planning import repair_json_structure
-from agent_s3.pre_planning_validator import PrePlanningValidator
+from agent_s3.pre_planner_json_validator import PrePlannerJsonValidator
 from agent_s3.pre_planner_repair import ensure_element_id_consistency
+from agent_s3.common_utils import (
+    retry_with_backoff,
+    handle_error_with_context,
+    create_error_response,
+    log_function_entry_exit,
+    ProcessingError
+)
 
 logger = logging.getLogger(__name__)
 
@@ -129,20 +133,71 @@ def create_fallback_pre_planning_output(task_description: str) -> Dict[str, Any]
     feature = {
         "name": "Main Task Implementation",
         "description": task_description,
-        "files_affected": [],
+        "files_affected": ["main.py"],
         "test_requirements": {
-            "unit_tests": [],
-            "integration_tests": [],
+            "unit_tests": [
+                {
+                    "description": "Test main functionality",
+                    "target_element": "main_function",
+                    "target_element_ids": ["main_function_id"],
+                    "inputs": ["basic input"],
+                    "expected_outcome": "expected output"
+                }
+            ],
+            "integration_tests": [
+                {
+                    "description": "Test integration",
+                    "components_involved": ["main"],
+                    "scenario": "basic integration test",
+                    "target_element_ids": ["main_function_id"]
+                }
+            ],
             "property_based_tests": [],
-            "acceptance_tests": [],
+            "acceptance_tests": [
+                {
+                    "given": "basic setup",
+                    "when": "main function is called",
+                    "then": "expected result is returned",
+                    "target_element_ids": ["main_function_id"]
+                }
+            ],
             "test_strategy": {
                 "coverage_goal": "80%",
                 "ui_test_approach": "manual",
             },
         },
-        "dependencies": [],
-        "risks": [],
-        "acceptance_criteria": [],
+        "dependencies": {
+            "internal": [],
+            "external": [],
+            "feature_dependencies": []
+        },
+        "risk_assessment": {
+            "critical_files": [],
+            "potential_regressions": [],
+            "backward_compatibility_concerns": [],
+            "mitigation_strategies": [],
+            "required_test_characteristics": {
+                "required_types": ["unit"],
+                "required_keywords": [],
+                "suggested_libraries": []
+            }
+        },
+        "system_design": {
+            "overview": f"Implementation of {task_description}",
+            "code_elements": [
+                {
+                    "element_type": "function",
+                    "name": "main_function",
+                    "element_id": "main_function_id",
+                    "signature": "def main_function():",
+                    "description": "Main function implementation",
+                    "key_attributes_or_methods": [],
+                    "target_file": "main.py"
+                }
+            ],
+            "data_flow": "Standard data flow",
+            "key_algorithms": ["basic implementation"]
+        }
     }
 
     return {
@@ -153,14 +208,7 @@ def create_fallback_pre_planning_output(task_description: str) -> Dict[str, Any]
                 "group_description": "Automatically generated fallback group",
                 "features": [feature],
             }
-        ],
-        "dependencies": [],
-        "risk_assessment": [],
-        "acceptance_tests": [],
-        "test_strategy": {
-            "coverage_goal": "80%",
-            "ui_test_approach": "manual",
-        },
+        ]
     }
 
 # Alias used by tests
@@ -312,40 +360,20 @@ def integrate_with_coordinator(
     # Get the router agent from the coordinator
     router_agent = coordinator.router_agent
 
-    mode = "enforced_json"
     config = getattr(coordinator, "config", None)
     allow_interactive_clarification = True
     if config and isinstance(getattr(config, "config", None), dict):
-        mode = config.config.get("pre_planning_mode", "enforced_json")
         allow_interactive_clarification = config.config.get(
             "allow_interactive_clarification", True
         )
-    if not isinstance(mode, str):
-        mode = "enforced_json"
 
-    uses_enforced_json = mode == "enforced_json"
-
-    if mode == "off":
-        return {
-            "success": False,
-            "uses_enforced_json": False,
-            "status": "skipped",
-        }
-    if mode == "json":
-        success, pre_planning_data = pre_planning_workflow(
-            router_agent,
-            task_description,
-            context,
-            max_preplanning_attempts=max_preplanning_attempts,
-            allow_interactive_clarification=allow_interactive_clarification,
-        )
-    else:
-        success, pre_planning_data = call_pre_planner_with_enforced_json(
-            router_agent,
-            task_description,
-            context,
-            allow_interactive_clarification=allow_interactive_clarification,
-        )
+    # Always use enforced JSON mode
+    success, pre_planning_data = call_pre_planner_with_enforced_json(
+        router_agent,
+        task_description,
+        context,
+        allow_interactive_clarification=allow_interactive_clarification,
+    )
 
     if success:
         # Extract key information for the coordinator
@@ -454,7 +482,7 @@ def integrate_with_coordinator(
         # Return results
         return {
             "success": True,
-            "uses_enforced_json": uses_enforced_json,
+            "uses_enforced_json": True,
             "status": "completed",
             "timestamp": coordinator.get_current_timestamp(),
             "pre_planning_data": pre_planning_data,
@@ -469,7 +497,7 @@ def integrate_with_coordinator(
         # Return failure
         return {
             "success": False,
-            "uses_enforced_json": uses_enforced_json,
+            "uses_enforced_json": True,
             "status": "failed",
             "timestamp": coordinator.get_current_timestamp(),
             "error": "Failed to generate pre-planning data"
@@ -930,6 +958,120 @@ You MUST follow these steps IN ORDER to produce a valid pre-planning JSON:
     return f"{base_prompt}\n\n{json_specific}"
 
 
+def _prepare_pre_planning_prompt(
+    task_description: str, 
+    context: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Prepare the prompt for pre-planning LLM call.
+    
+    Args:
+        task_description: The user-provided task description
+        context: Optional context dictionary
+    
+    Returns:
+        Prepared prompt dictionary
+    """
+    system_prompt = get_json_system_prompt()
+    user_prompt = get_base_user_prompt(task_description)
+    
+    prompt = {
+        "system": system_prompt,
+        "user": user_prompt,
+    }
+    
+    # Attach context under dedicated key
+    if context and isinstance(context, dict):
+        prompt["context"] = context
+    
+    return prompt
+
+def _process_pre_planning_response(
+    response: str, 
+    task_description: str
+) -> Tuple[bool, Dict[str, Any], Optional[str]]:
+    """Process LLM response for pre-planning.
+    
+    Args:
+        response: Raw LLM response
+        task_description: Original task description
+    
+    Returns:
+        Tuple of (success, processed_data, error_message)
+    """
+    try:
+        status, data = process_response(response, task_description)
+        
+        if status is True:
+            # Ensure element_id consistency and traceability
+            data = ensure_element_id_consistency(data)
+            # Validate all requirements
+            valid, validation_msg, validated_plan = validate_preplan_all(data)
+            if valid:
+                return True, validated_plan, None
+            else:
+                return False, data, f"Validation failed: {validation_msg}"
+        elif status == "question":
+            # LLM is asking for clarification
+            return False, data, "question"
+        else:
+            return False, data, f"Response processing failed: {data}"
+    except Exception as e:
+        error_msg = handle_error_with_context(e, "processing pre-planning response", logger)
+        return False, {}, error_msg
+
+@retry_with_backoff(max_retries=3, base_delay=0.5, logger_instance=logger)
+def _attempt_pre_planning_call(
+    router_agent,
+    prompt: Dict[str, Any],
+    openrouter_params: Dict[str, Any]
+) -> str:
+    """Attempt a single pre-planning LLM call with retry logic.
+    
+    Args:
+        router_agent: The agent responsible for LLM calls
+        prompt: Prepared prompt dictionary
+        openrouter_params: OpenRouter parameters
+    
+    Returns:
+        LLM response
+    
+    Raises:
+        ProcessingError: If LLM call fails
+    """
+    try:
+        response = router_agent.run(prompt, **openrouter_params)
+        if not response:
+            raise ProcessingError("Empty response from LLM")
+        return response
+    except Exception as e:
+        raise ProcessingError(f"LLM call failed: {e}")
+
+def _handle_fallback_pre_planning(task_description: str) -> Tuple[bool, Dict[str, Any]]:
+    """Handle fallback pre-planning when all attempts fail.
+    
+    Args:
+        task_description: Original task description
+    
+    Returns:
+        Tuple of (success, fallback_data)
+    """
+    logger.warning("Creating fallback pre-planning output")
+    fallback_data = create_fallback_pre_planning_output(task_description)
+    
+    # Validate fallback data to ensure it meets minimum requirements
+    valid, validation_msg, validated_fallback = validate_preplan_all(fallback_data)
+    if not valid:
+        logger.error("Fallback validation failed: %s", validation_msg)
+        return False, create_error_response(
+            success=False,
+            error_message="Fallback validation failed",
+            error_context=validation_msg,
+            data=validated_fallback
+        )
+    
+    return False, validated_fallback
+
+@log_function_entry_exit(logger)
 def call_pre_planner_with_enforced_json(
     router_agent,
     task_description: str,
@@ -951,59 +1093,43 @@ def call_pre_planner_with_enforced_json(
     Returns:
         Tuple of (success: bool, pre_planning_data: dict)
     """
-    import traceback
-    max_preplanning_attempts = 3
-    last_error = None
-    system_prompt = get_json_system_prompt()
-    user_prompt = get_base_user_prompt(task_description)
+    # Prepare the prompt
+    prompt = _prepare_pre_planning_prompt(task_description, context)
     openrouter_params = get_openrouter_params()
-
-    for attempt in range(1, max_preplanning_attempts + 1):
+    
+    max_attempts = 3
+    last_error = None
+    
+    for attempt in range(1, max_attempts + 1):
         try:
-            # Compose the prompt for the LLM
-            prompt = {
-                "system": system_prompt,
-                "user": user_prompt,
-            }
-            # Attach context under dedicated key
-            if context and isinstance(context, dict):
-                prompt["context"] = context
-
-            # Call the router agent (assumed to have a .run() method)
-            response = router_agent.run(prompt, **openrouter_params)
-            status, data = process_response(response, task_description)
-
-            if status is True:
-                # Ensure element_id consistency and traceability
-                data = ensure_element_id_consistency(data)
-                # Validate all requirements
-                valid, validation_msg, validated_plan = validate_preplan_all(data)
-                if valid:
-                    return True, validated_plan
-                else:
-                    last_error = f"Validation failed: {validation_msg}"
-            elif status == "question":
+            logger.info(f"Pre-planning attempt {attempt}/{max_attempts}")
+            
+            # Make LLM call with retry logic
+            response = _attempt_pre_planning_call(router_agent, prompt, openrouter_params)
+            
+            # Process the response
+            success, data, error_msg = _process_pre_planning_response(response, task_description)
+            
+            if success:
+                logger.info("Pre-planning completed successfully")
+                return True, data
+            elif error_msg == "question":
                 # LLM is asking for clarification, return as-is
+                logger.info("LLM requested clarification")
                 return False, data
             else:
-                last_error = f"Response processing failed: {data}"
+                last_error = error_msg
+                logger.warning(f"Pre-planning attempt {attempt} failed: {error_msg}")
+                
+        except ProcessingError as e:
+            last_error = str(e)
+            logger.warning(f"Pre-planning attempt {attempt} failed: {e}")
         except Exception as e:
-            last_error = f"Exception during pre-planning (attempt {attempt}): {e}\n{traceback.format_exc()}"
-        # Optional: exponential backoff or delay between retries
-        time.sleep(0.5 * attempt)
-
-    # If all attempts failed, return fallback JSON
-    logger.warning(
-        "Pre-planning attempts exhausted; returning fallback JSON output."
-        f" Last error: {last_error}"
-    )
-    fallback_data = create_fallback_pre_planning_output(task_description)
-    # Validate fallback data to ensure it meets minimum requirements
-    valid, validation_msg, validated_fallback = validate_preplan_all(fallback_data)
-    if not valid:
-        logger.error("Fallback validation failed: %s", validation_msg)
-        return False, {"pre_planning_data": validated_fallback, "error": validation_msg}
-    return False, validated_fallback
+            last_error = handle_error_with_context(e, f"pre-planning attempt {attempt}", logger)
+    
+    # If all attempts failed, use fallback
+    logger.error(f"All pre-planning attempts failed. Last error: {last_error}")
+    return _handle_fallback_pre_planning(task_description)
 
 
 class PrePlanner:
@@ -1013,7 +1139,7 @@ class PrePlanner:
         self.router_agent = router_agent
         self.config = config or {}
         self.config.setdefault("use_json_enforcement", True)
-        self.validator = PrePlanningValidator()
+        self.validator = PrePlannerJsonValidator()
 
     def generate_pre_planning_data(
         self,
@@ -1122,6 +1248,7 @@ class PrePlanner:
                 )
                 return {"success": True, "response": response}
             except Exception as e:  # pragma: no cover - error path
+                import time
                 last_error = str(e)
                 time.sleep(0.5)
         return {"success": False, "error": last_error or "LLM call failed"}

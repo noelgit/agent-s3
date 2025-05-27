@@ -118,7 +118,7 @@ class TestCritic:
         """Initialize with optional coordinator for LLM access."""
         self.coordinator = coordinator
         self.llm = coordinator.llm if coordinator else None
-        self.workspace = Path(coordinator.config.get_workspace_path()) if coordinator and hasattr(coordinator, 'config') and coordinator.config else Path.cwd()
+        self.workspace = Path(coordinator.config.config.get('workspace_path', '.')) if coordinator and hasattr(coordinator, 'config') and coordinator.config else Path.cwd()
 
         # Initialize static analyzer for non-execution-based checks
         from .static_analysis import CriticStaticAnalyzer

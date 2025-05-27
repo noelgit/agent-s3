@@ -27,7 +27,7 @@ class ErrorContextManager:
         """
         self.coordinator = coordinator
         self.file_tool = coordinator.file_tool if coordinator else None
-        self.code_analysis_tool = coordinator.code_analysis_tool if coordinator else None
+        self.code_analysis_tool = coordinator.coordinator_config.get_tool('code_analysis_tool') if coordinator and hasattr(coordinator, 'coordinator_config') else None
         self.memory_manager = coordinator.memory_manager if coordinator else None
         self.scratchpad = coordinator.scratchpad if coordinator else None
         # Use the context_manager if available

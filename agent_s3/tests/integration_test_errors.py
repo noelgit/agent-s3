@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
-from agent_s3.pre_planning_errors import ValidationError
-from agent_s3.pre_planning_errors import handle_pre_planning_errors
-from agent_s3.pre_planning_validator import PrePlanningValidator
+from agent_s3.errors import PrePlanningError as ValidationError
+from agent_s3.errors import ErrorContext
+from agent_s3.pre_planner_json_validator import PrePlannerJsonValidator as PrePlanningValidator
 
 # Create a simple validator
 validator = PrePlanningValidator()
 
 # Wrap the validation method with our error handler
-@handle_pre_planning_errors
 def validate_and_handle_errors(data):
     is_valid, errors = validator.validate_structure(data)
     if not is_valid:

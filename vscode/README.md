@@ -1,3 +1,6 @@
+<!--
+NOTE: The top-level README.md in the repository contains the latest features and documentation for Agent-S3. Please refer to ../../README.md for the most up-to-date information.
+-->
 # Agent-S3 VS Code Extension
 
 This extension integrates Agent-S3, a state-of-the-art AI coding agent, directly into VS Code.

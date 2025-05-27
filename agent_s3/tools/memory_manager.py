@@ -139,13 +139,11 @@ class MemoryManager:
                 self.context_history = state.get('context_history', [])
                 self.summaries = state.get('summaries', {})
                 logger.info(
-                    "%s",
                     "Loaded memory state from %s",
                     self.memory_state_path,
                 )
             except (json.JSONDecodeError, OSError) as e:
                 logger.error(
-                    "%s",
                     "Error loading memory state from %s: %s. Initializing empty state.",
                     self.memory_state_path,
                     e,

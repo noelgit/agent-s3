@@ -1,19 +1,16 @@
 {
   "name": "agent-s3",
   "displayName": "Agent-S3",
-  "description": "AI coding agent with GitHub issue tracking",
+  "description": "AI coding agent with GitHub issue tracking. See top-level README.md for latest features.",
   "version": "0.1.0",
-  "publisher": "agent-s3-team",
+  "publisher": "sparksoft-solutions-inc",
+  "icon": "logo.png",
+  "documentation": "../../README.md",
   "engines": {
     "vscode": "^1.99.0"
   },
   "categories": [
     "Other"
-  ],
-  "activationEvents": [
-    "onCommand:agent-s3.init",
-    "onCommand:agent-s3.help",
-    "onCommand:agent-s3.request"
   ],
   "main": "./out/extension.js",
   "contributes": {

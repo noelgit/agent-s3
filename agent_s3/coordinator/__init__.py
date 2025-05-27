@@ -27,7 +27,7 @@ from agent_s3.error_handler import ErrorHandler
 
 from agent_s3.feature_group_processor import FeatureGroupProcessor
 from agent_s3.file_history_analyzer import FileHistoryAnalyzer
-from agent_s3.planner import Planner
+from agent_s3.planner_json_enforced import Planner
 
 from agent_s3.progress_tracker import ProgressTracker
 from agent_s3.prompt_moderator import PromptModerator
@@ -159,7 +159,19 @@ class Coordinator:
         self.context_manager = ContextManager(
             config=self.config.config.get('context_management', {}))
 
-        # Initialize code analysis
+        # Initialize memory management first (needed by code analysis tool)
+        self.embedding_client = EmbeddingClient(
+            config=self.config.config,
+            router_agent=self.router_agent
+        )
+        self.memory_manager = MemoryManager(
+            config=self.config.config,
+            embedding_client=self.embedding_client,
+            file_tool=file_tool,
+            llm_client=self.llm
+        )
+
+        # Initialize code analysis (depends on embedding_client)
         code_analysis_tool = CodeAnalysisTool(
             coordinator=self,
             file_tool=file_tool
@@ -187,28 +199,16 @@ class Coordinator:
             file_tool=file_tool
         )
 
-        # Initialize memory management
-        embedding_client = EmbeddingClient(
-            config=self.config.config,
-            router_agent=self.router_agent
-        )
-        memory_manager = MemoryManager(
-            config=self.config.config,
-            embedding_client=embedding_client,
-            file_tool=file_tool,
-            llm_client=self.llm
-        )
-
         # Register providers
         self.context_registry.register_provider("context_manager", self.context_manager)
-        self.context_registry.register_provider("memory_manager", memory_manager)
+        self.context_registry.register_provider("memory_manager", self.memory_manager)
 
         # Store tool references
         self.coordinator_config.register_tool('file_tool', file_tool)
         self.coordinator_config.register_tool('git_tool', git_tool)
         self.coordinator_config.register_tool('code_analysis_tool', code_analysis_tool)
-        self.coordinator_config.register_tool('embedding_client', embedding_client)
-        self.coordinator_config.register_tool('memory_manager', memory_manager)
+        self.coordinator_config.register_tool('embedding_client', self.embedding_client)
+        self.coordinator_config.register_tool('memory_manager', self.memory_manager)
 
         # Initialize remaining tools
         self._initialize_additional_tools(file_tool)
@@ -227,14 +227,7 @@ class Coordinator:
         self.test_critic = TestCritic(self)
 
         # Error context management
-        self.error_context_manager = ErrorContextManager(
-            config=self.config,
-            bash_tool=self.bash_tool,
-            file_tool=file_tool,
-            code_analysis_tool=self.coordinator_config.get_tool('code_analysis_tool'),
-            git_tool=self.coordinator_config.get_tool('git_tool'),
-            scratchpad=self.scratchpad
-        )
+        self.error_context_manager = ErrorContextManager(coordinator=self)
 
     def _initialize_specialized_components(self) -> None:
         """Initialize specialized components using the tools."""
@@ -249,12 +242,8 @@ class Coordinator:
             tech_stack=self.tech_stack
         )
 
-        # Feature group processor and debugging manager
+        # Feature group processor
         self.feature_group_processor = FeatureGroupProcessor(coordinator=self)
-        self.debugging_manager = DebuggingManager(
-            coordinator=self,
-            enhanced_scratchpad=self.scratchpad
-        )
 
         # Implementation manager handles step-by-step execution of design tasks
         self.implementation_manager = ImplementationManager(coordinator=self)
@@ -269,20 +258,25 @@ class Coordinator:
         """Initialize components related to workflow management."""
         memory_manager = self.coordinator_config.get_tool('memory_manager')
 
-        self.planner = Planner(
-            config=self.config,
+        from agent_s3.planner_json_enforced import PlannerConfig
+        planner_config = PlannerConfig(
+            coordinator=self,
             scratchpad=self.scratchpad,
-            progress_tracker=self.progress_tracker,
-            task_state_manager=self.task_state_manager,
-            code_analysis_tool=self.coordinator_config.get_tool('code_analysis_tool'),
             tech_stack_detector=self.tech_stack_detector,
             memory_manager=memory_manager,
             database_tool=self.database_tool,
             test_frameworks=self.test_frameworks
         )
+        self.planner = Planner(config=planner_config)
 
         self.code_generator = CodeGenerator(coordinator=self)
         self.prompt_moderator = PromptModerator(self)
+        
+        # Initialize debugging manager (depends on code_generator)
+        self.debugging_manager = DebuggingManager(
+            coordinator=self,
+            enhanced_scratchpad=self.scratchpad
+        )
 
         # Workflow pipelines
         self.planning_workflow = PlanningWorkflow(self)
@@ -298,7 +292,7 @@ class Coordinator:
             task_state_manager=self.task_state_manager
         )
 
-        # Initialize workflow orchestrator
+        # Initialize workflow orchestrator (lazy import to avoid circular import)
         from .orchestrator import WorkflowOrchestrator
         self.orchestrator = WorkflowOrchestrator(self, self.coordinator_config)
 
@@ -868,6 +862,114 @@ class Coordinator:
     def start_pre_planning_from_design(self, design_file: str = "design.txt") -> Dict[str, Any]:
         """Delegate pre-planning start to the workflow orchestrator."""
         return self.orchestrator.start_pre_planning_from_design(design_file)
+
+    def initialize_workspace(self) -> Dict[str, Any]:
+        """Initialize the workspace using the workspace initializer.
+        
+        Returns:
+            Dictionary with success status, validation result, and any errors.
+        """
+        try:
+            # Call the workspace initializer
+            is_valid = self.workspace_initializer.initialize_workspace()
+            
+            # Get validation details
+            validation_reason = getattr(self.workspace_initializer, 'validation_failure_reason', None)
+            
+            result = {
+                "success": True,
+                "is_workspace_valid": is_valid,
+                "created_files": [],  # Could be enhanced to track created files
+                "errors": [] if is_valid else [validation_reason] if validation_reason else ["Workspace validation failed"]
+            }
+            
+            # Add validation failure reason if available
+            if validation_reason:
+                result["validation_failure_reason"] = validation_reason
+                
+            return result
+            
+        except PermissionError as e:
+            error_msg = str(e)
+            self.scratchpad.log("Coordinator", error_msg, level=LogLevel.ERROR)
+            return {
+                "success": False,
+                "is_workspace_valid": False,
+                "created_files": [],
+                "errors": [{"type": "permission", "message": error_msg}]
+            }
+        except Exception as e:
+            error_msg = str(e)
+            self.scratchpad.log("Coordinator", error_msg, level=LogLevel.ERROR)
+            return {
+                "success": False,
+                "is_workspace_valid": False,
+                "created_files": [],
+                "errors": [{"type": "exception", "message": error_msg}]
+            }
+
+    def get_current_timestamp(self) -> str:
+        """Get the current timestamp in ISO format.
+        
+        Returns:
+            ISO formatted timestamp string.
+        """
+        from datetime import datetime
+        return datetime.now().isoformat()
+
+    def _run_validation_phase(self) -> Dict[str, Any]:
+        """Delegate validation phase to the workflow orchestrator."""
+        return self.orchestrator._run_validation_phase()
+
+    def _run_tests(self) -> Dict[str, Any]:
+        """Delegate test execution to the workflow orchestrator."""
+        return self.orchestrator._run_tests()
+
+    def _apply_changes_and_manage_dependencies(self, changes: Dict[str, str]) -> bool:
+        """Delegate changes application to the workflow orchestrator."""
+        return self.orchestrator._apply_changes_and_manage_dependencies(changes)
+
+    def _validate_pre_planning_data(self, data: Any) -> bool:
+        """Validate the structure of pre-planning data.
+        
+        Args:
+            data: The pre-planning data to validate
+            
+        Returns:
+            True if valid, False otherwise
+            
+        Raises:
+            ValueError: If data structure is fundamentally invalid
+        """
+        self.scratchpad.log("Coordinator", "Validating pre-planning data structure...")
+        
+        # Check if data is a dictionary
+        if not isinstance(data, dict):
+            raise ValueError("Pre-planning data must be a dictionary")
+        
+        # Check if feature_groups key exists
+        if "feature_groups" not in data:
+            raise ValueError("Pre-planning data missing feature_groups")
+        
+        # Check if feature_groups is a list and not empty
+        feature_groups = data["feature_groups"]
+        if not isinstance(feature_groups, list):
+            raise ValueError("feature_groups must be a list")
+        
+        if len(feature_groups) == 0:
+            raise ValueError("feature_groups is empty")
+        
+        # Basic validation of feature group structure
+        for i, group in enumerate(feature_groups):
+            if not isinstance(group, dict):
+                raise ValueError(f"Feature group {i} must be a dictionary")
+            
+            required_keys = ["group_name", "group_description", "features"]
+            for key in required_keys:
+                if key not in group:
+                    raise ValueError(f"Feature group {i} missing required key: {key}")
+        
+        return True
 
     # ------------------------------------------------------------------
     # Execution resume helpers

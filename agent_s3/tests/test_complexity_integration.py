@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 from agent_s3.complexity_analyzer import ComplexityAnalyzer
-from agent_s3.pre_planning_errors import ComplexityError
-from agent_s3.pre_planning_errors import handle_pre_planning_errors
+from agent_s3.errors import PrePlanningError as ComplexityError
 
 # Create a complexity analyzer
 analyzer = ComplexityAnalyzer()
 
 # Create a function that uses the analyzer and raises ComplexityError when needed
-@handle_pre_planning_errors
 def assess_complexity_with_threshold(data, task_description, threshold=60):
     """Assess complexity and raise an error if it exceeds the threshold."""
     result = analyzer.assess_complexity(data, task_description)

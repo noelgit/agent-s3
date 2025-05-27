@@ -212,7 +212,6 @@ class ConfigModel(BaseModel):
     adaptive_config_dir: str = ADAPTIVE_CONFIG_DIR
     adaptive_metrics_dir: str = ADAPTIVE_METRICS_DIR
     adaptive_optimization_interval: int = ADAPTIVE_OPTIMIZATION_INTERVAL
-    pre_planning_mode: str = "enforced_json"
     supabase_service_role_key: str = Field(
         default_factory=lambda: os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
     )

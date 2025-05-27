@@ -17,10 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from .registry import CoordinatorRegistry
 from typing import TYPE_CHECKING
 from ..enhanced_scratchpad_manager import LogLevel
-from ..pre_planner_json_enforced import (
-    call_pre_planner_with_enforced_json,
-    pre_planning_workflow,
-)
+from ..pre_planner_json_enforced import call_pre_planner_with_enforced_json
 # GitHub integration handled through existing GitTool
 
 if TYPE_CHECKING:  # pragma: no cover - used for type hints only
@@ -331,21 +328,9 @@ class WorkflowOrchestrator:
     ) -> List[Dict[str, Any]]:
         """Run the planning workflow and return approved plans."""
         self.coordinator.progress_tracker.update_progress({"phase": "pre_planning", "status": "started"})
-        mode = self.coordinator.config.config.get("pre_planning_mode", "enforced_json")
-
-        if mode == "off":
-            self.coordinator.scratchpad.log("Coordinator", "Pre-planning disabled")
-            return []
 
         if pre_planning_input is None:
-            if mode == "enforced_json":
-                success, pre_plan = call_pre_planner_with_enforced_json(self.coordinator.router_agent, task)
-            else:
-                success, pre_plan = pre_planning_workflow(
-                    self.coordinator.router_agent,
-                    task,
-                    max_attempts=2,
-                )
+            success, pre_plan = call_pre_planner_with_enforced_json(self.coordinator.router_agent, task)
             if not success:
                 self.coordinator.scratchpad.log("Coordinator", "Pre-planning failed", level=LogLevel.ERROR)
                 return []

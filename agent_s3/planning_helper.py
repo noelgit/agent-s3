@@ -8,12 +8,10 @@ from . import pre_planner_json_enforced
 def generate_plan_via_workflow(
     coordinator: Any,
     task_description: str,
-    context: Optional[Dict[str, Any]] = None,
-    max_preplanning_attempts: int = 2,
 ) -> Dict[str, Any]:
-    """Generate a consolidated plan via sequential pre-planning workflow.
+    """Generate a consolidated plan via JSON enforced pre-planning workflow.
 
-    This helper runs ``pre_planning_workflow`` followed by
+    This helper runs ``call_pre_planner_with_enforced_json`` followed by
     ``FeatureGroupProcessor.process_pre_planning_output`` and returns
     a plan dictionary compatible with ``planner.generate_plan``.
 
@@ -21,18 +19,14 @@ def generate_plan_via_workflow(
         coordinator: Coordinator instance providing ``router_agent`` and
             ``feature_group_processor``.
         task_description: Description of the task to plan.
-        context: Optional context dictionary passed to the pre planner.
-        max_preplanning_attempts: Maximum number of attempts for the pre-planning step.
 
     Returns:
         Dictionary with ``success`` flag and ``plan`` on success. On failure,
         ``error`` will describe the reason.
     """
-    success, pre_plan = pre_planner_json_enforced.pre_planning_workflow(
+    success, pre_plan = pre_planner_json_enforced.call_pre_planner_with_enforced_json(
         coordinator.router_agent,
         task_description,
-        context=context,
-        max_preplanning_attempts=max_preplanning_attempts,
     )
     if not success:
         return {"success": False, "error": "Pre-planning failed", "plan": None}

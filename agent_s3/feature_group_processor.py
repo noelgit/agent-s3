@@ -10,6 +10,15 @@ import traceback
 import difflib
 from typing import Dict, Any, Optional, Tuple
 
+from agent_s3.common_utils import (
+    ValidationResult,
+    validate_feature_group_structure,
+    handle_error_with_context,
+    create_error_response,
+    log_function_entry_exit,
+    ProcessingError
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -31,6 +40,427 @@ class FeatureGroupProcessor:
             self.test_critic = None
             logger.warning("Test critic not available in coordinator")
 
+    def _validate_pre_planning_data(self, pre_plan_data: Dict[str, Any]) -> ValidationResult:
+        """Validate pre-planning data structure.
+        
+        Args:
+            pre_plan_data: Pre-planning data to validate
+        
+        Returns:
+            ValidationResult with validation status and issues
+        """
+        result = ValidationResult(True, [], pre_plan_data)
+        
+        if not isinstance(pre_plan_data, dict):
+            result.add_issue("Pre-planning data must be a dictionary")
+            return result
+        
+        feature_groups = pre_plan_data.get("feature_groups", [])
+        if not feature_groups:
+            result.add_issue("No feature groups found in pre-planning output")
+        elif not isinstance(feature_groups, list):
+            result.add_issue("Feature groups must be a list")
+        
+        return result
+
+    def _extract_system_design_from_group(self, feature_group: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract and merge system design from all features in a group.
+        
+        Args:
+            feature_group: Feature group data
+        
+        Returns:
+            Merged system design dictionary
+        """
+        system_design = {}
+        
+        for feature in feature_group.get("features", []):
+            if isinstance(feature, dict) and "system_design" in feature:
+                feature_system_design = feature.get("system_design", {})
+                # Merge system design from all features
+                for key, value in feature_system_design.items():
+                    if key not in system_design:
+                        system_design[key] = value
+                    elif isinstance(value, list) and isinstance(system_design[key], list):
+                        system_design[key].extend(value)
+        
+        return system_design
+
+    def _run_test_critic_analysis(
+        self, 
+        tests: Dict[str, Any], 
+        feature_group: Dict[str, Any],
+        group_name: str
+    ) -> Optional[Dict[str, Any]]:
+        """Run test critic analysis on generated tests.
+        
+        Args:
+            tests: Generated tests
+            feature_group: Feature group data
+            group_name: Name of the feature group
+        
+        Returns:
+            Test critic results or None if test critic unavailable
+        """
+        if not self.test_critic:
+            return None
+        
+        try:
+            self.coordinator.scratchpad.log(
+                "FeatureGroupProcessor",
+                f"Running Test Critic for {group_name}...",
+            )
+            return self.test_critic.critique_tests(
+                tests,
+                feature_group.get("risk_assessment", {}),
+            )
+        except Exception as e:
+            self.coordinator.scratchpad.log(
+                "FeatureGroupProcessor",
+                f"Test critic analysis failed for {group_name}: {e}",
+                level="WARNING"
+            )
+            return None
+
+    def _process_single_feature_group(
+        self,
+        feature_group: Dict[str, Any],
+        task_description: str
+    ) -> Dict[str, Any]:
+        """Process a single feature group through all phases.
+        
+        Args:
+            feature_group: Feature group data
+            task_description: Original task description
+        
+        Returns:
+            Processed feature group or error information
+        """
+        group_name = feature_group.get("group_name", "Unnamed Group")
+        
+        try:
+            # Validate feature group structure
+            validation_result = validate_feature_group_structure(feature_group)
+            if not validation_result.is_valid:
+                raise ProcessingError(f"Invalid feature group structure: {'; '.join(validation_result.issues)}")
+            
+            self.coordinator.scratchpad.log(
+                "FeatureGroupProcessor", 
+                f"Processing feature group: {group_name}"
+            )
+
+            # Set up context for the feature group
+            context = self._gather_context_for_feature_group(feature_group)
+            
+            # Extract system design from feature group
+            system_design = self._extract_system_design_from_group(feature_group)
+
+            # STEP 1: Architecture Review
+            architecture_review, arch_discussion = self._run_architecture_review_phase(
+                feature_group, task_description, context, group_name
+            )
+
+            # STEP 2 & 3: Tests
+            test_data = self._run_test_phases(
+                feature_group, architecture_review, task_description, 
+                context, system_design, group_name
+            )
+
+            # STEP 4: Implementation Planning
+            implementation_data = self._run_implementation_planning_phase(
+                system_design, architecture_review, test_data["tests"], 
+                task_description, context, group_name
+            )
+
+            # STEP 5: Semantic Validation
+            semantic_validation = self._run_semantic_validation_phase(
+                feature_group, architecture_review, test_data, 
+                implementation_data, task_description, context, group_name
+            )
+
+            # Combine discussions into an overall plan discussion
+            plan_discussion = (
+                f"Architecture Review: {arch_discussion}\n\n"
+                f"Test Refinement: {test_data['test_refinement_discussion']}\n\n"
+                f"Test Implementation: {test_data['test_implementation_discussion']}\n\n"
+                f"Implementation Planning: {implementation_data['implementation_discussion']}"
+            )
+
+            # Create the consolidated plan
+            consolidated_plan = self._create_consolidated_plan(
+                feature_group,
+                architecture_review,
+                implementation_data["implementation_plan"],
+                test_data["tests"],
+                task_description,
+                plan_discussion,
+            )
+
+            # Add additional results
+            consolidated_plan["semantic_validation"] = semantic_validation
+            if test_data.get("test_critic_results"):
+                consolidated_plan["test_critic_results"] = test_data["test_critic_results"]
+
+            self.coordinator.scratchpad.log(
+                "FeatureGroupProcessor",
+                f"Successfully processed feature group: {group_name}",
+            )
+            
+            return consolidated_plan
+
+        except Exception as e:
+            error_msg = handle_error_with_context(
+                e, f"processing feature group {group_name}", logger
+            )
+            return {
+                "group_name": group_name,
+                "error": error_msg,
+                "success": False,
+                "traceback": traceback.format_exc(),
+            }
+
+    def _run_architecture_review_phase(
+        self,
+        feature_group: Dict[str, Any],
+        task_description: str,
+        context: Dict[str, Any],
+        group_name: str
+    ) -> Tuple[Dict[str, Any], str]:
+        """Run the architecture review phase.
+        
+        Args:
+            feature_group: Feature group data
+            task_description: Original task description
+            context: Context data
+            group_name: Name of the feature group
+        
+        Returns:
+            Tuple of (architecture_review, discussion)
+        """
+        self.coordinator.scratchpad.log(
+            "FeatureGroupProcessor",
+            f"Generating architecture review for {group_name}...",
+        )
+        self.coordinator.progress_tracker.update_progress({
+            "phase": "architecture_review",
+            "status": "started",
+            "group": group_name,
+        })
+
+        architecture_review, arch_discussion = self._generate_architecture_review(
+            feature_group, task_description, context,
+        )
+
+        self.coordinator.progress_tracker.update_progress({
+            "phase": "architecture_review",
+            "status": "completed",
+            "group": group_name,
+        })
+        
+        return architecture_review, arch_discussion
+
+    def _run_test_phases(
+        self,
+        feature_group: Dict[str, Any],
+        architecture_review: Dict[str, Any],
+        task_description: str,
+        context: Dict[str, Any],
+        system_design: Dict[str, Any],
+        group_name: str
+    ) -> Dict[str, Any]:
+        """Run test refinement and implementation phases.
+        
+        Args:
+            feature_group: Feature group data
+            architecture_review: Architecture review results
+            task_description: Original task description
+            context: Context data
+            system_design: System design data
+            group_name: Name of the feature group
+        
+        Returns:
+            Dictionary with test data and discussions
+        """
+        self.coordinator.scratchpad.log(
+            "FeatureGroupProcessor",
+            f"Refining test specifications for {group_name}...",
+        )
+        self.coordinator.progress_tracker.update_progress({
+            "phase": "test_refinement",
+            "status": "started",
+            "group": group_name,
+        })
+
+        (
+            tests,
+            test_strategy,
+            refined_test_specs,
+            test_implementations_data,
+            test_refinement_discussion,
+            test_implementation_discussion,
+        ) = self._generate_tests(
+            feature_group,
+            architecture_review,
+            task_description,
+            context,
+            system_design,
+        )
+
+        self.coordinator.progress_tracker.update_progress({
+            "phase": "test_refinement",
+            "status": "completed",
+            "group": group_name,
+        })
+        self.coordinator.progress_tracker.update_progress({
+            "phase": "test_implementation",
+            "status": "completed",
+            "group": group_name,
+        })
+
+        # Run Test Critic on generated tests
+        test_critic_results = self._run_test_critic_analysis(
+            tests, feature_group, group_name
+        )
+
+        return {
+            "tests": tests,
+            "test_strategy": test_strategy,
+            "refined_test_specs": refined_test_specs,
+            "test_implementations_data": test_implementations_data,
+            "test_refinement_discussion": test_refinement_discussion,
+            "test_implementation_discussion": test_implementation_discussion,
+            "test_critic_results": test_critic_results
+        }
+
+    def _run_implementation_planning_phase(
+        self,
+        system_design: Dict[str, Any],
+        architecture_review: Dict[str, Any],
+        tests: Dict[str, Any],
+        task_description: str,
+        context: Dict[str, Any],
+        group_name: str
+    ) -> Dict[str, Any]:
+        """Run the implementation planning phase.
+        
+        Args:
+            system_design: System design data
+            architecture_review: Architecture review results
+            tests: Test data
+            task_description: Original task description
+            context: Context data
+            group_name: Name of the feature group
+        
+        Returns:
+            Dictionary with implementation data
+        """
+        self.coordinator.scratchpad.log(
+            "FeatureGroupProcessor",
+            f"Generating implementation plan for {group_name}...",
+        )
+        self.coordinator.progress_tracker.update_progress({
+            "phase": "implementation_planning",
+            "status": "started",
+            "group": group_name,
+        })
+
+        (
+            implementation_plan,
+            implementation_plan_data,
+            implementation_discussion,
+        ) = self._generate_implementation_plan(
+            system_design,
+            architecture_review,
+            tests,
+            task_description,
+            context,
+        )
+
+        self.coordinator.progress_tracker.update_progress({
+            "phase": "implementation_planning",
+            "status": "completed",
+            "group": group_name,
+        })
+        
+        return {
+            "implementation_plan": implementation_plan,
+            "implementation_plan_data": implementation_plan_data,
+            "implementation_discussion": implementation_discussion
+        }
+
+    def _run_semantic_validation_phase(
+        self,
+        feature_group: Dict[str, Any],
+        architecture_review: Dict[str, Any],
+        test_data: Dict[str, Any],
+        implementation_data: Dict[str, Any],
+        task_description: str,
+        context: Dict[str, Any],
+        group_name: str
+    ) -> Dict[str, Any]:
+        """Run the semantic validation phase.
+        
+        Args:
+            feature_group: Feature group data
+            architecture_review: Architecture review results
+            test_data: Test data
+            implementation_data: Implementation data
+            task_description: Original task description
+            context: Context data
+            group_name: Name of the feature group
+        
+        Returns:
+            Semantic validation results
+        """
+        self.coordinator.scratchpad.log(
+            "FeatureGroupProcessor",
+            f"Validating semantic coherence for {group_name}...",
+        )
+        self.coordinator.progress_tracker.update_progress({
+            "phase": "semantic_validation",
+            "status": "started",
+            "group": group_name,
+        })
+
+        try:
+            from .planner_json_enforced import validate_planning_semantic_coherence
+
+            validation_results = validate_planning_semantic_coherence(
+                self.coordinator.router_agent,
+                architecture_review,
+                test_data["refined_test_specs"],
+                test_data["test_implementations_data"],
+                implementation_data["implementation_plan_data"],
+                task_description,
+                context,
+            )
+
+            semantic_validation = validation_results.get("validation_results", {})
+            coherence_score = semantic_validation.get("coherence_score", 0)
+            consistency_score = semantic_validation.get("technical_consistency_score", 0)
+            critical_issues = semantic_validation.get("critical_issues", [])
+
+            self.coordinator.scratchpad.log(
+                "FeatureGroupProcessor",
+                f"Semantic validation complete: Coherence={coherence_score:.2f}, "
+                f"Consistency={consistency_score:.2f}, Issues={len(critical_issues)}",
+            )
+
+        except Exception as validation_error:
+            error_msg = handle_error_with_context(
+                validation_error, f"semantic validation for {group_name}", logger
+            )
+            semantic_validation = {"error": error_msg}
+
+        self.coordinator.progress_tracker.update_progress({
+            "phase": "semantic_validation",
+            "status": "completed",
+            "group": group_name,
+        })
+        
+        return semantic_validation
+
+    @log_function_entry_exit(logger)
     def process_pre_planning_output(
         self, pre_plan_data: Dict[str, Any], task_description: str
     ) -> Dict[str, Any]:
@@ -44,15 +474,18 @@ class FeatureGroupProcessor:
         Returns:
             Dictionary with processed groups, success flag, and potential error information
         """
-        result = {"success": False, "processed_groups": []}
+        # Validate input data
+        validation_result = self._validate_pre_planning_data(pre_plan_data)
+        if not validation_result.is_valid:
+            return create_error_response(
+                success=False,
+                error_message="Invalid pre-planning data",
+                error_context="; ".join(validation_result.issues)
+            )
 
         try:
-            # Extract feature groups from pre-planning output
             feature_groups = pre_plan_data.get("feature_groups", [])
-
-            if not feature_groups:
-                raise ValueError("No feature groups found in pre-planning output")
-
+            
             self.coordinator.scratchpad.log(
                 "FeatureGroupProcessor",
                 f"Processing {len(feature_groups)} feature groups...",
@@ -62,265 +495,25 @@ class FeatureGroupProcessor:
             all_groups_valid = True
 
             for feature_group in feature_groups:
-                group_name = feature_group.get("group_name", "Unnamed Group")
-                self.coordinator.scratchpad.log(
-                    "FeatureGroupProcessor", f"Processing feature group: {group_name}"
-                )
-
-                try:
-                    # Set up context for the feature group
-                    context = self._gather_context_for_feature_group(feature_group)
-
-                    # Extract system design from feature group
-                    system_design = {}
-                    for feature in feature_group.get("features", []):
-                        if isinstance(feature, dict) and "system_design" in feature:
-                            feature_system_design = feature.get("system_design", {})
-                            # Merge system design from all features
-                            for key, value in feature_system_design.items():
-                                if key not in system_design:
-                                    system_design[key] = value
-                                elif isinstance(value, list) and isinstance(
-                                    system_design[key], list
-                                ):
-                                    system_design[key].extend(value)
-
-                    # STEP 1: Architecture Review
-                    self.coordinator.scratchpad.log(
-                        "FeatureGroupProcessor",
-                        f"Generating architecture review for {group_name}...",
-                    )
-                    self.coordinator.progress_tracker.update_progress(
-                        {
-                            "phase": "architecture_review",
-                            "status": "started",
-                            "group": group_name,
-                        }
-                    )
-
-                    architecture_review, arch_discussion = (
-                        self._generate_architecture_review(
-                            feature_group,
-                            task_description,
-                            context,
-                        )
-                    )
-
-                    self.coordinator.progress_tracker.update_progress(
-                        {
-                            "phase": "architecture_review",
-                            "status": "completed",
-                            "group": group_name,
-                        }
-                    )
-
-                    # STEP 2 & 3: Tests
-                    self.coordinator.scratchpad.log(
-                        "FeatureGroupProcessor",
-                        f"Refining test specifications for {group_name}...",
-                    )
-                    self.coordinator.progress_tracker.update_progress(
-                        {
-                            "phase": "test_refinement",
-                            "status": "started",
-                            "group": group_name,
-                        }
-                    )
-
-                    (
-                        tests,
-                        test_strategy,
-                        refined_test_specs,
-                        test_implementations_data,
-                        test_refinement_discussion,
-                        test_implementation_discussion,
-                    ) = self._generate_tests(
-                        feature_group,
-                        architecture_review,
-                        task_description,
-                        context,
-                        system_design,
-                    )
-
-                    self.coordinator.progress_tracker.update_progress(
-                        {
-                            "phase": "test_refinement",
-                            "status": "completed",
-                            "group": group_name,
-                        }
-                    )
-                    self.coordinator.progress_tracker.update_progress(
-                        {
-                            "phase": "test_implementation",
-                            "status": "completed",
-                            "group": group_name,
-                        }
-                    )
-
-                    # Run Test Critic on generated tests
-                    self.coordinator.scratchpad.log(
-                        "FeatureGroupProcessor",
-                        f"Running Test Critic for {group_name}...",
-                    )
-                    test_critic_results = None
-                    if self.test_critic:
-                        test_critic_results = self.test_critic.critique_tests(
-                            tests,
-                            feature_group.get("risk_assessment", {}),
-                        )
-
-                    # STEP 4: Implementation Planning
-                    self.coordinator.scratchpad.log(
-                        "FeatureGroupProcessor",
-                        f"Generating implementation plan for {group_name}...",
-                    )
-                    self.coordinator.progress_tracker.update_progress(
-                        {
-                            "phase": "implementation_planning",
-                            "status": "started",
-                            "group": group_name,
-                        }
-                    )
-
-                    (
-                        implementation_plan,
-                        implementation_plan_data,
-                        implementation_discussion,
-                    ) = self._generate_implementation_plan(
-                        system_design,
-                        architecture_review,
-                        tests,
-                        task_description,
-                        context,
-                    )
-
-                    self.coordinator.progress_tracker.update_progress(
-                        {
-                            "phase": "implementation_planning",
-                            "status": "completed",
-                            "group": group_name,
-                        }
-                    )
-
-                    # STEP 5: Semantic Validation to ensure coherence between phases
-                    self.coordinator.scratchpad.log(
-                        "FeatureGroupProcessor",
-                        f"Validating semantic coherence for {group_name}...",
-                    )
-                    self.coordinator.progress_tracker.update_progress(
-                        {
-                            "phase": "semantic_validation",
-                            "status": "started",
-                            "group": group_name,
-                        }
-                    )
-
-                    try:
-                        from .planner_json_enforced import (
-                            validate_planning_semantic_coherence,
-                        )
-
-                        validation_results = validate_planning_semantic_coherence(
-                            self.coordinator.router_agent,
-                            architecture_review,
-                            refined_test_specs,
-                            test_implementations_data,
-                            implementation_plan_data,
-                            task_description,
-                            context,
-                        )
-
-                        semantic_validation = validation_results.get(
-                            "validation_results", {}
-                        )
-                        coherence_score = semantic_validation.get("coherence_score", 0)
-                        consistency_score = semantic_validation.get(
-                            "technical_consistency_score", 0
-                        )
-                        critical_issues = semantic_validation.get("critical_issues", [])
-
-                        self.coordinator.scratchpad.log(
-                            "FeatureGroupProcessor",
-                            f"Semantic validation complete: Coherence={coherence_score:.2f}, Consistency={consistency_score:.2f}, Issues={len(critical_issues)}",
-                        )
-
-                    except Exception as validation_error:
-                        self.coordinator.scratchpad.log(
-                            "FeatureGroupProcessor",
-                            f"Semantic validation error: {str(validation_error)}",
-                        )
-                        semantic_validation = {"error": str(validation_error)}
-
-                    self.coordinator.progress_tracker.update_progress(
-                        {
-                            "phase": "semantic_validation",
-                            "status": "completed",
-                            "group": group_name,
-                        }
-                    )
-
-                    # Combine discussions into an overall plan discussion
-                    plan_discussion = (
-                        f"Architecture Review: {arch_discussion}\n\n"
-                        f"Test Refinement: {test_refinement_discussion}\n\n"
-                        f"Test Implementation: {test_implementation_discussion}\n\n"
-                        f"Implementation Planning: {implementation_discussion}"
-                    )
-
-                    # Create the consolidated plan
-                    consolidated_plan = self._create_consolidated_plan(
-                        feature_group,
-                        architecture_review,
-                        implementation_plan,
-                        tests,
-                        task_description,
-                        plan_discussion,
-                    )
-
-                    # Add semantic validation results
-                    consolidated_plan["semantic_validation"] = semantic_validation
-
-                    # Add test critic results
-                    if test_critic_results:
-                        consolidated_plan["test_critic_results"] = test_critic_results
-
-                    processed_groups.append(consolidated_plan)
-                    self.coordinator.scratchpad.log(
-                        "FeatureGroupProcessor",
-                        f"Successfully processed feature group: {group_name}",
-                    )
-
-                except Exception as e:
+                group_result = self._process_single_feature_group(feature_group, task_description)
+                processed_groups.append(group_result)
+                
+                # Check if this group failed
+                if not group_result.get("success", True):
                     all_groups_valid = False
-                    self.coordinator.scratchpad.log(
-                        "FeatureGroupProcessor",
-                        f"Error processing feature group {group_name}: {e}",
-                        level="ERROR",
-                    )
 
-                    # Create error entry
-                    error_entry = {
-                        "group_name": group_name,
-                        "error": str(e),
-                        "success": False,
-                        "traceback": traceback.format_exc(),
-                    }
-                    processed_groups.append(error_entry)
-
-            # Update result
-            result["success"] = all_groups_valid
-            result["processed_groups"] = processed_groups
+            return {
+                "success": all_groups_valid,
+                "processed_groups": processed_groups
+            }
 
         except Exception as e:
-            self.coordinator.scratchpad.log(
-                "FeatureGroupProcessor",
-                f"Error processing pre-planning output: {e}",
-                level="ERROR",
+            error_msg = handle_error_with_context(e, "processing pre-planning output", logger)
+            return create_error_response(
+                success=False,
+                error_message="Processing failed",
+                error_context=error_msg
             )
-            result["error"] = str(e)
-            result["error_context"] = traceback.format_exc()
-
-        return result
 
     def _gather_context_for_feature_group(
         self, feature_group: Dict[str, Any]

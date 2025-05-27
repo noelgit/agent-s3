@@ -9,26 +9,43 @@ enforcing specific JSON structure for architecture reviews and test implementati
 import json
 import logging
 import re
-import time
-import random
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from datetime import datetime
 from collections import defaultdict
+from pathlib import Path
 
 from agent_s3.tools.implementation_validator import (
     validate_implementation_plan,
     repair_implementation_plan,
     _calculate_implementation_metrics,
 )
-from agent_s3.json_utils import extract_json_from_text
+from agent_s3.json_utils import extract_json_from_text, get_openrouter_json_params
 from agent_s3.tools.context_management.token_budget import TokenEstimator
+from agent_s3.llm_utils import cached_call_llm
+from agent_s3.errors import PlanningError
 
 # Import from the planning module
 from agent_s3.planning import (
     repair_json_structure,
-    get_implementation_planning_system_prompt,
+    get_consolidated_plan_system_prompt,
     JSONPlannerError,
     validate_planning_semantic_coherence,
+)
+
+# Import common utilities
+from agent_s3.common_utils import (
+    retry_with_backoff,
+    call_with_retry,
+    ValidationResult,
+    handle_error_with_context,
+    create_error_response,
+    safe_json_loads,
+    extract_json_with_patterns,
+    repair_json_quotes,
+    log_function_entry_exit,
+    ProcessingError,
+    ValidationError,
+    exponential_backoff_with_jitter
 )
 # Extracted functions are now imported from the planning module
 
@@ -301,8 +318,8 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
 
     # Call the LLM with enhanced retry logic
     try:
-        # Use the implementation planning system prompt from this module
-        system_prompt = get_implementation_planning_system_prompt()
+        # Use the consolidated planning system prompt
+        system_prompt = get_consolidated_plan_system_prompt()
 
         # Use improved retry logic for LLM calls with exponential backoff
         max_retries = 3  # Increased from 2 to 3 for better reliability
@@ -986,4 +1003,216 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
     except Exception as e:
         logger.error("Error generating implementation plan: %s", e)
         raise JSONPlannerError(f"Error generating implementation plan: {e}")
+
+# Configuration object pattern to reduce number of arguments
+class PlannerConfig:
+    """Configuration class for Planner to reduce instance attributes."""
+    def __init__(
+        self,
+        coordinator=None,
+        scratchpad=None,
+        tech_stack_detector=None,
+        memory_manager=None,
+        database_tool=None,
+        test_frameworks=None,
+        test_critic=None
+    ):
+        self.coordinator = coordinator
+        self.scratchpad = scratchpad or (
+            coordinator.scratchpad if coordinator else None
+        )
+        self.tech_stack_detector = tech_stack_detector
+        self.memory_manager = memory_manager
+        self.database_tool = database_tool
+        self.test_frameworks = test_frameworks or (
+            coordinator.test_frameworks if coordinator else None
+        )
+        self.test_critic = test_critic or (
+            coordinator.test_critic if coordinator else None
+        )
+        # Derived attributes
+        self.llm = coordinator.llm if coordinator else None
+        self.context_registry = (
+            coordinator.context_registry if coordinator else None
+        )
+        self.config = coordinator.config if coordinator else None
+        self.workspace_path = (
+            Path(coordinator.config.config.get("workspace_path", "."))
+            if coordinator and coordinator.config
+            else Path(".")
+        )
+
+
+class Planner:
+    """The Planner class is responsible for creating plans for tasks using an LLM with enforced JSON output."""
+    def __init__(self, config: PlannerConfig):
+        """Initialize the planner with configuration.
+
+        Args:
+            config: PlannerConfig instance containing all necessary components
+        """
+        # Store config instance
+        self._config = config
+
+        # Error tracking
+        self.last_error = None
+
+    @property
+    def coordinator(self):
+        """Get the coordinator instance."""
+        return self._config.coordinator
+
+    @property
+    def scratchpad(self):
+        """Get the scratchpad instance."""
+        return self._config.scratchpad
+
+    @property
+    def tech_stack_detector(self):
+        """Get the tech stack detector instance."""
+        return self._config.tech_stack_detector
+
+    @property
+    def memory_manager(self):
+        """Get the memory manager instance."""
+        return self._config.memory_manager
+
+    @property
+    def database_tool(self):
+        """Get the database tool instance."""
+        return self._config.database_tool
+
+    @property
+    def test_frameworks(self):
+        """Get the test frameworks instance."""
+        return self._config.test_frameworks
+
+    @property
+    def test_critic(self):
+        """Get the test critic instance."""
+        return self._config.test_critic
+
+    @property
+    def llm(self):
+        """Get the LLM instance."""
+        return self._config.llm
+
+    @property
+    def context_registry(self):
+        """Get the context registry instance."""
+        return self._config.context_registry
+
+    @property
+    def config(self):
+        """Get the config instance."""
+        return self._config.config
+
+    @property
+    def workspace_path(self):
+        """Get the workspace path."""
+        return self._config.workspace_path
+
+    def stop_observer(self):
+        """Stops the filesystem observer and event handler timers."""
+        if hasattr(self, 'file_system_watcher'):
+            self.file_system_watcher.stop()
+            if self.scratchpad:
+                self.scratchpad.log("Planner", "Stopped filesystem watcher.")
+
+    def validate_pre_planning_for_planner(self, pre_plan_data: Dict[str, Any]) -> Tuple[bool, str]:
+        """
+        Validate that pre-planning output is compatible with the planning phase.
+
+        Args:
+            pre_plan_data: Pre-planning data to validate
+
+        Returns:
+            Tuple of (is_valid, message)
+        """
+        compatibility_issues = []
+
+        # Check for feature groups structure
+        if not isinstance(pre_plan_data, dict):
+            return False, "Pre-planning data must be a dictionary"
+
+        feature_groups = pre_plan_data.get("feature_groups", [])
+        if not isinstance(feature_groups, list):
+            return False, "Pre-planning data must contain 'feature_groups' list"
+
+        if not feature_groups:
+            return False, "Pre-planning data must contain at least one feature group"
+
+        # Validate each feature group
+        for group_idx, group in enumerate(feature_groups):
+            if not isinstance(group, dict):
+                compatibility_issues.append(f"Feature group {group_idx} is not a dictionary")
+                continue
+
+            # Check for required fields
+            required_group_fields = ["group_name", "features"]
+            for field in required_group_fields:
+                if field not in group:
+                    compatibility_issues.append(f"Feature group {group_idx} missing required field: {field}")
+
+            # Validate features within the group
+            features = group.get("features", [])
+            if not isinstance(features, list):
+                compatibility_issues.append(f"Feature group {group_idx} 'features' must be a list")
+                continue
+
+            for feature_idx, feature in enumerate(features):
+                if not isinstance(feature, dict):
+                    compatibility_issues.append(f"Feature {feature_idx} in group {group_idx} is not a dictionary")
+                    continue
+
+                # Check for required feature fields
+                required_feature_fields = ["name", "system_design", "test_requirements"]
+                for field in required_feature_fields:
+                    if field not in feature:
+                        compatibility_issues.append(f"Feature {feature_idx} in group {group_idx} missing required field: {field}")
+
+                # Validate system_design structure
+                system_design = feature.get("system_design", {})
+                if isinstance(system_design, dict):
+                    code_elements = system_design.get("code_elements", [])
+                    if isinstance(code_elements, list):
+                        for elem_idx, element in enumerate(code_elements):
+                            if isinstance(element, dict) and "element_id" not in element:
+                                compatibility_issues.append(f"Code element {elem_idx} in feature {feature_idx}, group {group_idx} missing element_id")
+
+                # Validate test_requirements structure
+                test_requirements = feature.get("test_requirements", {})
+                if isinstance(test_requirements, dict):
+                    unit_tests = test_requirements.get("unit_tests", [])
+                    if isinstance(unit_tests, list):
+                        tests_missing_element_ids = sum(1 for test in unit_tests if isinstance(test, dict) and not test.get("target_element_ids"))
+                        if tests_missing_element_ids > 0:
+                            compatibility_issues.append(f"Feature {feature_idx} in group {group_idx} has {tests_missing_element_ids} unit tests missing target_element_id links")
+
+        # Return compatibility result
+        if compatibility_issues:
+            message = f"Pre-planning data has {len(compatibility_issues)} compatibility issues for planner phase: {'; '.join(compatibility_issues[:5])}"
+            if len(compatibility_issues) > 5:
+                message += f" and {len(compatibility_issues) - 5} more issues"
+            return False, message
+        else:
+            return True, "Pre-planning data is compatible with planner phase"
+
+
+def validate_pre_planning_for_planner(pre_plan_data: Dict[str, Any]) -> Tuple[bool, str]:
+    """
+    Standalone function to validate pre-planning output compatibility with planner.
+    
+    Args:
+        pre_plan_data: Pre-planning data to validate
+    
+    Returns:
+        Tuple of (is_valid, message)
+    """
+    # Create a temporary planner config for validation
+    config = PlannerConfig()
+    planner = Planner(config)
+    return planner.validate_pre_planning_for_planner(pre_plan_data)
+
+
 # --- END OF FILE planner_json_enforced.py ---

@@ -119,9 +119,8 @@ class CodeAnalysisTool:
 
             # Create static analyzer instance with coordinator components
             self.static_analyzer = StaticAnalyzer(
-                workspace_path=workspace_path,
-                file_tool=self.file_tool,
-                code_analysis_tool=self  # Circular reference for convenience
+                project_root=workspace_path,
+                file_tool=self.file_tool
             )
 
             # Set fusion weights from config if available

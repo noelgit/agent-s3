@@ -35,11 +35,14 @@ def test_set_and_get_cache_hit():
 
     assert cache.get(prompt) is None  # Miss initially
     cache.set(prompt, response)
-    assert cache.get(prompt) == response
+    cached_result = cache.get(prompt)
+    assert cached_result is not None
+    assert cached_result['response'] == response
+    assert cached_result['cached'] == True
 
     stats = cache.get_cache_stats()
     assert stats['hits'] == 1
-    assert stats['misses'] == 0
+    assert stats['misses'] == 1  # Initial cache.get(prompt) call increments misses
     assert stats['semantic_hits'] == 0
 
 
@@ -51,7 +54,10 @@ def test_ttl_expiry():
     cache.set(prompt, response)
 
     # Immediately accessible
-    assert cache.get(prompt) == response
+    result = cache.get(prompt)
+    assert result is not None
+    assert result['response'] == response
+    assert result['cached'] == True
     time.sleep(1.1)
     # Should expire
     assert cache.get(prompt) is None
@@ -82,14 +88,17 @@ def test_cache_miss_and_hit(monkeypatch):
     cache.set(prompt, {'res': 123})
     # Hit
     result = cache.get(prompt)
-    assert result == {'res': 123}
+    assert result is not None
+    assert result['response'] == {'res': 123}
+    assert result['cached'] == True
     stats = cache.get_cache_stats()
     assert stats['misses'] == 1
     assert stats['hits'] == 1
 
 
 def test_ttl_expiry_default_cache():
-    cache = SemanticCache.get_instance()
+    # Use a very short TTL for testing
+    cache = SemanticCache.get_instance({'semantic_cache_ttl': 1})
     prompt = {'prompt': 'bye', 'model': 'test'}
     cache.set(prompt, {'res': 'expire'})
     time.sleep(1.1)
@@ -116,4 +125,7 @@ def test_semantic_search_no_embedding(monkeypatch, count):
     prompt = {'prompt': f'q{count}', 'model': 'test'}
     cache.set(prompt, {'val': count})
     # Only exact get works
-    assert cache.get(prompt) == {'val': count}
+    result = cache.get(prompt)
+    assert result is not None
+    assert result['response'] == {'val': count}
+    assert result['cached'] == True

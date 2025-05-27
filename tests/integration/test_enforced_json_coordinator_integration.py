@@ -19,10 +19,9 @@ class TestEnforcedJsonCoordinatorIntegration:
 
     @pytest.fixture
     def mock_config(self):
-        """Create a mock configuration with enforced JSON pre-planning enabled."""
+        """Create a mock configuration for enforced JSON pre-planning (default mode)."""
         config = MagicMock(spec=Config)
         config.config = {
-            "pre_planning_mode": "enforced_json",
             "workspace_path": "/tmp/test",
             "log_file_path": "/tmp/test/logs",
             "sandbox_environment": True,
