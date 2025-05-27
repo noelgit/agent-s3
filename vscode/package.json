@@ -12,6 +12,13 @@
   "categories": [
     "Other"
   ],
+  "activationEvents": [
+    "onCommand:agent-s3.init",
+    "onCommand:agent-s3.request",
+    "onCommand:agent-s3.openChatWindow",
+    "onCommand:agent-s3.openInteractiveView",
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
