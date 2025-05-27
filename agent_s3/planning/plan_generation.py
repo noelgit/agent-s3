@@ -1,7 +1,12 @@
-"""Plan generation utilities for the planning module.
+"""Utilities supporting the multi-phase planning workflow.
 
-This module contains functions for generating and regenerating various types of plans,
-including test specifications and consolidated plans.
+These helpers generate and regenerate planning artifacts used throughout the
+five-step process:
+1. Architecture review
+2. Test specification refinement
+3. Test implementation
+4. Implementation planning
+5. Semantic validation and consolidation.
 """
 
 import logging
@@ -9,7 +14,7 @@ from typing import Dict, Any, Optional, Tuple, List
 
 from .llm_integration import call_llm_with_retry, parse_and_validate_json
 from .prompt_templates import (
-    get_consolidated_plan_system_prompt,
+    get_stage_system_prompt,
 )
 
 logger = logging.getLogger(__name__)
@@ -380,5 +385,5 @@ def _create_fallback_plan(original_plan: Dict[str, Any], task_description: str) 
 
 # Helper function to get consolidated plan system prompt
 def _get_system_prompt() -> str:
-    """Get consolidated plan system prompt."""
-    return get_consolidated_plan_system_prompt()
+    """Get system prompt for generating the full consolidated plan."""
+    return get_stage_system_prompt("consolidated")

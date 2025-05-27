@@ -345,13 +345,15 @@ Refer to these resources for a complete understanding of the project.
         *   Updates progress: `{"phase": "feature_group_processing", "status": "started"}`.
         *   Calls `feature_group_processor.process_pre_planning_output(pre_plan_data, request_text)`.
         *   For each feature group:
-            *   Generates architecture review, implementation plan, and tests.
-            *   Creates a consolidated plan combining all three components.
-            *   Performs semantic validation for logical coherence.
-            *   Presents consolidated plan to user for review.
-            *   User chooses to accept, modify, or reject the plan.
-            *   If modified, performs comprehensive re-validation.
-            *   Saves plan file with unique ID for reference.
+            *   **Step 1: Architecture Review** – analyze the feature group and document gaps.
+            *   **Step 2: Test Specification Refinement** – produce detailed test requirements.
+            *   **Step 3: Test Implementation** – generate runnable tests.
+            *   **Step 4: Implementation Planning** – create a detailed implementation plan.
+            *   **Step 5: Semantic Validation** – validate coherence across all planning outputs.
+            *   Creates a consolidated plan merging architecture review, tests, and implementation details.
+            *   Presents consolidated plan to user for review and approval.
+            *   User may accept, modify, or reject the plan. Modifications trigger re-validation.
+            *   Saves plan file with a unique ID for reference.
     *   **Code Generation and Refinement Loop**
         *   Multiple attempts may be made (configured via `max_attempts`, default 3).
         *   For each attempt:

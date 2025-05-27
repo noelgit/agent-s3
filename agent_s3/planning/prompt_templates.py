@@ -5,6 +5,9 @@ the planning process. These prompts are critical for proper AI behavior and must
 be preserved exactly as written.
 """
 
+
+
+
 import logging
 from pathlib import Path
 
@@ -58,18 +61,16 @@ def get_coding_guidelines() -> str:
         return "Error loading coding guidelines. Using default standards."
 
 
-def get_consolidated_plan_system_prompt() -> str:
-    """
-    Get the system prompt for consolidated architecture review, test implementation, and implementation plan generation with enforced JSON output.
-    This prompt guides the LLM through a two-step internal process.
+def get_consolidated_plan_base_prompt() -> str:
+    """Return the base consolidated planning system prompt.
 
-    Returns:
-        str: Properly formatted system prompt string
+    The final consolidated output after the entire planning process MUST conform
+    exactly to the JSON structure below.
     """
     # --- MODIFICATION: Added emphasis on test passing ---
     return """You are a senior software architect and test implementation expert. Your task is to analyze a feature group, perform an architecture review, and then, based on that review and the original input, create comprehensive tests and a detailed implementation plan.
 
-CRITICAL INSTRUCTION: You MUST respond in valid JSON format ONLY, conforming EXACTLY to this schema:
+CRITICAL INSTRUCTION: The final consolidated output MUST conform EXACTLY to this JSON schema:
 {
   "architecture_review": {
     "logical_gaps": [
@@ -229,3 +230,27 @@ IMPORTANT: You MUST perform the following two steps sequentially to generate the
 *   **Maintain consistent element_id references throughout architecture review, implementation plan, and tests to ensure complete traceability.**
 *   **The final generated implementation code derived from this plan MUST pass the tests generated within this same plan.**
 """
+
+
+def get_stage_system_prompt(stage: str) -> str:
+    """Return a system prompt with instructions scoped to a single planning stage."""
+
+    base_prompt = get_consolidated_plan_base_prompt()
+    stage_instructions = {
+        "architecture_review": "During this stage output ONLY the JSON key 'architecture_review' and a 'discussion' string.",
+        "refined_tests": "During this stage output ONLY the JSON key 'refined_test_requirements' and a 'discussion' string.",
+        "test_implementation": "During this stage output ONLY the JSON keys 'tests', 'test_strategy_implementation', and 'discussion'.",
+        "implementation_plan": "During this stage output ONLY the JSON key 'implementation_plan' and a 'discussion' string.",
+        "semantic_validation": "During this stage output ONLY the JSON key 'validation_results'.",
+        "consolidated": "Return the full consolidated plan JSON containing all keys.",
+    }
+
+    if stage not in stage_instructions:
+        raise ValueError(f"Unknown planning stage: {stage}")
+
+    return base_prompt + "\n\n" + stage_instructions[stage]
+
+
+def get_consolidated_plan_system_prompt() -> str:
+    """Compatibility wrapper returning the full consolidated plan system prompt."""
+    return get_stage_system_prompt("consolidated")

@@ -17,6 +17,11 @@ workflows, and design decisions.
 Agent-S3 automates feature planning, code generation, and execution while maintaining a step-by-step approach to prioritize correctness over convenience. Key features include:
 
 - **Consolidated Plan Workflow:** Engineers review and approve a consolidated plan that combines architecture reviews, tests, and implementation details. Each component is generated in separate phases and then merged, offering a comprehensive view of the proposed changes.
+  - **Step 1: Architecture Review** – identify logical gaps, security issues, and optimizations.
+  - **Step 2: Test Specification Refinement** – create detailed test requirements based on the review.
+  - **Step 3: Test Implementation** – generate runnable unit and integration tests.
+  - **Step 4: Implementation Planning** – outline code changes addressing architecture findings and ensuring tests pass.
+  - **Step 5: Semantic Validation** – verify coherence across architecture, tests, and implementation plan before consolidation.
 
 - **Semantic Validation:** The system performs logical coherence validation between architecture, implementation plans, and tests, ensuring consistency and identifying potential issues before implementation.
 

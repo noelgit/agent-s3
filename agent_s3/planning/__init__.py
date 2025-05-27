@@ -3,6 +3,7 @@
 from .json_validation import validate_json_schema, repair_json_structure
 from .prompt_templates import (
     get_consolidated_plan_system_prompt,
+    get_stage_system_prompt,
     get_personas_content,
     get_coding_guidelines,
 )
@@ -27,6 +28,7 @@ __all__ = [
     'validate_json_schema',
     'repair_json_structure',
     'get_consolidated_plan_system_prompt',
+    'get_stage_system_prompt',
     'get_personas_content',
     'get_coding_guidelines',
     'call_llm_with_retry',
