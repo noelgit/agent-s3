@@ -7,11 +7,12 @@ import { registerPerformanceTestCommand } from "./websocket-performance-test";
 import { quote } from "./shellQuote";
 import { ChatHistoryEntry } from "./types/message";
 import { CHAT_HISTORY_KEY } from "./constants";
+import { Agent3ChatProvider, Agent3HistoryProvider } from "./tree-providers";
 
 /**
  * Extension activation point
  */
-export function activate(context: vscode.ExtensionContext) {
+export function activate(context: vscode.ExtensionContext): void {
   console.log("Activating Agent-S3 extension");
 
   // Create interactive webview manager
@@ -32,6 +33,13 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
+  // Create and register tree data providers
+  const chatProvider = new Agent3ChatProvider(context);
+  const historyProvider = new Agent3HistoryProvider(context);
+  
+  vscode.window.registerTreeDataProvider("agent-s3-chat", chatProvider);
+  vscode.window.registerTreeDataProvider("agent-s3-history", historyProvider);
+
   // Register commands
   context.subscriptions.push(
     vscode.commands.registerCommand("agent-s3.init", initializeWorkspace),
@@ -43,6 +51,9 @@ export function activate(context: vscode.ExtensionContext) {
       "agent-s3.openInteractiveView",
       openInteractiveView,
     ),
+    vscode.commands.registerCommand("agent-s3.showChatEntry", showChatEntry),
+    vscode.commands.registerCommand("agent-s3.refreshChat", () => chatProvider.refresh()),
+    vscode.commands.registerCommand("agent-s3.refreshHistory", () => historyProvider.refresh()),
   );
 
   // Create status bar item to trigger change requests or open chat
@@ -352,5 +363,23 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create a new terminal
     return vscode.window.createTerminal("Agent-S3");
+  }
+
+  /**
+   * Show chat entry details
+   */
+  function showChatEntry(entry: ChatHistoryEntry): void {
+    const timestamp = new Date(entry.timestamp).toLocaleString();
+    const message = `**${entry.type}** (${timestamp}):\n\n${entry.content}`;
+    
+    vscode.window.showInformationMessage(
+      `Chat Entry from ${entry.type}`,
+      { modal: false },
+      "Open Chat Window"
+    ).then((selection: string | undefined) => {
+      if (selection === "Open Chat Window") {
+        vscode.commands.executeCommand("agent-s3.openChatWindow");
+      }
+    });
   }
 }

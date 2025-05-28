@@ -21,6 +21,29 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "agent-s3-explorer",
+          "title": "Agent-S3",
+          "icon": "logo.png"
+        }
+      ]
+    },
+    "views": {
+      "agent-s3-explorer": [
+        {
+          "id": "agent-s3-chat",
+          "name": "Chat",
+          "when": "true"
+        },
+        {
+          "id": "agent-s3-history",
+          "name": "History",
+          "when": "true"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "agent-s3.init",
@@ -53,8 +76,36 @@
       {
         "command": "agent-s3.testWebSocketPerformance",
         "title": "Agent-S3: Test WebSocket Performance with Large Messages"
+      },
+      {
+        "command": "agent-s3.showChatEntry",
+        "title": "Agent-S3: Show Chat Entry"
+      },
+      {
+        "command": "agent-s3.refreshChat",
+        "title": "Agent-S3: Refresh Chat View",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "agent-s3.refreshHistory",
+        "title": "Agent-S3: Refresh History View", 
+        "icon": "$(refresh)"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "agent-s3.refreshChat",
+          "when": "view == agent-s3-chat",
+          "group": "navigation"
+        },
+        {
+          "command": "agent-s3.refreshHistory",
+          "when": "view == agent-s3-history",
+          "group": "navigation"
+        }
+      ]
+    },
     "configuration": {
       "title": "Agent-S3",
       "properties": {
