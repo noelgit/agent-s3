@@ -67,7 +67,6 @@ dependencies = [
     "pytest>=6.2.0",
     
     # Supabase integration
-    "supabase>=2.0.0",
 ]
 
 [project.optional-dependencies]
