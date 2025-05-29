@@ -176,7 +176,6 @@ pip check
   - Sequential implementation of tasks with the `/continue` command
   - Automatic test execution after each implementation step
 - CLI interface (`agent_s3.cli`) with commands: `/init`, `/help`, `/config`, `/reload-llm-config`, `/explain`, `/request`, `/terminal`, `/design`, `/personas`, `/guidelines`, `/continue`, `/tasks`, `/clear`, `/db`, `/test`, `/debug`. Supports multi-line heredoc input (`<<MARKER ... MARKER`) for `/cli file` and `/cli bash`.
-- Supabase Edge function for LLM calls. See `docs/supabase_llm_function.md` for details.
 - GitHub authentication via OAuth App and GitHub App flows (`agent_s3.auth`)
 - Centralized configuration loading from `llm.json`, environment variables, and `.env` (`agent_s3.config`)
 - Dynamic LLM routing by arbitrary roles defined in `llm.json`, with circuit breaker, fallback logic, and metrics tracking (`agent_s3.router_agent`)
@@ -278,7 +277,6 @@ This architecture enables a Copilot-like, interactive experience with immediate 
 - Required packages: `sqlalchemy` with optional adapters
   - `psycopg2-binary` for PostgreSQL
   - `pymysql` for MySQL
-  - `supabase-py` for Supabase integration
 - GitHub account and relevant tokens or app credentials
 
 ## Tree-sitter Grammar Setup
@@ -385,12 +383,6 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   - **Token Encryption:** `AGENT_S3_ENCRYPTION_KEY` (required for GitHub token storage; the CLI fails to save tokens when unset)
   - **Scratchpad Encryption:** set `encryption_key` when `scratchpad_enable_encryption` is true. Generate the key with `Fernet.generate_key()` and provide it via `AGENT_S3_ENCRYPTION_KEY` or your config file.
   - `DENYLIST_COMMANDS`, `COMMAND_TIMEOUT`, `CLI_COMMAND_WARNINGS` in config
-  - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` for Supabase integration
-    (the service role key is only used by the Supabase function after
-    validating organization membership)
-  - `SUPABASE_ANON_KEY` for client requests
-  - `SUPABASE_FUNCTION_NAME` (optional, defaults to `call-llm`)
-  - `USE_REMOTE_LLM` to toggle remote LLM usage
   - `ALLOW_INTERACTIVE_CLARIFICATION` (optional, defaults to `True`)
     enables clarifying questions during pre-planning
   - `MAX_CLARIFICATION_ROUNDS` (optional, defaults to `3`) limits pre-planning clarification exchanges
@@ -407,11 +399,6 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   Example `.env`:
 
   ```env
-  SUPABASE_URL=https://your-project.supabase.co
-  SUPABASE_ANON_KEY=your-anon-key
-  SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-  SUPABASE_FUNCTION_NAME=call-llm
-  USE_REMOTE_LLM=true
   ALLOW_INTERACTIVE_CLARIFICATION=True
   MAX_CLARIFICATION_ROUNDS=3
   MAX_PREPLANNING_ATTEMPTS=2
@@ -504,18 +491,6 @@ python -m agent_s3.cli "Implement user authentication using JWT"
 python -m agent_s3.cli /db list
 python -m agent_s3.cli /db schema
 python -m agent_s3.cli /db query <db_name> "SELECT * FROM users"
-```
-
-### Remote LLM via Supabase
-Set `USE_REMOTE_LLM=true` to forward prompts to a remote Supabase service. Ensure `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set. `SUPABASE_FUNCTION_NAME` is optional and defaults to `call-llm`:
-
-```bash
-USE_REMOTE_LLM=true \
-SUPABASE_URL=https://your-project.supabase.co \
-SUPABASE_ANON_KEY=your-anon-key \
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key \
-SUPABASE_FUNCTION_NAME=call-llm \
-python -m agent_s3.cli "Generate a README outline"
 ```
 
 ### VS Code
