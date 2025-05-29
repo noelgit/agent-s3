@@ -105,7 +105,7 @@ Keep the description concise and in the imperative mood.
 Examples:
 ```
 fix(security): sanitize header logs
-docs(readme): mention Supabase secrets
+docs(readme): clarify setup instructions
 feat(planner): add JSON schema validation
 refactor(auth): consolidate token validation
 ```
