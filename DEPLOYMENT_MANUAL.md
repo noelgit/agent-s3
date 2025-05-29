@@ -277,25 +277,11 @@ Create a production configuration file `config.json`:
   "sandbox_environment": false,
   "host_os_type": "linux",
   "context_management": {
-    "enabled": true,
-    "background_enabled": true,
     "optimization_interval": 60,
     "compression_threshold": 1000,
     "checkpoint_interval": 300,
     "max_checkpoints": 10
   },
-  "models": [
-    {
-      "model": "gpt-4",
-      "role": "primary",
-      "context_window": 8000
-    },
-    {
-      "model": "gpt-3.5-turbo",
-      "role": "secondary",
-      "context_window": 4000
-    }
-  ],
   "websocket": {
     "host": "localhost",
     "port": 8765,
@@ -304,7 +290,50 @@ Create a production configuration file `config.json`:
 }
 ```
 
-### 4.2 Environment Variables
+### 4.2 LLM Model Configuration
+
+Configure models in `llm.json` (this is the canonical model configuration):
+
+```json
+[
+  {
+    "model": "google/gemini-2.5-pro-preview-03-25",
+    "role": "planner",
+    "context_window": 1048576,
+    "parameters": {
+      "temperature": 0.15,
+      "top_p": 0.90,
+      "top_k": 64,
+      "max_output_tokens": 4096
+    },
+    "pricing_per_million": { "input": 1.25, "output": 10.00 },
+    "api": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
+    }
+  },
+  {
+    "model": "google/gemini-2.5-flash-preview",
+    "role": "generator",
+    "context_window": 1048576,
+    "parameters": {
+      "temperature": 0.10,
+      "top_p": 0.90,
+      "top_k": 64,
+      "max_output_tokens": 4096
+    },
+    "pricing_per_million": { "input": 0.15, "output": 0.60 },
+    "api": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
+    }
+  }
+]
+```
+
+**Available Roles**: `pre_planner`, `analyzer`, `test_critic`, `initializer`, `planner`, `generator`, `debugger`, `designer`, `orchestrator`, `tool_user`, `explainer`, `file_finder`, `guideline_expert`, `general_qa`, `embedder`, `summarizer`, `context_distiller`
+
+### 4.3 Environment Variables
 
 Create a `.env` template:
 
@@ -333,7 +362,7 @@ DEPLOYMENT_HOST=localhost
 DEPLOYMENT_PORT=8000
 ```
 
-### 4.3 Security Configuration
+### 4.4 Security Configuration
 
 ```bash
 # Generate secure secret key

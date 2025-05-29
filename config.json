@@ -1,0 +1,17 @@
+{
+  "max_attempts": 3,
+  "task_state_directory": "./task_snapshots",
+  "sandbox_environment": false,
+  "host_os_type": "linux",
+  "context_management": {
+    "optimization_interval": 60,
+    "compression_threshold": 1000,
+    "checkpoint_interval": 300,
+    "max_checkpoints": 10
+  },
+  "websocket": {
+    "host": "localhost",
+    "port": 8765,
+    "max_message_size": 65536
+  }
+}

@@ -56,18 +56,70 @@ def _validate_entry(entry: Dict[str, Any], index: int) -> None:
     try:
         jsonschema.validate(instance=entry, schema=LLM_ENTRY_SCHEMA)
     except jsonschema.exceptions.ValidationError as e:
-        path = "->".join([str(p) for p in e.path]) or "root"
+        path = "->" + "->".join([str(p) for p in e.path]) if e.path else "root" # Ensure path is a string
         raise ValueError(
             f"llm.json entry {index} validation error at {path}: {e.message}"
         )
 
-def _load_llm_config():
+def _load_llm_config(config_obj: Optional[Any] = None): # Add config_obj parameter
     """Load the LLM configuration from llm.json."""
     try:
-        config_path = os.path.join(os.getcwd(), 'llm.json')
+        # Determine the base path for llm.json
+        # Prioritize config_obj.settings.workspace_path if available
+        base_path = os.getcwd() # Default to current working directory
+        if config_obj and hasattr(config_obj, 'settings') and hasattr(config_obj.settings, 'workspace_path'):
+            # Ensure workspace_path is an absolute path or resolve it
+            ws_path = config_obj.settings.workspace_path
+            if not os.path.isabs(ws_path):
+                # This assumes ws_path is relative to where the script was initially run,
+                # or it's just "." which means the project root.
+                # For robustness, one might need to establish a clear project root earlier.
+                # For now, let's assume it's either absolute or relative to a known root.
+                # If ws_path is ".", os.path.join will handle it correctly.
+                pass # ws_path is used as is if relative, joined with getcwd if needed by os.path.join
+            base_path = ws_path # Use workspace_path from config
+
+        # If base_path is still relative (e.g. "."), make it absolute from CWD
+        # This is a fallback if workspace_path was not absolute or not set effectively
+        if not os.path.isabs(base_path):
+             base_path = os.path.abspath(os.path.join(os.getcwd(), base_path))
+
+
+        # Check if we are in a subdirectory like 'vscode' and adjust base_path
+        # This is a heuristic. A more robust solution would be to find a project root marker.
+        # For now, if 'vscode' is in the path and llm.json is not found there, try one level up.
+        potential_llm_path = os.path.join(base_path, 'llm.json')
+        if 'vscode' in base_path.split(os.sep) and not os.path.exists(potential_llm_path):
+            logger.info(f"llm.json not found in {base_path}, trying parent directory as it might be a 'vscode' subdirectory context.")
+            parent_dir = os.path.dirname(base_path)
+            if os.path.exists(os.path.join(parent_dir, 'llm.json')):
+                base_path = parent_dir
+                logger.info(f"Found llm.json in parent directory: {base_path}")
+
+
+        config_path = os.path.join(base_path, 'llm.json')
+        logger.info(f"Attempting to load LLM config from: {config_path}")
+
         if not os.path.exists(config_path):
             logger.error("LLM configuration file not found: %s", config_path)
-            raise FileNotFoundError(f"LLM configuration file not found: {config_path}")
+            # Try to find llm.json in the script's directory or its parent as a last resort
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            fallback_paths = [
+                os.path.join(script_dir, '..', 'llm.json'), # one level up from agent_s3 (project root)
+                os.path.join(script_dir, 'llm.json') # alongside router_agent.py (less likely)
+            ]
+            found_fallback = False
+            for fb_path in fallback_paths:
+                fb_path_abs = os.path.abspath(fb_path)
+                logger.info(f"Checking fallback LLM config path: {fb_path_abs}")
+                if os.path.exists(fb_path_abs):
+                    config_path = fb_path_abs
+                    logger.info(f"Found LLM config at fallback location: {config_path}")
+                    found_fallback = True
+                    break
+            if not found_fallback:
+                raise FileNotFoundError(f"LLM configuration file not found at primary path {config_path} or fallbacks.")
+
         with open(config_path, 'r') as f:
             llm_config = json.load(f)
 
@@ -120,7 +172,7 @@ class RouterAgent:
         """
         global _models_by_role  # Properly reference the global variable
         if not _models_by_role:
-            _models_by_role = _load_llm_config()
+            _models_by_role = _load_llm_config(config) # Pass config object
         # Store configuration
         self.config = config
         # Metrics collector

@@ -1,7 +1,5 @@
 import * as vscode from "vscode";
 import { WebSocketClient } from "./websocket-client";
-import * as fs from "fs";
-import * as path from "path";
 
 /**
  * Test WebSocket connection and functionality
@@ -53,7 +51,7 @@ export async function testWebSocketConnection(): Promise<void> {
 }
 
 // Function to add a command to test WebSocket
-export function registerTestCommand(context: vscode.ExtensionContext) {
+export function registerTestCommand(context: vscode.ExtensionContext): void {
   const command = vscode.commands.registerCommand(
     "agent-s3.testWebSocket",
     testWebSocketConnection,

@@ -12,13 +12,7 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [
-    "onCommand:agent-s3.init",
-    "onCommand:agent-s3.request",
-    "onCommand:agent-s3.openChatWindow",
-    "onCommand:agent-s3.openInteractiveView",
-    "onStartupFinished"
-  ],
+  "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -35,12 +29,14 @@
         {
           "id": "agent-s3-chat",
           "name": "Chat",
-          "when": "true"
+          "when": "true",
+          "icon": "$(comment-discussion)"
         },
         {
           "id": "agent-s3-history",
           "name": "History",
-          "when": "true"
+          "when": "true",
+          "icon": "$(history)"
         }
       ]
     },
@@ -122,10 +118,12 @@
     "vscode:prepublish": "npm run compile && npm run build-webview",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
+    "typecheck": "tsc --noEmit",
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --ext ts",
     "build-webview": "cd webview-ui && npm install && npm run build",
     "watch-webview": "cd webview-ui && npm run start",
-    "test-server": "node ../tests/node_servers/simple-test-server.js"
+    "test-server": "node ../tests/node_servers/simple-test-server.js",
+    "test-websocket": "node test-websocket-standalone.js"
   },
   "devDependencies": {
     "@types/node": "^22.14.1",

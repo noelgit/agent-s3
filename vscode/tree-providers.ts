@@ -2,6 +2,12 @@ import * as vscode from "vscode";
 import { ChatHistoryEntry } from "./types/message";
 import { CHAT_HISTORY_KEY } from "./constants";
 
+interface TaskEntry {
+  name: string;
+  status: "completed" | "failed" | "running";
+  timestamp?: string;
+}
+
 /**
  * Tree item for Agent-S3 explorer views
  */
@@ -134,7 +140,7 @@ export class Agent3ChatProvider implements vscode.TreeDataProvider<Agent3TreeIte
         // Show recent conversations (limit to 10)
         const recentChats = chatHistory.slice(-10).reverse();
         
-        for (const [index, entry] of recentChats.entries()) {
+        for (const entry of recentChats) {
           const timestamp = new Date(entry.timestamp).toLocaleString();
           const preview = entry.content.length > 50 
             ? entry.content.substring(0, 50) + "..."
@@ -285,7 +291,7 @@ export class Agent3HistoryProvider implements vscode.TreeDataProvider<Agent3Tree
 
     // Try to load recent tasks from workspace state
     try {
-      const recentTasks = this.context.workspaceState.get<any[]>("agent-s3.recentTasks", []);
+      const recentTasks = this.context.workspaceState.get<TaskEntry[]>("agent-s3.recentTasks", []);
       
       if (recentTasks.length === 0) {
         items.push(
@@ -364,7 +370,7 @@ export class Agent3HistoryProvider implements vscode.TreeDataProvider<Agent3Tree
     );
 
     // Check if Agent-S3 is initialized
-    const agentS3ConfigExists = vscode.workspace.fs.stat(
+    vscode.workspace.fs.stat(
       vscode.Uri.joinPath(workspaceFolder.uri, ".agent-s3")
     ).then(
       () => true,

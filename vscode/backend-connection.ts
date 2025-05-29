@@ -140,7 +140,7 @@ export class BackendConnection implements vscode.Disposable {
    * Process a message received from the backend
    * This is the original method that will be patched in extension.ts
    */
-  public processMessage(message: any): void {
+  public processMessage(_message: any): void {
     // The original implementation does nothing - it will be patched
     console.log("Default processMessage called, this should be overridden");
   }
@@ -356,7 +356,7 @@ export class BackendConnection implements vscode.Disposable {
   private handleInteractiveApproval(message: any): void {
     // Show the interactive panel if not already visible
     if (this.interactiveWebviewManager) {
-      const panel = this.interactiveWebviewManager.createOrShowPanel();
+      this.interactiveWebviewManager.createOrShowPanel();
 
       // Forward the message to the webview
       this.interactiveWebviewManager.postMessage({
@@ -372,7 +372,7 @@ export class BackendConnection implements vscode.Disposable {
   private handleInteractiveDiff(message: any): void {
     // Show the interactive panel if not already visible
     if (this.interactiveWebviewManager) {
-      const panel = this.interactiveWebviewManager.createOrShowPanel();
+      this.interactiveWebviewManager.createOrShowPanel();
 
       // Forward the message to the webview
       this.interactiveWebviewManager.postMessage({

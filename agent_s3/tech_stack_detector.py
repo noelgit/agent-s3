@@ -42,8 +42,6 @@ class TechStackDetector:
             # Create or reuse tech stack manager
             if not self.tech_stack_manager:
                 self.tech_stack_manager = TechStackManager(
-                    config=self.config,
-                    file_tool=self.file_tool,
                     workspace_path=str(self.workspace_path)
                 )
 

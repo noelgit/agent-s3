@@ -56,7 +56,6 @@ class CoordinatorContextIntegration:
                     'checkpoint_interval': 300,
                     'max_checkpoints': 10,
                     'adaptive_config': {
-                        'enabled': True,
                         'metrics_collection': True
                     }
                 }
@@ -558,9 +557,8 @@ def setup_context_management(coordinator):
                 # This tech stack info could potentially be used for future config optimizations
                 logger.info("Tech stack information provided to adaptive configuration system")
 
-        # Start background optimization if enabled
-        if config.get('context_management', {}).get('background_enabled', True):
-            context_manager._start_background_optimization()
+        # Start background optimization (always enabled)
+        context_manager._start_background_optimization()
 
         # Log successful setup
         setup_message = "Context management system initialized and integrated"

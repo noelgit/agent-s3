@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import * as path from "path";
 import { InteractiveWebviewManager } from "./webview-ui-loader";
 import { BackendConnection } from "./backend-connection";
 import { initializeWebSocketTester } from "./websocket-tester";
@@ -68,7 +67,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(statusBarItem);
 
   // Initialize the WebSocket tester
-  const wsocketTester = initializeWebSocketTester(context);
+  initializeWebSocketTester(context);
 
   // Register WebSocket performance test
   registerPerformanceTestCommand(context);
@@ -81,10 +80,10 @@ export function activate(context: vscode.ExtensionContext): void {
    */
   function openInteractiveView() {
     // Create or show the interactive webview panel
-    const panel = interactiveWebviewManager.createOrShowPanel();
+    interactiveWebviewManager.createOrShowPanel();
 
     // Set up message handler for the interactive webview
-    interactiveWebviewManager.setMessageHandler((message: any) => {
+    interactiveWebviewManager.setMessageHandler((message: {type: string; content: any}) => {
       console.log("Received message from interactive webview:", message);
 
       // Handle messages from the interactive components
@@ -211,7 +210,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const panel = interactiveWebviewManager.createOrShowPanel();
 
     // Load persisted chat history from workspace state
-    const rawHistory: any[] = context.workspaceState.get(
+    const rawHistory: ChatHistoryEntry[] = context.workspaceState.get(
       CHAT_HISTORY_KEY,
       [],
     );
@@ -247,7 +246,7 @@ export function activate(context: vscode.ExtensionContext): void {
     });
 
     // Set up message handler for chat and interactive messages
-    interactiveWebviewManager.setMessageHandler((message: any) => {
+    interactiveWebviewManager.setMessageHandler((message: {type: string; [key: string]: any}) => {
       console.log("Received message from chat webview:", message);
 
       if (!message.type) {
@@ -255,7 +254,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
 
       switch (message.type) {
-        case "webview-ready":
+        case "webview-ready": {
           const initial = messageHistory.slice(-20);
           interactiveWebviewManager.postMessage({
             type: "LOAD_HISTORY",
@@ -263,8 +262,9 @@ export function activate(context: vscode.ExtensionContext): void {
             has_more: messageHistory.length > initial.length,
           });
           break;
+        }
 
-        case "REQUEST_MORE_HISTORY":
+        case "REQUEST_MORE_HISTORY": {
           const alreadySent = message.already || 0;
           const more = messageHistory.slice(
             Math.max(0, messageHistory.length - alreadySent - 20),
@@ -276,8 +276,9 @@ export function activate(context: vscode.ExtensionContext): void {
             has_more: messageHistory.length > alreadySent + more.length,
           });
           break;
+        }
 
-        case "send":
+        case "send": {
           if (!message.text) {
             break;
           }
@@ -310,6 +311,7 @@ export function activate(context: vscode.ExtensionContext): void {
             content: { text: message.text },
           });
           break;
+        }
 
         case "APPROVAL_RESPONSE":
           backendConnection.sendMessage({
@@ -370,10 +372,9 @@ export function activate(context: vscode.ExtensionContext): void {
    */
   function showChatEntry(entry: ChatHistoryEntry): void {
     const timestamp = new Date(entry.timestamp).toLocaleString();
-    const message = `**${entry.type}** (${timestamp}):\n\n${entry.content}`;
     
     vscode.window.showInformationMessage(
-      `Chat Entry from ${entry.type}`,
+      `Chat Entry from ${entry.type} (${timestamp}):\n\n${entry.content}`,
       { modal: false },
       "Open Chat Window"
     ).then((selection: string | undefined) => {

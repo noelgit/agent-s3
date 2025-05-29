@@ -11,6 +11,7 @@ from typing import Dict, Any, Optional, List, Union, Callable, Set
 import logging
 import jsonschema
 from jsonschema import validate
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -577,7 +578,7 @@ class MessageQueue:
         Args:
             max_size: Maximum number of messages to store in the queue
         """
-        self.queue: List[Message] = []
+        self.queue: asyncio.Queue[Message] = asyncio.Queue(maxsize=max_size)
         self.max_size = max_size
         self.metrics = {
             "enqueued": 0,
@@ -586,48 +587,41 @@ class MessageQueue:
             "max_queue_length": 0
         }
 
-    def enqueue(self, message: Message) -> bool:
+    async def put(self, message: Message) -> bool:
         """Add a message to the queue.
 
         Args:
             message: The message to queue
 
         Returns:
-            True if message was queued, False if queue is full
+            True if message was queued, False if queue is full and message was dropped.
         """
-        if len(self.queue) >= self.max_size:
+        try:
+            await asyncio.wait_for(self.queue.put(message), timeout=0.1)
+            self.metrics["enqueued"] += 1
+            current_size = self.queue.qsize()
+            if current_size > self.metrics["max_queue_length"]:
+                self.metrics["max_queue_length"] = current_size
+            return True
+        except asyncio.QueueFull:
+            logger.warning("Message queue is full. Message dropped.")
+            self.metrics["dropped"] += 1
+            return False
+        except asyncio.TimeoutError:
+            logger.warning("Message queue put timed out. Message dropped.")
             self.metrics["dropped"] += 1
             return False
 
-        self.queue.append(message)
-        self.metrics["enqueued"] += 1
-
-        # Update max queue length metric
-        if len(self.queue) > self.metrics["max_queue_length"]:
-            self.metrics["max_queue_length"] = len(self.queue)
-
-        return True
-
-    def dequeue(self) -> Optional[Message]:
+    async def get(self) -> Optional[Message]:
         """Remove and return the next message from the queue.
 
         Returns:
-            The next message, or None if queue is empty
+            The next message, or None if queue is empty (though get() will wait)
         """
-        if not self.queue:
-            return None
-
-        message = self.queue.pop(0)
+        message = await self.queue.get()
         self.metrics["dequeued"] += 1
+        self.queue.task_done()  # Important for asyncio.Queue
         return message
-
-    def peek(self) -> Optional[Message]:
-        """View the next message without removing it.
-
-        Returns:
-            The next message, or None if queue is empty
-        """
-        return self.queue[0] if self.queue else None
 
     def is_empty(self) -> bool:
         """Check if the queue is empty.
@@ -635,7 +629,7 @@ class MessageQueue:
         Returns:
             True if the queue is empty, False otherwise
         """
-        return len(self.queue) == 0
+        return self.queue.empty()
 
     def size(self) -> int:
         """Get the current size of the queue.
@@ -643,7 +637,7 @@ class MessageQueue:
         Returns:
             Number of messages in the queue
         """
-        return len(self.queue)
+        return self.queue.qsize()
 
     def get_metrics(self) -> Dict[str, int]:
         """Get queue metrics.
@@ -651,11 +645,24 @@ class MessageQueue:
         Returns:
             Dictionary of metrics
         """
+        # Update max_queue_length one last time before returning, in case it wasn't updated by put
+        current_size = self.queue.qsize()
+        if current_size > self.metrics["max_queue_length"]:
+            self.metrics["max_queue_length"] = current_size
         return self.metrics.copy()
 
-    def clear(self):
+    async def clear(self):
         """Clear the queue and reset metrics."""
-        self.queue.clear()
+        # Drain the queue
+        while not self.queue.empty():
+            try:
+                await self.queue.get()
+                self.queue.task_done()
+            except asyncio.CancelledError:
+                raise
+            except Exception:  # nosec
+                pass  # Ignore errors during clear
+
         for key in self.metrics:
-            if key != "dropped" and key != "enqueued" and key != "dequeued":
+            if key not in ["dropped", "enqueued", "dequeued"]:  # Preserve historical counts
                 self.metrics[key] = 0

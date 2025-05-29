@@ -970,7 +970,6 @@ class ContextManager:
                 # Update background optimization settings
                 background_opt = cm_config.get("background_optimization", {})
                 if background_opt:
-                    background_opt.get("enabled")
                     interval = background_opt.get("interval")
 
                     # Background optimization always enabled

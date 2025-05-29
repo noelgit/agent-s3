@@ -141,8 +141,6 @@ class ProjectProfiler:
         # Base configuration
         config = {
             "context_management": {
-                "enabled": True,
-                "background_enabled": True,
                 "optimization_interval": 60,
                 "embedding": {
                     "chunk_size": 1000,

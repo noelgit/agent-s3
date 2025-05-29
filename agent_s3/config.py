@@ -60,7 +60,6 @@ LLM_EXPLAIN_PROMPT_MAX_LEN = int(os.getenv('LLM_EXPLAIN_PROMPT_MAX_LEN', '1000')
 LLM_EXPLAIN_RESPONSE_MAX_LEN = int(os.getenv('LLM_EXPLAIN_RESPONSE_MAX_LEN', '1000'))
 
 # CLI command execution parameters - CLI command warnings always enabled for safety
-CLI_COMMAND_WARNINGS_ENABLED = True  # Always enabled for safety
 CLI_COMMAND_MAX_SIZE     = int(os.getenv('CLI_COMMAND_MAX_SIZE',     '10000'))
 # New configuration for CodeAnalysisTool query cache TTL
 QUERY_CACHE_TTL_SECONDS  = int(os.getenv('QUERY_CACHE_TTL_SECONDS',  '3600')) # Default 1 hour
@@ -68,7 +67,6 @@ QUERY_CACHE_TTL_SECONDS  = int(os.getenv('QUERY_CACHE_TTL_SECONDS',  '3600')) # 
 CACHE_DEBOUNCE_DELAY     = float(os.getenv('CACHE_DEBOUNCE_DELAY',   '0.5'))  # Default 0.5 seconds
 MAX_QUERY_THEMES         = int(os.getenv('MAX_QUERY_THEMES',        '50'))    # Default 50 themes
 # Configuration for LLM summarization features - always enabled for token efficiency
-ENABLE_LLM_SUMMARIZATION = True  # Always enabled for token efficiency
 MIN_SIZE_FOR_LLM_SUMMARIZATION = int(os.getenv('MIN_SIZE_FOR_LLM_SUMMARIZATION', '1000'))
 SUMMARY_CACHE_MAX_SIZE   = int(os.getenv('SUMMARY_CACHE_MAX_SIZE',   '500'))
 # Embedding generation configuration
@@ -138,8 +136,6 @@ class ImportanceScoringConfig(BaseModel):
 
 class ContextManagementConfig(BaseModel):
     # Context management always enabled for optimal performance
-    enabled: bool = True
-    background_enabled: bool = True
     optimization_interval: int = 60
     embedding: EmbeddingConfig = EmbeddingConfig()
     search: SearchConfig = SearchConfig()
@@ -149,7 +145,6 @@ class ContextManagementConfig(BaseModel):
 
 class AdaptiveConfig(BaseModel):
     # Adaptive configuration always enabled for optimal performance
-    enabled: bool = True
     auto_adjust: bool = True
     profile_repo_on_start: bool = True
     metrics_collection: bool = True
@@ -188,7 +183,6 @@ class ConfigModel(BaseModel):
     llm_explain_prompt_max_len: int = LLM_EXPLAIN_PROMPT_MAX_LEN
     llm_explain_response_max_len: int = LLM_EXPLAIN_RESPONSE_MAX_LEN
     # CLI command warnings always enabled for safety
-    cli_command_warnings_enabled: bool = CLI_COMMAND_WARNINGS_ENABLED
     cli_command_max_size: int = CLI_COMMAND_MAX_SIZE
     query_cache_ttl_seconds: int = QUERY_CACHE_TTL_SECONDS
     cache_debounce_delay: float = CACHE_DEBOUNCE_DELAY
@@ -196,7 +190,6 @@ class ConfigModel(BaseModel):
     min_size_for_llm_summarization: int = MIN_SIZE_FOR_LLM_SUMMARIZATION
     summary_cache_max_size: int = SUMMARY_CACHE_MAX_SIZE
     # LLM summarization always enabled for token efficiency
-    enable_llm_summarization: bool = ENABLE_LLM_SUMMARIZATION
     embedding_retry_count: int = EMBEDDING_RETRY_COUNT
     embedding_backoff_initial: float = EMBEDDING_BACKOFF_INITIAL
     embedding_backoff_factor: float = EMBEDDING_BACKOFF_FACTOR

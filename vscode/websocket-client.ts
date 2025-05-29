@@ -19,6 +19,7 @@ export interface WebSocketClientOptions {
 /**
  * Message types that can be received from the WebSocket server
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 enum MessageType {
   // General message types
   TERMINAL_OUTPUT = "terminal_output",
@@ -245,12 +246,12 @@ export class WebSocketClient implements vscode.Disposable {
         dataString = String(data);
       }
 
-      let messageData: any = JSON.parse(dataString);
-
-      if (messageData.encoding === "gzip" && messageData.payload) {
+      let messageData: any = JSON.parse(dataString);        if (messageData.encoding === "gzip" && messageData.payload) {
         try {
           const buffer = Buffer.from(messageData.payload, "base64");
-          const decompressed = require("zlib")
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const zlib = require("zlib");
+          const decompressed = zlib
             .gunzipSync(buffer)
             .toString("utf-8");
           messageData = JSON.parse(decompressed);
@@ -497,7 +498,7 @@ export class WebSocketClient implements vscode.Disposable {
   /**
    * Register a message handler for a specific message type
    */
-  public registerMessageHandler(type: string, handler: (message: any) => void) {
+  public registerMessageHandler(type: string, handler: (message: any) => void): void {
     if (!this.messageHandlers.has(type)) {
       this.messageHandlers.set(type, []);
     }
@@ -607,7 +608,7 @@ export class WebSocketClient implements vscode.Disposable {
   /**
    * Clean up resources
    */
-  public dispose() {
+  public dispose(): void {
     // Clear intervals and timeouts
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);

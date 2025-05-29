@@ -1,6 +1,4 @@
 import * as vscode from "vscode";
-import * as fs from "fs";
-import * as path from "path";
 import { WebSocketClient } from "./websocket-client";
 
 /**
@@ -105,7 +103,7 @@ export class WebSocketTester {
   /**
    * Dispose of resources
    */
-  public dispose() {
+  public dispose(): void {
     this.statusBarItem.dispose();
     this.wsClient.dispose();
   }

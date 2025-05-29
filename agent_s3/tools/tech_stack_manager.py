@@ -10,7 +10,7 @@ class TechStackManager:
 
     def __init__(self, workspace_path=None):
         """Initialize tech stack manager with workspace path."""
-        self.workspace_path = workspace_path or Path.cwd()
+        self.workspace_path = Path(workspace_path) if workspace_path else Path.cwd()
         self.tech_stack = {
             "languages": set(),
             "frameworks": set(),

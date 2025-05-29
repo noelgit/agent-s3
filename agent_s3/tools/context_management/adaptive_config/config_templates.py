@@ -20,8 +20,6 @@ CONFIG_SCHEMA = {
         "context_management": {
             "type": "object",
             "properties": {
-                "enabled": {"type": "boolean"},
-                "background_enabled": {"type": "boolean"},
                 "optimization_interval": {"type": "number", "minimum": 5, "maximum": 300},
                 "embedding": {
                     "type": "object",
@@ -67,8 +65,6 @@ CONFIG_SCHEMA = {
 BASE_CONFIG_TEMPLATES = {
     "default": {
         "context_management": {
-            "enabled": True,
-            "background_enabled": True,
             "optimization_interval": 60,
             "embedding": {
                 "chunk_size": 1000,
@@ -96,8 +92,6 @@ BASE_CONFIG_TEMPLATES = {
     # Small project template
     "small": {
         "context_management": {
-            "enabled": True,
-            "background_enabled": True,
             "optimization_interval": 30,
             "embedding": {
                 "chunk_size": 800,
@@ -125,8 +119,6 @@ BASE_CONFIG_TEMPLATES = {
     # Large project template
     "large": {
         "context_management": {
-            "enabled": True,
-            "background_enabled": True,
             "optimization_interval": 90,
             "embedding": {
                 "chunk_size": 1200,

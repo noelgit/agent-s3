@@ -100,6 +100,7 @@ class Coordinator:
             self._initialize_core_components()
             self._initialize_tools()
             self._initialize_specialized_components()
+            self._initialize_communication()  # Add this line
             self._finalize_initialization()
         except Exception as e:
             self.error_handler.handle_exception(
@@ -296,6 +297,29 @@ class Coordinator:
         from .orchestrator import WorkflowOrchestrator
         self.orchestrator = WorkflowOrchestrator(self, self.coordinator_config)
 
+    def _initialize_communication(self) -> None:
+        """Initialize communication components like the WebSocket server."""
+        from agent_s3.communication.enhanced_websocket_server import EnhancedWebSocketServer
+        from agent_s3.communication.message_protocol import MessageBus
+
+        self.message_bus = MessageBus()
+        # Get host and port from config, with defaults
+        ws_host = self.config.config.get('WEBSOCKET_HOST', 'localhost')
+        ws_port = self.config.config.get('WEBSOCKET_PORT', 8765)
+        ws_auth_token = self.config.config.get('WEBSOCKET_AUTH_TOKEN', None)
+
+
+        self.websocket_server = EnhancedWebSocketServer(
+            message_bus=self.message_bus,
+            host=ws_host,
+            port=ws_port,
+            auth_token=ws_auth_token
+        )
+        # Start the server in a separate thread so it doesn't block the coordinator
+        self.websocket_thread = self.websocket_server.start_in_thread()
+        self.scratchpad.log("Coordinator", f"WebSocket server starting on ws://{ws_host}:{ws_port}")
+
+
     def _finalize_initialization(self) -> None:
         """Finalize the initialization process."""
         # Start background optimization (always enabled)
@@ -361,6 +385,15 @@ class Coordinator:
             reraise=False  # Don't re-raise exceptions during shutdown
         ):
             self.scratchpad.log("Coordinator", "Shutting down Agent-S3 coordinator...")
+
+            # Stop WebSocket server first
+            if hasattr(self, 'websocket_server') and self.websocket_server:
+                try:
+                    self.scratchpad.log("Coordinator", "Stopping WebSocket server...")
+                    self.websocket_server.stop_sync()
+                    self.scratchpad.log("Coordinator", "WebSocket server stopped.")
+                except Exception as e:
+                    self.scratchpad.log("Coordinator", f"Error stopping WebSocket server: {e}", level=LogLevel.ERROR)
 
             # Stop planner observer if it exists
             if hasattr(self, 'planner') and self.planner and hasattr(self.planner, 'stop_observer'):
