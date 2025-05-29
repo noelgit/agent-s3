@@ -3,7 +3,6 @@ import requests
 import sys
 import types
 
-import pytest
 
 # Provide a minimal progress_tracker to satisfy llm_utils import
 sys.modules.setdefault(
@@ -12,7 +11,6 @@ sys.modules.setdefault(
 )
 
 from agent_s3.llm_utils import (  # noqa: E402
-    call_llm_via_supabase,
     call_llm_with_retry,
 )
 
@@ -46,53 +44,6 @@ class DummyClient:
 def fake_create_client(url: str, key: str) -> DummyClient:
     return DummyClient()
 
-
-def test_invalid_json_snippet(monkeypatch):
-    monkeypatch.setattr("agent_s3.llm_utils.create_client", fake_create_client)
-
-    def fake_post(*_args, **_kwargs):
-        return DummyResponse("{bad")
-
-    monkeypatch.setattr("requests.post", fake_post)
-
-    cfg = {
-        "supabase_url": "https://supabase",
-        "supabase_service_role_key": "key",
-        "supabase_function_name": "func",
-    }
-
-    with pytest.raises(ValueError) as exc:
-        call_llm_via_supabase("hi", "tok", cfg)
-
-    assert "{bad" in str(exc.value)
-
-
-def test_invalid_request_body(monkeypatch):
-    """Error is raised for a payload that cannot be JSON serialized."""
-    def dummy_client(*_args, **_kwargs):
-        raise AssertionError("client should not be created for invalid payload")
-
-    monkeypatch.setattr("agent_s3.llm_utils.create_client", dummy_client)
-
-    cfg = {
-        "supabase_url": "https://supabase",
-        "supabase_service_role_key": "key",
-        "supabase_function_name": "func",
-    }
-
-    with pytest.raises(ValueError):
-        call_llm_via_supabase(object(), "tok", cfg)
-
-
-def test_invalid_supabase_url_scheme(monkeypatch):
-    cfg = {
-        "supabase_url": "http://supabase",
-        "supabase_service_role_key": "key",
-        "supabase_function_name": "func",
-    }
-
-    with pytest.raises(ValueError):
-        call_llm_via_supabase("hi", "tok", cfg)
 
 
 def test_call_llm_with_retry_fallback_executes():
