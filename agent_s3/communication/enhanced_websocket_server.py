@@ -18,6 +18,8 @@ import websockets
 
 from .message_protocol import Message, MessageType, MessageBus, MessageQueue
 
+CONNECTION_FILE_NAME = ".agent_s3_ws_connection.json"
+
 logger = logging.getLogger(__name__)
 
 
@@ -65,8 +67,7 @@ class EnhancedWebSocketServer:
         self.running = False
         self.clients: Dict[str, websockets.WebSocketServerProtocol] = {}
         self.authenticated_clients: Set[str] = set()
-        self.connection_file = os.path.join(
-            os.getcwd(), ".agent_s3_ws_connection.json")
+        self.connection_file = os.path.join(os.getcwd(), CONNECTION_FILE_NAME)
 
         # WebSocket tasks
         self.heartbeat_task = None
@@ -253,8 +254,12 @@ class EnhancedWebSocketServer:
 
             # Log details about the approval request for monitoring
             logger.info(
-                "%s", f"Interactive approval request '{title}' with {
-                    len(options)} options (ID: {request_id})", )
+                "%s",
+                (
+                    f"Interactive approval request '{title}' with {len(options)}"
+                    f" options (ID: {request_id})"
+                ),
+            )
 
             # Broadcast the message to all clients
             asyncio.create_task(self.broadcast_message(message))
@@ -1016,6 +1021,9 @@ class EnhancedWebSocketServer:
         with open(self.connection_file, "w") as f:
             json.dump(connection_info, f)
 
+        if os.name == "posix":  # Restrict permissions for security
+            os.chmod(self.connection_file, 0o600)
+
         # Start tasks
         self.running = True
         self.heartbeat_task = asyncio.create_task(
@@ -1028,10 +1036,12 @@ class EnhancedWebSocketServer:
             self._log_server_metrics())
 
         logger.info(
-            "%s", f"EnhancedWebSocketServer running on {
-                self.host}:{
-                self.port} " f"(listening on {
-                'all interfaces' if serve_host is None else serve_host})")
+            "%s",
+            (
+                f"EnhancedWebSocketServer running on {self.host}:{self.port} "
+                f"(listening on {'all interfaces' if serve_host is None else serve_host})"
+            ),
+        )
 
     async def stop(self):  # Ensure this is the primary async stop method
         """Gracefully stop the WebSocket server (async version)."""
@@ -1100,12 +1110,14 @@ class EnhancedWebSocketServer:
         client_id = str(uuid.uuid4())
         self.clients[client_id] = websocket
         logger.info(
-            f"New client connected: {client_id} from {
-                websocket.remote_address}")
+            "New client connected: %s from %s",
+            client_id,
+            websocket.remote_address,
+        )
         self.scratchpad_log(
             "WebSocket",
-            f"Client {client_id} connected from {
-                websocket.remote_address}")
+            f"Client {client_id} connected from {websocket.remote_address}",
+        )
 
         try:
             # Authentication (optional, based on server config)
@@ -1128,16 +1140,24 @@ class EnhancedWebSocketServer:
 
         except websockets.exceptions.ConnectionClosedError as e:
             logger.info(
-                f"Client {client_id} disconnected (ConnectionClosedError): {
-                    e.code} {
-                    e.reason}")
+                "Client %s disconnected (ConnectionClosedError): %s %s",
+                client_id,
+                e.code,
+                e.reason,
+            )
             self.scratchpad_log(
-                "WebSocket", f"Client {client_id} disconnected: {e.code}")
+                "WebSocket",
+                f"Client {client_id} disconnected: {e.code}",
+            )
         except websockets.exceptions.ConnectionClosedOK:
             logger.info(
-                f"Client {client_id} disconnected gracefully (ConnectionClosedOK).")
+                "Client %s disconnected gracefully (ConnectionClosedOK).",
+                client_id,
+            )
             self.scratchpad_log(
-                "WebSocket", f"Client {client_id} disconnected gracefully.")
+                "WebSocket",
+                f"Client {client_id} disconnected gracefully.",
+            )
         except Exception as e:
             logger.error(
                 f"Error handling client {client_id}: {e}", exc_info=True)
@@ -1216,8 +1236,10 @@ class EnhancedWebSocketServer:
         async for message_str in websocket:
             if not isinstance(message_str, str):  # Should be string for JSON
                 logger.warning(
-                    f"Received non-string message from {client_id}: {
-                        type(message_str)}. " "Expected JSON string.")
+                    "Received non-string message from %s: %s. Expected JSON string.",
+                    client_id,
+                    type(message_str),
+                )
                 # Consider sending an error message back to client
                 try:
                     await websocket.send(json.dumps({
@@ -1263,9 +1285,11 @@ class EnhancedWebSocketServer:
             message.sender_id = client_id  # Ensure sender_id is set
 
             logger.debug(
-                f"Received message from {client_id}: Type='{
-                    message.type.value}', ID='{
-                    message.id}'")
+                "Received message from %s: Type='%s', ID='%s'",
+                client_id,
+                message.type.value,
+                message.id,
+            )
 
             # Publish to internal message bus
             # The message bus handlers will then decide what to do (e.g.,
@@ -1361,6 +1385,8 @@ class EnhancedWebSocketServer:
         try:
             with open(self.connection_file, 'w') as f:
                 json.dump(info, f)
+            if os.name == 'posix':
+                os.chmod(self.connection_file, 0o600)
             logger.info(
                 f"WebSocket connection info written to {self.connection_file}")
         except IOError as e:
@@ -1372,8 +1398,9 @@ class EnhancedWebSocketServer:
             if os.path.exists(self.connection_file):
                 os.remove(self.connection_file)
                 logger.info(
-                    f"WebSocket connection info file {
-                        self.connection_file} removed.")
+                    "WebSocket connection info file %s removed.",
+                    self.connection_file,
+                )
         except IOError as e:
             logger.error(f"Failed to remove connection info file: {e}")
 
@@ -1393,8 +1420,10 @@ class EnhancedWebSocketServer:
                       in ["localhost", "127.0.0.1"] else self.host)
 
         logger.info(
-            f"Attempting to start WebSocket server on {serve_host}:{
-                self.port}")
+            "Attempting to start WebSocket server on %s:%s",
+            serve_host,
+            self.port,
+        )
         # self.stop_event is initialized in start_in_thread before this coro
         # runs
 
@@ -1417,18 +1446,21 @@ class EnhancedWebSocketServer:
                             sock, socket.socket) and sock.family == socket.AF_INET:
                         actual_host, self.port = sock.getsockname()[:2]
                         logger.info(
-                            f"Server bound to {actual_host}:{
-                                self.port}. " f"Configured host: {
-                                self.host}")
+                            "Server bound to %s:%s. Configured host: %s",
+                            actual_host,
+                            self.port,
+                            self.host,
+                        )
                         break
 
             self._write_connection_info()
 
             logger.info(
-                f"EnhancedWebSocketServer running on {
-                    self.host}:{
-                    self.port} " f"(listening on {
-                    serve_host or 'all interfaces'})")
+                "EnhancedWebSocketServer running on %s:%s (listening on %s)",
+                self.host,
+                self.port,
+                serve_host or "all interfaces",
+            )
             self.scratchpad_log(
                 "WebSocket", f"Server started on {self.host}:{self.port}")
             self.running = True
@@ -1448,8 +1480,12 @@ class EnhancedWebSocketServer:
 
         except OSError as e:
             logger.error(
-                f"OSError starting WebSocket server on {serve_host}:{
-                    self.port}: {e}", exc_info=True)
+                "OSError starting WebSocket server on %s:%s: %s",
+                serve_host,
+                self.port,
+                e,
+                exc_info=True,
+            )
             self.scratchpad_log("WebSocket", f"OSError: {e}", level="ERROR")
             self.running = False  # Ensure running is set to False on error
             raise
@@ -1548,8 +1584,9 @@ class EnhancedWebSocketServer:
                 remaining_tasks = asyncio.all_tasks(loop=self.loop)
                 if remaining_tasks:
                     logger.info(
-                        f"Cancelling {
-                            len(remaining_tasks)} remaining tasks in server loop...")
+                        "Cancelling %s remaining tasks in server loop...",
+                        len(remaining_tasks),
+                    )
                     for task in remaining_tasks:
                         task.cancel()
                     self.loop.run_until_complete(asyncio.gather(
@@ -1607,8 +1644,9 @@ class EnhancedWebSocketServer:
 
         if hasattr(self, 'thread') and self.thread and self.thread.is_alive():
             logger.info(
-                f"Waiting for server thread (ID: {
-                    self.thread.ident}) to join...")
+                "Waiting for server thread (ID: %s) to join...",
+                self.thread.ident,
+            )
             self.thread.join(timeout=timeout)
             if self.thread.is_alive():
                 logger.warning(

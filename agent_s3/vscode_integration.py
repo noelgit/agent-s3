@@ -12,6 +12,8 @@ from queue import Queue
 import uuid  # For session IDs
 import atexit
 
+CONNECTION_FILE_NAME = ".agent_s3_ws_connection.json"
+
 # Message Protocol Definition
 MESSAGE_TYPES = {
     "auth": {"desc": "Authenticate client session", "fields": ["token"]},
@@ -78,17 +80,8 @@ class VSCodeIntegration:
 
     def _get_connect_file_path(self) -> str:
         """Get the path to the VS Code connection file."""
-        # Determine the appropriate location based on OS
-        if os.name == 'nt':  # Windows
-            base_dir = os.path.join(os.environ['APPDATA'], 'agent-s3')
-        else:  # Unix/Linux/Mac
-            base_dir = os.path.join(os.path.expanduser('~'), '.agent-s3')
-
-        # Create directory if it doesn't exist
-        if not os.path.exists(base_dir):
-            os.makedirs(base_dir)
-
-        return os.path.join(base_dir, 'vscode-connection.json')
+        # Use workspace root so the VS Code extension can discover it
+        return os.path.join(os.getcwd(), CONNECTION_FILE_NAME)
 
     def start_server(self) -> bool:
         """
@@ -280,8 +273,9 @@ class VSCodeIntegration:
             connection_info = {
                 "host": self.host,
                 "port": self.port,
+                "auth_token": self.auth_token,
                 "protocol": "ws",
-                "timestamp": time.time()
+                "timestamp": time.time(),
             }
 
             with open(self.connect_file_path, 'w') as f:

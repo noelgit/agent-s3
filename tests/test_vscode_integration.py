@@ -17,9 +17,14 @@ class TestVSCodeIntegrationShutdown(unittest.TestCase):
 
     def test_server_thread_and_connection_file_cleanup(self):
         port = get_free_port()
+        os.environ["VSCODE_AUTH_TOKEN"] = "test-token"
         with VSCodeIntegration(port=port) as integration:
             self.assertTrue(integration.is_running)
             self.assertTrue(os.path.exists(integration.connect_file_path))
+            if os.name == "posix":
+                import stat
+                mode = stat.S_IMODE(os.stat(integration.connect_file_path).st_mode)
+                self.assertEqual(mode, 0o600)
             server_thread = integration.server_thread
         # Context exit should stop server
         self.assertFalse(server_thread.is_alive())
