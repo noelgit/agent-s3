@@ -7,15 +7,7 @@ backoff, and fallback strategies with advanced semantic caching.
 import time
 from typing import Any, Dict, Optional, List, Tuple
 import requests
-
-# Optional Supabase client
-try:
-    from supabase import create_client  # type: ignore
-except Exception:  # pragma: no cover - library optional
-    create_client = None
-import json
 import logging
-from agent_s3.logging_utils import strip_sensitive_headers
 
 # Import GPTCache
 try:
@@ -45,85 +37,6 @@ FALLBACK_PROMPT_TEMPLATE = "Previous attempt failed. Please re-evaluate the requ
 if cache:
     cache.init()
 
-
-def call_llm_via_supabase(
-    prompt: str,
-    github_token: str,
-    config: Dict[str, Any],
-    timeout: Optional[float] = None,
-) -> str:
-    """Call a remote LLM via Supabase edge function.
-
-    Args:
-        prompt: Prompt text to send to the remote LLM service.
-        github_token: Authenticated GitHub token for authorization.
-        config: Configuration dictionary containing Supabase URL and key.
-        timeout: Optional request timeout override.
-
-    Returns:
-        The text response from the remote service.
-    """
-    # Configuration should explicitly provide connection details. Avoid
-    # referencing environment variables directly so callers control where the
-    # credentials originate.
-    supabase_url = config.get("supabase_url")
-    api_key = config.get("supabase_service_role_key")
-    if not supabase_url or not api_key:
-        raise ValueError("Supabase configuration missing")
-
-    if not supabase_url.startswith("https://"):
-        raise ValueError("supabase_url must start with https://")
-
-    if create_client is None:
-        raise ImportError("supabase-py is required for remote LLM calls")
-
-    headers = {
-        "Content-Type": "application/json",
-        "apikey": api_key,
-        "Authorization": f"Bearer {api_key}",
-        "X-GitHub-Token": github_token,
-    }
-    payload = {"prompt": prompt}
-
-    # Validate that the payload can be serialized to JSON before making the
-    # network request. This avoids sending malformed data to the remote
-    # service and surfaces a clear error to the caller.
-    try:
-        json.dumps(payload)
-    except (TypeError, ValueError) as exc:  # pragma: no cover - input validation
-        raise ValueError("Invalid request payload; must be JSON serializable") from exc
-
-    # Create client and invoke edge function
-    supabase = create_client(supabase_url, api_key)
-    function_name = config.get("supabase_function_name", "call-llm")
-    response = supabase.functions.invoke(
-        function_name,
-        body=payload,
-        headers=headers,
-        timeout=timeout or config.get("llm_default_timeout", 60.0),
-    )
-
-    status_code = getattr(response, "status_code", 200)
-    if status_code >= 400:
-        snippet = getattr(response, "text", "")[:200].replace("\n", " ")
-        raise RuntimeError(
-            f"Supabase function {function_name!r} returned status {status_code}: {snippet!r}"
-        )
-    try:
-        data = response.json()
-    except json.JSONDecodeError as exc:  # pragma: no cover - network failure branch
-        snippet = response.text[:200].replace("\n", " ")
-        raise ValueError(f"Invalid JSON response: {snippet!r}") from exc
-    if isinstance(data, dict):
-        if "response" in data:
-            return data["response"]
-        if "choices" in data and data["choices"]:
-            # OpenAI style response
-            choice = data["choices"][0]
-            if isinstance(choice, dict):
-                return choice.get("text") or choice.get("message", {}).get("content", "")
-    return response.text
-
 def call_llm(
     prompt: str,
     llm: Any,
@@ -134,13 +47,10 @@ def call_llm(
     prompt_summary: Optional[str] = None,
     **kwargs: Any,
 ) -> Tuple[Dict[str, Any], Any]:
-    """Invoke an LLM with optional remote fallback.
+    """Invoke an LLM with caching and retry logic.
 
-    The wrapper handles calling a remote LLM via :func:`call_llm_via_supabase`
-    when ``config.use_remote_llm`` is set. If the remote call fails, it logs the
-    issue and falls back to the provided local ``llm`` instance.
-
-    Cache hits are returned without contacting the LLM service.
+    Cache hits are returned without contacting the LLM service. All calls use the
+    provided local ``llm`` instance.
 
     Args:
         prompt: The prompt text to send to the LLM.
@@ -161,8 +71,6 @@ def call_llm(
     prompt_summary = prompt_summary or (
         prompt[:100] + ("..." if len(prompt) > 100 else "")
     )
-    use_remote_llm = getattr(config, "use_remote_llm", False)
-    github_token = getattr(config, "github_token", None)
 
     def _call(client: Any) -> Dict[str, Any]:
         prompt_data = {"prompt": prompt, **kwargs}
@@ -175,66 +83,7 @@ def call_llm(
             prompt_summary=prompt_summary,
         )
 
-    if use_remote_llm:
-        try:  # load token lazily
-            from agent_s3.auth import load_token
-
-            if not github_token:
-                token_data = load_token()
-                if token_data:
-                    github_token = token_data.get("token") or token_data.get(
-                        "access_token"
-                    )
-        except RuntimeError as e:  # pragma: no cover - optional token loader
-            logging.warning(
-                "Failed to load GitHub token: %s",
-                strip_sensitive_headers(str(e)),
-            )
-
-        if not github_token:
-            raise ValueError("GitHub token required for remote LLM")
-
-        class _RemoteLLM:
-            def __init__(self, cfg: Dict[str, Any], token: str) -> None:
-                self.cfg = cfg
-                self.token = token
-
-            def generate(self, params: Dict[str, Any]) -> str:
-                return call_llm_via_supabase(
-                    params.get("prompt", ""),
-                    self.token,
-                    self.cfg,
-                    timeout=params.get(
-                        "timeout", self.cfg.get("llm_default_timeout", 60.0)
-                    ),
-                )
-
-            def attach_kv(self, _kv: Any) -> None:
-                return None
-
-            def get_kv_tensor(self) -> Any:
-                return None
-
-        remote_llm = _RemoteLLM(config, github_token)
-        hit = read_cache(prompt, remote_llm)
-        if hit:
-            progress_tracker.increment("semantic_hits")
-            return {"success": True, "response": hit, "cached": True}, remote_llm
-
-        result = _call(remote_llm)
-        if result.get("success"):
-            return result, remote_llm
-
-        if scratchpad_manager:
-            scratchpad_manager.log(
-                "LLM Utils", "Remote LLM failed, falling back to local"
-            )
-        else:
-            logging.warning("Remote LLM failed, falling back to local")
-
-        return _call(llm), llm
-
-    # Local LLM path
+    # Only use the local LLM path
     hit = read_cache(prompt, llm)
     if hit:
         progress_tracker.increment("semantic_hits")
