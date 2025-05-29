@@ -85,9 +85,6 @@ SUMMARIZER_TIMEOUT       = float(os.getenv('SUMMARIZER_TIMEOUT',      '45.0'))
 MAX_DESIGN_PATTERNS      = int(os.getenv('MAX_DESIGN_PATTERNS', '3'))
 
 # Supabase configuration
-SUPABASE_URL               = os.getenv('SUPABASE_URL', '')
-SUPABASE_SERVICE_ROLE_KEY  = os.getenv('SUPABASE_SERVICE_ROLE_KEY', '')
-SUPABASE_FUNCTION_NAME     = os.getenv('SUPABASE_FUNCTION_NAME', 'call-llm')
 
 
 class ModelsConfig(BaseModel):
@@ -205,12 +202,6 @@ class ConfigModel(BaseModel):
     adaptive_config_dir: str = ADAPTIVE_CONFIG_DIR
     adaptive_metrics_dir: str = ADAPTIVE_METRICS_DIR
     adaptive_optimization_interval: int = ADAPTIVE_OPTIMIZATION_INTERVAL
-    supabase_service_role_key: str = Field(
-        default_factory=lambda: os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
-    )
-    supabase_function_name: str = Field(
-        default_factory=lambda: os.environ.get("SUPABASE_FUNCTION_NAME", "call-llm")
-    )
 
     class Config:
         extra = "allow"
