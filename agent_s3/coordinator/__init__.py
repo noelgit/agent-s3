@@ -861,6 +861,30 @@ class Coordinator:
                 "next_action": next_action,
             }
 
+    def execute_design_auto(self, objective: str) -> Dict[str, Any]:
+        """Run design and planning automatically with all confirmations."""
+        original_auto = getattr(self.prompt_moderator, "auto_confirm", False)
+        self.prompt_moderator.set_auto_confirm(True)
+        try:
+            response = self.design_manager.start_design_conversation(objective)
+            if response:
+                print(response)
+
+            self.design_manager.continue_conversation("/finalize-design")
+            success, message = self.design_manager.write_design_to_file()
+            if not success:
+                return {"success": False, "error": message}
+
+            self.start_pre_planning_from_design("design.txt", implement=False)
+
+            return {
+                "success": True,
+                "design_file": os.path.join(os.getcwd(), "design.txt"),
+                "next_action": None,
+            }
+        finally:
+            self.prompt_moderator.set_auto_confirm(original_auto)
+
     # ------------------------------------------------------------------
     # Task Execution Workflow
     # ------------------------------------------------------------------
@@ -880,9 +904,10 @@ class Coordinator:
         pre_planning_input: Optional[Dict[str, Any]] = None,
         *,
         from_design: bool = False,
+        implement: bool = True,
     ) -> None:
         """Delegate task execution to the workflow orchestrator."""
-        self.orchestrator.run_task(task, pre_planning_input, from_design=from_design)
+        self.orchestrator.run_task(task, pre_planning_input, from_design=from_design, implement=implement)
 
     def execute_implementation(self, design_file: str = "design.txt") -> Dict[str, Any]:
         """Delegate execution to the workflow orchestrator."""
@@ -892,9 +917,9 @@ class Coordinator:
         """Delegate continuation to the workflow orchestrator."""
         return self.orchestrator.execute_continue(continue_type)
 
-    def start_pre_planning_from_design(self, design_file: str = "design.txt") -> Dict[str, Any]:
+    def start_pre_planning_from_design(self, design_file: str = "design.txt", *, implement: bool = True) -> Dict[str, Any]:
         """Delegate pre-planning start to the workflow orchestrator."""
-        return self.orchestrator.start_pre_planning_from_design(design_file)
+        return self.orchestrator.start_pre_planning_from_design(design_file, implement=implement)
 
     def initialize_workspace(self) -> Dict[str, Any]:
         """Initialize the workspace using the workspace initializer.

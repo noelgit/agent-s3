@@ -231,15 +231,14 @@ class DesignManager:
             "This will transition to code generation. (yes/no): "
         )
 
-        # If we have access to coordinator's scratchpad, use that to prompt
-        if self.coordinator and hasattr(self.coordinator, 'scratchpad'):
-            self.coordinator.scratchpad.log("DesignManager", impl_message)
-            impl_response = input(impl_message).strip().lower()
+        if self.coordinator and hasattr(self.coordinator, 'prompt_moderator'):
+            prompt_mod = self.coordinator.prompt_moderator
+            impl_choice = prompt_mod.ask_yes_no_question(impl_message)
         else:
-            # Fallback to direct input
-            impl_response = input(impl_message).strip().lower()
+            if self.coordinator and hasattr(self.coordinator, 'scratchpad'):
+                self.coordinator.scratchpad.log("DesignManager", impl_message)
+            impl_choice = input(impl_message).strip().lower() in ["yes", "y", "true", "1"]
 
-        impl_choice = impl_response in ["yes", "y", "true", "1"]
         deploy_choice = False
 
         if impl_choice:
@@ -250,14 +249,13 @@ class DesignManager:
                 "Would you like to deploy the application locally instead? (yes/no): "
             )
 
-            if self.coordinator and hasattr(self.coordinator, 'scratchpad'):
-                self.coordinator.scratchpad.log("DesignManager", deploy_message)
-                deploy_response = input(deploy_message).strip().lower()
+            if self.coordinator and hasattr(self.coordinator, 'prompt_moderator'):
+                prompt_mod = self.coordinator.prompt_moderator
+                deploy_choice = prompt_mod.ask_yes_no_question(deploy_message)
             else:
-                # Fallback to direct input
-                deploy_response = input(deploy_message).strip().lower()
-
-            deploy_choice = deploy_response in ["yes", "y", "true", "1"]
+                if self.coordinator and hasattr(self.coordinator, 'scratchpad'):
+                    self.coordinator.scratchpad.log("DesignManager", deploy_message)
+                deploy_choice = input(deploy_message).strip().lower() in ["yes", "y", "true", "1"]
 
         return {
             "implementation": impl_choice,

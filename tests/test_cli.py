@@ -12,7 +12,7 @@ sys.modules['agent_s3.coordinator'] = types.SimpleNamespace(Coordinator=object)
 sys.modules['agent_s3.router_agent'] = types.SimpleNamespace(RouterAgent=object)
 sys.modules['agent_s3.config'] = types.SimpleNamespace(Config=object)
 
-from agent_s3.cli import process_command
+from agent_s3.cli import process_command  # noqa: E402
 
 
 class TestCliProcessCommand(unittest.TestCase):
@@ -113,6 +113,13 @@ class TestCliProcessCommand(unittest.TestCase):
         process_command(self.mock_coordinator, "/continue")
         self.mock_coordinator.command_processor.execute_continue_command.assert_called_once_with("")
         mock_print.assert_any_call("Continuation failed: msg")
+
+    @patch('builtins.print')
+    def test_design_auto_command(self, mock_print):
+        self.mock_coordinator.command_processor.execute_design_auto_command.return_value = "Design process completed successfully. Design saved to design.txt"
+        process_command(self.mock_coordinator, "/design-auto build api")
+        self.mock_coordinator.command_processor.execute_design_auto_command.assert_called_once_with("build api")
+        mock_print.assert_any_call("Design process completed successfully. Design saved to design.txt")
 
     @patch('builtins.print')
     def test_unknown_command(self, mock_print):

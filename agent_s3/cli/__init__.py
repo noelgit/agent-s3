@@ -53,6 +53,7 @@ Commands:
   agent-s3 /cli bash <cmd>   - Run multi-line bash script via heredoc
   agent-s3 /cli file <path>  - Write file content via heredoc
   agent-s3 /design <obj>     - Start a design process
+  agent-s3 /design-auto <obj>- Start design with automatic approvals
   agent-s3 /personas         - Generate default personas file
   agent-s3 /guidelines       - Generate default guidelines file
   agent-s3 /continue [id]    - Continue implementation from where it left off
@@ -74,6 +75,7 @@ Special Commands (can be used in prompt):
   /cli bash <cmd>            - Multi-line bash execution (<<EOF ... EOF)
   /cli file <path>           - Multi-line file content
   /design <obj>              - Start a design process
+  /design-auto <obj>         - Start design with automatic approvals
   /personas                  - Generate default personas file
   /guidelines                - Generate default guidelines file
   /continue [id]             - Continue implementation from where it left off

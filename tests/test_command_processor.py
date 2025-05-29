@@ -260,3 +260,9 @@ class TestCommandProcessor:
         mock_coordinator.execute_continue.assert_called_once_with("implementation")
         assert "continued" in result
 
+    def test_execute_design_auto_command(self, command_processor, mock_coordinator):
+        mock_coordinator.execute_design_auto.return_value = {"success": True}
+        result = command_processor.execute_design_auto_command("build api")
+        mock_coordinator.execute_design_auto.assert_called_once_with("build api")
+        assert "Design process completed successfully" in result
+
