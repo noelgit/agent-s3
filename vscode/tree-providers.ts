@@ -78,7 +78,7 @@ export class Agent3ChatProvider implements vscode.TreeDataProvider<Agent3TreeIte
 
     items.push(
       new Agent3TreeItem(
-        "Make Change Request", 
+        "Make Change Request",
         vscode.TreeItemCollapsibleState.None,
         {
           command: "agent-s3.request",
@@ -87,6 +87,20 @@ export class Agent3ChatProvider implements vscode.TreeDataProvider<Agent3TreeIte
         new vscode.ThemeIcon("edit"),
         "Create a new change request",
         "changeRequest"
+      )
+    );
+
+    items.push(
+      new Agent3TreeItem(
+        "Automated Design",
+        vscode.TreeItemCollapsibleState.None,
+        {
+          command: "agent-s3.designAuto",
+          title: "Run Automated Design",
+        },
+        new vscode.ThemeIcon("lightbulb"),
+        "Generate a design with automatic approvals",
+        "designAuto"
       )
     );
 

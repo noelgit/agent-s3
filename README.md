@@ -175,7 +175,7 @@ pip check
   - Tracking implementation progress in `implementation_progress.json`
   - Sequential implementation of tasks with the `/continue` command
   - Automatic test execution after each implementation step
-- CLI interface (`agent_s3.cli`) with commands: `/init`, `/help`, `/config`, `/reload-llm-config`, `/explain`, `/request`, `/terminal`, `/design`, `/personas`, `/guidelines`, `/continue`, `/tasks`, `/clear`, `/db`, `/test`, `/debug`. Supports multi-line heredoc input (`<<MARKER ... MARKER`) for `/cli file` and `/cli bash`.
+- CLI interface (`agent_s3.cli`) with commands: `/init`, `/help`, `/config`, `/reload-llm-config`, `/explain`, `/request`, `/terminal`, `/design`, `/design-auto`, `/personas`, `/guidelines`, `/continue`, `/tasks`, `/clear`, `/db`, `/test`, `/debug`. Supports multi-line heredoc input (`<<MARKER ... MARKER`) for `/cli file` and `/cli bash`.
 - Supabase Edge function for LLM calls. See `docs/supabase_llm_function.md` for details.
 - GitHub authentication via OAuth App and GitHub App flows (`agent_s3.auth`)
 - Centralized configuration loading from `llm.json`, environment variables, and `.env` (`agent_s3.config`)
@@ -461,6 +461,9 @@ python -m agent_s3.cli /request "Your feature request"
 
 # Start a design conversation
 python -m agent_s3.cli /design "Design a scalable e-commerce system"
+
+# Run auto-approved design
+python -m agent_s3.cli /design-auto "Design a scalable e-commerce system"
 
 # Execute bash command bypassing LLM
 python -m agent_s3.cli /cli bash "echo Hello"

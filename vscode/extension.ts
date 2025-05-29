@@ -45,6 +45,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("agent-s3.help", showHelp),
     vscode.commands.registerCommand("agent-s3.guidelines", showGuidelines),
     vscode.commands.registerCommand("agent-s3.request", makeChangeRequest),
+    vscode.commands.registerCommand("agent-s3.designAuto", runAutomatedDesign),
     vscode.commands.registerCommand("agent-s3.openChatWindow", openChatWindow),
     vscode.commands.registerCommand(
       "agent-s3.openInteractiveView",
@@ -199,6 +200,26 @@ export function activate(context: vscode.ExtensionContext): void {
 
       // Show notification
       vscode.window.showInformationMessage(`Processing request: ${request}`);
+    }
+  }
+
+  /**
+   * Run automated design workflow
+   */
+  async function runAutomatedDesign() {
+    const objective = await vscode.window.showInputBox({
+      placeHolder: "Enter your design objective",
+      prompt: "Describe the system you want Agent-S3 to design automatically",
+    });
+
+    if (objective) {
+      const terminal = getAgentTerminal();
+      terminal.show();
+      const safeObjective = quote([objective]);
+      terminal.sendText(`python -m agent_s3.cli /design-auto ${safeObjective}`);
+      vscode.window.showInformationMessage(
+        `Running automated design: ${objective}`,
+      );
     }
   }
 

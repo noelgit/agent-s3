@@ -419,6 +419,27 @@ class CommandProcessor:
             self._log(error_msg, level="error")
             return error_msg
 
+    def execute_design_auto_command(self, args: str) -> str:
+        """Execute automated design command with implicit approvals."""
+        if not args.strip():
+            return "Please provide a design objective."
+
+        self._log(f"Starting automated design for: {args}")
+
+        try:
+            if hasattr(self.coordinator, 'execute_design_auto'):
+                result = self.coordinator.execute_design_auto(args.strip())
+            else:
+                return "Automated design not available in this workspace."
+
+            if not result.get("success", False):
+                return f"Design process failed: {result.get('error', 'Unknown error')}"
+            return "Design process completed successfully. Design saved to design.txt"
+        except Exception as e:
+            error_msg = f"Design process failed: {e}"
+            self._log(error_msg, level="error")
+            return error_msg
+
     def execute_implement_command(self, args: str) -> str:
         """Execute the implement command to implement a design.
 
@@ -637,6 +658,7 @@ class CommandProcessor:
                 "personas": "Create/update personas.md with default content",
                 "guidelines": "Create/update copilot-instructions.md with default content",
                 "design": "Create a design document based on a design objective",
+                "design-auto": "Run design workflow with automatic approvals",
                 "implement": "Implement a design from design.txt",
                 "continue": "Continue implementation from where it left off",
                 "deploy": "Deploy an application based on a design",
@@ -665,6 +687,7 @@ class CommandProcessor:
 /personas: Create/update personas.md
 /guidelines: Create/update copilot-instructions.md
 /design <objective>: Create a design document
+/design-auto <objective>: Auto-approve design workflow
 /implement: Implement a design from design.txt
 /continue: Continue implementation
 /deploy [design_file]: Deploy an application

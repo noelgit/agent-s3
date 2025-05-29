@@ -195,6 +195,7 @@ class WorkflowOrchestrator:
         pre_planning_input: Optional[Dict[str, Any]] = None,
         *,
         from_design: bool = False,
+        implement: bool = True,
     ) -> None:
         """Execute the full planning and implementation workflow for a task."""
         # Initialize workflow state
@@ -220,14 +221,15 @@ class WorkflowOrchestrator:
                 if not plans or not self._check_workflow_control():
                     return
 
-                self._set_current_phase("implementation")
-                if not self._check_workflow_control():
-                    return
+                if implement:
+                    self._set_current_phase("implementation")
+                    if not self._check_workflow_control():
+                        return
 
-                changes, success = self._implementation_workflow(plans)
-                if success and self._check_workflow_control():
-                    self._set_current_phase("finalization")
-                    self._finalize_task(changes)
+                    changes, success = self._implementation_workflow(plans)
+                    if success and self._check_workflow_control():
+                        self._set_current_phase("finalization")
+                        self._finalize_task(changes)
 
                 # Mark workflow as completed
                 if not self._atomic_state_transition("completed", "Workflow completed successfully"):
@@ -295,8 +297,13 @@ class WorkflowOrchestrator:
                 )
                 return {"success": False, "error": str(exc)}
 
-    def start_pre_planning_from_design(self, design_file: str = "design.txt") -> Dict[str, Any]:
-        """Start pre-planning workflow based on a design file."""
+    def start_pre_planning_from_design(self, design_file: str = "design.txt", *, implement: bool = True) -> Dict[str, Any]:
+        """Start pre-planning workflow based on a design file.
+
+        Args:
+            design_file: Path to the design file.
+            implement: Whether to proceed with implementation after planning.
+        """
         file_tool = self.registry.get_tool("file_tool")
         success, design_content = file_tool.read_file(design_file)
         if not success:
@@ -312,10 +319,23 @@ class WorkflowOrchestrator:
             )
             return {"success": False, "error": "No tasks in design file"}
 
+        plans: List[Dict[str, Any]] = []
         for task in tasks:
-            self.run_task(task=task, from_design=True)
+            if implement:
+                self.run_task(task=task, from_design=True, implement=True)
+            else:
+                task_plans = self._planning_workflow(task, None, True)
+                plans.extend(task_plans)
 
-        return {"success": True, "tasks_started": len(tasks)}
+        if not implement:
+            plan_path = Path("plan.json")
+            try:
+                with open(plan_path, "w", encoding="utf-8") as f:
+                    json.dump({"plans": plans}, f, indent=2)
+            except Exception as e:
+                self.coordinator.scratchpad.log("Coordinator", f"Failed to write plan file: {e}", level=LogLevel.ERROR)
+
+        return {"success": True, "tasks_started": len(tasks), "plans": plans}
 
     # ------------------------------------------------------------------
     # Planning and implementation helpers

@@ -67,6 +67,7 @@ disabled (not recommended).
 - **Agent-S3: Show help** - Display help information
 - **Agent-S3: Show coding guidelines** - Display the current coding guidelines
 - **Agent-S3: Make change request** - Submit a change request to Agent-S3
+- **Agent-S3: Run automated design** - Generate a design with automatic approvals
 
 ## Status Tracking
 

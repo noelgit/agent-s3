@@ -14,6 +14,7 @@ _COMMAND_MAP: Dict[str, str] = {
     "personas": "execute_personas_command",
     "guidelines": "execute_guidelines_command",
     "design": "execute_design_command",
+    "design-auto": "execute_design_auto_command",
     "implement": "execute_implement_command",
     "continue": "execute_continue_command",
     "deploy": "execute_deploy_command",

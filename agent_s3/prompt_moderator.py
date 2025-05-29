@@ -17,7 +17,7 @@ class PromptModerator:
     Provides methods for both terminal-based and VS Code Chat UI-based interaction.
     """
 
-    def __init__(self, coordinator=None):
+    def __init__(self, coordinator=None, *, auto_confirm: bool = False):
         """Initialize the moderator.
 
         Args:
@@ -27,6 +27,11 @@ class PromptModerator:
         self.scratchpad = coordinator.scratchpad if coordinator else None
         self.ui_mode = "terminal"  # Default to terminal UI mode
         self.vscode_bridge = None  # Will be set by set_vscode_bridge
+        self.auto_confirm = auto_confirm
+
+    def set_auto_confirm(self, value: bool) -> None:
+        """Enable or disable automatic confirmation mode."""
+        self.auto_confirm = value
         self.max_plan_iterations = 5  # Maximum number of plan modification iterations
 
     def set_vscode_bridge(self, vscode_bridge: VSCodeBridge):
@@ -795,6 +800,11 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
         Returns:
             'yes', 'no', or 'modify' based on user input.
         """
+        if self.auto_confirm:
+            if self.scratchpad:
+                self.scratchpad.log("Moderator", f"Auto-confirm ternary '{question}' -> yes")
+            return "yes"
+
         while True:
             user_input = input(f"{question} (yes/no/modify): ").strip().lower()
 
@@ -827,6 +837,11 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
         Returns:
             True if the user answers 'yes', False otherwise
         """
+        if self.auto_confirm:
+            if self.scratchpad:
+                self.scratchpad.log("Moderator", f"Auto-confirm yes for '{question}'")
+            return True
+
         # Use the VS Code UI if available
         if self.is_vscode_mode():
             # Send the question via VS Code UI

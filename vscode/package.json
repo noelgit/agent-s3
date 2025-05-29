@@ -58,6 +58,10 @@
         "title": "Agent-S3: Make change request"
       },
       {
+        "command": "agent-s3.designAuto",
+        "title": "Agent-S3: Run automated design"
+      },
+      {
         "command": "agent-s3.openChatWindow",
         "title": "Agent-S3: Open Chat Window"
       },
