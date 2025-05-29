@@ -20,8 +20,8 @@ Description: Release notes for Agent-S3.
 ### Removed
 - Deprecated `validate_pre_planning_from_planner` helper in favor of direct
   `validate_pre_planning_output` usage.
-- Removed Supabase integration for remote LLM calls along with related
-  environment variables and dependencies.
+- Dropped Supabase integration and removed the associated environment
+  variables and dependencies.
 
 ## [0.1.1] - 2025-05-23
 ### Fixed
