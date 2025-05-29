@@ -252,6 +252,8 @@ See `docs/summarization.md` for details.
 - Server shuts down automatically on exit, removing the connection file
 - Connection file uses `0600` permissions on POSIX systems; default permissions
   apply on Windows
+- Connection information is stored in `.agent_s3_ws_connection.json` at the root
+  of your workspace
 - Optional Copilot-style chat UI for input; terminal shows actual outputs
 - WebView panels for structured information display:
   - Code change plan reviews
