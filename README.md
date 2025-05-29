@@ -384,13 +384,14 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   - `OPENROUTER_KEY` (or other LLM keys such as `OPENAI_KEY`)
   - **Token Encryption:** `AGENT_S3_ENCRYPTION_KEY` (required for GitHub token storage; the CLI fails to save tokens when unset)
   - **Scratchpad Encryption:** set `encryption_key` when `scratchpad_enable_encryption` is true. Generate the key with `Fernet.generate_key()` and provide it via `AGENT_S3_ENCRYPTION_KEY` or your config file.
-  - `DENYLIST_COMMANDS`, `COMMAND_TIMEOUT`, `CLI_COMMAND_WARNINGS` in config
+  - `CLI_COMMAND_MAX_SIZE` (optional, defaults to `10000` characters)
+    limits the length of `/cli` commands
   - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` for Supabase integration
     (the service role key is only used by the Supabase function after
     validating organization membership)
   - `SUPABASE_ANON_KEY` for client requests
   - `SUPABASE_FUNCTION_NAME` (optional, defaults to `call-llm`)
-  - `USE_REMOTE_LLM` to toggle remote LLM usage
+  - `use_remote_llm` (config key) to enable remote LLM usage
   - `ALLOW_INTERACTIVE_CLARIFICATION` (optional, defaults to `True`)
     enables clarifying questions during pre-planning
   - `MAX_CLARIFICATION_ROUNDS` (optional, defaults to `3`) limits pre-planning clarification exchanges
@@ -406,16 +407,15 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
 
   Example `.env`:
 
-  ```env
-  SUPABASE_URL=https://your-project.supabase.co
-  SUPABASE_ANON_KEY=your-anon-key
-  SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-  SUPABASE_FUNCTION_NAME=call-llm
-  USE_REMOTE_LLM=true
-  ALLOW_INTERACTIVE_CLARIFICATION=True
-  MAX_CLARIFICATION_ROUNDS=3
-  MAX_PREPLANNING_ATTEMPTS=2
-  ```
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_FUNCTION_NAME=call-llm
+ALLOW_INTERACTIVE_CLARIFICATION=True
+MAX_CLARIFICATION_ROUNDS=3
+MAX_PREPLANNING_ATTEMPTS=2
+```
 
 ### Encryption Key Management
 
@@ -456,7 +456,10 @@ python -m agent_s3.cli /reload-llm-config
 # Explain last LLM interaction details
 python -m agent_s3.cli /explain
 
-# Generate plan only for a request
+# Generate a development plan only
+python -m agent_s3.cli /plan "Add login feature"
+
+# Generate plan and execute request
 python -m agent_s3.cli /request "Your feature request"
 
 # Start a design conversation
@@ -466,6 +469,9 @@ python -m agent_s3.cli /design "Design a scalable e-commerce system"
 python -m agent_s3.cli /cli bash "echo Hello"
 # Simplified bash execution
 python -m agent_s3.cli /cli "ls -la"
+
+# Execute a terminal command directly
+python -m agent_s3.cli /terminal "ls -la"
 
 # Edit file bypassing LLM
 python -m agent_s3.cli /cli file path/to/file.txt "new content"
@@ -497,6 +503,12 @@ python -m agent_s3.cli /continue <task_id>
 # Attempt to resume the last interrupted task
 python -m agent_s3.cli /continue
 
+# Run tests
+python -m agent_s3.cli /test
+
+# Debug the last failing test
+python -m agent_s3.cli /debug
+
 # Process a full change request (plan, generate, execute)
 python -m agent_s3.cli "Implement user authentication using JWT"
 
@@ -504,13 +516,18 @@ python -m agent_s3.cli "Implement user authentication using JWT"
 python -m agent_s3.cli /db list
 python -m agent_s3.cli /db schema
 python -m agent_s3.cli /db query <db_name> "SELECT * FROM users"
+
+# Deploy using a design file
+python -m agent_s3.cli /deploy design.txt
+
+# Clear state for a task
+python -m agent_s3.cli /clear <task_id>
 ```
 
 ### Remote LLM via Supabase
-Set `USE_REMOTE_LLM=true` to forward prompts to a remote Supabase service. Ensure `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set. `SUPABASE_FUNCTION_NAME` is optional and defaults to `call-llm`:
+Set `use_remote_llm: true` in your configuration to forward prompts to a remote Supabase service. Ensure `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set. `SUPABASE_FUNCTION_NAME` defaults to `call-llm`:
 
 ```bash
-USE_REMOTE_LLM=true \
 SUPABASE_URL=https://your-project.supabase.co \
 SUPABASE_ANON_KEY=your-anon-key \
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key \
