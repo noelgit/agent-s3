@@ -34,7 +34,6 @@ CRITICAL INSTRUCTION: You MUST respond in valid JSON format ONLY, conforming EXA
           "files_affected": [string],
           "test_requirements": {
             "unit_tests": [string],
-            "integration_tests": [string],
             "acceptance_tests": [
               {
                 "given": string,

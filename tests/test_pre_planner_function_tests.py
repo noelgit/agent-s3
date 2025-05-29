@@ -232,7 +232,6 @@ def test_regenerate_pre_planning_with_modifications(router_agent):
                                     "expected_outcome": "Returns 3"
                                 }
                             ],
-                            "integration_tests": [],
                             "property_based_tests": [],
                             "acceptance_tests": []
                         },

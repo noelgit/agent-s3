@@ -127,7 +127,6 @@ def repair_json_structure_basic(data: Dict[str, Any]) -> Dict[str, Any]:
                     if "test_requirements" not in feature or not isinstance(feature["test_requirements"], dict):
                         repaired_feature["test_requirements"] = {
                             "unit_tests": [],
-                            "integration_tests": [],
                             "property_based_tests": [],
                             "acceptance_tests": [],
                             "test_strategy": {
@@ -203,7 +202,6 @@ def repair_json_structure_basic(data: Dict[str, Any]) -> Dict[str, Any]:
                 "files_affected": [],
                 "test_requirements": {
                     "unit_tests": [],
-                    "integration_tests": [],
                     "property_based_tests": [],
                     "acceptance_tests": [],
                     "test_strategy": {

@@ -17,7 +17,6 @@ def test_run_task_simple(monkeypatch):
                         "files_affected": ["agent_s3/cli/__init__.py"],
                         "test_requirements": {
                             "unit_tests": [],
-                            "integration_tests": [],
                             "property_based_tests": [],
                             "acceptance_tests": [],
                             "test_strategy": {},

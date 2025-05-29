@@ -358,7 +358,6 @@ def _create_fallback_test_specifications(feature_group: Dict[str, Any]) -> Dict[
         "feature_group_name": feature_group.get("group_name", "Unknown"),
         "refined_test_specifications": {
             "unit_tests": ["Basic unit tests for core functionality"],
-            "integration_tests": ["Basic integration tests"],
             "test_strategy": {
                 "coverage_goal": "80%",
                 "approach": "standard"

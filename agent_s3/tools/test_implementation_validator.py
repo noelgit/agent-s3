@@ -62,7 +62,7 @@ def validate_test_implementations(
         needs_repair = True
 
     if "tests" in test_implementations:
-        test_categories = ["unit_tests", "integration_tests", "property_based_tests", "acceptance_tests"]
+        test_categories = ["unit_tests", "property_based_tests", "acceptance_tests"]
 
         # Validate each category exists
         for category in test_categories:
@@ -151,7 +151,7 @@ def repair_test_implementations(
         repaired_implementations["tests"] = {}
 
     # Ensure all categories exist
-    test_categories = ["unit_tests", "integration_tests", "property_based_tests", "acceptance_tests"]
+    test_categories = ["unit_tests", "property_based_tests", "acceptance_tests"]
     for category in test_categories:
         if category not in repaired_implementations["tests"]:
             repaired_implementations["tests"][category] = []
@@ -345,7 +345,7 @@ def _validate_test_code(test: Dict[str, Any], category: str, test_index: int) ->
         structure_issues.append("missing assertions")
 
     # Check for proper setup
-    if category in ["unit_tests", "integration_tests"] and not re.search(r'def\s+setUp|def\s+setup|@fixture|@pytest\.fixture', code):
+    if category == "unit_tests" and not re.search(r'def\s+setUp|def\s+setup|@fixture|@pytest\.fixture', code):
         structure_issues.append("missing setup")
 
     if structure_issues:
@@ -381,7 +381,7 @@ def _validate_architecture_issue_coverage(
 
     # Extract all addressed issues from tests
     addressed_issues = set()
-    for category in ["unit_tests", "integration_tests", "property_based_tests", "acceptance_tests"]:
+    for category in ["unit_tests", "property_based_tests", "acceptance_tests"]:
         for test in test_implementations.get("tests", {}).get(category, []):
             if "architecture_issue_addressed" in test:
                 addressed_issues.add(test["architecture_issue_addressed"])

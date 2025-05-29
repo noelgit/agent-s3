@@ -19,7 +19,7 @@ Agent-S3 automates feature planning, code generation, and execution while mainta
 - **Consolidated Plan Workflow:** Engineers review and approve a consolidated plan that combines architecture reviews, tests, and implementation details. Each component is generated in separate phases and then merged, offering a comprehensive view of the proposed changes.
   - **Step 1: Architecture Review** – identify logical gaps, security issues, and optimizations.
   - **Step 2: Test Specification Refinement** – create detailed test requirements based on the review.
-  - **Step 3: Test Implementation** – generate runnable unit and integration tests.
+  - **Step 3: Test Implementation** – generate runnable unit, property-based, and acceptance tests.
   - **Step 4: Implementation Planning** – outline code changes addressing architecture findings and ensuring tests pass.
   - **Step 5: Semantic Validation** – verify coherence across architecture, tests, and implementation plan before consolidation.
 
@@ -67,7 +67,7 @@ Agent-S3 is built around several core objectives that guide its design and imple
 
 ### 4. **Support Modern Development Practices**
 - **CI/CD Integration**: Seamless integration with GitHub for issue tracking, pull requests, and automated workflows
-- **Test-Driven Development**: Comprehensive test planning including unit, integration, property-based, and acceptance tests
+- **Test-Driven Development**: Comprehensive test planning including unit, property-based, and acceptance tests
 - **Interactive Design Process**: Conversational feature decomposition with industry best practice recommendations
 - **Real-Time Collaboration**: WebSocket-based streaming UI for immediate feedback and progress tracking
 
@@ -213,7 +213,7 @@ pip check
   - TestCritic for analyzing test quality and coverage (`agent_s3.tools.test_critic`)
   - TestFrameworks for framework-agnostic test generation (`agent_s3.tools.test_frameworks`)
   - Integrated test coverage enforcement within feature group processing
-  - Comprehensive test validation including unit, integration, property-based, and acceptance tests
+  - Comprehensive test validation including unit, property-based, and acceptance tests
   - Test quality metrics including coverage ratio
   - Warning system for uncovered critical files and missing test types
 - Progress tracking in `progress_log.jsonl` (`agent_s3.progress_tracker`) and detailed chain-of-thought logs via enhanced scratchpad management (`agent_s3.enhanced_scratchpad_manager`)
@@ -603,7 +603,7 @@ The Static Plan Checker includes an enhanced validation of test coverage against
 
 1. **Critical Files Coverage**: All files marked as "critical" in the risk assessment have associated tests
 2. **High-Risk Areas Coverage**: All high-risk areas identified in the risk assessment have adequate test coverage
-3. **Test Types Alignment**: Required test types match the risk profile (e.g., property-based for edge cases, integration for component interactions)
+3. **Test Types Alignment**: Required test types match the risk profile (e.g., property-based for edge cases, acceptance tests for component interactions)
 4. **Risk-Specific Test Characteristics**: Tests meet the specific characteristics required by the risk assessment:
    - **Required Test Types**: Verifies that all required test types (e.g., security, performance) are included
    - **Required Keywords**: Ensures test names, descriptions, or code contain required keywords (e.g., "injection", "unauthorized", "benchmark")

@@ -26,20 +26,14 @@ class TestCodeGeneratorAgentic(unittest.TestCase):
                     "tested_functions": ["module.func"],
                 }
             ],
-            "integration_tests": [
-                {
-                    "components_involved": ["module"],
-                }
-            ],
         }
 
         result = code_generator._extract_relevant_tests(tests, "src/module.py")
         self.assertIn("unit_tests", result)
-        self.assertIn("integration_tests", result)
         self.assertNotIn("property_based_tests", result)
         self.assertNotIn("acceptance_tests", result)
         self.assertIsInstance(result["unit_tests"], list)
-        self.assertIsInstance(result["integration_tests"], list)
+        self.assertNotIn("integration_tests", result)
 
 
 if __name__ == "__main__":

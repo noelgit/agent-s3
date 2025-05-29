@@ -1,6 +1,6 @@
 """
 TestFrameworks: Provides functionality for working with different test frameworks.
-Supports unit tests, integration tests, approval tests, and property-based tests.
+Supports unit tests, approval tests, and property-based tests.
 """
 
 import os
@@ -122,7 +122,6 @@ class TestFrameworks:
         # Determine preferred frameworks based on what's available
         preferred = {
             "unit": None,
-            "integration": None,
             "approval": None,
             "property": None
         }
@@ -140,8 +139,7 @@ class TestFrameworks:
             # Default fallbacks for unit testing
             preferred["unit"] = "pytest" if self._is_python_project() else "jest"
 
-        # Integration testing frameworks (usually same as unit, with different setup)
-        preferred["integration"] = preferred["unit"]
+
 
         # Property-based testing frameworks
         if self.frameworks["hypothesis"]:
@@ -215,7 +213,7 @@ class TestFrameworks:
 
         Args:
             implementation_file: Path to the implementation file
-            test_type: Type of test ('unit', 'integration', 'approval', 'property')
+            test_type: Type of test ('unit', 'approval', 'property')
 
         Returns:
             Tuple of (test_file_path, test_file_content)
@@ -243,7 +241,7 @@ class TestFrameworks:
         Get a template for a specific test type.
 
         Args:
-            test_type: Type of test ('unit', 'integration', 'approval', 'property')
+            test_type: Type of test ('unit', 'approval', 'property')
             language: Programming language ('python' or 'javascript')
 
         Returns:
@@ -366,7 +364,7 @@ class TestFrameworks:
         Check if dependencies are satisfied for a specific test type.
 
         Args:
-            test_type: Type of test ('unit', 'integration', 'approval', 'property')
+            test_type: Type of test ('unit', 'approval', 'property')
             language: Programming language ('python' or 'javascript')
 
         Returns:
@@ -375,7 +373,6 @@ class TestFrameworks:
         # Map test types to frameworks
         test_type_frameworks = {
             "unit": ["pytest", "unittest", "jest", "mocha"],
-            "integration": ["pytest", "unittest", "jest", "mocha"],
             "approval": ["approvaltests", "jest-image-snapshot"],
             "property": ["hypothesis", "fast-check"]
         }
@@ -446,11 +443,6 @@ class TestFrameworks:
                 return f"tests/test_{stem}.py"
             else:
                 return f"tests/{stem}.test.js"
-        elif test_type == "integration":
-            if file_path.suffix == ".py":
-                return f"tests/integration/test_integration_{stem}.py"
-            else:
-                return f"tests/integration/{stem}.integration.test.js"
         elif test_type == "approval":
             if file_path.suffix == ".py":
                 return f"tests/approval/test_approval_{stem}.py"
@@ -560,32 +552,6 @@ class {{CLASS_NAME}}(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 """
-        elif test_type == "integration":
-            if framework == "pytest":
-                return """
-@pytest.mark.integration
-def test_{{MODULE_NAME}}_integration():
-    # TODO: Implement integration test
-    assert True
-
-def test_{{MODULE_NAME}}_with_dependencies():
-    # TODO: Test interaction with other components
-    assert True
-"""
-            elif framework == "unittest":
-                return """
-class {{CLASS_NAME}}Integration(unittest.TestCase):
-    def test_integration(self):
-        # TODO: Implement integration test
-        self.assertTrue(True)
-
-    def test_with_dependencies(self):
-        # TODO: Test interaction with other components
-        self.assertTrue(True)
-
-if __name__ == "__main__":
-    unittest.main()
-"""
         elif test_type == "approval":
             if framework == "approvaltests":
                 return """
@@ -671,35 +637,6 @@ describe('{{MODULE_NAME}}', function() {
 
   it('should handle edge cases', function() {
     // TODO: Implement edge case tests
-    expect(true).to.equal(true);
-  });
-});
-"""
-        elif test_type == "integration":
-            if framework == "jest":
-                return """
-describe('{{MODULE_NAME}} Integration', () => {
-  test('integration with dependencies', () => {
-    // TODO: Implement integration test
-    expect(true).toBe(true);
-  });
-
-  test('component interaction', () => {
-    // TODO: Test interaction with other components
-    expect(true).toBe(true);
-  });
-});
-"""
-            elif framework == "mocha":
-                return """
-describe('{{MODULE_NAME}} Integration', function() {
-  it('should integrate with dependencies', function() {
-    // TODO: Implement integration test
-    expect(true).to.equal(true);
-  });
-
-  it('should interact with other components', function() {
-    // TODO: Test interaction with other components
     expect(true).to.equal(true);
   });
 });

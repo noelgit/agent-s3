@@ -144,14 +144,6 @@ def create_fallback_pre_planning_output(task_description: str) -> Dict[str, Any]
                     "expected_outcome": "expected output"
                 }
             ],
-            "integration_tests": [
-                {
-                    "description": "Test integration",
-                    "components_involved": ["main"],
-                    "scenario": "basic integration test",
-                    "target_element_ids": ["main_function_id"]
-                }
-            ],
             "property_based_tests": [],
             "acceptance_tests": [
                 {
@@ -396,21 +388,6 @@ def integrate_with_coordinator(
                             "target": test.get("target_element", ""),
                             "expected": test.get("expected_outcome", "")
                         })
-
-                    # Integration tests
-                    for test in test_reqs.get("integration_tests", []):
-                        if isinstance(test, dict):
-                            test_requirements.append({
-                                "type": "integration",
-                                "description": test.get("description", ""),
-                                "components": test.get("components_involved", []),
-                                "scenario": test.get("scenario", "")
-                            })
-                        elif isinstance(test, str):
-                            test_requirements.append({
-                                "type": "integration",
-                                "description": test
-                            })
 
                     # Acceptance tests
                     for test in test_reqs.get("acceptance_tests", []):
@@ -785,7 +762,7 @@ You MUST follow these steps IN ORDER to produce a valid pre-planning JSON:
 
 5️⃣ **PLAN COMPREHENSIVE TESTS**
    - Define unit tests that target specific code elements
-   - Create integration tests for component interactions
+   - Create acceptance tests for component interactions
    - Specify property-based tests for invariant properties
    - Design acceptance tests using given-when-then format
    - Ensure every test references specific element_ids for traceability
@@ -850,13 +827,6 @@ You MUST follow these steps IN ORDER to produce a valid pre-planning JSON:
                 "target_element_id": "string (The element_id from system_design.code_elements that this test targets)",
                 "inputs": ["string (Description of inputs/conditions, e.g., 'user_id=1', 'order_total=0')"],
                 "expected_outcome": "string (Description of the expected behavior or result, e.g., 'should return user object', 'throws InvalidOrderTotalError')"
-              }
-            ],
-            "integration_tests": [
-              {
-                "description": "string (What this integration test should verify)",
-                "components_involved": ["string (List of components/modules interacting, e.g., 'AuthService', 'DatabaseModule')"],
-                "scenario": "string (Description of the integration scenario, e.g., 'User login with valid credentials and token generation')"
               }
             ],
             "property_based_tests": [

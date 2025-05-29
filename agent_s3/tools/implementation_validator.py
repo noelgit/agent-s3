@@ -406,7 +406,7 @@ def _extract_test_requirements(test_implementations: Dict[str, Any]) -> Dict[str
     if not isinstance(test_implementations, dict) or "tests" not in test_implementations:
         return requirements
 
-    for category in ["unit_tests", "integration_tests", "property_based_tests", "acceptance_tests"]:
+    for category in ["unit_tests", "property_based_tests", "acceptance_tests"]:
         for test in test_implementations.get("tests", {}).get(category, []):
             if isinstance(test, dict) and "target_element_ids" in test:
                 for element_id in test.get("target_element_ids", []):

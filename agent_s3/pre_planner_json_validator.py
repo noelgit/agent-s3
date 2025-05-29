@@ -268,7 +268,7 @@ class PrePlannerJsonValidator:
                 # Collect test requirements
                 if "test_requirements" in feature and isinstance(feature["test_requirements"], dict):
                     # Process different test types
-                    for test_type in ["unit_tests", "integration_tests", "acceptance_tests"]:
+                    for test_type in ["unit_tests", "acceptance_tests"]:
                         if test_type in feature["test_requirements"] and isinstance(feature["test_requirements"][test_type], list):
                             for test in feature["test_requirements"][test_type]:
                                 if isinstance(test, dict):
@@ -419,7 +419,7 @@ class PrePlannerJsonValidator:
                         # Check for security features without proper test coverage
                         if "test_requirements" in feature and isinstance(feature["test_requirements"], dict):
                             has_security_tests = False
-                            for test_type in ["unit_tests", "integration_tests"]:
+                            for test_type in ["unit_tests", "acceptance_tests"]:
                                 if test_type in feature["test_requirements"] and isinstance(feature["test_requirements"][test_type], list):
                                     for test in feature["test_requirements"][test_type]:
                                         if isinstance(test, dict) and any(keyword in test.get("description", "").lower() for keyword in security_keywords):
@@ -605,7 +605,7 @@ class PrePlannerJsonValidator:
                     for group in repaired_data.get("feature_groups", []):
                         for feature in group.get("features", []):
                             if "test_requirements" in feature:
-                                for test_type in ["unit_tests", "integration_tests"]:
+                                for test_type in ["unit_tests", "acceptance_tests"]:
                                     if test_type in feature["test_requirements"]:
                                         for test in feature["test_requirements"][test_type]:
                                             if test.get("implementation_step_id") == invalid_id:

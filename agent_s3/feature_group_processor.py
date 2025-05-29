@@ -928,10 +928,6 @@ class FeatureGroupProcessor:
                     tid = t.get("target_element_id")
                     if tid and tid not in valid_ids:
                         invalid_test_ids.add(tid)
-                for t in tests.get("integration_tests", []):
-                    for tid in t.get("target_element_ids", []):
-                        if tid not in valid_ids:
-                            invalid_test_ids.add(tid)
                 for t in tests.get("acceptance_tests", []):
                     for tid in t.get("target_element_ids", []):
                         if tid not in valid_ids:

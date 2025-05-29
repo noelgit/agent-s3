@@ -94,14 +94,6 @@ class TestCodeGeneratorAgentic:
                     "tested_functions": ["agent_s3.other_module.other_func"], # Corrected path
                     "code": "def test_other_func():\n    assert other_func() is True"
                 }
-            ],
-            "integration_tests": [
-                {
-                    "file": "tests/test_integration.py",
-                    "test_name": "test_integration",
-                    "components_involved": ["agent_s3.test_module", "agent_s3.other_module"], # Corrected paths
-                    "code": "def test_integration():\n    assert test_module.test_func() and other_module.other_func()" # Corrected string literal
-                }
             ]
         }
 
@@ -111,8 +103,6 @@ class TestCodeGeneratorAgentic:
         # Assert
         assert len(relevant_tests["unit_tests"]) == 1
         assert relevant_tests["unit_tests"][0]["test_name"] == "test_test_module_func"
-        assert len(relevant_tests["integration_tests"]) == 1
-        assert relevant_tests["integration_tests"][0]["components_involved"] == ["agent_s3.test_module", "agent_s3.other_module"]
 
     def test_generate_file(self, mock_coordinator):
         """Test generation of a single file."""

@@ -22,14 +22,14 @@ The system now validates that test priorities align with architecture issue seve
 - **validate_priority_alignment**: A new function that checks if tests addressing architecture issues have appropriate priority levels
 - Tests addressing Critical issues must have Critical priority
 - Tests addressing High severity issues must have High or Critical priority
-- Security issues require more thorough testing (both unit and integration tests)
+- Security issues require more thorough testing (both unit and acceptance tests)
 
 ### 3. Element ID Coverage Validation
 
 The validation now ensures that critical architecture issues have proper test coverage:
 
 - Critical and High severity issues are identified for mandatory test coverage
-- Security concerns require coverage in multiple test types (unit and integration tests)
+- Security concerns require coverage in multiple test types (e.g., unit and acceptance tests)
 - Higher severity validation errors are reported for security concern coverage gaps
 
 ### 4. Updated System Prompts

@@ -115,7 +115,6 @@ class TestConsolidatedWorkflow(unittest.TestCase):
                     "setup_requirements": "Mock API"
                 }
             ],
-            "integration_tests": [],
             "property_based_tests": [],
             "acceptance_tests": []
         }
@@ -125,7 +124,7 @@ class TestConsolidatedWorkflow(unittest.TestCase):
             "warnings": [
                 {
                     "type": "test_coverage",
-                    "message": "Missing test types: integration_tests, property_based_tests, acceptance_tests",
+                    "message": "Missing test types: property_based_tests, acceptance_tests",
                     "details": {}
                 }
             ]
@@ -145,7 +144,7 @@ class TestConsolidatedWorkflow(unittest.TestCase):
 
         self.coordinator.static_analyzer.validate_test_coverage_against_risk.return_value = (
             False,
-            "Missing test types: integration_tests, property_based_tests, acceptance_tests",
+            "Missing test types: property_based_tests, acceptance_tests",
             {
                 "uncovered_high_risk_areas": []
             }
@@ -208,7 +207,7 @@ class TestConsolidatedWorkflow(unittest.TestCase):
             {
                 "validation_type": "test_coverage",
                 "is_valid": False,
-                "error_message": "Missing test types: integration_tests, property_based_tests, acceptance_tests",
+                "error_message": "Missing test types: property_based_tests, acceptance_tests",
                 "details": {"uncovered_high_risk_areas": []},
                 "timestamp": ANY
             }

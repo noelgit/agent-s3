@@ -388,7 +388,7 @@ class SignatureNormalizer:
                     element_name_to_id[element["name"]] = element["element_id"]
 
         # Test categories that have target_element references
-        test_categories = ["unit_tests", "integration_tests", "property_based_tests"]
+        test_categories = ["unit_tests", "property_based_tests"]
 
         for category in test_categories:
             tests = test_requirements.get(category, [])

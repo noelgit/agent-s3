@@ -52,22 +52,6 @@ class CriticStaticAnalyzer:
                     r"assert\."
                 ]
             },
-            TestType.INTEGRATION: {
-                "python": [
-                    r"@pytest\.mark\.integration",
-                    r"class\s+Integration",
-                    r"integration_test",
-                    r"test_integration",
-                    r"mock\.patch",
-                    r"requests_mock"
-                ],
-                "javascript": [
-                    r"integration-test",
-                    r"integrationTest",
-                    r"supertest",
-                    r"request\s*\("
-                ]
-            },
             TestType.APPROVAL: { #Often corresponds to acceptance or snapshot tests
                 "python": [
                     r"approvaltests",
@@ -260,7 +244,7 @@ class CriticStaticAnalyzer:
         }
 
         # Define some default essential test types
-        default_essential_types_normalized = {"unit_tests", "integration_tests"}
+        default_essential_types_normalized = {"unit_tests"}
         all_required_categories_normalized = required_types_from_risk_normalized.union(default_essential_types_normalized)
 
         for req_category_key_normalized in all_required_categories_normalized:
@@ -434,7 +418,6 @@ class CriticStaticAnalyzer:
         results = {
             "required_test_types": [
                 TestType.UNIT,
-                TestType.INTEGRATION,
                 TestType.APPROVAL,
                 TestType.PROPERTY_BASED,
                 TestType.ACCEPTANCE,
@@ -458,8 +441,7 @@ class CriticStaticAnalyzer:
             # Map planner keys to TestType enum members
             key_to_test_type_map = {
                 "unit_tests": TestType.UNIT,
-                "integration_tests": TestType.INTEGRATION,
-                "acceptance_tests": TestType.ACCEPTANCE, # Using TestType.ACCEPTANCE
+                "acceptance_tests": TestType.ACCEPTANCE,  # Using TestType.ACCEPTANCE
                 "property_based_tests": TestType.PROPERTY_BASED,
                 # Consider if "approval_tests" key might appear or if "acceptance_tests" covers it.
                 # For now, TestType.APPROVAL is in required_test_types but not directly mapped from a key.
@@ -597,7 +579,7 @@ class CriticStaticAnalyzer:
 
         # Check which required test types are missing
         # Using a common set of "generally required" test types for implementation analysis
-        generally_required_types = [TestType.UNIT, TestType.INTEGRATION, TestType.ACCEPTANCE] # Example set
+        generally_required_types = [TestType.UNIT, TestType.ACCEPTANCE]  # Integration tests no longer required
         results["missing_test_types"] = sorted([
             t.value for t in generally_required_types if t not in all_test_types_found_enums
         ])
@@ -699,7 +681,7 @@ class CriticStaticAnalyzer:
 
         # Check for missing test types against a general set of expectations
         # Using a common set of "generally required" test types for generated code analysis
-        generally_required_types = [TestType.UNIT, TestType.INTEGRATION, TestType.ACCEPTANCE]
+        generally_required_types = [TestType.UNIT, TestType.ACCEPTANCE]
         missing_type_enums = [t for t in generally_required_types if t not in found_test_type_enums]
         results["missing_test_types"] = sorted([t.value for t in missing_type_enums])
 
@@ -847,7 +829,7 @@ class CriticStaticAnalyzer:
     def _determine_static_verdict(self, results: Dict[str, Any]) -> TestVerdict:
         """Determine the verdict based on test analysis results."""
         # No tests or assertions - definite fail if assertions are expected for the identified test types
-        has_assertive_types = any(tt in results.get("test_types", []) for tt in [TestType.UNIT.value, TestType.INTEGRATION.value, TestType.ACCEPTANCE.value, TestType.PROPERTY_BASED.value])
+        has_assertive_types = any(tt in results.get("test_types", []) for tt in [TestType.UNIT.value, TestType.ACCEPTANCE.value, TestType.PROPERTY_BASED.value])
 
         if results.get("test_count", 0) == 0 and has_assertive_types: # If assert-requiring types are detected but no tests counted
             return TestVerdict.FAIL
@@ -892,14 +874,8 @@ class CriticStaticAnalyzer:
             property_tests_spec = spec.get("property_tests", []) # Renamed
             approval_tests_spec = spec.get("approval_tests", []) # Renamed
 
-            # Check for integration tests by keyword in framework or scenarios
-            if "integration" in framework:
-                test_types_found.add(TestType.INTEGRATION)
-
             for scenario in scenarios:
-                function_name = scenario.get("function", "") # Renamed to avoid conflict
-                if "integration" in function_name.lower(): # Check function name as well
-                    test_types_found.add(TestType.INTEGRATION)
+                function_name = scenario.get("function", "")  # Renamed to avoid conflict
 
                 # Look for property-based testing patterns
                 cases = scenario.get("cases", [])
@@ -947,7 +923,7 @@ class CriticStaticAnalyzer:
         # Determine language first for more accurate pattern matching
         language = "javascript" if file_path.endswith(('.js', '.jsx', '.ts', '.tsx')) else "python"
 
-        for test_type_enum_member in [TestType.UNIT, TestType.INTEGRATION, TestType.ACCEPTANCE]: # Common types indicating a test file
+        for test_type_enum_member in [TestType.UNIT, TestType.ACCEPTANCE]:  # Common types indicating a test file
             if language in self.patterns[test_type_enum_member]:
                 for pattern in self.patterns[test_type_enum_member][language]:
                     if re.search(pattern, content, re.IGNORECASE):

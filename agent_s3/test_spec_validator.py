@@ -121,12 +121,6 @@ def extract_referenced_element_ids(test_specs: Dict[str, Any]) -> Set[str]:
             if element_id:
                 referenced_ids.add(element_id)
 
-    # Extract from integration tests
-    for test in test_specs.get("integration_tests", []):
-        if isinstance(test, dict):
-            element_ids = test.get("target_element_ids", [])
-            if isinstance(element_ids, list):
-                referenced_ids.update(element_ids)
 
     # Extract from property-based tests
     for test in test_specs.get("property_based_tests", []):
@@ -171,7 +165,7 @@ def extract_addressed_issues(test_specs: Dict[str, Any]) -> Set[str]:
                 addressed_issues.add(issue)
 
     # Extract from all test types
-    for test_type in ["unit_tests", "integration_tests", "property_based_tests", "acceptance_tests"]:
+    for test_type in ["unit_tests", "property_based_tests", "acceptance_tests"]:
         for test in test_specs.get(test_type, []):
             extract_from_test(test)
 
@@ -270,7 +264,7 @@ def validate_architecture_issue_coverage(
         # Check if security issue is addressed by appropriate tests
         found_in_test_types = []
         for test_type in test_specs:
-            if test_type not in ["unit_tests", "integration_tests", "property_based_tests", "acceptance_tests"]:
+            if test_type not in ["unit_tests", "property_based_tests", "acceptance_tests"]:
                 continue
 
             for test in test_specs[test_type]:
@@ -279,13 +273,13 @@ def validate_architecture_issue_coverage(
                     found_in_test_types.append(test_type)
                     break
 
-        # Security concerns should ideally have both unit and integration tests
+        # Security concerns should ideally have both unit and acceptance tests
         if issue.get("severity") in ["Critical", "High"] and len(found_in_test_types) < 2:
             missing_test_types = []
             if "unit_tests" not in found_in_test_types:
                 missing_test_types.append("unit tests")
-            if "integration_tests" not in found_in_test_types:
-                missing_test_types.append("integration tests")
+            if "acceptance_tests" not in found_in_test_types:
+                missing_test_types.append("acceptance tests")
 
             if missing_test_types:
                 validation_issues.append({
@@ -374,7 +368,7 @@ def validate_test_priority_consistency(
             })
 
     # Check all test types
-    for test_type in ["unit_tests", "integration_tests", "property_based_tests", "acceptance_tests"]:
+    for test_type in ["unit_tests", "property_based_tests", "acceptance_tests"]:
         for test in test_specs.get(test_type, []):
             check_test_priority(test, test_type.rstrip('s').replace('_', ' ').title())
 
@@ -480,7 +474,6 @@ def validate_priority_alignment(
     # Higher numbers mean more thorough testing expected
     test_type_thoroughness = {
         "unit_tests": 1,
-        "integration_tests": 2,
         "property_based_tests": 3,
         "acceptance_tests": 2
     }
@@ -541,7 +534,7 @@ def validate_priority_alignment(
                         "test_description": test.get("description", ""),
                         "issue_severity": issue_severity,
                         "test_type": test_type,
-                        "recommended_test_types": ["integration_tests", "property_based_tests"]
+                        "recommended_test_types": ["property_based_tests"]
                     })
 
     return validation_issues
@@ -664,7 +657,6 @@ def repair_invalid_element_ids(
             replace_element_id(test, id_key)
 
     for test_type, ids_key in [
-        ("integration_tests", "target_element_ids"),
         ("acceptance_tests", "target_element_ids")
     ]:
         for test in repaired_specs.get(test_type, []):
@@ -785,7 +777,7 @@ def assign_priorities_to_address_critical_issues(
                 )
 
     # Update all test types
-    for test_type in ["unit_tests", "integration_tests", "property_based_tests", "acceptance_tests"]:
+    for test_type in ["unit_tests", "property_based_tests", "acceptance_tests"]:
         for test in updated_specs.get(test_type, []):
             update_test_priority(test)
 
