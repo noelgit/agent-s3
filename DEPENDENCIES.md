@@ -60,7 +60,6 @@ The Agent-S3 project is a multi-component system that includes:
 #### Database Adapters
 - `psycopg2-binary>=2.9.0` - PostgreSQL adapter
 - `pymysql>=1.0.0` - MySQL adapter
-- `supabase>=2.0.0` - Supabase client
 
 #### Legacy Support
 - `phply>=0.9.1` - PHP parser (legacy support)
