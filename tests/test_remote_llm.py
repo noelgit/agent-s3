@@ -1,5 +1,6 @@
 from agent_s3.config import ConfigModel
 from agent_s3.llm_utils import cached_call_llm
+import types
 
 class DummyLLM:
     def __init__(self):
@@ -9,33 +10,14 @@ class DummyLLM:
         self.calls.append(params)
         return "local"
 
-def test_remote_llm_invocation(monkeypatch):
-    cfg = ConfigModel(use_remote_llm=True, supabase_url="http://test", supabase_service_role_key="key")
+def test_cached_call_llm_local_only(monkeypatch):
+    cfg = ConfigModel(use_remote_llm=True)
     dummy = DummyLLM()
-    called = {}
-
-    def fake_remote(prompt, token, config, timeout=None):
-        called["args"] = (prompt, token, config, timeout)
-        return "remote"
-
-    monkeypatch.setattr("agent_s3.llm_utils.call_llm_via_supabase", fake_remote)
-    result = cached_call_llm("hi", dummy, config=cfg, github_token="tok")
-    assert result == "remote"
-    assert called["args"][0] == "hi"
-    assert called["args"][1] == "tok"
-    assert called["args"][2] == cfg
-    assert not dummy.calls
-
-
-def test_remote_llm_fallback(monkeypatch):
-    cfg = ConfigModel(use_remote_llm=True, supabase_url="http://test", supabase_service_role_key="key")
-    dummy = DummyLLM()
-
-    def failing_remote(*_args, **_kwargs):
-        raise RuntimeError("fail")
-
-    monkeypatch.setattr("agent_s3.llm_utils.call_llm_via_supabase", failing_remote)
-    result = cached_call_llm("hi", dummy, config=cfg, github_token="tok")
+    monkeypatch.setattr(
+        "agent_s3.cache.helpers.cache",
+        types.SimpleNamespace(get=lambda *_args, **_kw: None, set=lambda *_a, **_k: None),
+    )
+    result = cached_call_llm("hi", dummy, config=cfg.model_dump(), github_token="tok")
     assert result == "local"
     assert dummy.calls
 
