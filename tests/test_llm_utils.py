@@ -2,8 +2,6 @@ import requests
 import sys
 import types
 
-import pytest
-
 # Provide a minimal progress_tracker to satisfy llm_utils import
 sys.modules.setdefault(
     "agent_s3.progress_tracker",
