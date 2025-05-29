@@ -868,14 +868,12 @@ class CriticStaticAnalyzer:
             # Unit tests are most common, always assume them if we have test specs
             test_types_found.add(TestType.UNIT)
 
-            framework = spec.get("framework", "").lower()
             scenarios = spec.get("scenarios", [])
             security_tests_spec = spec.get("security_tests", []) # Renamed to avoid conflict
             property_tests_spec = spec.get("property_tests", []) # Renamed
             approval_tests_spec = spec.get("approval_tests", []) # Renamed
 
             for scenario in scenarios:
-                function_name = scenario.get("function", "")  # Renamed to avoid conflict
 
                 # Look for property-based testing patterns
                 cases = scenario.get("cases", [])

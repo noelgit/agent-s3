@@ -256,7 +256,7 @@ class TestCoordinatorErrorHandling:
             
             # This should trigger the error handling path
             with pytest.raises(Exception):
-                coordinator = Coordinator(config=mock_config)
+                Coordinator(config=mock_config)
 
 
 class TestCoordinatorPropertyMethods:
@@ -327,13 +327,13 @@ class TestCoordinatorComplexWorkflows:
         workflow_coordinator.prompt_moderator.max_plan_iterations = 3
         workflow_coordinator.prompt_moderator.present_consolidated_plan.return_value = ("yes", None)
         workflow_coordinator.context_registry = MagicMock()
-        
+
         with patch('agent_s3.tools.static_plan_checker.StaticPlanChecker'):
             # Test the workflow
-            result = workflow_coordinator.plan_approval_loop(plan)
-            
-            # Verify plan was presented
-            workflow_coordinator.prompt_moderator.present_consolidated_plan.assert_called_once()
+            workflow_coordinator.plan_approval_loop(plan)
+
+        # Verify plan was presented
+        workflow_coordinator.prompt_moderator.present_consolidated_plan.assert_called_once()
 
     def test_extract_keywords_from_task_method(self, workflow_coordinator):
         """Test keyword extraction method."""

@@ -13,6 +13,8 @@ from typing import Dict, Any, Optional, Tuple
 from datetime import datetime
 from collections import defaultdict
 from pathlib import Path
+import time
+import random
 
 from agent_s3.tools.implementation_validator import (
     validate_implementation_plan,
@@ -21,35 +23,14 @@ from agent_s3.tools.implementation_validator import (
 )
 from agent_s3.json_utils import extract_json_from_text, get_openrouter_json_params
 from agent_s3.tools.context_management.token_budget import TokenEstimator
-from agent_s3.llm_utils import cached_call_llm
-from agent_s3.errors import PlanningError
 
 # Import from the planning module
 from agent_s3.planning import (
     repair_json_structure,
-    get_consolidated_plan_system_prompt,
     get_stage_system_prompt,
     JSONPlannerError,
     validate_planning_semantic_coherence,
 )
-
-# Import common utilities
-from agent_s3.common_utils import (
-    retry_with_backoff,
-    call_with_retry,
-    ValidationResult,
-    handle_error_with_context,
-    create_error_response,
-    safe_json_loads,
-    extract_json_with_patterns,
-    repair_json_quotes,
-    log_function_entry_exit,
-    ProcessingError,
-    ValidationError,
-    exponential_backoff_with_jitter
-)
-# Extracted functions are now imported from the planning module
-
 
 def repair_json_structure_basic(data: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -312,7 +293,6 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
 """
 
     # Get LLM parameters from json_utils to maintain consistency
-    from .json_utils import get_openrouter_json_params
     llm_params = get_openrouter_json_params()
 
     # Call the LLM with enhanced retry logic

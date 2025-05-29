@@ -1,8 +1,6 @@
 """Helper utilities for planning workflows."""
 from typing import Any
 from typing import Dict
-from typing import Optional
-
 from . import pre_planner_json_enforced
 
 def generate_plan_via_workflow(

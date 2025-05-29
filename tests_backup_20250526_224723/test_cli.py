@@ -12,7 +12,7 @@ sys.modules['agent_s3.coordinator'] = types.SimpleNamespace(Coordinator=object)
 sys.modules['agent_s3.router_agent'] = types.SimpleNamespace(RouterAgent=object)
 sys.modules['agent_s3.config'] = types.SimpleNamespace(Config=object)
 
-from agent_s3.cli import process_command
+from agent_s3.cli import process_command  # noqa: E402
 
 
 class TestCliProcessCommand(unittest.TestCase):

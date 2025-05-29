@@ -3,15 +3,12 @@ Unit tests for the debugging integration in the Coordinator class.
 """
 from unittest.mock import MagicMock
 from unittest.mock import patch
-from unittest.mock import PropertyMock
 
 import pytest
 
 from agent_s3.coordinator import Coordinator
 from agent_s3.debugging_manager import DebuggingManager
 from agent_s3.enhanced_scratchpad_manager import EnhancedScratchpadManager
-from agent_s3.enhanced_scratchpad_manager import LogLevel
-from agent_s3.enhanced_scratchpad_manager import Section
 
 @pytest.fixture
 def mock_config():
