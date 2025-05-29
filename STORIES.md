@@ -461,3 +461,39 @@ Refer to these resources for a complete understanding of the project.
    * The system generates appropriate log entries to track the resumption
 
 **Outcome:** The developer successfully resumes an interrupted task without having to start over from the beginning. All context, progress, and state information is preserved, saving time and maintaining consistency across the workflow.
+
+---
+
+## Story 8: Planning, Testing, and Deploying from the CLI
+
+**Goal:** Use standalone commands to generate a plan, run tests, debug failures, and deploy an application.
+
+**Persona:** A developer who prefers direct CLI control over individual workflow phases.
+
+**Walkthrough:**
+
+1. **Generate a plan:**
+   ```bash
+   python -m agent_s3.cli /plan "Add search feature"
+   ```
+   The command uses `CommandProcessor.execute_plan_command` to create a development plan and stores progress in `implementation_progress.json`.
+
+2. **Run tests:**
+   ```bash
+   python -m agent_s3.cli /test
+   ```
+   `execute_test_command` triggers the project's test suite via `pytest`.
+
+3. **Debug failures:**
+   ```bash
+   python -m agent_s3.cli /debug
+   ```
+   `execute_debug_command` runs automated debugging for the last failing test if available.
+
+4. **Deploy the application:**
+   ```bash
+   python -m agent_s3.cli /deploy design.txt
+   ```
+   This calls `execute_deploy_command`, which interacts with any configured deployment manager and prints the access URL on success.
+
+**Outcome:** The developer can manage planning, testing, debugging, and deployment as separate steps, matching the CLI commands implemented in `command_processor.py`.
