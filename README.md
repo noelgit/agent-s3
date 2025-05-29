@@ -279,7 +279,6 @@ This architecture enables a Copilot-like, interactive experience with immediate 
 - Required packages: `sqlalchemy` with optional adapters
   - `psycopg2-binary` for PostgreSQL
   - `pymysql` for MySQL
-  - `supabase-py` for Supabase integration
 - GitHub account and relevant tokens or app credentials
 
 ## Tree-sitter Grammar Setup
