@@ -388,12 +388,6 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   - **Scratchpad Encryption:** set `encryption_key` when `scratchpad_enable_encryption` is true. Generate the key with `Fernet.generate_key()` and provide it via `AGENT_S3_ENCRYPTION_KEY` or your config file.
   - `CLI_COMMAND_MAX_SIZE` (optional, defaults to `10000` characters)
     limits the length of `/cli` commands
-  - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` for Supabase integration
-    (the service role key is only used by the Supabase function after
-    validating organization membership)
-  - `SUPABASE_ANON_KEY` for client requests
-  - `SUPABASE_FUNCTION_NAME` (optional, defaults to `call-llm`)
-  - `use_remote_llm` (config key) to enable remote LLM usage
   - `ALLOW_INTERACTIVE_CLARIFICATION` (optional, defaults to `True`)
     enables clarifying questions during pre-planning
   - `MAX_CLARIFICATION_ROUNDS` (optional, defaults to `3`) limits pre-planning clarification exchanges
@@ -407,17 +401,6 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
     limits how many architectural patterns a system design may use to keep
     the architecture consistent
 
-  Example `.env`:
-
-```env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-SUPABASE_FUNCTION_NAME=call-llm
-ALLOW_INTERACTIVE_CLARIFICATION=True
-MAX_CLARIFICATION_ROUNDS=3
-MAX_PREPLANNING_ATTEMPTS=2
-```
 
 ### Encryption Key Management
 
@@ -528,18 +511,6 @@ python -m agent_s3.cli /deploy design.txt
 # Clear state for a task
 python -m agent_s3.cli /clear <task_id>
 ```
-
-### Remote LLM via Supabase
-Set `use_remote_llm: true` in your configuration to forward prompts to a remote Supabase service. Ensure `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set. `SUPABASE_FUNCTION_NAME` defaults to `call-llm`:
-
-```bash
-SUPABASE_URL=https://your-project.supabase.co \
-SUPABASE_ANON_KEY=your-anon-key \
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key \
-SUPABASE_FUNCTION_NAME=call-llm \
-python -m agent_s3.cli "Generate a README outline"
-```
-
 ### VS Code
 - **Initialize:** `Agent-S3: Initialize workspace`
 - **Make change:** `Agent-S3: Make change request` or click status bar
