@@ -242,7 +242,12 @@ def call_llm(
 
     return _call(llm), llm
 def cached_call_llm(prompt, llm, return_kv=False, **kwargs):
-    """Use semantic cache for LLM calls with optional remote fallback."""
+    """Use the semantic cache when invoking an LLM.
+
+    Cached results are returned immediately. New responses are stored so
+    subsequent calls with semantically similar prompts can bypass the LLM
+    service.
+    """
     method_name = kwargs.pop("method_name", "generate")
     config = kwargs.pop("config", {})
     scratchpad_manager = kwargs.pop("scratchpad_manager", None)
