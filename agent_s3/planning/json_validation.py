@@ -199,7 +199,6 @@ def _repair_test_requirements(test_requirements: Dict[str, Any]) -> Dict[str, An
 
     repaired = {
         "unit_tests": test_requirements.get("unit_tests", []),
-        "integration_tests": test_requirements.get("integration_tests", []),
         "property_based_tests": test_requirements.get("property_based_tests", []),
         "acceptance_tests": test_requirements.get("acceptance_tests", []),
         "test_strategy": test_requirements.get("test_strategy", {
@@ -278,7 +277,6 @@ def _create_default_feature_group() -> Dict[str, Any]:
             "files_affected": [],
             "test_requirements": {
                 "unit_tests": [],
-                "integration_tests": [],
                 "property_based_tests": [],
                 "acceptance_tests": [],
                 "test_strategy": {

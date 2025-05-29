@@ -76,7 +76,7 @@ The pre-planning output follows a strict JSON schema that includes:
 - Feature groups with names and descriptions
 - Features with names, descriptions, and complexity ratings
 - Implementation steps for each feature
-- Test requirements including unit tests, integration tests, and acceptance tests
+- Test requirements including unit tests and acceptance tests
 - Risk assessments including risk level, concerns, and mitigation strategies
 - System design including code elements, data flow, and key algorithms
 

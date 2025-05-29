@@ -100,21 +100,12 @@ class CodeGenerator:
         test_cases_str = ""
         if relevant_tests:
             unit_tests = relevant_tests.get("unit_tests", [])
-            integration_tests = relevant_tests.get("integration_tests", [])
             if unit_tests:
                 test_cases_str += "\n\nUnit Tests:\n"
                 for test in unit_tests:
                     test_cases_str += f"- Test: {test.get('test_name', 'unnamed')}\n"
                     if "tested_functions" in test:
                         test_cases_str += f"  Tests functions: {', '.join(test['tested_functions'])}\n"
-                    if "code" in test:
-                        test_cases_str += f"  Code:\n```python\n{test['code']}\n```\n"
-            if integration_tests:
-                test_cases_str += "\n\nIntegration Tests:\n"
-                for test in integration_tests:
-                    test_cases_str += f"- Test: {test.get('test_name', 'unnamed')}\n"
-                    if "components_involved" in test:
-                        test_cases_str += f"  Components: {', '.join(test['components_involved'])}\n"
                     if "code" in test:
                         test_cases_str += f"  Code:\n```python\n{test['code']}\n```\n"
         existing_code_str = ""
@@ -306,8 +297,5 @@ class CodeGenerator:
         relevant_tests: Dict[str, Any] = {}
         if "unit_tests" in tests:
             relevant_tests["unit_tests"] = [test for test in tests.get("unit_tests", []) if is_test_relevant(test)]
-        if "integration_tests" in tests:
-            relevant_tests["integration_tests"] = [
-                test for test in tests.get("integration_tests", []) if is_test_relevant(test)
-            ]
+        # Integration tests are no longer automatically generated
         return relevant_tests

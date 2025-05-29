@@ -107,16 +107,6 @@ CRITICAL INSTRUCTION: The final consolidated output MUST conform EXACTLY to this
       }
       // ... more unit tests
     ],
-    "integration_tests": [
-      {
-        "file": "path/to/integration_test_file.py", // Planned path
-        "test_name": "test_integration_scenario_descriptive",
-        "description": "Clear description of the integrated components and interaction being tested",
-        "code": "Complete, runnable Python code for the integration test. THIS CODE MUST BE SYNTACTICALLY VALID AND LOGICALLY CORRECT.",
-        "setup_requirements": "Setup for integrated components (e.g., mock services, database state)"
-      }
-      // ... more integration tests
-    ],
     "property_based_tests": [
       {
         "file": "path/to/property_test_file.py", // Planned path
@@ -189,7 +179,7 @@ IMPORTANT: You MUST perform the following two steps sequentially to generate the
    Using the original input feature group data (specifically its `system_design` as the initial plan for each feature, `test_requirements`, and `risk_assessment`) AND the findings from your Architecture Review (Step 1):
 
    **TEST IMPLEMENTATION (to populate the `tests` field):**
-   - Create comprehensive test implementations. These tests are based on the `test_requirements` (including `unit_tests`, `integration_tests`, `acceptance_tests`, `test_strategy` fields) and `risk_assessment` (including `critical_files`, `potential_regressions`, `required_test_characteristics` fields) from the input feature group.
+   - Create comprehensive test implementations. These tests are based on the `test_requirements` (including `unit_tests`, `acceptance_tests`, `test_strategy` fields) and `risk_assessment` (including `critical_files`, `potential_regressions`, `required_test_characteristics` fields) from the input feature group.
    - For each unit test:
      - Populate the `tested_functions` array with strings identifying the exact function(s) covered by that test, using the format "<file_path>::<function_signature>". The file_path should match the target_file of the code_element, and the function_signature should match the signature in the code_element.
      - Populate the `target_element_ids` array with the element_ids from system_design.code_elements that this test targets. This creates a direct linkage between tests and the original blueprint.

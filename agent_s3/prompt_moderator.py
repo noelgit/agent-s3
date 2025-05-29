@@ -1292,9 +1292,6 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
         else:
             print("- No unit tests")
 
-        integration_tests = tests.get("integration_tests", [])
-        if integration_tests:
-            print(f"- Integration Tests: {len(integration_tests)}")
 
         # Show implementation summary
         print("\nIMPLEMENTATION PLAN:")

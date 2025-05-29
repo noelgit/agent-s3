@@ -121,7 +121,7 @@ class WorkspaceInitializer:
             personas_path = Path(self.config.config.get("workspace_path", ".")) / "personas.md"
 
             # Fallback to hardcoded default content
-            content = """**Note:** These four personas will have a structured debate until they all agree on a final prompt for the AI coding agent. The prompt will contain a summary of the feature, a function-level step by step execution plan. It will ensure that unit and integration tests are created and executed after code generation. They should cover the happy path scenarios and corner cases. Logical consistency check fo the final feature is done.
+            content = """**Note:** These four personas will have a structured debate until they all agree on a final prompt for the AI coding agent. The prompt will contain a summary of the feature, a function-level step by step execution plan. It will ensure that unit tests are created and executed after code generation. They should cover the happy path scenarios and corner cases. Logical consistency check for the final feature is done.
 
 ## Business Development Manager
 **Background & Expertise:**
@@ -167,7 +167,7 @@ Ensure the proposed solution is **logically consistent** and covers all function
 
 **Contributions:**
 - Critically examines data flows, error‑handling paths, and concurrency concerns
-- Suggests unit/integration test cases to validate each behavior
+ - Suggests unit test cases (and optional property-based or acceptance tests) to validate each behavior
 - Verifies that every requirement is traceable to code tasks and mapped to specific files or modules
 - Validates that the plan includes both high‑level architecture and file/function‑level breakdown without full code implementations
 

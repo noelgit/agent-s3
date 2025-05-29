@@ -310,10 +310,6 @@ def validate_test_coverage_against_risk(tests: Dict[str, Any], risk_assessment: 
         error_messages.append("Risk assessment indicates edge cases, but no property-based tests found")
         is_valid = False
 
-    integration_needed = "component_interactions" in risk_assessment and risk_assessment["component_interactions"]
-    if integration_needed and not tests.get("integration_tests", []):
-        error_messages.append("Risk assessment indicates component interactions, but no integration tests found")
-        is_valid = False
 
     # Check required test characteristics if present
     required_test_characteristics = risk_assessment.get("required_test_characteristics", {})
@@ -324,8 +320,8 @@ def validate_test_coverage_against_risk(tests: Dict[str, Any], risk_assessment: 
             # For each required type, check if it exists in the tests
             missing_types = []
             for req_type in required_types:
-                # We only support the core test types: unit, integration, property-based, acceptance
-                # Security and performance tests must be represented as unit or integration tests
+                # Supported core test types: unit, property-based, acceptance
+                # Security and performance tests must be represented as unit tests
                 if req_type in ["security", "security_tests", "performance", "performance_tests"]:
                     # Map security and performance to their corresponding core types
                     if req_type.startswith("security"):

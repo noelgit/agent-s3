@@ -39,8 +39,7 @@ class TestPlanValidator:
                     ]
                 },
                 "testing_strategy": {
-                    "unit_tests": ["Test login success", "Test login failure"],
-                    "integration_tests": ["Test auth flow end-to-end"]
+                    "unit_tests": ["Test login success", "Test login failure"]
                 }
             }
         }
@@ -100,7 +99,7 @@ class TestPlanValidator:
         assert not errors
 
         # Test with invalid testing strategy (empty tests)
-        invalid_testing = {"unit_tests": [], "integration_tests": []}
+        invalid_testing = {"unit_tests": []}
         result, errors = self.validator.validate_testing_strategy(invalid_testing)
         assert result is False
         assert any("no tests specified" in error.lower() for error in errors)

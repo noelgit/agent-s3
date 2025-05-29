@@ -62,34 +62,6 @@ Your task is to implement complete, runnable test code based on refined test spe
       //   "architecture_issue_addressed": "Security concern regarding authentication validation"
       // }
     ],
-    "integration_tests": [
-      {
-        "file": "string (path to integration test file)",
-        "test_name": "string (descriptive integration test name)",
-        "description": "string (description of what this integration test verifies)",
-        "components_involved": ["string (list of components/modules interacting)"],
-        "target_element_ids": ["string (element_ids from system_design.code_elements this test validates)"],
-        "code": "string (complete, runnable integration test code)",
-        "setup_requirements": "string (environment setup needed for this test)",
-        "architecture_issue_addressed": "string (Optional: ID or description of architecture issue this test addresses)"
-      }
-      // Example:
-      // {
-      //   "file": "tests/integration/test_auth_flow.py",
-      //   "test_name": "test_login_generates_and_stores_valid_token",
-      //   "description": "Test that the login process correctly generates and stores an authentication token",
-      //   "components_involved": ["AuthService", "TokenGenerator", "UserRepository", "SessionManager"],
-      //   "target_element_ids": ["auth_service_login_function", "token_generator_create_token", "session_manager_store"],
-      //   "code": "def test_login_generates_and_stores_valid_token()
-          :\n    # Arrange\n    user = create_test_user()\n    auth_service = get_auth_service()
-          \n    session = {}\n\n    # Act\n    login_result = auth_service.login(user.username,
-           'correct_password', session)
-          \n\n    # Assert\n    assert login_result.success is True\n    assert 'token' in session\n    token = session['token']\n    decoded = jwt.decode
-          (token, verify=False)
-          \n    assert decoded['user_id'] == user.id\n    assert decoded['exp'] > time.time()",      //   "setup_requirements": "Database with test user, mock TokenGenerator for verification",
-      //   "architecture_issue_addressed": "Logical gap in token generation and session management interaction"
-      // }
-    ],
     "property_based_tests": [
       {
         "file": "string (path to property test file)",
@@ -186,9 +158,9 @@ You MUST follow these steps IN ORDER to produce valid test implementations:
      * Verify all edge cases are covered
      * **IMPORTANT:** Ensure test directly validates target_element_ids
 
-4️⃣ **IMPLEMENT INTEGRATION TESTS**
-   - For each integration test in the specifications:
-     * Create a descriptive test name reflecting the integration scenario
+4️⃣ **IMPLEMENT ACCEPTANCE TESTS**
+   - For each acceptance test in the specifications:
+    * Create a descriptive test name reflecting the integration scenario
      * Write complete test implementation including:
        - Component setup and configuration
        - Interaction execution

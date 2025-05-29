@@ -220,8 +220,6 @@ python -m pytest tests/test_file_tool_paths.py -v
 python -m pytest tests/test_deployment_manager.py -v
 python -m pytest tests/test_coordinator_*.py -v
 
-# Run integration tests
-python -m pytest system_tests/ -v
 
 # Check code coverage
 python -m pytest --cov=agent_s3 tests/

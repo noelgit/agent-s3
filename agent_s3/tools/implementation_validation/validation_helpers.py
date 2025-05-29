@@ -111,7 +111,6 @@ def extract_test_requirements(test_implementations: Dict[str, Any]) -> Dict[str,
     """
     test_requirements = {
         "unit_tests": [],
-        "integration_tests": [],
         "acceptance_tests": [],
         "edge_cases": [],
         "error_scenarios": []
@@ -418,7 +417,7 @@ def _parse_test_content_for_requirements(
         if any(keyword in test_name.lower() for keyword in ['unit', 'single', 'isolated']):
             test_type = 'unit_tests'
         elif any(keyword in test_name.lower() for keyword in ['integration', 'combined', 'workflow']):
-            test_type = 'integration_tests'
+            test_type = 'acceptance_tests'
         elif any(keyword in test_name.lower() for keyword in ['acceptance', 'end_to_end', 'e2e']):
             test_type = 'acceptance_tests'
         elif any(keyword in test_name.lower() for keyword in ['edge', 'boundary', 'limit']):

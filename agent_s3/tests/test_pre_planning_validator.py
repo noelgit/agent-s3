@@ -43,12 +43,7 @@ class TestPrePlanningValidator(unittest.TestCase):
                                         "implementation_step_id": "s2",
                                     }
                                 ],
-                                "integration_tests": [
-                                    {
-                                        "description": "auth flow",
-                                        "implementation_step_id": "s3",
-                                    }
-                                ]
+                                "integration_tests": []
                             }
                         }
                     ]

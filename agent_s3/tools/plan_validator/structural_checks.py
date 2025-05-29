@@ -103,7 +103,6 @@ def validate_schema(data: Dict[str, Any]) -> List[str]:
                 # Define expected test types and their structure
                 expected_test_types = {
                     "unit_tests": {"item_type": dict, "fields": {"description": str, "target_element": str}},
-                    "integration_tests": {"item_type": dict, "fields": {"description": str}}, # Assuming description only
                     "property_based_tests": {"item_type": dict, "fields": {"description": str, "target_element": str}},
                     "acceptance_tests": {"item_type": dict, "fields": {"given": str, "when": str, "then": str}}
                 }
@@ -686,9 +685,8 @@ def validate_stub_test_coherence(data: Dict[str, Any], *, error_limit: int | Non
 
             test_types_to_check = {
                 "unit_tests": "unit_tests",
-                "integration_tests": "integration_tests", # Assuming these might also have tested_functions
                 "property_based_tests": "property_based_tests",
-                "acceptance_tests": "acceptance_tests" # And these
+                "acceptance_tests": "acceptance_tests"
             }
 
             for test_key_in_req, display_name in test_types_to_check.items():

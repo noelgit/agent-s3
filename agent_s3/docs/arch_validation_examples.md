@@ -61,14 +61,6 @@ test_specs = {
             "priority": "Medium"  # This is incorrect - should be Critical
         }
     ],
-    "integration_tests": [
-        {
-            "description": "Test secure cookie configuration",
-            "target_element_ids": ["auth_service"],
-            "architecture_issue_addressed": "SEC-2",
-            "priority": "High"  # This is correct
-        }
-    ]
 }
 
 # Example architecture review

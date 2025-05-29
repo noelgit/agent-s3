@@ -140,12 +140,6 @@ class ContextRegistry:
         logger.warning("No provider found for suggest_unit_tests")
         return []
 
-    def suggest_integration_tests(self, code_element: Dict[str, Any]) -> List[str]:
-        for provider in self._providers.values():
-            if isinstance(provider, TestContextProvider) and hasattr(provider, "suggest_integration_tests"):
-                return provider.suggest_integration_tests(code_element)
-        logger.warning("No provider found for suggest_integration_tests")
-        return []
 
     def get_test_framework_dependencies(self, test_type: str, language: str) -> Dict[str, bool]:
         for provider in self._providers.values():

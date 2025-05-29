@@ -104,10 +104,6 @@ class TestContextProvider(ContextProvider):
         """Generates basic unit test ideas based on a code element."""
         ...
 
-    @abstractmethod
-    def suggest_integration_tests(self, code_element: Dict[str, Any]) -> List[str]:
-        """Generates basic integration test ideas based on a code element."""
-        ...
 
     @abstractmethod
     def get_test_framework_dependencies(self, test_type: str, language: str) -> Dict[str, bool]:
