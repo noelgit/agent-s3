@@ -117,7 +117,7 @@ For troubleshooting, consider these common issues and solutions:
 
 ## Tech Stack Best Practices
 
-### TypeScript
+### JavaScript
 - Follow best practices for this technology
 - Apply proper structure and patterns
 - Implement appropriate error handling
@@ -127,7 +127,12 @@ For troubleshooting, consider these common issues and solutions:
 - Apply proper structure and patterns
 - Implement appropriate error handling
 
-### JavaScript
+### TypeScript
+- Follow best practices for this technology
+- Apply proper structure and patterns
+- Implement appropriate error handling
+
+### react
 - Follow best practices for this technology
 - Apply proper structure and patterns
 - Implement appropriate error handling
@@ -138,11 +143,6 @@ For troubleshooting, consider these common issues and solutions:
 - Implement appropriate error handling
 
 ### fastapi
-- Follow best practices for this technology
-- Apply proper structure and patterns
-- Implement appropriate error handling
-
-### react
 - Follow best practices for this technology
 - Apply proper structure and patterns
 - Implement appropriate error handling
