@@ -258,7 +258,7 @@ class TestEnhancedWebSocketServer(unittest.TestCase):
 
         # Create a connection handler task
         handler_task = asyncio.create_task(
-            self.server._handle_client(mock_websocket, "/")
+            self.server._handle_client(mock_websocket)
         )
 
         # Wait a short time for the connection setup
@@ -284,7 +284,7 @@ class TestEnhancedWebSocketServer(unittest.TestCase):
 
         # Create a connection handler task for error testing
         handler_task = asyncio.create_task(
-            self.server._handle_client(mock_websocket, "/")
+            self.server._handle_client(mock_websocket)
         )
 
         # Wait a short time for the error to be processed
@@ -320,7 +320,7 @@ class TestEnhancedWebSocketServer(unittest.TestCase):
         mock_websocket.__aiter__.return_value = message_gen()
 
         handler_task = asyncio.create_task(
-            self.server._handle_client(mock_websocket, "/")
+            self.server._handle_client(mock_websocket)
         )
 
         await asyncio.sleep(0.1)
@@ -356,7 +356,7 @@ class TestEnhancedWebSocketServer(unittest.TestCase):
         mock_websocket.__aiter__.return_value = message_gen()
 
         handler_task = asyncio.create_task(
-            small_server._handle_client(mock_websocket, "/")
+            small_server._handle_client(mock_websocket)
         )
 
         await asyncio.sleep(0.1)
