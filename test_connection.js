@@ -1,33 +1,76 @@
+#!/usr/bin/env node
 const WebSocket = require('ws');
+const fs = require('fs');
 
-const ws = new WebSocket('ws://localhost:8765');
-
-ws.on('open', function open() {
-  console.log('Connected to WebSocket server');
-  
-  // Send authentication
-  ws.send(JSON.stringify({
-    type: 'authentication',
-    content: {
-      token: 'test-token-123'
+async function testConnection() {
+    try {
+        // Read connection config
+        const config = JSON.parse(fs.readFileSync('.agent_s3_ws_connection.json', 'utf8'));
+        console.log('📡 Connection config:', config);
+        
+        const ws = new WebSocket(`ws://${config.host}:${config.port}`);
+        
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error('Connection timeout'));
+            }, 10000);
+            
+            ws.on('open', () => {
+                console.log('✅ Connected to WebSocket server');
+                
+                // Authenticate
+                ws.send(JSON.stringify({
+                    type: "auth",
+                    content: { token: config.auth_token }
+                }));
+            });
+            
+            ws.on('message', (data) => {
+                const message = JSON.parse(data.toString());
+                console.log('📨 Received:', message.type);
+                
+                if (message.type === 'connection_established') {
+                    console.log('🔐 Authentication successful');
+                    
+                    // Test /help command
+                    ws.send(JSON.stringify({
+                        type: "command",
+                        content: {
+                            command: "/help",
+                            args: "",
+                            request_id: `test-${Date.now()}`
+                        }
+                    }));
+                } else if (message.type === 'command_result') {
+                    console.log('🎯 Command result received:');
+                    console.log(message.content.result);
+                    clearTimeout(timeout);
+                    ws.close();
+                    resolve(true);
+                }
+            });
+            
+            ws.on('error', (error) => {
+                clearTimeout(timeout);
+                reject(error);
+            });
+            
+            ws.on('close', () => {
+                console.log('🔌 Connection closed');
+            });
+        });
+    } catch (error) {
+        console.error('❌ Test failed:', error.message);
+        return false;
     }
-  }));
-});
+}
 
-ws.on('message', function message(data) {
-  console.log('Received:', data.toString());
-});
-
-ws.on('close', function close() {
-  console.log('Disconnected from WebSocket server');
-});
-
-ws.on('error', function error(err) {
-  console.log('WebSocket error:', err);
-});
-
-// Keep connection alive for a few seconds
-setTimeout(() => {
-  console.log('Closing connection...');
-  ws.close();
-}, 5000);
+testConnection()
+    .then(() => {
+        console.log('\n🎉 Connection test PASSED!');
+        process.exit(0);
+    })
+    .catch((error) => {
+        console.error('\n💥 Connection test FAILED:', error.message);
+        process.exit(1);
+    });

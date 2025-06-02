@@ -124,6 +124,8 @@ export class WebSocketClient implements vscode.Disposable {
       if (!config) {
         console.error("Failed to read connection configuration");
         this.connectionState = ConnectionState.ERROR;
+        // Show user notification
+        vscode.window.showErrorMessage("Agent-S3: Connection file not found. Please start the backend server first.");
         return false;
       }
 
@@ -353,6 +355,9 @@ export class WebSocketClient implements vscode.Disposable {
   private handleError(error: Error) {
     console.error("WebSocket error:", error);
     this.connectionState = ConnectionState.ERROR;
+    
+    // Show user notification for connection errors
+    vscode.window.showErrorMessage(`Agent-S3: WebSocket connection error: ${error.message}`);
   }
 
   /**

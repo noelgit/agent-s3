@@ -1,6 +1,0 @@
-{
-  "host": "localhost",
-  "port": 8765,
-  "auth_token": "test-token-123",
-  "protocol": "ws"
-}

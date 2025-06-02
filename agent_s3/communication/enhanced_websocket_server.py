@@ -656,11 +656,12 @@ class EnhancedWebSocketServer:
         except Exception as e:
             logger.error(f"Error in user input handler: {e}")
 
-    async def _handle_client(self, websocket: websockets.WebSocketServerProtocol):
+    async def _handle_client(self, websocket: websockets.WebSocketServerProtocol, path: str):
         """Handle a client connection.
 
         Args:
             websocket: The WebSocket connection
+            path: The connection path
         """
         client_id = str(uuid.uuid4())
         self.clients[client_id] = websocket
@@ -1151,13 +1152,8 @@ class EnhancedWebSocketServer:
     async def start(self):
         """Start the WebSocket server."""
         serve_host = None if self.host and self.host.lower() == "localhost" else self.host
-        
-        # Create wrapper for new websockets library
-        async def connection_handler(websocket):
-            return await self._handle_client(websocket)
-        
         self.server = await websockets.serve(
-            connection_handler,
+            self._handle_client,
             serve_host,  # Use None to listen on all interfaces if original host was 'localhost'
             self.port,
             ping_interval=self.heartbeat_interval,
@@ -1591,7 +1587,7 @@ class EnhancedWebSocketServer:
         try:
             # Define connection handler with new websockets 15.x signature (no path parameter)
             async def connection_handler(websocket: websockets.WebSocketServerProtocol):
-                return await self._handle_client(websocket)
+                return await self._handle_client(websocket, "")
             
             server_coro = websockets.serve(
                 connection_handler,

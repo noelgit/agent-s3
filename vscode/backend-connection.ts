@@ -333,6 +333,11 @@ export class BackendConnection implements vscode.Disposable {
    */
   private handleCommandResult(message: any): void {
     console.log('BackendConnection handleCommandResult received:', message);
+    
+    // Show a VS Code notification to confirm the message was received
+    const commandResult = message.content?.result || 'Command executed';
+    vscode.window.showInformationMessage(`Agent-S3 Command Result: ${commandResult.substring(0, 100)}...`);
+    
     // Forward command result to webview if available
     if (this.interactiveWebviewManager) {
       const webviewMessage = {

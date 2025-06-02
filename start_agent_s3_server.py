@@ -23,7 +23,7 @@ from agent_s3.coordinator import Coordinator
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def create_connection_file(host="localhost", port=8765, auth_token="agent-s3-dev-token"):
+def create_connection_file(host="localhost", port=8080, auth_token="agent-s3-dev-token"):
     """Create the connection file needed by the VS Code extension."""
     connection_file = Path(".agent_s3_ws_connection.json")
     
@@ -46,7 +46,7 @@ def main():
     
     # Configuration
     host = "localhost"
-    port = 8765
+    port = 8080
     auth_token = "agent-s3-dev-token"
     
     try:
