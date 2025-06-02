@@ -13,6 +13,12 @@ from typing import Dict, Any, Optional, Tuple, List
 
 import jsonschema
 
+# Export public functions for testing
+__all__ = [
+    '_load_llm_config',  # Export for testing
+    '_validate_entry',   # Export for testing
+]
+
 logger = logging.getLogger(__name__)
 
 # Maximum number of characters from LLM responses to include in log messages

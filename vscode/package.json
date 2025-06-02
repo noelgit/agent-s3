@@ -1,9 +1,9 @@
 {
   "name": "agent-s3",
   "displayName": "Agent-S3",
-  "description": "AI coding agent with GitHub issue tracking. See top-level README.md for latest features.",
+  "description": "Engineer-in-the-loop AI coding agent with real-time streaming UI, WebSocket communication, comprehensive validation, GitHub integration, and interactive development workflows. Features semantic caching, multi-LLM orchestration, test-driven development, and engineer-controlled planning.",
   "version": "0.1.0",
-  "publisher": "sparksoft-solutions-inc",
+  "publisher": "sparksoft-solutions",
   "icon": "logo.png",
   "documentation": "../../README.md",
   "engines": {
@@ -119,7 +119,7 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile && npm run build-webview",
+    "vscode:prepublish": "npm install && npm run compile && npm run build-webview",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "typecheck": "tsc --noEmit",

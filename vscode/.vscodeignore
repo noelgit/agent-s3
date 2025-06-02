@@ -19,9 +19,10 @@ webview-ui/tsconfig.json
 # Keep only the built webview-ui
 !webview-ui/build/**
 
-# Node.js dependencies (will be bundled separately)
+# Node.js dependencies (include only ws module)
 node_modules/**
 **/node_modules/**
+!node_modules/ws/**
 
 # Logs and temp files
 *.log

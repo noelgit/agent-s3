@@ -1,14 +1,13 @@
-// Simple WebSocket server for testing the VS Code extension WebSocket integration
+// Simple WebSocket server for testing on port 8765
 const WebSocket = require("ws");
 const fs = require("fs");
 const path = require("path");
 
 // Configuration
-const PORT = 8080;
-// Authentication token used by clients. Set TEST_WS_TOKEN=mytoken when starting the server.
-const AUTH_TOKEN = process.env.TEST_WS_TOKEN || "replace-me";
+const PORT = 8765;
+const AUTH_TOKEN = "test-token-8765";
 
-console.log("Starting WebSocket test server...");
+console.log("Starting WebSocket server on port 8765...");
 
 // Create WebSocket server
 const wss = new WebSocket.Server({ port: PORT });
@@ -24,7 +23,6 @@ const createConnectionFile = () => {
 
   const filePath = path.join(process.cwd(), ".agent_s3_ws_connection.json");
   fs.writeFileSync(filePath, JSON.stringify(config, null, 2));
-
   console.log(`Created connection file at: ${filePath}`);
 };
 
@@ -75,7 +73,11 @@ wss.on("connection", (ws) => {
       } else {
         // Echo back the message for testing
         console.log("[SERVER] Echoing message");
-        ws.send(message.toString());
+        ws.send(JSON.stringify({
+          type: "echo",
+          original: data,
+          timestamp: new Date().toISOString()
+        }));
       }
     } catch (err) {
       console.error("[SERVER] Error processing message:", err);
@@ -86,9 +88,30 @@ wss.on("connection", (ws) => {
   ws.on("close", () => {
     console.log("[SERVER] Client disconnected");
   });
+
+  // Handle errors
+  ws.on("error", (error) => {
+    console.error("[SERVER] WebSocket error:", error);
+  });
 });
 
-// Create the connection file on startup
-createConnectionFile();
+// Handle server events
+wss.on("listening", () => {
+  console.log(`[SERVER] WebSocket server started on port ${PORT}`);
+  createConnectionFile();
+});
 
-console.log(`WebSocket test server running on port ${PORT}`);
+wss.on("error", (error) => {
+  console.error("[SERVER] Server error:", error);
+});
+
+// Handle process termination
+process.on('SIGINT', () => {
+  console.log('\n[SERVER] Shutting down gracefully...');
+  wss.close(() => {
+    console.log('[SERVER] Server closed');
+    process.exit(0);
+  });
+});
+
+console.log(`[SERVER] Starting WebSocket test server on port ${PORT}...`);

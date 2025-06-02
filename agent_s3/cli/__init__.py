@@ -220,31 +220,29 @@ def main() -> None:
         display_help()
         return
 
-    # Initialize a coordinator (basic, without auth first)
-    coordinator = Coordinator(config)
-    logger.debug("Coordinator initialized for command/prompt.")
+    # Determine if we need authentication for this operation
+    github_token = None
+    if not prompt_string.startswith("/"):
+        # For bare prompts (non-commands), we need authentication
+        github_token = os.getenv("GITHUB_TOKEN")
+        if not github_token:
+            # Import here to avoid circular imports if not already done by other paths
+            from agent_s3.auth import authenticate_user
+            logger.info("GitHub token not found. Attempting interactive authentication for prompt processing.")
+            github_token = authenticate_user()
+            if not github_token:
+                print("Authentication required for prompt processing and was not successful. Set GITHUB_TOKEN or authenticate via /init.")
+                sys.exit(1)
+            logger.info("Interactive authentication successful.")
+
+    # Initialize coordinator once with appropriate configuration
+    coordinator = Coordinator(config, github_token=github_token)
+    logger.debug(f"Coordinator initialized {'with authentication' if github_token else 'without authentication'}.")
 
     # Process special commands
     if prompt_string.startswith("/"):
         process_command(coordinator, prompt_string)
         return
-
-    # Authenticate the user if needed for bare prompts
-    github_token = os.getenv("GITHUB_TOKEN")
-    if not github_token:
-        # Import here to avoid circular imports if not already done by other paths
-        from agent_s3.auth import authenticate_user
-        logger.info("GitHub token not found. Attempting interactive authentication for prompt processing.")
-        github_token = authenticate_user()
-        if not github_token:
-            print("Authentication required for prompt processing and was not successful. Set GITHUB_TOKEN or authenticate via /init.")
-            sys.exit(1)
-        logger.info("Interactive authentication successful.")
-
-    # Re-initialize coordinator with authentication for prompt processing
-    # This follows the original pattern of re-initializing/replacing the coordinator instance
-    coordinator = Coordinator(config, github_token=github_token)
-    logger.debug("Coordinator re-initialized with authentication for prompt processing.")
 
     # Route bare-text prompt through RouterAgent (orchestrator)
     router = RouterAgent()

@@ -82,5 +82,4 @@ coverage>=7.0.0
 line-profiler>=4.0.0
 
 # Security scanning
-safety>=2.3.0
 bandit>=1.7.0

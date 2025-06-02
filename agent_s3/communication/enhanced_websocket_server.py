@@ -51,7 +51,7 @@ class EnhancedWebSocketServer:
         """
         self.host = host
         self.port = port
-        self.auth_token = auth_token or str(uuid.uuid4())
+        self.auth_token = auth_token  # Don't auto-generate token
         self.heartbeat_interval = heartbeat_interval
         env_size = os.getenv("WEBSOCKET_MAX_MESSAGE_SIZE")
         self.max_message_size = (
@@ -94,6 +94,9 @@ class EnhancedWebSocketServer:
 
         # Register handlers
         self._register_handlers()
+        
+        # Coordinator reference for command processing
+        self.coordinator = None
 
     def _register_handlers(self):
         """Register message handlers for the message bus."""
@@ -143,6 +146,14 @@ class EnhancedWebSocketServer:
                                           self._handle_workflow_control)
         self.message_bus.register_handler(MessageType.WORKFLOW_STATUS,
                                           self._handle_workflow_status)
+
+        # Command handler
+        self.message_bus.register_handler(MessageType.COMMAND,
+                                          self._handle_command)
+        
+        # User input handler
+        self.message_bus.register_handler(MessageType.USER_INPUT,
+                                          self._handle_user_input)
 
     def _handle_terminal_output(self, message: Message):
         """Handle terminal output messages.
@@ -508,15 +519,148 @@ class EnhancedWebSocketServer:
         # Broadcast status to all clients
         asyncio.create_task(self.broadcast_message(message))
 
-    async def _handle_client(
-            self,
-            websocket: websockets.WebSocketServerProtocol,
-            path: str):
+    def _handle_command(self, message: Message):
+        """Handle command messages from VS Code extension.
+
+        Args:
+            message: The message containing the command to execute
+        """
+        try:
+            content = message.content
+            command = content.get("command", "").strip()
+            args = content.get("args", "").strip()
+            request_id = content.get("request_id", str(uuid.uuid4()))
+
+            logger.info(f"Processing command: {command} {args}")
+
+            # Combine command and args for processing
+            full_command = f"{command} {args}".strip()
+            
+            # Get coordinator reference
+            coordinator = self.coordinator
+            if not coordinator:
+                # Try to get coordinator from registry or other sources
+                logger.error("No coordinator available for command processing")
+                self._send_command_error(request_id, "No coordinator available")
+                return
+            
+            logger.info(f"Coordinator found: {type(coordinator)}, executing command: {full_command}")
+
+            # Process the command using the coordinator's command processor
+            try:
+                if not hasattr(coordinator, 'command_processor'):
+                    from agent_s3.command_processor import CommandProcessor
+                    coordinator.command_processor = CommandProcessor(coordinator)
+
+                # Process the command
+                logger.info(f"Calling coordinator.command_processor.process_command({full_command})")
+                result = coordinator.command_processor.process_command(full_command)
+                logger.info(f"Command execution result: {result}")
+                
+                # Send result back to client
+                logger.info(f"Sending command result back to client for request_id: {request_id}")
+                self._send_command_result(request_id, command, result)
+                logger.info(f"Command result sent successfully")
+                
+            except Exception as e:
+                logger.error(f"Error processing command '{full_command}': {e}")
+                logger.error(f"Exception traceback: {e}", exc_info=True)
+                self._send_command_error(request_id, f"Command execution failed: {str(e)}")
+
+        except Exception as e:
+            logger.error(f"Error in command handler: {e}")
+            self._send_command_error(message.content.get("request_id", "unknown"), 
+                                   f"Command handler error: {str(e)}")
+
+    def _send_command_result(self, request_id: str, command: str, result: str):
+        """Send command result back to all clients."""
+        logger.info(f"Creating command result message for request_id: {request_id}")
+        response_message = Message(
+            type=MessageType.COMMAND_RESULT,
+            content={
+                "request_id": request_id,
+                "command": command,
+                "result": result,
+                "success": True
+            }
+        )
+        logger.info(f"Broadcasting command result message: {response_message.type}")
+        asyncio.create_task(self.broadcast_message(response_message, authenticated_only=False))
+
+    def _send_command_error(self, request_id: str, error: str):
+        """Send command error back to all clients."""
+        response_message = Message(
+            type=MessageType.COMMAND_RESULT,
+            content={
+                "request_id": request_id,
+                "result": error,
+                "success": False,
+                "error": error
+            }
+        )
+        asyncio.create_task(self.broadcast_message(response_message, authenticated_only=False))
+
+    def _handle_user_input(self, message: Message):
+        """Handle user input messages for chat processing.
+        
+        Args:
+            message: The message containing user input
+        """
+        try:
+            content = message.content
+            user_text = content.get("text", "").strip()
+            
+            if not user_text:
+                logger.warning("Received empty user input")
+                return
+            
+            logger.info(f"Processing user input: {user_text}")
+            
+            # Get coordinator reference
+            coordinator = self.coordinator
+            if not coordinator:
+                logger.warning("No coordinator available for user input processing")
+                # Send error notification to clients
+                error_message = Message(
+                    type=MessageType.ERROR_NOTIFICATION,
+                    content={"error": "No coordinator available for processing user input"}
+                )
+                asyncio.create_task(self.broadcast_message(error_message))
+                return
+            
+            try:
+                # Process user input through the coordinator
+                # This should trigger the coordinator's chat processing and generate streaming responses
+                if hasattr(coordinator, 'process_user_input'):
+                    # Use dedicated user input method if available
+                    coordinator.process_user_input(user_text)
+                elif hasattr(coordinator, 'run_task'):
+                    # Fallback to run_task method
+                    coordinator.run_task(user_text)
+                else:
+                    logger.error("Coordinator does not have a method to process user input")
+                    error_message = Message(
+                        type=MessageType.ERROR_NOTIFICATION,
+                        content={"error": "Coordinator cannot process user input"}
+                    )
+                    asyncio.create_task(self.broadcast_message(error_message))
+                
+            except Exception as e:
+                logger.error(f"Error processing user input '{user_text}': {e}")
+                error_message = Message(
+                    type=MessageType.ERROR_NOTIFICATION,
+                    content={"error": f"User input processing failed: {str(e)}"}
+                )
+                asyncio.create_task(self.broadcast_message(error_message))
+                
+        except Exception as e:
+            logger.error(f"Error in user input handler: {e}")
+
+    async def _handle_client(self, websocket: websockets.WebSocketServerProtocol):
         """Handle a client connection.
 
         Args:
             websocket: The WebSocket connection
-            path: The connection path
         """
         client_id = str(uuid.uuid4())
         self.clients[client_id] = websocket
@@ -653,6 +797,21 @@ class EnhancedWebSocketServer:
                         # Convert to Message object and publish to bus
                         message = Message.from_dict(message_dict)
                         self.message_bus.publish(message)
+                        continue
+
+                    # Handle command messages
+                    if message_type == "command":
+                        # Convert to Message object and publish to bus for processing
+                        message = Message.from_dict(message_dict)
+                        self.message_bus.publish(message)
+                        continue
+
+                    # Handle user input messages
+                    if message_type == "user_input":
+                        # Convert to Message object and publish to bus for processing
+                        message = Message.from_dict(message_dict)
+                        self.message_bus.publish(message)
+                        continue
 
                 except json.JSONDecodeError:
                     logger.error("%s", f"Invalid JSON from client {client_id}")
@@ -992,8 +1151,13 @@ class EnhancedWebSocketServer:
     async def start(self):
         """Start the WebSocket server."""
         serve_host = None if self.host and self.host.lower() == "localhost" else self.host
+        
+        # Create wrapper for new websockets library
+        async def connection_handler(websocket):
+            return await self._handle_client(websocket)
+        
         self.server = await websockets.serve(
-            self._handle_client,
+            connection_handler,
             serve_host,  # Use None to listen on all interfaces if original host was 'localhost'
             self.port,
             ping_interval=self.heartbeat_interval,
@@ -1102,10 +1266,7 @@ class EnhancedWebSocketServer:
         logger.info("Executing _shutdown_server_async.")
         await self.stop()  # Call the main async stop method
 
-    async def _connection_handler(
-            self,
-            websocket: websockets.WebSocketServerProtocol,
-            path: str):
+    async def _connection_handler(self, websocket: websockets.WebSocketServerProtocol, path: str):
         """Handle new client connections, authentication, and message routing."""
         client_id = str(uuid.uuid4())
         self.clients[client_id] = websocket
@@ -1428,8 +1589,12 @@ class EnhancedWebSocketServer:
         # runs
 
         try:
+            # Define connection handler with new websockets 15.x signature (no path parameter)
+            async def connection_handler(websocket: websockets.WebSocketServerProtocol):
+                return await self._handle_client(websocket)
+            
             server_coro = websockets.serve(
-                self._connection_handler,
+                connection_handler,
                 serve_host,
                 self.port,
                 ping_interval=self.heartbeat_interval,

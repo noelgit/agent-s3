@@ -9,6 +9,7 @@
     "lint:fix": "eslint . --ext .js,.ts,.tsx --fix",
     "test": "jest",
     "test-websocket": "node test-websocket.js",
+    "start-websocket-server": "node websocket-server-8765.js",
     "build": "tsc",
     "dev": "tsc --watch"
   },

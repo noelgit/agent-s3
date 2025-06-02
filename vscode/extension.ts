@@ -134,45 +134,68 @@ export function activate(context: vscode.ExtensionContext): void {
    * Initialize workspace for Agent-S3
    */
   function initializeWorkspace() {
-    // Get the Agent-S3 terminal
-    const terminal = getAgentTerminal();
-
-    // Show the terminal
-    terminal.show();
-
-    // Send initialization command
-    terminal.sendText("python -m agent_s3.cli /init");
-
-    // Show notification
-    vscode.window.showInformationMessage("Initializing Agent-S3 workspace...");
+    // Send command through WebSocket if connected
+    if (backendConnection.isConnected()) {
+      backendConnection.sendMessage({
+        type: "command",
+        content: {
+          command: "/init",
+          args: "",
+          request_id: `init-${Date.now()}`
+        }
+      });
+      vscode.window.showInformationMessage("Initializing Agent-S3 workspace...");
+    } else {
+      // Fallback to terminal
+      const terminal = getAgentTerminal();
+      terminal.show();
+      terminal.sendText("python -m agent_s3.cli /init");
+      vscode.window.showInformationMessage("Initializing Agent-S3 workspace... (fallback mode)");
+    }
   }
 
   /**
    * Show help information
    */
   function showHelp() {
-    // Get the Agent-S3 terminal
-    const terminal = getAgentTerminal();
-
-    // Show the terminal
-    terminal.show();
-
-    // Send help command
-    terminal.sendText("python -m agent_s3.cli /help");
+    // Send command through WebSocket if connected
+    if (backendConnection.isConnected()) {
+      backendConnection.sendMessage({
+        type: "command",
+        content: {
+          command: "/help",
+          args: "",
+          request_id: `help-${Date.now()}`
+        }
+      });
+    } else {
+      // Fallback to terminal
+      const terminal = getAgentTerminal();
+      terminal.show();
+      terminal.sendText("python -m agent_s3.cli /help");
+    }
   }
 
   /**
    * Show coding guidelines
    */
   function showGuidelines() {
-    // Get the Agent-S3 terminal
-    const terminal = getAgentTerminal();
-
-    // Show the terminal
-    terminal.show();
-
-    // Send guidelines command
-    terminal.sendText("python -m agent_s3.cli /guidelines");
+    // Send command through WebSocket if connected
+    if (backendConnection.isConnected()) {
+      backendConnection.sendMessage({
+        type: "command",
+        content: {
+          command: "/guidelines",
+          args: "",
+          request_id: `guidelines-${Date.now()}`
+        }
+      });
+    } else {
+      // Fallback to terminal
+      const terminal = getAgentTerminal();
+      terminal.show();
+      terminal.sendText("python -m agent_s3.cli /guidelines");
+    }
   }
 
   /**
@@ -186,20 +209,25 @@ export function activate(context: vscode.ExtensionContext): void {
     });
 
     if (request) {
-      // Get the Agent-S3 terminal
-      const terminal = getAgentTerminal();
-
-      // Show the terminal
-      terminal.show();
-
-      // Quote the request to prevent shell injection
-      const safeRequest = quote([request]);
-
-      // Send the request to the CLI
-      terminal.sendText(`python -m agent_s3.cli ${safeRequest}`);
-
-      // Show notification
-      vscode.window.showInformationMessage(`Processing request: ${request}`);
+      // Send command through WebSocket if connected
+      if (backendConnection.isConnected()) {
+        backendConnection.sendMessage({
+          type: "command",
+          content: {
+            command: request,
+            args: "",
+            request_id: `request-${Date.now()}`
+          }
+        });
+        vscode.window.showInformationMessage(`Processing request: ${request}`);
+      } else {
+        // Fallback to terminal
+        const terminal = getAgentTerminal();
+        terminal.show();
+        const safeRequest = quote([request]);
+        terminal.sendText(`python -m agent_s3.cli ${safeRequest}`);
+        vscode.window.showInformationMessage(`Processing request: ${request} (fallback mode)`);
+      }
     }
   }
 
@@ -304,7 +332,31 @@ export function activate(context: vscode.ExtensionContext): void {
             break;
           }
 
-          // Record the user message in history
+          // Check if this is a command (starts with /)
+          if (message.text.startsWith('/')) {
+            // Parse command and args
+            const parts = message.text.trim().split(' ');
+            const command = parts[0];
+            const args = parts.slice(1).join(' ');
+            
+            // Send as command message
+            backendConnection.sendMessage({
+              type: "command",
+              content: {
+                command: command,
+                args: args,
+                request_id: `chat-${Date.now()}`
+              }
+            });
+          } else {
+            // Regular user input - send as user_input message
+            backendConnection.sendMessage({
+              type: "user_input",
+              content: { text: message.text },
+            });
+          }
+
+          // Record the user message in history regardless of type
           messageHistory.push({
             id: `user-${Date.now()}`,
             type: "user",
@@ -325,12 +377,6 @@ export function activate(context: vscode.ExtensionContext): void {
             CHAT_HISTORY_KEY,
             serializedHistory,
           );
-
-          // Forward the message to the backend for processing
-          backendConnection.sendMessage({
-            type: "user_input",
-            content: { text: message.text },
-          });
           break;
         }
 

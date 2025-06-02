@@ -8,7 +8,7 @@
     "marked": "^4.3.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-scripts": "^3.0.1"
+    "react-scripts": "^5.0.1"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -36,6 +36,7 @@
   },
   "devDependencies": {
     "@types/dompurify": "^3.0.2",
+    "@types/marked": "^5.0.2",
     "@types/node": "^16.18.11",
     "@types/react": "^18.3.21",
     "@types/react-dom": "^18.3.7",

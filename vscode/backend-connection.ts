@@ -134,6 +134,10 @@ export class BackendConnection implements vscode.Disposable {
       "notification",
       this.handleNotification.bind(this),
     );
+    this.webSocketClient.registerMessageHandler(
+      "command_result",
+      this.handleCommandResult.bind(this),
+    );
   }
 
   /**
@@ -321,6 +325,44 @@ export class BackendConnection implements vscode.Disposable {
           category: category,
         },
       });
+    }
+  }
+
+  /**
+   * Handle command result messages
+   */
+  private handleCommandResult(message: any): void {
+    console.log('BackendConnection handleCommandResult received:', message);
+    // Forward command result to webview if available
+    if (this.interactiveWebviewManager) {
+      const webviewMessage = {
+        type: "COMMAND_RESULT",
+        content: message.content,
+      };
+      console.log('BackendConnection forwarding to webview:', webviewMessage);
+      this.interactiveWebviewManager.postMessage(webviewMessage);
+      
+      // Also try posting directly to ensure it gets through
+      const directMessage = {
+        type: "CHAT_MESSAGE",
+        id: `command-result-${Date.now()}`,
+        content: {
+          source: 'agent',
+          text: message.content?.result || 'Command executed'
+        }
+      };
+      console.log('BackendConnection also sending as CHAT_MESSAGE:', directMessage);
+      this.interactiveWebviewManager.postMessage(directMessage);
+    }
+
+    // Also log to output channel
+    const result = message.content?.result || "";
+    const success = message.content?.success || false;
+    const command = message.content?.command || "";
+    
+    this.outputChannel.appendLine(`[COMMAND ${success ? 'SUCCESS' : 'FAILED'}] ${command}`);
+    if (result) {
+      this.outputChannel.appendLine(result);
     }
   }
 

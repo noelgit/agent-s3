@@ -4,19 +4,23 @@
 
 Agent-S3 is a comprehensive AI coding agent system consisting of multiple integrated components that work together to provide intelligent code generation, planning, and deployment capabilities. This manual provides step-by-step instructions for building, packaging, and deploying the complete system.
 
+**Production-Ready**: This manual includes troubleshooting for common production startup issues, including WebSocket server initialization and tech stack detection hanging problems that have been resolved in the current version.
+
 ## System Architecture
 
 The Agent-S3 system consists of:
 
-1. **Core Python Package** (`agent_s3/`) - Main AI agent backend
+1. **Core Python Package** (`agent_s3/`) - Main AI agent backend with adaptive configuration
 2. **VS Code Extension** (`vscode/`) - IDE integration
 3. **Webview UI** (`vscode/webview-ui/`) - React-based frontend
 4. **Deployment Manager** - Built-in application deployment capabilities
+5. **Adaptive Configuration System** - Dynamic configuration optimization and management
+6. **Context Management** - Intelligent context processing with embeddings and search
 
 ## Prerequisites
 
 ### Required Software
-- **Python 3.10+** (Required for agent_s3 package)
+- **Python 3.10+** (Required for agent_s3 package and Pydantic v2 compatibility)
 - **Node.js 16+** (Required for VS Code extension and webview UI)
 - **npm or yarn** (Package management)
 - **Git** (Version control)
@@ -24,7 +28,7 @@ The Agent-S3 system consists of:
 
 ### Required Accounts/Services
 - **GitHub Account** (For repository access and integration features)
-- **LLM API Keys** (OpenAI, Anthropic, or other supported providers)
+- **LLM API Keys** (OpenAI, Anthropic, or other supported providers via OpenRouter)
 - **Package Registry Access** (PyPI for Python, VS Code Marketplace for extension)
 
 ## Phase 1: Development Environment Setup
@@ -103,6 +107,14 @@ python validate_dependencies.py
 
 # Check for any missing dependencies
 pip check
+
+# Validate Pydantic v2 compatibility
+python -c "
+import pydantic
+print(f'Pydantic version: {pydantic.__version__}')
+assert pydantic.__version__.startswith('2.'), 'Pydantic v2 required'
+print('✅ Pydantic v2 validation passed')
+"
 
 # Verify Node.js dependencies  
 npm audit
@@ -247,18 +259,44 @@ cd ..
 ### 3.3 End-to-End Testing
 
 ```bash
-# Start the system
+# Start the system (should complete startup without hanging)
 python -m agent_s3.cli
 
-# In another terminal, test WebSocket connectivity
-cd vscode
-npm run test-websocket
+# Expected startup sequence:
+# 1. Configuration loading
+# 2. LLM model configuration loading  
+# 3. Context management initialization
+# 4. Tech stack detection (should complete in <5 seconds)
+# 5. WebSocket server startup on port 8765
+# 6. "Agent-S3 server mode started" message
+
+# If startup hangs at tech stack detection, see Section 8.4 troubleshooting
+
+# Verify WebSocket server is running
+lsof -i :8765
+
+# Test WebSocket connectivity in another terminal
+python -c "
+import asyncio
+import websockets
+import json
+
+async def test():
+    try:
+        async with websockets.connect('ws://localhost:8765') as ws:
+            await ws.send(json.dumps({'type': 'test', 'content': 'hello'}))
+            print('✅ WebSocket connection and message sending successful')
+    except Exception as e:
+        print(f'❌ WebSocket test failed: {e}')
+
+asyncio.run(test())
+"
 
 # Test deployment manager
 python -c "
 from agent_s3.deployment_manager import DeploymentManager
 dm = DeploymentManager()
-print('Deployment manager initialized successfully')
+print('✅ Deployment manager initialized successfully')
 "
 ```
 
@@ -278,7 +316,33 @@ Create a production configuration file `config.json`:
     "optimization_interval": 60,
     "compression_threshold": 1000,
     "checkpoint_interval": 300,
-    "max_checkpoints": 10
+    "max_checkpoints": 10,
+    "embedding": {
+      "chunk_size": 1000,
+      "chunk_overlap": 200
+    },
+    "search": {
+      "bm25": {
+        "k1": 1.2,
+        "b": 0.75
+      }
+    },
+    "summarization": {
+      "threshold": 2000,
+      "compression_ratio": 0.5
+    },
+    "importance_scoring": {
+      "code_weight": 1.0,
+      "comment_weight": 0.8,
+      "metadata_weight": 0.7,
+      "framework_weight": 0.9
+    }
+  },
+  "adaptive_config": {
+    "auto_adjust": true,
+    "profile_repo_on_start": true,
+    "metrics_collection": true,
+    "optimization_interval": 3600
   },
   "websocket": {
     "host": "localhost",
@@ -295,23 +359,23 @@ Configure models in `llm.json` (this is the canonical model configuration):
 ```json
 [
   {
-    "model": "google/gemini-2.5-pro-preview-03-25",
+    "model": "google/gemini-2.0-flash-thinking-exp",
     "role": "planner",
-    "context_window": 1048576,
+    "context_window": 32768,
     "parameters": {
       "temperature": 0.15,
       "top_p": 0.90,
       "top_k": 64,
       "max_output_tokens": 4096
     },
-    "pricing_per_million": { "input": 1.25, "output": 10.00 },
+    "pricing_per_million": { "input": 1.25, "output": 5.00 },
     "api": {
       "endpoint": "https://openrouter.ai/api/v1/chat/completions",
       "auth_header": "Authorization: Bearer $OPENROUTER_KEY"
     }
   },
   {
-    "model": "google/gemini-2.5-flash-preview",
+    "model": "google/gemini-2.0-flash-exp",
     "role": "generator",
     "context_window": 1048576,
     "parameters": {
@@ -340,8 +404,9 @@ Create a `.env` template:
 AGENT_S3_CONFIG_PATH=./config.json
 AGENT_S3_LOG_LEVEL=INFO
 
-# LLM API Keys
-OPENAI_API_KEY=your_openai_api_key
+# LLM API Keys (OpenRouter recommended for multi-model access)
+OPENROUTER_KEY=your_openrouter_api_key
+OPENAI_KEY=your_openai_api_key
 ANTHROPIC_API_KEY=your_anthropic_api_key
 
 # GitHub Integration
@@ -358,6 +423,25 @@ WEBSOCKET_MAX_MESSAGE_SIZE=65536
 # Deployment Configuration
 DEPLOYMENT_HOST=localhost
 DEPLOYMENT_PORT=8000
+
+# Adaptive Configuration
+ADAPTIVE_CONFIG_REPO_PATH=.
+ADAPTIVE_CONFIG_DIR=./.agent_s3/config
+ADAPTIVE_METRICS_DIR=./.agent_s3/metrics
+
+# Context Management
+CONTEXT_WINDOW_PLANNER=16384
+CONTEXT_WINDOW_GENERATOR=16384
+TOP_K_RETRIEVAL=10
+EVICTION_THRESHOLD=10000
+VECTOR_STORE_PATH=.cache
+
+# Performance Tuning
+LLM_MAX_RETRIES=3
+LLM_INITIAL_BACKOFF=1.0
+LLM_BACKOFF_FACTOR=2.0
+LLM_DEFAULT_TIMEOUT=60.0
+QUERY_CACHE_TTL_SECONDS=3600
 ```
 
 ### 4.4 Security Configuration
@@ -682,10 +766,50 @@ def check_deployment_manager():
         print(f"Deployment manager check failed: {e}")
         return False
 
+def check_adaptive_config():
+    try:
+        from agent_s3.tools.context_management.adaptive_config.adaptive_config_manager import AdaptiveConfigManager
+        manager = AdaptiveConfigManager('.')
+        current_config = manager.get_current_config()
+        return True
+    except Exception as e:
+        print(f"Adaptive configuration check failed: {e}")
+        return False
+
+def check_pydantic_compatibility():
+    try:
+        import pydantic
+        from agent_s3.config import ConfigModel
+        
+        # Verify Pydantic v2
+        if not pydantic.__version__.startswith('2.'):
+            print(f"Pydantic v1 detected ({pydantic.__version__}), v2 required")
+            return False
+            
+        # Test model creation
+        config = ConfigModel()
+        config_dict = config.model_dump()
+        return True
+    except Exception as e:
+        print(f"Pydantic compatibility check failed: {e}")
+        return False
+
+def check_llm_router():
+    try:
+        from agent_s3.router_agent import RouterAgent
+        router = RouterAgent()
+        return True
+    except Exception as e:
+        print(f"LLM router check failed: {e}")
+        return False
+
 if __name__ == "__main__":
     checks = [
+        ("Pydantic Compatibility", check_pydantic_compatibility),
         ("WebSocket", check_websocket),
         ("Deployment Manager", check_deployment_manager),
+        ("Adaptive Configuration", check_adaptive_config),
+        ("LLM Router", check_llm_router),
     ]
     
     failed = 0
@@ -803,6 +927,35 @@ source fresh_venv/bin/activate
 pip install agent-s3
 ```
 
+**Issue: Pydantic v2 compatibility errors**
+```bash
+# Check Pydantic version
+python -c "import pydantic; print(pydantic.__version__)"
+
+# If v1 is installed, upgrade
+pip install --upgrade "pydantic>=2.0.0"
+
+# Verify configuration model validation
+python -c "
+from agent_s3.config import ConfigModel
+config = ConfigModel()
+print('✅ Configuration model validation passed')
+"
+```
+
+**Issue: Adaptive configuration not initializing**
+```bash
+# Check adaptive config directories
+ls -la .agent_s3/config/
+ls -la .agent_s3/metrics/
+
+# Create directories if missing
+mkdir -p .agent_s3/config .agent_s3/metrics
+
+# Check permissions
+chmod 755 .agent_s3/config .agent_s3/metrics
+```
+
 **Issue: VS Code extension not loading**
 ```bash
 # Check extension installation
@@ -810,6 +963,20 @@ code --list-extensions | grep agent-s3
 
 # Check VS Code logs
 code --log error
+```
+
+**Issue: LLM routing failures**
+```bash
+# Validate llm.json configuration
+python -c "
+import json
+from agent_s3.router_agent import _validate_entry
+with open('llm.json', 'r') as f:
+    config = json.load(f)
+for i, entry in enumerate(config):
+    _validate_entry(entry, i)
+print('✅ LLM configuration validation passed')
+"
 ```
 
 ### 8.2 Performance Tuning
@@ -823,6 +990,22 @@ export PYTHONOPTIMIZE=1
 
 # Configure uvloop for better async performance
 pip install uvloop
+
+# Enable adaptive configuration optimization
+export ADAPTIVE_CONFIG_AUTO_ADJUST=true
+export ADAPTIVE_CONFIG_OPTIMIZATION_INTERVAL=3600
+
+# Optimize context management
+export CONTEXT_BACKGROUND_OPT_TARGET_TOKENS=16000
+export QUERY_CACHE_TTL_SECONDS=7200
+
+# Tune embedding settings for performance
+export EMBEDDING_RETRY_COUNT=3
+export EMBEDDING_TIMEOUT=30.0
+
+# Configure LLM performance settings
+export LLM_MAX_RETRIES=3
+export LLM_DEFAULT_TIMEOUT=60.0
 ```
 
 ### 8.3 Debug Mode
@@ -831,11 +1014,315 @@ pip install uvloop
 # Enable debug logging
 export AGENT_S3_LOG_LEVEL=DEBUG
 
+# Enable adaptive configuration debugging
+export ADAPTIVE_CONFIG_DEBUG=true
+
+# Enable context management debugging
+export CONTEXT_MANAGEMENT_DEBUG=true
+
+# Enable LLM router debugging
+export LLM_ROUTER_DEBUG=true
+
 # Enable VS Code extension debugging
 code --log trace --inspect-extensions=5858
+
+# Test adaptive configuration system
+python -c "
+from agent_s3.tools.context_management.adaptive_config.adaptive_config_manager import AdaptiveConfigManager
+from agent_s3.tools.context_management.adaptive_config.config_explainer import ConfigExplainer
+
+# Test config manager
+manager = AdaptiveConfigManager('.')
+print('✅ Adaptive config manager initialized')
+
+# Test config explainer
+explainer = ConfigExplainer(manager)
+report = explainer.generate_report()
+print('✅ Configuration report generated')
+print(f'Current version: {report.get(\"current_version\", \"unknown\")}')
+"
 ```
 
-## Phase 9: Security Considerations
+### 8.4 Production Startup Issues
+
+**Issue: Server hangs during startup at tech stack detection**
+```bash
+# Symptom: Server starts but hangs indefinitely during initialization
+# Common causes: subprocess timeout in tech stack detection
+
+# Check if the issue is in tech_stack_manager.py
+python -c "
+from agent_s3.tools.tech_stack_manager import TechStackManager
+import sys
+print(f'Using Python executable: {sys.executable}')
+manager = TechStackManager('.')
+print('Testing tech stack detection...')
+result = manager.detect_tech_stack()
+print(f'✅ Tech stack detection completed: {len(result.get(\"languages\", []))} languages detected')
+"
+
+# If the above hangs, the issue is subprocess timeout
+# Verify the fix is in place:
+grep -n "timeout=5" agent_s3/tools/tech_stack_manager.py
+grep -n "sys.executable" agent_s3/tools/tech_stack_manager.py
+
+# If missing, the subprocess call needs timeout and proper Python executable
+```
+
+**Issue: WebSocket server fails with "address already in use" error**
+```bash
+# Symptom: OSError: [Errno 48] Address already in use
+# Common cause: dual Coordinator instantiation in CLI
+
+# Check for multiple Coordinator instances in CLI
+grep -n "Coordinator(" agent_s3/cli/__init__.py
+
+# Should only show ONE Coordinator instantiation, not two
+# If you see multiple instantiations, this indicates the dual coordinator bug
+
+# Kill any existing processes on port 8765
+lsof -ti:8765 | xargs kill -9
+
+# Verify the fix is in place by checking CLI structure
+python -c "
+# This should not create multiple Coordinator instances
+from agent_s3.cli import main
+print('✅ CLI imports successfully without dual instantiation')
+"
+```
+
+**Issue: Server starts but WebSocket connection immediately fails**
+```bash
+# Test WebSocket connectivity
+python -c "
+import asyncio
+import websockets
+import json
+
+async def test():
+    try:
+        async with websockets.connect('ws://localhost:8765') as ws:
+            await ws.send(json.dumps({'type': 'health_check'}))
+            print('✅ WebSocket connection successful')
+    except Exception as e:
+        print(f'❌ WebSocket connection failed: {e}')
+
+asyncio.run(test())
+"
+
+# Check server logs for connection errors
+python -m agent_s3.cli &
+sleep 5
+cat .agent_s3_ws_connection.json
+```
+
+**Issue: Import errors during startup**
+```bash
+# Symptom: ModuleNotFoundError or ImportError during startup
+# Solution: Install package in editable mode
+
+# Reinstall in development mode
+pip uninstall agent-s3 -y
+pip install -e .
+
+# Verify installation
+python -c "
+from agent_s3.config import Config
+from agent_s3.coordinator import Coordinator
+print('✅ Core imports successful')
+"
+
+# Test configuration loading
+python -c "
+from agent_s3.config import Config
+config = Config()
+config.load()
+print('✅ Configuration loads successfully')
+"
+```
+
+**Issue: Tech stack detection subprocess errors**
+```bash
+# Symptom: subprocess.TimeoutExpired or hanging Python version check
+# This was fixed in production - verify the fix is present
+
+# Check for proper subprocess handling
+python -c "
+import subprocess
+import sys
+try:
+    result = subprocess.check_output([sys.executable, '--version'], 
+                                   stderr=subprocess.STDOUT, 
+                                   timeout=5)
+    print(f'✅ Python version: {result.decode().strip()}')
+except subprocess.TimeoutExpired:
+    print('❌ Subprocess timeout - this should be handled gracefully')
+except Exception as e:
+    print(f'❌ Subprocess error: {e}')
+"
+
+# If subprocess calls hang, check tech_stack_manager.py for:
+# 1. timeout=5 parameter
+# 2. sys.executable instead of 'python'
+# 3. Proper exception handling
+```
+
+## Phase 9: Adaptive Configuration Management
+
+### 9.1 Understanding Adaptive Configuration
+
+Agent-S3 v0.1.1 introduces an intelligent adaptive configuration system that automatically optimizes performance based on your project characteristics and usage patterns.
+
+**Key Features:**
+- **Automatic Optimization**: Adjusts configuration parameters based on performance metrics
+- **Project Profiling**: Analyzes your codebase to determine optimal settings
+- **Transparent Decisions**: Provides explanations for all configuration changes
+- **Version Control**: Maintains history of configuration changes with rollback capability
+
+### 9.2 Configuration Structure
+
+The adaptive system manages several configuration domains:
+
+```json
+{
+  "context_management": {
+    "embedding": {
+      "chunk_size": 1000,        // Text chunk size for embeddings
+      "chunk_overlap": 200       // Overlap between chunks for continuity
+    },
+    "search": {
+      "bm25": {
+        "k1": 1.2,              // Term frequency saturation
+        "b": 0.75               // Document length normalization
+      }
+    },
+    "summarization": {
+      "threshold": 2000,         // Token threshold for summarization
+      "compression_ratio": 0.5   // Target compression ratio
+    },
+    "importance_scoring": {
+      "code_weight": 1.0,        // Relative importance of code
+      "comment_weight": 0.8,     // Relative importance of comments
+      "metadata_weight": 0.7,    // Relative importance of metadata
+      "framework_weight": 0.9    // Relative importance of framework code
+    }
+  }
+}
+```
+
+### 9.3 Configuration Templates
+
+The system includes optimized templates for different project types:
+
+**Python Projects:**
+```bash
+# View available templates
+python -c "
+from agent_s3.tools.context_management.adaptive_config.config_templates import ConfigTemplateManager
+manager = ConfigTemplateManager()
+templates = manager.get_available_templates()
+print('Available templates:', list(templates.keys()))
+"
+
+# Apply Python-optimized template
+python -c "
+from agent_s3.tools.context_management.adaptive_config.adaptive_config_manager import AdaptiveConfigManager
+manager = AdaptiveConfigManager('.')
+manager.apply_template('python')
+print('✅ Python template applied')
+"
+```
+
+**JavaScript/TypeScript Projects:**
+```bash
+python -c "
+from agent_s3.tools.context_management.adaptive_config.adaptive_config_manager import AdaptiveConfigManager
+manager = AdaptiveConfigManager('.')
+manager.apply_template('javascript')
+print('✅ JavaScript template applied')
+"
+```
+
+### 9.4 Monitoring and Optimization
+
+**View Current Configuration:**
+```bash
+python -c "
+from agent_s3.tools.context_management.adaptive_config.config_explainer import ConfigExplainer
+from agent_s3.tools.context_management.adaptive_config.adaptive_config_manager import AdaptiveConfigManager
+
+manager = AdaptiveConfigManager('.')
+explainer = ConfigExplainer(manager)
+
+# Generate human-readable report
+report = explainer.get_human_readable_report()
+print(report)
+"
+```
+
+**Check Optimization Status:**
+```bash
+python -c "
+from agent_s3.tools.context_management.adaptive_config.adaptive_config_manager import AdaptiveConfigManager
+manager = AdaptiveConfigManager('.')
+
+if manager.check_optimization_needed():
+    print('⚡ Optimization recommended')
+    manager.optimize_configuration()
+    print('✅ Configuration optimized')
+else:
+    print('✅ Configuration is optimal')
+"
+```
+
+**View Configuration History:**
+```bash
+python -c "
+from agent_s3.tools.context_management.adaptive_config.adaptive_config_manager import AdaptiveConfigManager
+manager = AdaptiveConfigManager('.')
+
+history = manager.get_config_history()
+print(f'Configuration versions: {len(history)}')
+for entry in history[-3:]:  # Show last 3 changes
+    print(f'Version {entry[\"version\"]}: {entry[\"reason\"]} ({entry[\"timestamp\"]})')
+"
+```
+
+### 9.5 Manual Configuration Override
+
+**Temporarily Disable Adaptive Configuration:**
+```bash
+export ADAPTIVE_CONFIG_AUTO_ADJUST=false
+```
+
+**Reset to Default Configuration:**
+```bash
+python -c "
+from agent_s3.tools.context_management.adaptive_config.adaptive_config_manager import AdaptiveConfigManager
+manager = AdaptiveConfigManager('.')
+manager.reset_to_default()
+print('✅ Reset to default configuration')
+"
+```
+
+**Rollback to Previous Version:**
+```bash
+python -c "
+from agent_s3.tools.context_management.adaptive_config.adaptive_config_manager import AdaptiveConfigManager
+manager = AdaptiveConfigManager('.')
+
+# Get available versions
+history = manager.get_config_history()
+if len(history) > 1:
+    previous_version = history[1]['version']
+    manager.reset_to_version(previous_version)
+    print(f'✅ Rolled back to version {previous_version}')
+else:
+    print('No previous version available')
+"
+```
+
+## Phase 10: Security Considerations
 
 ### 9.1 API Key Management
 

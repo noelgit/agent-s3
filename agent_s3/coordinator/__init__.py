@@ -315,6 +315,8 @@ class Coordinator:
             port=ws_port,
             auth_token=ws_auth_token
         )
+        # Set coordinator reference for command processing
+        self.websocket_server.coordinator = self
         # Start the server in a separate thread so it doesn't block the coordinator
         self.websocket_thread = self.websocket_server.start_in_thread()
         self.scratchpad.log("Coordinator", f"WebSocket server starting on ws://{ws_host}:{ws_port}")

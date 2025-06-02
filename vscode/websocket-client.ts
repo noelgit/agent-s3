@@ -130,6 +130,9 @@ export class WebSocketClient implements vscode.Disposable {
       this.connectionConfig = config;
       const { host, port, authToken, protocol: fileProtocol } = config;
 
+      // Convert localhost to 127.0.0.1 to avoid IPv6 connection issues
+      const resolvedHost = host === "localhost" ? "127.0.0.1" : host;
+
       // Determine protocol: options override configuration file, then VS Code setting
       const configProtocol = vscode.workspace
         .getConfiguration("agent-s3")
@@ -138,10 +141,10 @@ export class WebSocketClient implements vscode.Disposable {
         this.options.protocol ||
         (configProtocol as "ws" | "wss" | undefined) ||
         fileProtocol ||
-        "wss";
+        "ws"; // Changed default from "wss" to "ws"
 
       // Create the WebSocket connection
-      const url = `${protocol}://${host}:${port}`;
+      const url = `${protocol}://${resolvedHost}:${port}`;
       this.socket = new WS.WebSocket(url);
 
       // Set up event listeners using the ws library's typed events
@@ -218,10 +221,12 @@ export class WebSocketClient implements vscode.Disposable {
     console.log("WebSocket connection established");
     this.connectionState = ConnectionState.AUTHENTICATING;
 
-    // Send authentication message
+    // Send authentication message in the format expected by the backend
     this.sendMessage({
-      type: "authentication",
-      auth_token: authToken,
+      type: "authenticate",
+      content: {
+        token: authToken,
+      },
     });
 
     // Set up heartbeat interval
@@ -276,27 +281,45 @@ export class WebSocketClient implements vscode.Disposable {
         return;
       }
 
-      // Handle other message types
-      if (type) {
-        const handlers = this.messageHandlers.get(type);
-
-        if (handlers && handlers.length > 0) {
-          // Call all registered handlers for this message type
-          handlers.forEach((handler: (message: any) => void) => {
-            try {
-              handler(message);
-            } catch (error) {
-              console.error(`Error in message handler for ${type}:`, error);
-            }
-          });
-        } else {
-          console.warn(`No handlers registered for message type: ${type}`);
-        }
-      } else {
-        console.warn(`Unknown message type: ${type}`);
+      // Handle batch messages that contain multiple messages
+      if (type === "batch" && message.messages && Array.isArray(message.messages)) {
+        // Process each message in the batch
+        message.messages.forEach((batchedMessage: any) => {
+          this.processSingleMessage(batchedMessage);
+        });
+        return;
       }
+
+      // Handle other message types
+      this.processSingleMessage(message);
     } catch (error) {
       console.error("Error parsing WebSocket message:", error);
+    }
+  }
+
+  /**
+   * Process a single message (extracted from batch or standalone)
+   */
+  private processSingleMessage(message: any) {
+    const type = message.type;
+    
+    if (type) {
+      const handlers = this.messageHandlers.get(type);
+
+      if (handlers && handlers.length > 0) {
+        // Call all registered handlers for this message type
+        handlers.forEach((handler: (message: any) => void) => {
+          try {
+            handler(message);
+          } catch (error) {
+            console.error(`Error in message handler for ${type}:`, error);
+          }
+        });
+      } else {
+        console.warn(`No handlers registered for message type: ${type}`);
+      }
+    } else {
+      console.warn(`Unknown message type: ${type}`);
     }
   }
 

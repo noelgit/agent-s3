@@ -12,7 +12,23 @@ import threading
 from pathlib import Path
 from typing import Optional, Dict, List, Any
 
-from pydantic import BaseModel, ValidationError, Field
+from pydantic import BaseModel, ValidationError, Field, ConfigDict
+
+# Export public classes and functions
+__all__ = [
+    'ConfigModel',
+    'Config', 
+    'get_config',
+    'ModelsConfig',
+    'LogFilesConfig',
+    'EmbeddingConfig',
+    'SearchBm25Config',
+    'SearchConfig',
+    'SummarizationConfig',
+    'ImportanceScoringConfig',
+    'ContextManagementConfig',
+    'AdaptiveConfig',
+]
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -201,8 +217,7 @@ class ConfigModel(BaseModel):
     adaptive_metrics_dir: str = ADAPTIVE_METRICS_DIR
     adaptive_optimization_interval: int = ADAPTIVE_OPTIMIZATION_INTERVAL
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class Config:
@@ -233,7 +248,7 @@ class Config:
 
         self.guidelines: List[str] = []
         self.settings: ConfigModel = ConfigModel()
-        self._config_dict = self.settings.dict()
+        self._config_dict = self.settings.model_dump()
         
         # Thread safety for configuration updates
         self._settings_lock = threading.RLock()
@@ -242,7 +257,7 @@ class Config:
     def config(self) -> Dict[str, Any]:
         """Dictionary representation for backward compatibility."""
         with self._settings_lock:
-            self._config_dict = self.settings.dict()
+            self._config_dict = self.settings.model_dump()
             return self._config_dict.copy()  # Return a copy to prevent external modification
 
     @config.setter
@@ -250,14 +265,14 @@ class Config:
         with self._settings_lock:
             try:
                 self.settings = ConfigModel(**new_config)
-                self._config_dict = self.settings.dict()
+                self._config_dict = self.settings.model_dump()
             except ValidationError as exc:
                 self.load_failed = True
                 raise ValueError(f"Invalid configuration: {exc}") from exc
 
     def get_default_config(self) -> Dict[str, Any]:
         """Return default configuration as dictionary."""
-        return ConfigModel().dict()
+        return ConfigModel().model_dump()
 
     def load(self, config_path: Optional[str] = None) -> None:
         """Load configuration from environment, optional JSON, and guidelines."""
@@ -378,8 +393,8 @@ class Config:
         Returns:
             Absolute path to the log file
         """
-        if log_type in self.settings.log_files.dict():
-            return os.path.join(os.getcwd(), self.settings.log_files.dict()[log_type])
+        if log_type in self.settings.log_files.model_dump():
+            return os.path.join(os.getcwd(), self.settings.log_files.model_dump()[log_type])
         else:
             return os.path.join(os.getcwd(), f"{log_type}_log.jsonl")
 

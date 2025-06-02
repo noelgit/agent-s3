@@ -57,6 +57,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
+      console.log('ChatView received message:', message.type, message);
       
       switch (message.type) {
         case 'LOAD_HISTORY':
@@ -88,6 +89,10 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
           
         case 'TERMINAL_OUTPUT':
           handleTerminalOutput(message.content);
+          break;
+          
+        case 'COMMAND_RESULT':
+          handleCommandResult(message.content);
           break;
       }
     };
@@ -279,6 +284,26 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
       isComplete: true
     };
     
+    setMessages(messages => [...messages, newMessage]);
+  };
+  
+  /**
+   * Handle command result messages
+   */
+  const handleCommandResult = (content: any) => {
+    console.log('ChatView handleCommandResult called with:', content);
+    const { result, success, command } = content;
+    
+    // Add command result as agent message
+    const newMessage: ChatMessage = {
+      id: `command-result-${Date.now()}`,
+      type: 'agent',
+      content: result,
+      timestamp: new Date(),
+      isComplete: true
+    };
+    
+    console.log('Adding command result message:', newMessage);
     setMessages(messages => [...messages, newMessage]);
   };
   

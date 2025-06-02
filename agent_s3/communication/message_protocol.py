@@ -30,6 +30,7 @@ class MessageType(Enum):
 
     # Connection management
     CONNECTION_ESTABLISHED = "connection_established"
+    AUTHENTICATE = "authenticate"
     AUTHENTICATION_RESULT = "authentication_result"
     HEARTBEAT = "heartbeat"
     HEARTBEAT_RESPONSE = "heartbeat_response"
@@ -47,6 +48,7 @@ class MessageType(Enum):
 
     # UI-specific messages
     NOTIFICATION = "notification"
+    COMMAND = "command"
     COMMAND_RESULT = "command_result"
     USER_INPUT = "user_input"
     UI_STATE_UPDATE = "ui_state_update"
@@ -255,6 +257,26 @@ MESSAGE_SCHEMAS = {
                     "placeholder": {"type": "string"}
                 }
             }
+        }
+    },
+    MessageType.COMMAND.value: {
+        "type": "object",
+        "required": ["command"],
+        "properties": {
+            "command": {"type": "string"},
+            "args": {"type": "string"},
+            "request_id": {"type": "string"}
+        }
+    },
+    MessageType.COMMAND_RESULT.value: {
+        "type": "object",
+        "required": ["success"],
+        "properties": {
+            "request_id": {"type": "string"},
+            "command": {"type": "string"},
+            "result": {"type": "string"},
+            "success": {"type": "boolean"},
+            "error": {"type": "string"}
         }
     }
 }

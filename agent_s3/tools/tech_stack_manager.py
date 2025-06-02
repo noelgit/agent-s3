@@ -1,6 +1,7 @@
 import re
 import json
 import logging
+import sys
 from typing import Dict, Any
 import subprocess
 from pathlib import Path
@@ -73,11 +74,18 @@ class TechStackManager:
             self.tech_stack["languages"].add("Python")
             # Get Python version
             try:
-                python_version = subprocess.check_output(["python", "--version"],
-                                                        stderr=subprocess.STDOUT).decode().strip()
+                python_version = subprocess.check_output([sys.executable, "--version"],
+                                                        stderr=subprocess.STDOUT,
+                                                        timeout=5).decode().strip()
                 self.tech_stack["versions"]["python"] = python_version.replace("Python ", "")
-            except Exception:
-                pass
+            except (subprocess.TimeoutExpired, subprocess.CalledProcessError, OSError) as e:
+                logging.warning(f"Failed to get Python version: {e}")
+                # Fallback to sys.version_info
+                try:
+                    version_info = sys.version_info
+                    self.tech_stack["versions"]["python"] = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
+                except Exception:
+                    pass
 
         # JavaScript/TypeScript
         if list(self.workspace_path.glob("**/*.js")):
