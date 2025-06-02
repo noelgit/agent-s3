@@ -597,16 +597,15 @@ def pre_planning_workflow(
             else:
                 return False, {}
             try:
-                # progress_tracker.logger.info(
-                #     json.dumps(
-                #         {
-                #             "phase": "pre-planning clarification",
-                #             "question": question,
-                #             "answer": sanitize_text(answer),
-                #         }
-                #     )
-                # )
-                pass  # Commented out logging
+                progress_tracker.logger.info(
+                    json.dumps(
+                        {
+                            "phase": "pre-planning clarification",
+                            "question": question,
+                            "answer": sanitize_text(answer),
+                        }
+                    )
+                )
             except Exception:  # pragma: no cover - logging failure should not crash
                 logger.error("Failed to log clarification", exc_info=True)
             current_prompt = answer

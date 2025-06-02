@@ -41,15 +41,11 @@ AGENT_S3_ENCRYPTION_KEY="$(python -c 'from cryptography.fernet import Fernet; pr
 
 ### Configuration
 
-The extension uses TLS (`wss`) for WebSocket connections by default. You may
-override this by setting `agent-s3.websocketProtocol` to `ws` if TLS must be
-disabled (not recommended).
+The extension uses HTTP for communication with the backend server.
 
-When the backend starts, it writes connection information to a file named
-`.agent_s3_ws_connection.json` in the root of your workspace. The extension
-reads this file to determine the WebSocket host, port, and authentication token.
-The file is removed automatically when the backend shuts down and is created
-with `0600` permissions on POSIX systems.
+When the backend starts, it starts an HTTP server on localhost:8081. The extension
+connects to this server for command processing, with automatic fallback to CLI
+commands when the server is unavailable.
 
 ## Usage
 

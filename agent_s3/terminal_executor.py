@@ -260,7 +260,7 @@ class TerminalExecutor:
                            output_callback: Optional[Callable[[str, str], None]] = None,
                            level: str = "info") -> int:
         """
-        Run a shell command and stream output line by line to a callback (e.g., websocket).
+        Run a shell command and stream output line by line to a callback (e.g., HTTP server).
 
         Args:
             command: The shell command to execute

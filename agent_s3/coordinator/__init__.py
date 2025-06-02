@@ -298,28 +298,22 @@ class Coordinator:
         self.orchestrator = WorkflowOrchestrator(self, self.coordinator_config)
 
     def _initialize_communication(self) -> None:
-        """Initialize communication components like the WebSocket server."""
-        from agent_s3.communication.enhanced_websocket_server import EnhancedWebSocketServer
-        from agent_s3.communication.message_protocol import MessageBus
+        """Initialize communication components like the HTTP server."""
+        from agent_s3.communication.http_server import EnhancedHTTPServer
 
-        self.message_bus = MessageBus()
-        # Get host and port from config, with defaults
-        ws_host = self.config.config.get('WEBSOCKET_HOST', 'localhost')
-        ws_port = self.config.config.get('WEBSOCKET_PORT', 8765)
-        ws_auth_token = self.config.config.get('WEBSOCKET_AUTH_TOKEN', None)
+        # Get host and port from HTTP config, with defaults
+        http_config = self.config.config.get('http', {})
+        http_host = http_config.get('host', 'localhost')
+        http_port = http_config.get('port', 8081)  # Default to 8081 for HTTP
 
-
-        self.websocket_server = EnhancedWebSocketServer(
-            message_bus=self.message_bus,
-            host=ws_host,
-            port=ws_port,
-            auth_token=ws_auth_token
+        self.http_server = EnhancedHTTPServer(
+            host=http_host,
+            port=http_port,
+            coordinator=self
         )
-        # Set coordinator reference for command processing
-        self.websocket_server.coordinator = self
         # Start the server in a separate thread so it doesn't block the coordinator
-        self.websocket_thread = self.websocket_server.start_in_thread()
-        self.scratchpad.log("Coordinator", f"WebSocket server starting on ws://{ws_host}:{ws_port}")
+        self.http_thread = self.http_server.start_in_thread()
+        self.scratchpad.log("Coordinator", f"HTTP server starting on http://{http_host}:{http_port}")
 
 
     def _finalize_initialization(self) -> None:
@@ -388,14 +382,14 @@ class Coordinator:
         ):
             self.scratchpad.log("Coordinator", "Shutting down Agent-S3 coordinator...")
 
-            # Stop WebSocket server first
-            if hasattr(self, 'websocket_server') and self.websocket_server:
+            # Stop HTTP server first
+            if hasattr(self, 'http_server') and self.http_server:
                 try:
-                    self.scratchpad.log("Coordinator", "Stopping WebSocket server...")
-                    self.websocket_server.stop_sync()
-                    self.scratchpad.log("Coordinator", "WebSocket server stopped.")
+                    self.scratchpad.log("Coordinator", "Stopping HTTP server...")
+                    self.http_server.stop_sync()
+                    self.scratchpad.log("Coordinator", "HTTP server stopped.")
                 except Exception as e:
-                    self.scratchpad.log("Coordinator", f"Error stopping WebSocket server: {e}", level=LogLevel.ERROR)
+                    self.scratchpad.log("Coordinator", f"Error stopping HTTP server: {e}", level=LogLevel.ERROR)
 
             # Stop planner observer if it exists
             if hasattr(self, 'planner') and self.planner and hasattr(self.planner, 'stop_observer'):

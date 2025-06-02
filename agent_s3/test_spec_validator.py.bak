@@ -872,11 +872,11 @@ def validate_and_repair_test_specifications(
 
     try:
         summary = f"{len(all_validation_issues)} issues found; repaired={was_repaired}"
-        # progress_tracker.update_progress({
-        #     "phase": "test_validation",
-        #     "status": Status.COMPLETED,
-        #     "details": summary,
-        # })
+        progress_tracker.update_progress({
+            "phase": "test_validation",
+            "status": Status.COMPLETED,
+            "details": summary,
+        })
     except Exception:  # pragma: no cover - best effort
         logger.debug("Failed to update progress tracker for validation results")
 

@@ -69,7 +69,7 @@ Agent-S3 is built around several core objectives that guide its design and imple
 - **CI/CD Integration**: Seamless integration with GitHub for issue tracking, pull requests, and automated workflows
 - **Test-Driven Development**: Comprehensive test planning including unit, property-based, and acceptance tests
 - **Interactive Design Process**: Conversational feature decomposition with industry best practice recommendations
-- **Real-Time Collaboration**: WebSocket-based streaming UI for immediate feedback and progress tracking
+- **Real-Time Collaboration**: HTTP-based API for immediate feedback and progress tracking
 
 ## Dependencies and Installation
 
@@ -125,13 +125,13 @@ pip check
 ## Core Features
 
 **Python Backend (`agent_s3`):**
-- Real-time bidirectional communication between backend and VS Code extension via WebSocket server with:
+- Real-time communication between backend and VS Code extension via HTTP server with:
   - Automatic reconnection and heartbeat monitoring
   - Message type-based routing and handlers
-  - Fallback to file polling when WebSocket is unavailable
+  - Fallback to CLI commands when HTTP server is unavailable
   - Authentication and secure message passing
   - 64&nbsp;KiB message size limit enforced server-side
-    (configurable via `WEBSOCKET_MAX_MESSAGE_SIZE`)
+    (configurable via HTTP server settings)
 - Advanced context management with:
   - Context registry with multiple providers that can be registered and queried
   - Tool/manager registry for coordinator components (`agent_s3.coordinator.registry`)
@@ -247,7 +247,7 @@ See `docs/summarization.md` for details.
 - Command Palette integration: Initialize workspace, Make change request, Show help, Show config, Reload LLM config, Explain last LLM interaction, Open Chat Window
 - Status bar item (`$(sparkle) Agent-S3`) to start change requests
 - Dedicated terminal panel for backend interactions
-- Real-time status updates via WebSocket; `progress_log.jsonl` is retained only as a log file
+- Real-time status updates via HTTP API; `progress_log.jsonl` is retained only as a log file
 - Server shuts down automatically on exit, removing the connection file
 - Connection file uses `0600` permissions on POSIX systems; default permissions
   apply on Windows
@@ -261,9 +261,9 @@ See `docs/summarization.md` for details.
 
 ## Streaming UI
 
-Agent-S3 features a real-time streaming UI for chat and progress updates, powered by a WebSocket-based architecture:
+Agent-S3 features a real-time UI for chat and progress updates, powered by an HTTP-based architecture:
 
-- **WebSocket Client/Server:** The backend and VS Code extension communicate via enhanced WebSocket protocols, supporting streaming message types (e.g., `stream_start`, `stream_content`, `stream_end`, `thinking`).
+- **HTTP Client/Server:** The backend and VS Code extension communicate via HTTP REST API, supporting command processing and status updates.
 - **Streaming Chat UI:** The `ChatView` React component in the extension displays real-time agent responses, partial message rendering, and thinking indicators.
 - **Backend Integration:** The backend emits streaming updates for progress, terminal output, and chat, eliminating the need for file polling.
 - **Robust Error Handling:** Includes reconnection logic, buffering, and error logging for reliable user experience.
@@ -391,8 +391,7 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   - `MAX_CLARIFICATION_ROUNDS` (optional, defaults to `3`) limits pre-planning clarification exchanges
   - `MAX_PREPLANNING_ATTEMPTS` (optional, defaults to `2`) sets the maximum number of retries when generating pre-planning data
   - `pre_planning_mode` selects `off`, `json`, or `enforced_json` workflow. See `docs/pre_planning_workflow.md` for details.
-  - `WEBSOCKET_MAX_MESSAGE_SIZE` (optional, defaults to `65536` bytes)
-    limits incoming WebSocket payloads
+  - HTTP server settings for request/response handling
   - `TEST_WS_TOKEN` (optional, defaults to `"replace-me"`)
     authentication token for `simple-test-server.js`
   - `MAX_DESIGN_PATTERNS` (optional, defaults to `3`)
@@ -526,7 +525,7 @@ pip install -r requirements-dev.txt
 - **Tests:** `pytest`
 - **Type Checking:** `mypy agent_s3`
 - **Linting:** `ruff check agent_s3`
-- **Test WebSocket server:** `TEST_WS_TOKEN=mytoken node simple-test-server.js`
+- **Test HTTP server:** Available at `http://localhost:8081`
 
 ## Contributing
 

@@ -103,7 +103,7 @@ Refer to these resources for a complete understanding of the project.
     *   It shows the terminal (`terminal.show()`).
     *   It sends the developer's request (from input box or chat message) to the CLI, escaping quotes: `python -m agent_s3.cli "<user_request>"` (`terminal.sendText`).
     *   It shows an information notification: `Processing request: <user_request>` (`vscode.window.showInformationMessage`).
-    *   It opens a `BackendConnection` to stream progress updates via WebSocket.
+    *   It opens a `BackendConnection` to get progress updates via HTTP API.
 3.  **Backend CLI Action (`agent_s3/cli.py`):**
     *   The `main` function parses the command-line arguments, receiving the request text.
     *   It loads the configuration (`Config`).
@@ -164,7 +164,7 @@ Refer to these resources for a complete understanding of the project.
             *   Includes database schema metadata in PR descriptions when database changes are involved
         *   Clears the task state and reports completion.
 5.  **VS Code Monitoring (`vscode/extension.ts`):**
-    *   Progress updates stream through `BackendConnection` via WebSocket, eliminating the file watcher.
+    *   Progress updates are fetched through `BackendConnection` via HTTP API, eliminating the file watcher.
     *   Updates the status bar with current phase and status.
     *   When a final state is reached, shows a notification with result summary.
     *   If a PR was created, includes the PR URL in the notification.
@@ -224,7 +224,7 @@ Refer to these resources for a complete understanding of the project.
     *   The CLI (`agent_s3/cli.py`) receives and processes the command or request exactly as described in Story 1 (for `/` commands like `/init`, `/help`, `/guidelines`) or Story 2 (for change requests).
     *   **Crucially, all interactive output from the backend (plans, persona debates, approval prompts, diffs, results) appears in the "Agent-S3" terminal, NOT directly in the chat UI bubbles.**
 10. **Chat UI Feedback via Streaming:**
-    *   Responses from the agent are streamed through `BackendConnection` as WebSocket messages.
+    *   Responses from the agent are fetched through `BackendConnection` as HTTP responses.
     *   `ChatView` renders these messages progressively using its streaming handlers.
 
 **Outcome:** The user can initiate Agent-S3 commands and requests via the chat interface, and the conversation history is saved. However, the actual detailed interaction (planning, approvals, code diffs, results) occurs in the associated "Agent-S3" terminal, which the user needs to monitor.

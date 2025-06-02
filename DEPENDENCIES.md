@@ -44,7 +44,7 @@ The Agent-S3 project is a multi-component system that includes:
 #### Web Framework Dependencies
 - `fastapi>=0.95.0` - Modern web framework
 - `uvicorn>=0.22.0` - ASGI server
-- `websockets>=11.0` - WebSocket support
+- HTTP server built-in with Python standard library
 - `flask>=2.3.0` - Lightweight web framework
 
 #### Cloud and Integration Dependencies
@@ -87,7 +87,7 @@ The Agent-S3 project is a multi-component system that includes:
 - `tox>=4.0.0` - Testing automation
 
 #### Testing and Development Support
-- `websockets>=11.0` - WebSocket testing
+- HTTP client testing with requests library
 - `aiohttp>=3.8.0` - Async HTTP client for testing
 
 #### Profiling and Analysis
@@ -103,10 +103,10 @@ The Agent-S3 project is a multi-component system that includes:
 ### VSCode Extension (`vscode/package.json`)
 
 #### Runtime Dependencies
-- `@types/ws>=8.18.1` - WebSocket type definitions
+- Native fetch API for HTTP requests
 - `react>=18.2.0` - React library (for webview)
 - `react-dom>=18.2.0` - React DOM library
-- `ws>=8.18.2` - WebSocket client
+- Native fetch API for HTTP client
 
 #### Development Dependencies
 - `@types/node>=22.14.1` - Node.js type definitions

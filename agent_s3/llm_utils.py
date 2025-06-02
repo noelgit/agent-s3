@@ -16,7 +16,7 @@ except ImportError:
     cache = None
 
 from agent_s3.cache.helpers import read_cache, write_cache
-from agent_s3.progress_tracker import progress_tracker
+from agent_s3.progress_tracker import ProgressTracker
 
 # Type hint for ScratchpadManager to avoid circular imports
 ScratchpadManagerType = Any
@@ -87,7 +87,7 @@ def call_llm(
     # Local LLM path
     hit = read_cache(prompt, llm)
     if hit:
-        progress_tracker.increment("semantic_hits")
+        # progress_tracker.increment("semantic_hits")  # Disabled for HTTP migration
         return {"success": True, "response": hit, "cached": True}, llm
 
     return _call(llm), llm

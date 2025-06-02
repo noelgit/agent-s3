@@ -408,8 +408,8 @@ export class Agent3HistoryProvider implements vscode.TreeDataProvider<Agent3Tree
         "Connection Status",
         vscode.TreeItemCollapsibleState.None,
         {
-          command: "agent-s3.testWebSocket",
-          title: "Test WebSocket Connection",
+          command: "agent-s3.status",
+          title: "Check HTTP Server Status",
         },
         new vscode.ThemeIcon("plug"),
         "Test connection to Agent-S3 backend",

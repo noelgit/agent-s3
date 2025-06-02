@@ -4,7 +4,7 @@
 
 Agent-S3 is a comprehensive AI coding agent system consisting of multiple integrated components that work together to provide intelligent code generation, planning, and deployment capabilities. This manual provides step-by-step instructions for building, packaging, and deploying the complete system.
 
-**Production-Ready**: This manual includes troubleshooting for common production startup issues, including WebSocket server initialization and tech stack detection hanging problems that have been resolved in the current version.
+**Production-Ready**: This manual includes troubleshooting for common production startup issues, including HTTP server initialization and tech stack detection hanging problems that have been resolved in the current version.
 
 ## System Architecture
 
@@ -267,29 +267,31 @@ python -m agent_s3.cli
 # 2. LLM model configuration loading  
 # 3. Context management initialization
 # 4. Tech stack detection (should complete in <5 seconds)
-# 5. WebSocket server startup on port 8765
+# 5. HTTP server startup on port 8081
 # 6. "Agent-S3 server mode started" message
 
 # If startup hangs at tech stack detection, see Section 8.4 troubleshooting
 
-# Verify WebSocket server is running
-lsof -i :8765
+# Verify HTTP server is running
+lsof -i :8081
 
-# Test WebSocket connectivity in another terminal
+# Test HTTP connectivity in another terminal
 python -c "
 import asyncio
-import websockets
+import requests
 import json
 
-async def test():
+def test():
     try:
-        async with websockets.connect('ws://localhost:8765') as ws:
-            await ws.send(json.dumps({'type': 'test', 'content': 'hello'}))
-            print('✅ WebSocket connection and message sending successful')
+        response = requests.get('http://localhost:8081/health')
+        if response.status_code == 200:
+            print('✅ HTTP server connectivity successful')
+        else:
+            print(f'❌ HTTP server returned status {response.status_code}')
     except Exception as e:
-        print(f'❌ WebSocket test failed: {e}')
+        print(f'❌ HTTP test failed: {e}')
 
-asyncio.run(test())
+test()
 "
 
 # Test deployment manager
@@ -344,10 +346,9 @@ Create a production configuration file `config.json`:
     "metrics_collection": true,
     "optimization_interval": 3600
   },
-  "websocket": {
+  "http": {
     "host": "localhost",
-    "port": 8765,
-    "max_message_size": 65536
+    "port": 8081
   }
 }
 ```
@@ -415,10 +416,9 @@ GITHUB_TOKEN=your_github_token
 # Database Configuration (optional)
 DATABASE_URL=sqlite:///./agent_s3.db
 
-# WebSocket Configuration
-WEBSOCKET_HOST=localhost
-WEBSOCKET_PORT=8765
-WEBSOCKET_MAX_MESSAGE_SIZE=65536
+# HTTP Configuration
+HTTP_HOST=localhost
+HTTP_PORT=8081
 
 # Deployment Configuration
 DEPLOYMENT_HOST=localhost
@@ -572,9 +572,9 @@ cat > config.json << 'EOF'
 {
   "sandbox_environment": true,
   "host_os_type": "linux",
-  "websocket": {
+  "http": {
     "host": "0.0.0.0",
-    "port": 8765
+    "port": 8081
   }
 }
 EOF
@@ -629,8 +629,8 @@ RUN pip install --user agent_s3-*.whl
 # Copy configuration
 COPY config.json .env ./
 
-# Expose WebSocket port
-EXPOSE 8765
+# Expose HTTP port
+EXPOSE 8081
 
 # Start Agent-S3
 CMD ["/home/agent-s3/.local/bin/agent-s3"]
@@ -645,7 +645,7 @@ docker build -t agent-s3:latest .
 # Run container
 docker run -d \
   --name agent-s3 \
-  -p 8765:8765 \
+  -p 8081:8081 \
   -v $(pwd)/data:/home/agent-s3/data \
   agent-s3:latest
 ```
@@ -673,7 +673,7 @@ spec:
       - name: agent-s3
         image: agent-s3:latest
         ports:
-        - containerPort: 8765
+        - containerPort: 8081
         env:
         - name: AGENT_S3_CONFIG_PATH
           value: "/config/config.json"
@@ -699,8 +699,8 @@ spec:
   selector:
     app: agent-s3
   ports:
-  - port: 8765
-    targetPort: 8765
+  - port: 8081
+    targetPort: 8081
   type: LoadBalancer
 ```
 
@@ -738,23 +738,21 @@ Create health check script `health_check.py`:
 #!/usr/bin/env python3
 import requests
 import sys
-import websocket
+import requests
 from agent_s3.config import Config
 
-def check_websocket():
+def check_http():
     try:
         config = Config()
         config.load()
-        host = config.config.get('websocket', {}).get('host', 'localhost')
-        port = config.config.get('websocket', {}).get('port', 8765)
+        host = config.config.get('http', {}).get('host', 'localhost')
+        port = config.config.get('http', {}).get('port', 8081)
         
-        ws = websocket.create_connection(f"ws://{host}:{port}")
-        ws.send('{"type": "health_check"}')
-        response = ws.recv()
-        ws.close()
-        return True
+        response = requests.get(f"http://{host}:{port}/health")
+        return response.status_code == 200
     except Exception as e:
-        print(f"WebSocket health check failed: {e}")
+        print(f"HTTP health check failed: {e}")
+        return False
         return False
 
 def check_deployment_manager():
@@ -806,7 +804,7 @@ def check_llm_router():
 if __name__ == "__main__":
     checks = [
         ("Pydantic Compatibility", check_pydantic_compatibility),
-        ("WebSocket", check_websocket),
+        ("HTTP Server", check_http),
         ("Deployment Manager", check_deployment_manager),
         ("Adaptive Configuration", check_adaptive_config),
         ("LLM Router", check_llm_router),
@@ -906,14 +904,17 @@ echo "Update completed successfully!"
 
 ### 8.1 Common Issues
 
-**Issue: WebSocket connection fails**
+**Issue: HTTP connection fails**
 ```bash
 # Check if port is open
-netstat -tlnp | grep 8765
+netstat -tlnp | grep 8081
+
+# Check if HTTP server is responding
+curl -s http://localhost:8081/health
 
 # Check firewall
 sudo ufw status
-sudo ufw allow 8765
+sudo ufw allow 8081
 
 # Check logs
 journalctl -u agent-s3 -f
@@ -982,8 +983,8 @@ print('✅ LLM configuration validation passed')
 ### 8.2 Performance Tuning
 
 ```bash
-# Increase WebSocket message size limit
-export WEBSOCKET_MAX_MESSAGE_SIZE=131072
+# HTTP server configuration is automatically optimized
+# No special HTTP configuration needed for performance
 
 # Optimize Python GC
 export PYTHONOPTIMIZE=1
@@ -1069,7 +1070,7 @@ grep -n "sys.executable" agent_s3/tools/tech_stack_manager.py
 # If missing, the subprocess call needs timeout and proper Python executable
 ```
 
-**Issue: WebSocket server fails with "address already in use" error**
+**Issue: HTTP server fails with "address already in use" error**
 ```bash
 # Symptom: OSError: [Errno 48] Address already in use
 # Common cause: dual Coordinator instantiation in CLI
@@ -1080,8 +1081,8 @@ grep -n "Coordinator(" agent_s3/cli/__init__.py
 # Should only show ONE Coordinator instantiation, not two
 # If you see multiple instantiations, this indicates the dual coordinator bug
 
-# Kill any existing processes on port 8765
-lsof -ti:8765 | xargs kill -9
+# Kill any existing processes on port 8081
+lsof -ti:8081 | xargs kill -9
 
 # Verify the fix is in place by checking CLI structure
 python -c "
@@ -1091,29 +1092,29 @@ print('✅ CLI imports successfully without dual instantiation')
 "
 ```
 
-**Issue: Server starts but WebSocket connection immediately fails**
+**Issue: Server starts but HTTP connection immediately fails**
 ```bash
-# Test WebSocket connectivity
+# Test HTTP connectivity
 python -c "
-import asyncio
-import websockets
-import json
+import requests
 
-async def test():
+def test():
     try:
-        async with websockets.connect('ws://localhost:8765') as ws:
-            await ws.send(json.dumps({'type': 'health_check'}))
-            print('✅ WebSocket connection successful')
+        response = requests.get('http://localhost:8081/health')
+        if response.status_code == 200:
+            print('✅ HTTP connection successful')
+        else:
+            print(f'❌ HTTP returned status {response.status_code}')
     except Exception as e:
-        print(f'❌ WebSocket connection failed: {e}')
+        print(f'❌ HTTP connection failed: {e}')
 
-asyncio.run(test())
+test()
 "
 
 # Check server logs for connection errors
 python -m agent_s3.cli &
 sleep 5
-cat .agent_s3_ws_connection.json
+cat .agent_s3_http_connection.json
 ```
 
 **Issue: Import errors during startup**
@@ -1339,8 +1340,8 @@ sudo chown agent-s3:agent-s3 /etc/agent-s3/openai_key
 
 ```bash
 # Configure firewall
-sudo ufw allow from 127.0.0.1 to any port 8765
-sudo ufw allow from 10.0.0.0/8 to any port 8765
+sudo ufw allow from 127.0.0.1 to any port 8081
+sudo ufw allow from 10.0.0.0/8 to any port 8081
 
 # Use reverse proxy for external access
 # (Configure nginx/apache with SSL)

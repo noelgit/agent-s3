@@ -1,6 +1,6 @@
 /*
  * Styles for the ConnectionStatus component
- * Provides visual feedback for WebSocket connectivity
+ * Provides visual feedback for HTTP server connectivity
  */
 .connection-status {
   position: fixed;

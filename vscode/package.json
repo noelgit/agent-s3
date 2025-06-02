@@ -1,7 +1,7 @@
 {
   "name": "agent-s3",
   "displayName": "Agent-S3",
-  "description": "Engineer-in-the-loop AI coding agent with real-time streaming UI, WebSocket communication, comprehensive validation, GitHub integration, and interactive development workflows. Features semantic caching, multi-LLM orchestration, test-driven development, and engineer-controlled planning.",
+  "description": "Engineer-in-the-loop AI coding agent with HTTP API communication, comprehensive validation, GitHub integration, and interactive development workflows. Features semantic caching, multi-LLM orchestration, test-driven development, and engineer-controlled planning.",
   "version": "0.1.0",
   "publisher": "sparksoft-solutions",
   "icon": "logo.png",
@@ -70,14 +70,6 @@
         "title": "Agent-S3: Open Interactive View"
       },
       {
-        "command": "agent-s3.testWebSocket",
-        "title": "Agent-S3: Test WebSocket Connection"
-      },
-      {
-        "command": "agent-s3.testWebSocketPerformance",
-        "title": "Agent-S3: Test WebSocket Performance with Large Messages"
-      },
-      {
         "command": "agent-s3.showChatEntry",
         "title": "Agent-S3: Show Chat Entry"
       },
@@ -106,17 +98,6 @@
         }
       ]
     },
-    "configuration": {
-      "title": "Agent-S3",
-      "properties": {
-        "agent-s3.websocketProtocol": {
-          "type": "string",
-          "enum": ["ws", "wss"],
-          "default": "wss",
-          "description": "Protocol to use for WebSocket connections when not specified in the connection file. Defaults to secure 'wss'. Set to 'ws' to disable TLS."
-        }
-      }
-    }
   },
   "scripts": {
     "vscode:prepublish": "npm install && npm run compile && npm run build-webview",
@@ -127,7 +108,6 @@
     "build-webview": "cd webview-ui && npm install && npm run build",
     "watch-webview": "cd webview-ui && npm run start",
     "test-server": "node ../tests/node_servers/simple-test-server.js",
-    "test-websocket": "node test-websocket-standalone.js"
   },
   "devDependencies": {
     "@types/node": "^22.14.1",
@@ -140,9 +120,7 @@
     "typescript": "^4.2.4"
   },
   "dependencies": {
-    "@types/ws": "^8.18.1",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "ws": "^8.18.2"
+    "react-dom": "^18.2.0"
   }
 }

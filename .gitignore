@@ -93,5 +93,3 @@ vscode/webview-ui/build/
 
 # Miscellaneous
 remove_ignored_files.sh
-test-websocket-server 2.js
-test-websocket-server 3.js

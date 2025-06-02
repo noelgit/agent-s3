@@ -179,30 +179,33 @@ def main() -> None:
         logger.info("No command or prompt provided. Starting Agent-S3 in server mode.")
         coordinator = Coordinator(config)  # No auth needed for just starting server
 
-        ws_host = config.config.get('WEBSOCKET_HOST', 'localhost') # Changed config.get to config.config.get
-        ws_port = config.config.get('WEBSOCKET_PORT', 8765)  # Changed config.get to config.config.get
+        # Read HTTP config from config
+        http_config = config.config.get('http', {})
+        http_host = http_config.get('host', 'localhost')
+        http_port = http_config.get('port', 8081)  # Default to 8081 for HTTP
 
-        print(f"Agent-S3 server mode started. WebSocket server running at ws://{ws_host}:{ws_port}")
+        print(f"Agent-S3 server mode started. HTTP server running at http://{http_host}:{http_port}")
+        print("Available endpoints: GET /health, GET /help, POST /command")
         print("Press Ctrl+C to stop.")
 
         # Correctly handle shutdown
-        # The Coordinator now starts the WebSocket server in a daemon thread.
+        # The Coordinator now starts the HTTP server in a daemon thread.
         # The main CLI thread needs to stay alive and handle signals for graceful shutdown.
         try:
-            # Keep the main thread alive. The WebSocket server is in a daemon thread.
+            # Keep the main thread alive. The HTTP server is in a daemon thread.
             while True:
                 time.sleep(1) 
         except KeyboardInterrupt:
             logger.info("Ctrl+C received. Shutting down Agent-S3 server...")
-            # The Coordinator's shutdown method now handles stopping the WebSocket server.
+            # The Coordinator's shutdown method now handles stopping the HTTP server.
             if hasattr(coordinator, 'shutdown'):
                 try:
-                    coordinator.shutdown() # This should call websocket_server.stop_sync()
+                    coordinator.shutdown() # This should call http_server.stop_sync()
                     logger.info("Coordinator shutdown sequence initiated.")
                 except Exception as e:
                     logger.error(f"Error during coordinator shutdown: {e}", exc_info=True)
             else:
-                logger.warning("Coordinator does not have a shutdown method. WebSocket server might not stop gracefully.")
+                logger.warning("Coordinator does not have a shutdown method. HTTP server might not stop gracefully.")
             print("Agent-S3 server stopped.")
             sys.exit(0)
         except Exception as e:

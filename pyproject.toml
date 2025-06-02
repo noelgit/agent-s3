@@ -49,7 +49,6 @@ dependencies = [
     # Web framework and communication
     "fastapi>=0.95.0",
     "uvicorn>=0.22.0",
-    "websockets>=11.0",
     "flask>=2.3.0",
     
     # AWS and cloud services

@@ -1,66 +1,9 @@
-2025-06-01 22:00:04,818 - __main__ - INFO - Starting WebSocket server...
-2025-06-01 22:00:04,822 - websockets.server - INFO - server listening on 0.0.0.0:8765
-2025-06-01 22:00:04,822 - websockets.server - INFO - server listening on [::]:8765
-2025-06-01 22:00:04,823 - agent_s3.communication.enhanced_websocket_server - INFO - EnhancedWebSocketServer running on localhost:8765 (listening on all interfaces)
-2025-06-01 22:00:04,823 - __main__ - INFO - WebSocket server started successfully!
-2025-06-01 22:00:04,823 - __main__ - INFO - Server running on ws://localhost:8765
-2025-06-01 22:00:04,823 - __main__ - INFO - Auth token: test-token-123
-2025-06-01 22:00:04,823 - __main__ - INFO - Server is running. Press Ctrl+C to stop.
-2025-06-01 22:00:04,823 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:00:16,514 - websockets.server - INFO - connection open
-2025-06-01 22:00:16,514 - agent_s3.communication.enhanced_websocket_server - INFO - New client connected: 9e057533-8391-4d2f-8c35-0d7d82e70b4c
-2025-06-01 22:01:04,836 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:02:04,860 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:03:04,872 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:04:04,879 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:05:04,882 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:06:04,892 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:07:04,896 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:08:04,904 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:09:04,916 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:10:04,931 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:17:46,368 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:18:46,397 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:19:46,412 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:20:46,427 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:21:46,440 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:22:46,450 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:23:46,454 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:24:46,465 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:25:46,488 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:26:46,495 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:27:46,498 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:28:46,502 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:29:46,508 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:30:46,512 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:31:46,515 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:32:46,519 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:33:46,527 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:34:46,534 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:35:46,544 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:36:46,547 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:37:46,551 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:38:46,555 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:39:46,560 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:40:46,565 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:41:46,570 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:42:46,575 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:43:46,581 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:44:46,585 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:45:46,594 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:46:46,604 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:47:46,608 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:48:46,610 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:49:46,615 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:50:46,624 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:51:46,634 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:52:46,638 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:53:46,644 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:54:46,647 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:55:46,652 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:56:46,656 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:57:46,660 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:58:46,675 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 22:59:46,682 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 23:00:46,687 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
-2025-06-01 23:01:46,692 - agent_s3.communication.enhanced_websocket_server - INFO - Server Metrics: Active Clients=0, Messages Processed=0
+INFO:agent_s3.config:Loaded LLM model configuration from llm.json
+INFO:agent_s3.config:Extracted 125 guidelines from /Users/noelpatron/Documents/GitHub/agent-s3/.github/copilot-instructions.md
+INFO:agent_s3.config:Configuration loaded
+INFO:faiss.loader:Loading faiss.
+INFO:faiss.loader:Successfully loaded faiss.
+INFO:faiss:Failed to load GPU Faiss: name 'GpuIndexIVFFlat' is not defined. Will not load constructor refs for GPU indexes. This is only an error if you're trying to use GPU Faiss.
+127.0.0.1 - - [02/Jun/2025 19:02:10] "GET /health HTTP/1.1" 200 -
+127.0.0.1 - - [02/Jun/2025 19:02:16] "GET /help HTTP/1.1" 200 -
+127.0.0.1 - - [02/Jun/2025 19:02:54] "POST /command HTTP/1.1" 200 -

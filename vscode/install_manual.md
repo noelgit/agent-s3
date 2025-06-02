@@ -67,13 +67,13 @@ You should now see:
 - Check Developer Console for errors
 - Try reloading the window
 
-### WebSocket Connection Issues
-- Make sure the backend server is running
-- Check that port 8765 is not blocked
-- Look for connection errors in the Output panel
+### HTTP Connection Issues
+- Make sure the backend server is running on port 8081
+- Check that the HTTP server responds: `curl http://localhost:8081/health`
+- Extension will automatically fall back to CLI commands if HTTP server is unavailable
 
 ## File Locations
 - **VSIX file**: `/Users/noelpatron/Documents/GitHub/agent-s3/vscode/agent-s3-fixed.vsix`
-- **Connection file**: `/Users/noelpatron/Documents/GitHub/agent-s3/.agent_s3_ws_connection.json`
+- **HTTP server**: Available at `http://localhost:8081` when backend is running
 
 The extension is properly compiled and should work once installed correctly!
