@@ -6,14 +6,18 @@ import * as crypto from "crypto";
 /**
  * Creates and manages a webview panel for React-based interactive components
  */
-export class InteractiveWebviewManager {
+export class WebviewUIManager {
   private panel: vscode.WebviewPanel | undefined;
   private extensionUri: vscode.Uri;
   private disposables: vscode.Disposable[] = [];
-  private messageHandler: ((message: any) => void) | undefined;
+  private messageHandler: ((message: unknown) => void) | undefined;
+  private panelId: string;
+  private title: string;
 
-  constructor(extensionUri: vscode.Uri) {
+  constructor(extensionUri: vscode.Uri, panelId: string, title: string) {
     this.extensionUri = extensionUri;
+    this.panelId = panelId;
+    this.title = title;
   }
 
   /**
@@ -28,8 +32,8 @@ export class InteractiveWebviewManager {
 
     // Otherwise, create a new panel
     this.panel = vscode.window.createWebviewPanel(
-      "agent-s3-interactive",
-      "Agent-S3 Interactive Components",
+      this.panelId,
+      this.title,
       vscode.ViewColumn.Beside,
       {
         enableScripts: true,
@@ -62,7 +66,7 @@ export class InteractiveWebviewManager {
 
     // Handle messages from the webview
     this.panel!.webview.onDidReceiveMessage(
-      (message: any) => {
+      (message: unknown) => {
         if (this.messageHandler) {
           this.messageHandler(message);
         }
@@ -77,14 +81,14 @@ export class InteractiveWebviewManager {
   /**
    * Set a message handler for the webview
    */
-  public setMessageHandler(handler: (message: any) => void): void {
+  public setMessageHandler(handler: (message: unknown) => void): void {
     this.messageHandler = handler;
   }
 
   /**
    * Send a message to the webview
    */
-  public async postMessage(message: any): Promise<boolean> {
+  public async postMessage(message: unknown): Promise<boolean> {
     if (!this.panel) {
       return false;
     }
