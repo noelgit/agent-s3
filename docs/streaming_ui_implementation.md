@@ -67,12 +67,12 @@ Returns server health status.
 ```
 
 ### GET /help
-Returns available commands.
+Returns the same help text as `python -m agent_s3.cli /help`.
 
 **Response:**
 ```json
 {
-  "result": "Available commands:\n/help - Show this help\n/init - Initialize workspace\n..."
+  "result": "Agent-S3 Command-Line Interface\n\nCommands:\n  agent-s3 <prompt>          - Process a change request (full workflow)\n  ..."
 }
 ```
 
