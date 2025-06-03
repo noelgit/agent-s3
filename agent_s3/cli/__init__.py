@@ -35,9 +35,9 @@ def configure_logging(verbose: bool = False) -> None:
     logging.getLogger("requests").setLevel(logging.WARNING)
 
 
-def display_help() -> None:
-    """Display help information for the command-line interface."""
-    help_text = """
+def get_help_text() -> str:
+    """Return help information for the command-line interface."""
+    return """
 Agent-S3 Command-Line Interface
 
 Commands:
@@ -86,8 +86,13 @@ Special Commands (can be used in prompt):
   /debug                     - Start debugging utilities
   @<filename>                - Open a file in the editor
   #<tag>                     - Add a tag to the scratchpad
+
 """
-    print(help_text)
+
+
+def display_help() -> None:
+    """Display help information for the command-line interface."""
+    print(get_help_text())
 
 
 def process_command(coordinator: Coordinator, command: str) -> None:

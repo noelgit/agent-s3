@@ -57,12 +57,8 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
             if not self.coordinator:
                 # Fallback simple responses if no coordinator
                 if command == '/help':
-                    return """Available commands:
-/help - Show this help
-/init - Initialize workspace  
-/plan <description> - Generate a plan
-/test - Run tests
-/config - Show configuration"""
+                    from agent_s3.cli import get_help_text
+                    return get_help_text()
                 elif command == '/config':
                     return "Agent-S3 Configuration: Ready"
                 elif command.startswith('/plan'):
@@ -78,12 +74,8 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
             
             # Handle help command specially
             if command == "/help":
-                return """Available commands:
-/help - Show this help
-/init - Initialize workspace  
-/plan <description> - Generate a plan
-/test - Run tests
-/config - Show configuration"""
+                from agent_s3.cli import get_help_text
+                return get_help_text()
             
             # Process through coordinator's command processor
             from agent_s3.cli.dispatcher import dispatch
