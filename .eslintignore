@@ -1,0 +1,5 @@
+# Ignore build and coverage artifacts for ESLint
+coverage_html/
+webview-ui/build/
+node_modules/
+dist/

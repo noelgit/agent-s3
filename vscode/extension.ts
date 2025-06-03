@@ -10,7 +10,8 @@ interface HealthResponse {
 
 let chatManager: WebviewUIManager | undefined;
 let messageHistory: ChatHistoryEntry[] = [];
-let terminalEmitter: vscode.EventEmitter<string> | undefined;
+// Use minimal type for terminalEmitter to avoid 'any' and generic issues
+let terminalEmitter: { event: unknown; fire(data: string): void; dispose(): void } | undefined;
 let agentTerminal: vscode.Terminal | undefined;
 
 /**
@@ -239,16 +240,17 @@ function getAgentTerminal(): vscode.Terminal {
         return agentTerminal;
     }
 
+    // Use EventEmitter without type argument for compatibility with custom typings
     const emitter = new vscode.EventEmitter();
     terminalEmitter = emitter;
     const pty: vscode.Pseudoterminal = {
         onDidWrite: emitter.event,
-        open: () => { return undefined; },
-        close: () => { return undefined; }
+        open: () => { /* no-op */ },
+        close: () => { /* no-op */ }
     };
 
     agentTerminal = vscode.window.createTerminal({ name: 'Agent-S3', pty });
-    return agentTerminal!;
+    return agentTerminal ?? vscode.window.createTerminal('Agent-S3');
 }
 
 function appendToTerminal(text: string): void {

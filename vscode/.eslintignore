@@ -1,7 +1,6 @@
 webview-ui/
 out/
 node_modules/
-*.js
 *.d.ts
 coverage/
 dist/

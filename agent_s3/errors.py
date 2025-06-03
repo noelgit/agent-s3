@@ -91,6 +91,10 @@ class ErrorContext:
     recovery_attempted: bool = False
     recovery_strategy: Optional[str] = None
 
+    # Complexity analysis context (optional)
+    complexity_score: Optional[float] = None
+    complexity_factors: Optional[Any] = None
+
     def __post_init__(self):
         """Ensure stacktrace is populated if not provided."""
         if not self.stacktrace:
@@ -130,7 +134,11 @@ class ErrorContext:
         result["recovery_attempted"] = self.recovery_attempted
         if self.recovery_strategy:
             result["recovery_strategy"] = self.recovery_strategy
-
+        # Add complexity context if present
+        if self.complexity_score is not None:
+            result["complexity_score"] = self.complexity_score
+        if self.complexity_factors is not None:
+            result["complexity_factors"] = self.complexity_factors
         return result
 
 
