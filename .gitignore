@@ -84,6 +84,7 @@ vscode/node_modules/
 vscode/webview-ui/node_modules/
 vscode/out/
 vscode/webview-ui/build/
+vscode/*.vsix
 
 # Duplicate, backup, and numbered files
 * 2.*
