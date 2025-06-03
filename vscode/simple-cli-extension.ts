@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
-import { spawn } from 'child_process';
+import * as cp from 'child_process';
 import * as path from 'path';
 
-export function activate(context: vscode.ExtensionContext) {
+const { spawn } = cp;
+
+export function activate(context: vscode.ExtensionContext): void {
     
     // Simple help command
     const helpCommand = vscode.commands.registerCommand('agent-s3.help', async () => {
@@ -49,21 +51,21 @@ async function executeAgentCommand(command: string, workspacePath: string) {
         let output = '';
         let error = '';
 
-        process.stdout.on('data', (data) => {
+        process.stdout.on('data', (data: Buffer) => {
             output += data.toString();
         });
 
-        process.stderr.on('data', (data) => {
+        process.stderr.on('data', (data: Buffer) => {
             error += data.toString();
         });
 
-        process.on('close', (code) => {
+        process.on('close', (code: number | null) => {
             if (code === 0) {
                 // Show output in new document
                 vscode.workspace.openTextDocument({
                     content: `Agent-S3 Command: ${command}\n\n${output}`,
                     language: 'markdown'
-                }).then(doc => {
+                }).then((doc: vscode.TextDocument) => {
                     vscode.window.showTextDocument(doc);
                 });
             } else {

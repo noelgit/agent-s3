@@ -155,7 +155,7 @@ export class Agent3ChatProvider implements vscode.TreeDataProvider<Agent3TreeIte
         const recentChats = chatHistory.slice(-10).reverse();
         
         for (const entry of recentChats) {
-          const timestamp = new Date(entry.timestamp).toLocaleString();
+          const timestamp = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : 'Unknown';
           const preview = entry.content.length > 50 
             ? entry.content.substring(0, 50) + "..."
             : entry.content;
@@ -169,8 +169,8 @@ export class Agent3ChatProvider implements vscode.TreeDataProvider<Agent3TreeIte
                 title: "Show Chat Entry",
                 arguments: [entry]
               },
-              new vscode.ThemeIcon(entry.type === "user" ? "person" : "robot"),
-              `${entry.type}: ${entry.content}\n${timestamp}`,
+              new vscode.ThemeIcon(entry.role === "user" ? "person" : "robot"),
+              `${entry.role}: ${entry.content}\n${timestamp}`,
               "chatEntry"
             )
           );

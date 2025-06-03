@@ -10,6 +10,16 @@ declare module "path" {
   export = x;
 }
 
+declare module "child_process" {
+  interface ChildProcess {
+    stdout: any;
+    stderr: any;
+    on(event: string, listener: (code: number) => void): this;
+  }
+  function spawn(command: string, args?: string[], options?: any): ChildProcess;
+  export { ChildProcess, spawn };
+}
+
 interface Buffer {}
 declare const Buffer: {
   new(...args: any[]): Buffer;
@@ -30,3 +40,14 @@ declare function setInterval(handler: (...args: any[]) => void, timeout?: number
 declare function clearInterval(intervalId: NodeJS.Timeout): void;
 
 declare function require(moduleName: string): any;
+
+// Fetch API
+declare function fetch(input: string, init?: any): Promise<{
+  ok: boolean;
+  status: number;
+  json(): Promise<any>;
+  text(): Promise<string>;
+}>;
+
+// Global Buffer for VS Code extension environment
+declare const global: any;

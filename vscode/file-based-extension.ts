@@ -56,7 +56,7 @@ async function sendCommand(command: string) {
                     vscode.workspace.openTextDocument({
                         content: `Command: ${command}\n\nResponse:\n${responseData.result}`,
                         language: 'markdown'
-                    }).then(doc => {
+                    }).then((doc: vscode.TextDocument) => {
                         vscode.window.showTextDocument(doc);
                     });
 

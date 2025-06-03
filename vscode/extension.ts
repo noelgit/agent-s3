@@ -3,10 +3,14 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 
+interface HealthResponse {
+    status: string;
+}
+
 /**
  * Extension activation point
  */
-export function activate(context: vscode.ExtensionContext) {
+export function activate(context: vscode.ExtensionContext): void {
     console.log('Agent-S3 HTTP Extension activated');
 
     // Initialize command
@@ -97,7 +101,7 @@ export function activate(context: vscode.ExtensionContext) {
         try {
             // Try to connect to HTTP server
             const response = await fetch('http://localhost:8081/health');
-            const data = await response.json();
+            const data = await response.json() as HealthResponse;
             
             if (data.status === 'ok') {
                 vscode.window.showInformationMessage('Agent-S3 HTTP Server: Connected ✅');
@@ -160,21 +164,21 @@ async function executeAgentCommand(command: string): Promise<void> {
         let output = '';
         let error = '';
 
-        process.stdout.on('data', (data) => {
+        process.stdout.on('data', (data: Buffer) => {
             output += data.toString();
         });
 
-        process.stderr.on('data', (data) => {
+        process.stderr.on('data', (data: Buffer) => {
             error += data.toString();
         });
 
-        process.on('close', (code) => {
+        process.on('close', (code: number | null) => {
             if (code === 0) {
                 // Show output in new document
                 vscode.workspace.openTextDocument({
                     content: `Agent-S3 Command: ${command}\n\n${output}`,
                     language: 'markdown'
-                }).then(doc => {
+                }).then((doc: vscode.TextDocument) => {
                     vscode.window.showTextDocument(doc);
                 });
             } else {
@@ -203,13 +207,13 @@ async function tryHttpCommand(command: string): Promise<string | null> {
             throw new Error(`HTTP ${response.status}`);
         }
         
-        const data = await response.json();
+        const data = await response.json() as { result?: string; error?: string };
         return data.result || data.error || 'Command executed';
     } catch (error) {
         return null; // HTTP not available
     }
 }
 
-export function deactivate() {
+export function deactivate(): void {
     console.log('Agent-S3 HTTP Extension deactivated');
 }
