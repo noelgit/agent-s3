@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
-import * as path from 'path';
 
 const { spawn } = cp;
 

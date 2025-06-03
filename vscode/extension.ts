@@ -1,11 +1,17 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as path from 'path';
 import { spawn } from 'child_process';
+import { WebviewUIManager } from './webview-ui-loader';
+import { CHAT_HISTORY_KEY } from './constants';
+import type { ChatHistoryEntry } from './types/message';
 
 interface HealthResponse {
     status: string;
 }
+
+let chatManager: WebviewUIManager | undefined;
+let messageHistory: ChatHistoryEntry[] = [];
+let terminalEmitter: vscode.EventEmitter<string> | undefined;
+let agentTerminal: vscode.Terminal | undefined;
 
 /**
  * Extension activation point
@@ -52,15 +58,36 @@ export function activate(context: vscode.ExtensionContext): void {
         }
     });
 
-    // Chat window that sends commands directly
     const chatCommand = vscode.commands.registerCommand('agent-s3.openChatWindow', async () => {
-        const input = await vscode.window.showInputBox({
-            prompt: 'Enter Agent-S3 command (e.g., /help, /plan, etc.)',
-            placeHolder: '/help'
-        });
+        if (!chatManager) {
+            chatManager = new WebviewUIManager(context.extensionUri, 'agent-s3-chat', 'Agent-S3 Chat');
+            chatManager.setMessageHandler(async (msg: unknown) => {
+                const message = msg as { type: string; text?: string };
+                if (message.type === 'webview-ready') {
+                    messageHistory = context.workspaceState.get<ChatHistoryEntry[]>(CHAT_HISTORY_KEY, []);
+                    chatManager?.postMessage({ type: 'LOAD_HISTORY', history: messageHistory, has_more: false });
+                    return;
+                }
 
-        if (!input) return;
-        await executeAgentCommand(input);
+                if (message.type === 'send') {
+                    const text = typeof message.text === 'string' ? message.text : '';
+                    const entry: ChatHistoryEntry = { role: 'user', content: text, timestamp: new Date().toISOString() };
+                    messageHistory.push(entry);
+                    await context.workspaceState.update(CHAT_HISTORY_KEY, messageHistory);
+
+                    appendToTerminal(`$ ${text}\n`);
+                    chatManager?.postMessage({ type: 'COMMAND_RESULT', content: { result: 'Processing...', success: true, command: text } });
+                    await executeAgentCommand(text);
+
+                    const ack: ChatHistoryEntry = { role: 'assistant', content: 'See terminal for details.', timestamp: new Date().toISOString() };
+                    messageHistory.push(ack);
+                    await context.workspaceState.update(CHAT_HISTORY_KEY, messageHistory);
+                    chatManager?.postMessage({ type: 'CHAT_MESSAGE', content: { text: ack.content, source: 'agent' } });
+                }
+            });
+        }
+
+        chatManager.createOrShowPanel();
     });
 
     // Interactive view command
@@ -137,52 +164,37 @@ async function executeAgentCommand(command: string): Promise<void> {
     }
 
     const workspacePath = workspaceFolder.uri.fsPath;
+    const term = getAgentTerminal();
+    term.show(true);
 
     // Try HTTP server first, fallback to CLI
     try {
         const httpResult = await tryHttpCommand(command);
         if (httpResult) {
-            // Show output in new document
-            const doc = await vscode.workspace.openTextDocument({
-                content: `Agent-S3 Command: ${command}\n\n${httpResult}`,
-                language: 'markdown'
-            });
-            await vscode.window.showTextDocument(doc);
+            appendToTerminal(`$ ${command}\n${httpResult}\n`);
             return;
         }
     } catch (error) {
         console.log('HTTP server not available, falling back to CLI');
     }
 
-    // Fallback to CLI execution
     return new Promise<void>((resolve) => {
         const process = spawn('python', ['-m', 'agent_s3.cli', command], {
             cwd: workspacePath,
             stdio: 'pipe'
         });
 
-        let output = '';
-        let error = '';
-
         process.stdout.on('data', (data: Buffer) => {
-            output += data.toString();
+            appendToTerminal(data.toString());
         });
 
         process.stderr.on('data', (data: Buffer) => {
-            error += data.toString();
+            appendToTerminal(data.toString());
         });
 
         process.on('close', (code: number | null) => {
-            if (code === 0) {
-                // Show output in new document
-                vscode.workspace.openTextDocument({
-                    content: `Agent-S3 Command: ${command}\n\n${output}`,
-                    language: 'markdown'
-                }).then((doc: vscode.TextDocument) => {
-                    vscode.window.showTextDocument(doc);
-                });
-            } else {
-                vscode.window.showErrorMessage(`Agent-S3 Error: ${error}`);
+            if (code !== 0) {
+                vscode.window.showErrorMessage('Agent-S3 command failed.');
             }
             resolve();
         });
@@ -216,4 +228,33 @@ async function tryHttpCommand(command: string): Promise<string | null> {
 
 export function deactivate(): void {
     console.log('Agent-S3 HTTP Extension deactivated');
+    if (agentTerminal) {
+        agentTerminal.dispose();
+    }
+    terminalEmitter?.dispose();
+}
+
+function getAgentTerminal(): vscode.Terminal {
+    if (agentTerminal) {
+        return agentTerminal;
+    }
+
+    const emitter = new vscode.EventEmitter();
+    terminalEmitter = emitter;
+    const pty: vscode.Pseudoterminal = {
+        onDidWrite: emitter.event,
+        open: () => { return undefined; },
+        close: () => { return undefined; }
+    };
+
+    agentTerminal = vscode.window.createTerminal({ name: 'Agent-S3', pty });
+    return agentTerminal!;
+}
+
+function appendToTerminal(text: string): void {
+    const term = getAgentTerminal();
+    if (terminalEmitter) {
+        terminalEmitter.fire(text.replace(/\r?\n/g, '\r\n'));
+    }
+    term.show(true);
 }
