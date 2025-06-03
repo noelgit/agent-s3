@@ -8,7 +8,7 @@ import subprocess
 import sys
 import json
 import os
-from typing import List, Dict, Any, Tuple
+from typing import List, Tuple
 
 
 class DependencyValidator:

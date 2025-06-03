@@ -17,13 +17,11 @@ import logging
 import os
 from typing import Dict, Any, Optional, Tuple, List, Union, Callable
 
-from agent_s3.progress_tracker import ProgressTracker
 from agent_s3.errors import PrePlanningError
 from agent_s3.json_utils import (
     extract_json_from_text,
     get_openrouter_json_params,
     validate_json_schema,
-    sanitize_text,
 )
 from agent_s3.planning import repair_json_structure
 from agent_s3.pre_planner_json_validator import PrePlannerJsonValidator

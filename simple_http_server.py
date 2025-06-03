@@ -5,14 +5,11 @@ import json
 import sys
 from pathlib import Path
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
-import threading
+from urllib.parse import urlparse
 
 # Add the project root to the path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from agent_s3.coordinator import Coordinator
-from agent_s3.config import Config
 
 class Agent3Handler(BaseHTTPRequestHandler):
     

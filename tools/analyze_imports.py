@@ -4,10 +4,9 @@ Comprehensive import and dependency analysis for agent_s3 codebase
 """
 
 import ast
-import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Set, Tuple, Optional
+from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 import importlib.util
 
@@ -91,8 +90,6 @@ def analyze_file(file_path: Path, base_path: Path) -> Dict:
         return {"error": f"Could not parse {file_path}"}
     
     module_imports, from_imports = extract_imports(tree)
-    function_calls = extract_function_calls(tree)
-    attributes = extract_attribute_access(tree)
     
     issues = {
         'file': str(file_path),

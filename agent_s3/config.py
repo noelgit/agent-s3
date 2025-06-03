@@ -12,7 +12,7 @@ import threading
 from pathlib import Path
 from typing import Optional, Dict, List, Any
 
-from pydantic import BaseModel, ValidationError, Field, ConfigDict
+from pydantic import BaseModel, ValidationError, ConfigDict
 
 # Export public classes and functions
 __all__ = [

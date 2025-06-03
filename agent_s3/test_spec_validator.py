@@ -13,7 +13,6 @@ from typing import Dict, Any, List, Set, Tuple, Optional
 
 import numpy as np
 
-from agent_s3.progress_tracker import ProgressTracker, Status
 
 logger = logging.getLogger(__name__)
 
@@ -871,7 +870,7 @@ def validate_and_repair_test_specifications(
             was_repaired = True
 
     try:
-        summary = f"{len(all_validation_issues)} issues found; repaired={was_repaired}"
+        pass
         # progress_tracker.update_progress({
         #     "phase": "test_validation",
         #     "status": Status.COMPLETED,

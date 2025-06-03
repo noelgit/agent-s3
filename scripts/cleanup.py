@@ -7,13 +7,11 @@ This replaces multiple individual cleanup scripts with a unified tool.
 """
 import argparse
 import logging
-import os
 import re
 import shutil
-import subprocess
 import sys
 from pathlib import Path
-from typing import List, Set
+from typing import List
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

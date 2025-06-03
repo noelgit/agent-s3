@@ -256,7 +256,7 @@ class TestCoordinatorErrorHandling:
             
             # This should trigger the error handling path
             with pytest.raises(Exception):
-                coordinator = Coordinator(config=mock_config)
+                Coordinator(config=mock_config)
 
 
 class TestCoordinatorPropertyMethods:
@@ -330,8 +330,7 @@ class TestCoordinatorComplexWorkflows:
         
         with patch('agent_s3.tools.static_plan_checker.StaticPlanChecker'):
             # Test the workflow
-            result = workflow_coordinator.plan_approval_loop(plan)
-            
+            workflow_coordinator.plan_approval_loop(plan)
             # Verify plan was presented
             workflow_coordinator.prompt_moderator.present_consolidated_plan.assert_called_once()
 

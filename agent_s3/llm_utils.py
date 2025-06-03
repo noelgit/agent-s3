@@ -16,7 +16,6 @@ except ImportError:
     cache = None
 
 from agent_s3.cache.helpers import read_cache, write_cache
-from agent_s3.progress_tracker import ProgressTracker
 
 # Type hint for ScratchpadManager to avoid circular imports
 ScratchpadManagerType = Any

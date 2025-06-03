@@ -38,7 +38,7 @@ def test_set_and_get_cache_hit():
     cached_result = cache.get(prompt)
     assert cached_result is not None
     assert cached_result['response'] == response
-    assert cached_result['cached'] == True
+    assert cached_result['cached']
 
     stats = cache.get_cache_stats()
     assert stats['hits'] == 1
@@ -57,7 +57,7 @@ def test_ttl_expiry():
     result = cache.get(prompt)
     assert result is not None
     assert result['response'] == response
-    assert result['cached'] == True
+    assert result['cached']
     time.sleep(1.1)
     # Should expire
     assert cache.get(prompt) is None
@@ -90,7 +90,7 @@ def test_cache_miss_and_hit(monkeypatch):
     result = cache.get(prompt)
     assert result is not None
     assert result['response'] == {'res': 123}
-    assert result['cached'] == True
+    assert result['cached']
     stats = cache.get_cache_stats()
     assert stats['misses'] == 1
     assert stats['hits'] == 1
@@ -128,4 +128,4 @@ def test_semantic_search_no_embedding(monkeypatch, count):
     result = cache.get(prompt)
     assert result is not None
     assert result['response'] == {'val': count}
-    assert result['cached'] == True
+    assert result['cached']

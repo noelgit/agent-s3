@@ -7,9 +7,8 @@ Complex integration tests have been simplified or removed to focus on testable c
 import os
 import pytest
 import tempfile
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-from agent_s3.config import Config
 
 
 @pytest.fixture

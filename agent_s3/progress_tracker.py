@@ -9,7 +9,6 @@ from enum import Enum, auto
 from typing import Dict, Any, Optional, List
 
 from pydantic import BaseModel, Field, ValidationError
-from agent_s3.config import Config
 
 class Status(Enum):
     """Represents the status of a task."""
