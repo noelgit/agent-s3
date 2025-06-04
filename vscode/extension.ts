@@ -168,7 +168,7 @@ async function executeAgentCommand(command: string): Promise<void> {
     const term = getAgentTerminal();
     term.show(true);
 
-    // Try HTTP server first, fallback to CLI
+    // Try HTTP server first, fallback to CLI if it fails or times out
     try {
         const httpResult = await tryHttpCommand(command);
         if (httpResult) {
@@ -177,23 +177,30 @@ async function executeAgentCommand(command: string): Promise<void> {
         }
     } catch (error) {
         console.log('HTTP server not available, falling back to CLI');
+        vscode.window.showWarningMessage('Agent-S3 HTTP server not available. Using CLI mode.');
     }
 
     return new Promise<void>((resolve) => {
-        const process = spawn('python', ['-m', 'agent_s3.cli', command], {
+        const childProcess = spawn('python', ['-m', 'agent_s3.cli', command], {
             cwd: workspacePath,
             stdio: 'pipe'
         });
 
-        process.stdout.on('data', (data: Buffer) => {
+        childProcess.stdout.on('data', (data: Buffer) => {
             appendToTerminal(data.toString());
         });
 
-        process.stderr.on('data', (data: Buffer) => {
+        childProcess.stderr.on('data', (data: Buffer) => {
             appendToTerminal(data.toString());
         });
 
-        process.on('close', (code: number | null) => {
+        (childProcess as any).on('error', (err: Error) => {
+            appendToTerminal(`Error starting CLI: ${err.message}\n`);
+            vscode.window.showErrorMessage('Failed to start Agent-S3 CLI.');
+            resolve();
+        });
+
+        childProcess.on('close', (code: number | null) => {
             if (code !== 0) {
                 vscode.window.showErrorMessage('Agent-S3 command failed.');
             }
@@ -203,27 +210,38 @@ async function executeAgentCommand(command: string): Promise<void> {
 }
 
 async function tryHttpCommand(command: string): Promise<string | null> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+
     try {
         let response;
-        
+
         if (command === '/help') {
-            response = await fetch('http://localhost:8081/help');
+            response = await fetch('http://localhost:8081/help', {
+                signal: controller.signal
+            });
         } else {
             response = await fetch('http://localhost:8081/command', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ command })
+                body: JSON.stringify({ command }),
+                signal: controller.signal
             });
         }
-        
+
+        clearTimeout(timer);
+
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
-        
+
         const data = await response.json() as { result?: string; error?: string };
         return data.result || data.error || 'Command executed';
     } catch (error) {
-        return null; // HTTP not available
+        console.log(`HTTP command failed: ${String(error)}`);
+        return null; // HTTP not available or timed out
+    } finally {
+        clearTimeout(timer);
     }
 }
 
