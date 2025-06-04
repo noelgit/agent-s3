@@ -268,7 +268,7 @@ async function tryHttpCommand(command: string): Promise<HttpResult | null> {
             response = await fetch(`${baseUrl}/command`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ command }),
+                body: JSON.stringify({ command, async: true }),
                 signal: controller.signal
             });
         }
@@ -279,9 +279,16 @@ async function tryHttpCommand(command: string): Promise<HttpResult | null> {
             throw new Error(`HTTP ${response.status}`);
         }
 
-        const data = await response.json() as { result?: string; output?: string; success?: boolean; error?: string };
+        const data = await response.json() as { result?: string; output?: string; success?: boolean; error?: string; job_id?: string };
         if (data.error) {
             return { result: data.error, output: '', success: false };
+        }
+        if (data.job_id) {
+            const pollResult = await pollForResult(baseUrl, data.job_id);
+            if (pollResult) {
+                return pollResult;
+            }
+            return { result: 'Timed out waiting for result.', output: '', success: false };
         }
         return { result: data.result ?? '', output: data.output ?? '', success: data.success ?? true };
     } catch (error) {
