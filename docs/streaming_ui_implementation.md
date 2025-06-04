@@ -35,7 +35,8 @@ This document describes the implementation of HTTP-based communication for Agent
 2. **VS Code Extension**
    - Integrated HTTP client with VS Code extension API
    - Command processing through HTTP endpoints
-   - Progress tracking via polling or direct CLI execution
+   - Progress tracking via the `/status` endpoint and `progress_log.jsonl`
+     (polled until streaming support lands in Issue #2)
 
 ## Communication Flow
 
@@ -51,7 +52,7 @@ VS Code Extension -> HTTP GET /health -> {"status": "ok"} -> Connection Status
 
 ### Progress Updates
 ```
-Backend -> Progress Log File -> VS Code Extension polls or reads file -> UI Updates
+Backend -> `progress_log.jsonl` -> VS Code Extension polls `/status` -> UI Updates
 ```
 
 ## API Endpoints
@@ -93,7 +94,7 @@ Processes Agent-S3 commands.
 }
 ```
 ### GET /status
-Returns the result of the last command. The server clears the stored result after it is retrieved.
+Returns the result of the last command. The extension polls this endpoint until a result is available. The server clears the stored result after it is retrieved.
 
 **Response:**
 ```json
@@ -161,3 +162,5 @@ Set `allowed_origins` to restrict which Origins may access the API:
 - **Simplified Deployment**: Standard HTTP server deployment practices
 
 This implementation provides a modern, reliable communication layer while maintaining all the functionality of the previous WebSocket-based system with improved simplicity and reliability.
+
+Future enhancements for real-time streaming will be tracked in **Issue #2**.
