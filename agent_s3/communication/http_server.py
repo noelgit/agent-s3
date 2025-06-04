@@ -15,8 +15,10 @@ logger = logging.getLogger(__name__)
 class Agent3HTTPHandler(BaseHTTPRequestHandler):
     """HTTP request handler for Agent-S3."""
 
-    def __init__(self, *args, coordinator=None, **kwargs):
+    def __init__(self, *args, coordinator=None, allowed_origins=None, **kwargs):
         self.coordinator = coordinator
+        # Default to allow any origin for backward compatibility
+        self.allowed_origins = allowed_origins or ["*"]
         super().__init__(*args, **kwargs)
 
     def log_message(self, format: str, *args: Any) -> None:
@@ -106,19 +108,37 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(response)))
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+
+        origin = self.headers.get("Origin")
+        allow_origin = None
+        if "*" in self.allowed_origins:
+            allow_origin = "*"
+        elif origin and origin in self.allowed_origins:
+            allow_origin = origin
+
+        if allow_origin:
+            self.send_header("Access-Control-Allow-Origin", allow_origin)
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+
         self.end_headers()
 
         self.wfile.write(response)
 
     def do_OPTIONS(self) -> None:
         """Handle CORS preflight."""
+        origin = self.headers.get("Origin")
+        allow_origin = None
+        if "*" in self.allowed_origins:
+            allow_origin = "*"
+        elif origin and origin in self.allowed_origins:
+            allow_origin = origin
+
         self.send_response(200)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        if allow_origin:
+            self.send_header("Access-Control-Allow-Origin", allow_origin)
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
 
@@ -131,10 +151,11 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 class EnhancedHTTPServer:
     """Enhanced HTTP server for Agent-S3."""
 
-    def __init__(self, host: str = "localhost", port: int = 8081, coordinator=None):
+    def __init__(self, host: str = "localhost", port: int = 8081, coordinator=None, allowed_origins=None):
         self.host = host
         self.port = port
         self.coordinator = coordinator
+        self.allowed_origins = allowed_origins or ["*"]
         self.server: Optional[HTTPServer] = None
         self.server_thread: Optional[threading.Thread] = None
         self.running = False
@@ -142,10 +163,16 @@ class EnhancedHTTPServer:
     def create_handler(self):
         """Create handler class with coordinator reference."""
         coordinator = self.coordinator
+        allowed_origins = self.allowed_origins
 
         class BoundHandler(Agent3HTTPHandler):
             def __init__(self, *args, **kwargs):
-                super().__init__(*args, coordinator=coordinator, **kwargs)
+                super().__init__(
+                    *args,
+                    coordinator=coordinator,
+                    allowed_origins=allowed_origins,
+                    **kwargs,
+                )
 
         return BoundHandler
 
