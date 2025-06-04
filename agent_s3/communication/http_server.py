@@ -31,7 +31,7 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
             self.send_json({"status": "ok"})
         elif parsed.path == "/help":
             result = self.execute_command("/help")
-            self.send_json({"result": result})
+            self.send_json(result)
         else:
             self.send_error(404)
 
@@ -45,29 +45,35 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
                 data = json.loads(post_data.decode("utf-8"))
                 command = data.get("command", "")
                 result = self.execute_command(command)
-                self.send_json({"result": result})
+                self.send_json(result)
             except Exception as e:
                 logger.error(f"Error processing command: {e}", exc_info=True)
                 self.send_json({"error": str(e)}, status=500)
         else:
             self.send_error(404)
 
-    def execute_command(self, command: str) -> str:
-        """Execute Agent-S3 command."""
+    def execute_command(self, command: str) -> Dict[str, Any]:
+        """Execute Agent-S3 command and capture output."""
+        from contextlib import redirect_stdout
+        import io
+
+        output_buffer = io.StringIO()
         try:
             if not self.coordinator:
                 # Fallback simple responses if no coordinator
                 if command == "/help":
                     from agent_s3.cli import get_help_text
-
-                    return get_help_text()
+                    return {"result": get_help_text(), "output": "", "success": True}
                 elif command == "/config":
-                    return "Agent-S3 Configuration: Ready"
+                    return {"result": "Agent-S3 Configuration: Ready", "output": "", "success": True}
                 elif command.startswith("/plan"):
                     description = command.replace("/plan", "").strip()
-                    return f"Plan for: {description}\n1. Analyze requirements\n2. Design solution\n3. Implement\n4. Test"
+                    plan = (
+                        f"Plan for: {description}\n1. Analyze requirements\n2. Design solution\n3. Implement\n4. Test"
+                    )
+                    return {"result": plan, "output": "", "success": True}
                 else:
-                    return f"Unknown command: {command}"
+                    return {"result": f"Unknown command: {command}", "output": "", "success": False}
 
             # Use coordinator's command processor
             if not hasattr(self.coordinator, "command_processor"):
@@ -79,17 +85,19 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
             if command == "/help":
                 from agent_s3.cli import get_help_text
 
-                return get_help_text()
+                return {"result": get_help_text(), "output": "", "success": True}
 
             # Process through coordinator's command processor
             from agent_s3.cli.dispatcher import dispatch
 
-            result = dispatch(self.coordinator.command_processor, command)
-            return result if result else f"Command '{command}' executed successfully"
+            with redirect_stdout(output_buffer):
+                result, success = dispatch(self.coordinator.command_processor, command)
+            output = output_buffer.getvalue()
+            return {"result": result, "output": output, "success": success}
 
         except Exception as e:
             logger.error(f"Error executing command '{command}': {e}", exc_info=True)
-            return f"Error: {str(e)}"
+            return {"result": f"Error: {str(e)}", "output": output_buffer.getvalue(), "success": False}
 
     def send_json(self, data: Dict[str, Any], status: int = 200) -> None:
         """Send JSON response."""

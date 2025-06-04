@@ -113,7 +113,7 @@ def process_command(coordinator: Coordinator, command: str) -> None:
         return
 
     try:
-        result = dispatch(coordinator.command_processor, command)
+        result, _success = dispatch(coordinator.command_processor, command)
         if result:
             print(result)
     except Exception as e:  # pragma: no cover - defensive

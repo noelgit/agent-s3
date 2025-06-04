@@ -31,14 +31,14 @@ class CommandProcessor:
         self._log(f"Processing command: {command}")
         return dispatch(self, command)
 
-    def execute_init_command(self, args: str) -> str:
+    def execute_init_command(self, args: str) -> tuple[str, bool]:
         """Execute the init command to initialize workspace.
 
         Args:
             args: Command arguments (unused)
 
         Returns:
-            Command result message
+            Tuple of command result message and success flag
         """
         self._log("Initializing workspace...")
 
@@ -50,15 +50,18 @@ class CommandProcessor:
                 success = self.coordinator.initialize_workspace()
 
             if success:
-                return "Workspace initialized successfully."
+                return "Workspace initialized successfully.", True
             else:
-                return "Workspace initialization completed with warnings. Some features may be limited."
+                return (
+                    "Workspace initialization completed with warnings. Some features may be limited.",
+                    True,
+                )
         except Exception as e:
             error_msg = f"Workspace initialization failed: {e}"
             self._log(error_msg, level="error")
-            return error_msg
+            return error_msg, False
 
-    def execute_plan_command(self, args: str) -> str:
+    def execute_plan_command(self, args: str) -> tuple[str, bool]:
         """Execute the plan command to generate a development plan.
 
         Args:
@@ -68,7 +71,7 @@ class CommandProcessor:
             Command result message
         """
         if not args.strip():
-            return "Please provide a plan description."
+            return "Please provide a plan description.", False
 
         self._log(f"Generating plan for: {args}")
 
@@ -98,7 +101,7 @@ class CommandProcessor:
                         "timestamp": datetime.now().isoformat()
                     })
 
-                return f"Plan generation failed: {error_msg}"
+                return f"Plan generation failed: {error_msg}", False
 
             plan_obj = plan_result.get("plan")
 
@@ -133,7 +136,7 @@ class CommandProcessor:
                     "timestamp": datetime.now().isoformat()
                 })
 
-            return f"Plan generated and saved to {plan_path}"
+            return f"Plan generated and saved to {plan_path}", True
         except Exception as e:
             error_msg = f"Plan generation failed: {e}"
             self._log(error_msg, level="error")
@@ -147,9 +150,9 @@ class CommandProcessor:
                     "timestamp": datetime.now().isoformat()
                 })
 
-            return error_msg
+            return error_msg, False
 
-    def execute_test_command(self, args: str) -> str:
+    def execute_test_command(self, args: str) -> tuple[str, bool]:
         """Execute the test command to run tests.
 
         Args:
@@ -173,6 +176,7 @@ class CommandProcessor:
             # Run tests
             if hasattr(self.coordinator, 'run_tests_all'):
                 self.coordinator.run_tests_all()
+                return "Tests completed.", True
             elif hasattr(self.coordinator, 'bash_tool'):
                 test_cmd = "pytest --maxfail=1 --disable-warnings -q"
                 if args:
@@ -190,9 +194,12 @@ class CommandProcessor:
                         "timestamp": datetime.now().isoformat()
                     })
 
-                return "Tests completed." if result[0] == 0 else "Tests failed."
+                return (
+                    "Tests completed." if result[0] == 0 else "Tests failed.",
+                    result[0] == 0,
+                )
             else:
-                return "Test execution functionality not available."
+                return "Test execution functionality not available.", False
         except Exception as e:
             error_msg = f"Test execution failed: {e}"
             self._log(error_msg, level="error")
@@ -206,16 +213,16 @@ class CommandProcessor:
                     "timestamp": datetime.now().isoformat()
                 })
 
-            return error_msg
+            return error_msg, False
 
-    def execute_debug_command(self, args: str) -> str:
+    def execute_debug_command(self, args: str) -> tuple[str, bool]:
         """Execute the debug command to debug last test failure.
 
         Args:
             args: Optional arguments (unused)
 
         Returns:
-            Command result message
+            Tuple of command result message and success flag
         """
         print("Debugging last test failure...")
         self._log("Debugging last test failure...")
@@ -241,9 +248,9 @@ class CommandProcessor:
                         "timestamp": datetime.now().isoformat()
                     })
 
-                return "Debugging completed."
+                return "Debugging completed.", True
             else:
-                return "Debugging functionality not available."
+                return "Debugging functionality not available.", False
         except Exception as e:
             error_msg = f"Debugging failed: {e}"
             self._log(error_msg, level="error")
@@ -257,19 +264,19 @@ class CommandProcessor:
                     "timestamp": datetime.now().isoformat()
                 })
 
-            return error_msg
+            return error_msg, False
 
-    def execute_terminal_command(self, args: str) -> str:
+    def execute_terminal_command(self, args: str) -> tuple[str, bool]:
         """Execute a terminal command.
 
         Args:
             args: Terminal command to execute
 
         Returns:
-            Command result message
+            Tuple of command result message and success flag
         """
         if not args.strip():
-            return "Please provide a terminal command to execute."
+            return "Please provide a terminal command to execute.", False
 
         print(f"[TerminalExecutor] Executing: {args}")
         self._log(f"Executing terminal command: {args}")
@@ -287,7 +294,7 @@ class CommandProcessor:
             # Execute terminal command
             if hasattr(self.coordinator, 'execute_terminal_command'):
                 self.coordinator.execute_terminal_command(args)
-                return "Command executed."
+                return "Command executed.", True
             elif hasattr(self.coordinator, 'bash_tool'):
                 result = self.coordinator.bash_tool.run_command(args, timeout=120)
                 print(result[1])
@@ -302,9 +309,9 @@ class CommandProcessor:
                         "timestamp": datetime.now().isoformat()
                     })
 
-                return "Command executed."
+                return "Command executed.", True
             else:
-                return "Terminal command execution functionality not available."
+                return "Terminal command execution functionality not available.", False
         except Exception as e:
             error_msg = f"Terminal command execution failed: {e}"
             self._log(error_msg, level="error")
@@ -319,16 +326,16 @@ class CommandProcessor:
                     "timestamp": datetime.now().isoformat()
                 })
 
-            return error_msg
+            return error_msg, False
 
-    def execute_personas_command(self, args: str) -> str:
+    def execute_personas_command(self, args: str) -> tuple[str, bool]:
         """Execute the personas command to create/update personas.md.
 
         Args:
             args: Optional arguments (unused)
 
         Returns:
-            Command result message
+            Tuple of command result message and success flag
         """
         self._log("Creating/updating personas.md...")
 
@@ -339,22 +346,22 @@ class CommandProcessor:
             elif hasattr(self.coordinator, 'execute_personas_command'):
                 result = self.coordinator.execute_personas_command()
             else:
-                return "Personas management functionality not available."
+                return "Personas management functionality not available.", False
 
-            return result
+            return result, True
         except Exception as e:
             error_msg = f"Personas management failed: {e}"
             self._log(error_msg, level="error")
-            return error_msg
+            return error_msg, False
 
-    def execute_guidelines_command(self, args: str) -> str:
+    def execute_guidelines_command(self, args: str) -> tuple[str, bool]:
         """Execute the guidelines command to create/update copilot-instructions.md.
 
         Args:
             args: Optional arguments (unused)
 
         Returns:
-            Command result message
+            Tuple of command result message and success flag
         """
         self._log("Creating/updating copilot-instructions.md...")
 
@@ -365,15 +372,15 @@ class CommandProcessor:
             elif hasattr(self.coordinator, 'execute_guidelines_command'):
                 result = self.coordinator.execute_guidelines_command()
             else:
-                return "Guidelines management functionality not available."
+                return "Guidelines management functionality not available.", False
 
-            return result
+            return result, True
         except Exception as e:
             error_msg = f"Guidelines management failed: {e}"
             self._log(error_msg, level="error")
-            return error_msg
+            return error_msg, False
 
-    def execute_design_command(self, args: str) -> str:
+    def execute_design_command(self, args: str) -> tuple[str, bool]:
         """Execute the design command to create a design document.
 
         This command initiates the design workflow through the coordinator's execute_design facade.
@@ -384,10 +391,10 @@ class CommandProcessor:
             args: Design objective
 
         Returns:
-            Command result message
+            Tuple of command result message and success flag
         """
         if not args.strip():
-            return "Please provide a design objective."
+            return "Please provide a design objective.", False
 
         self._log(f"Starting design process for: {args}")
 
@@ -400,29 +407,41 @@ class CommandProcessor:
                 # Handle errors and cancellations
                 if not result.get("success", False):
                     if result.get("cancelled", False):
-                        return "Design process cancelled by user."
+                        return "Design process cancelled by user.", False
                     else:
-                        return f"Design process failed: {result.get('error', 'Unknown error')}"
+                        return (
+                            f"Design process failed: {result.get('error', 'Unknown error')}",
+                            False,
+                        )
 
                 # Process next actions based on user choices during design
                 next_action = result.get("next_action")
                 if next_action == "implementation":
-                    return "Design process completed. Implementation started for design.txt"
+                    return (
+                        "Design process completed. Implementation started for design.txt",
+                        True,
+                    )
                 elif next_action == "deployment":
-                    return "Design process completed. Deployment started for design.txt"
+                    return (
+                        "Design process completed. Deployment started for design.txt",
+                        True,
+                    )
                 else:
-                    return "Design process completed successfully. Design saved to design.txt"
+                    return (
+                        "Design process completed successfully. Design saved to design.txt",
+                        True,
+                    )
             else:
-                return "Design functionality not available in this workspace."
+                return "Design functionality not available in this workspace.", False
         except Exception as e:
             error_msg = f"Design process failed: {e}"
             self._log(error_msg, level="error")
-            return error_msg
+            return error_msg, False
 
-    def execute_design_auto_command(self, args: str) -> str:
+    def execute_design_auto_command(self, args: str) -> tuple[str, bool]:
         """Execute automated design command with implicit approvals."""
         if not args.strip():
-            return "Please provide a design objective."
+            return "Please provide a design objective.", False
 
         self._log(f"Starting automated design for: {args}")
 
@@ -430,28 +449,34 @@ class CommandProcessor:
             if hasattr(self.coordinator, 'execute_design_auto'):
                 result = self.coordinator.execute_design_auto(args.strip())
             else:
-                return "Automated design not available in this workspace."
+                return "Automated design not available in this workspace.", False
 
             if not result.get("success", False):
-                return f"Design process failed: {result.get('error', 'Unknown error')}"
-            return "Design process completed successfully. Design saved to design.txt"
+                return (
+                    f"Design process failed: {result.get('error', 'Unknown error')}",
+                    False,
+                )
+            return (
+                "Design process completed successfully. Design saved to design.txt",
+                True,
+            )
         except Exception as e:
             error_msg = f"Design process failed: {e}"
             self._log(error_msg, level="error")
-            return error_msg
+            return error_msg, False
 
-    def execute_implement_command(self, args: str) -> str:
+    def execute_implement_command(self, args: str) -> tuple[str, bool]:
         """Execute the implement command to implement a design.
 
         Args:
             args: Optional design file path (defaults to design.txt)
 
         Returns:
-            Command result message
+            Tuple of command result message and success flag
         """
         design_file = args.strip() if args.strip() else "design.txt"
         if not Path(design_file).exists():
-            return f"{design_file} not found. Please run /design first."
+            return f"{design_file} not found. Please run /design first.", False
 
         self._log(f"Starting implementation from design: {design_file}")
 
@@ -461,43 +486,55 @@ class CommandProcessor:
                 result = self.coordinator.execute_implementation(design_file)
 
                 if not result.get("success", False):
-                    return f"Implementation failed: {result.get('error', 'Unknown error')}"
+                    return (
+                        f"Implementation failed: {result.get('error', 'Unknown error')}",
+                        False,
+                    )
 
                 # Format successful implementation result
                 if result.get("next_task"):
-                    return f"Task {result.get('task_completed')} completed. Next task: {result.get('next_task')}"
+                    return (
+                        f"Task {result.get('task_completed')} completed. Next task: {result.get('next_task')}",
+                        True,
+                    )
                 else:
-                    return result.get("message", "Implementation completed successfully.")
+                    return result.get("message", "Implementation completed successfully."), True
 
             # Fallback to direct implementation manager access if available
             elif hasattr(self.coordinator, 'implementation_manager') and hasattr(self.coordinator.implementation_manager, 'start_implementation'):
                 result = self.coordinator.implementation_manager.start_implementation(design_file)
 
                 if not result.get("success", False):
-                    return f"Implementation failed: {result.get('error', 'Unknown error')}"
+                    return (
+                        f"Implementation failed: {result.get('error', 'Unknown error')}",
+                        False,
+                    )
 
                 # Format successful implementation result
                 if result.get("next_pending"):
                     next_task = result.get("next_pending", {}).get("description", "unknown task")
                     next_id = result.get("next_pending", {}).get("id", "")
-                    return f"Task {result.get('task_id')} completed. Next task: {next_id} - {next_task}"
+                    return (
+                        f"Task {result.get('task_id')} completed. Next task: {next_id} - {next_task}",
+                        True,
+                    )
                 else:
-                    return "All implementation tasks completed."
+                    return "All implementation tasks completed.", True
             else:
-                return "Implementation functionality not available."
+                return "Implementation functionality not available.", False
         except Exception as e:
             error_msg = f"Implementation failed: {e}"
             self._log(error_msg, level="error")
-            return error_msg
+            return error_msg, False
 
-    def execute_continue_command(self, args: str) -> str:
+    def execute_continue_command(self, args: str) -> tuple[str, bool]:
         """Execute the continue command to continue implementation or other processes.
 
         Args:
             args: Optional continuation type ('implementation', 'design', etc.)
 
         Returns:
-            Command result message
+            Tuple of command result message and success flag
         """
         # Determine continuation type
         continue_type = args.strip().lower() if args.strip() else "implementation"
@@ -509,56 +546,69 @@ class CommandProcessor:
                 result = self.coordinator.execute_continue(continue_type)
 
                 if not result.get("success", False):
-                    return f"Continuation failed: {result.get('error', 'Unknown error')}"
+                    return (
+                        f"Continuation failed: {result.get('error', 'Unknown error')}",
+                        False,
+                    )
 
                 # Handle implementation-specific result formatting
                 if continue_type == "implementation":
                     # Check if there are more tasks
                     if result.get("next_task"):
-                        return f"Task {result.get('task_completed')} completed. Next task: {result.get('next_task')}"
+                        return (
+                            f"Task {result.get('task_completed')} completed. Next task: {result.get('next_task')}",
+                            True,
+                        )
                     else:
                         # All tasks completed
-                        return result.get("message", "All implementation tasks completed.")
+                        return result.get("message", "All implementation tasks completed."), True
                 elif continue_type == "design":
                     # Design continuation just restarts the design process
-                    return "Design process restarted."
+                    return "Design process restarted.", True
                 else:
-                    return result.get("message", f"{continue_type.capitalize()} continuation completed.")
+                    return result.get(
+                        "message", f"{continue_type.capitalize()} continuation completed."), True
 
             # Fallback to direct implementation manager access if available
             elif continue_type == "implementation" and hasattr(self.coordinator, 'implementation_manager') and hasattr(self.coordinator.implementation_manager, 'continue_implementation'):
                 result = self.coordinator.implementation_manager.continue_implementation()
 
                 if not result.get("success", False):
-                    return f"Implementation continuation failed: {result.get('error', 'Unknown error')}"
+                    return (
+                        f"Implementation continuation failed: {result.get('error', 'Unknown error')}",
+                        False,
+                    )
 
                 # Check if there are more tasks
                 if result.get("next_pending"):
                     next_task = result.get("next_pending", {}).get("description", "unknown task")
                     next_id = result.get("next_pending", {}).get("id", "")
-                    return f"Task {result.get('task_id')} completed. Next task: {next_id} - {next_task}"
+                    return (
+                        f"Task {result.get('task_id')} completed. Next task: {next_id} - {next_task}",
+                        True,
+                    )
                 else:
                     # All tasks completed
-                    return "All implementation tasks completed."
+                    return "All implementation tasks completed.", True
             else:
-                return f"{continue_type.capitalize()} continuation functionality not available."
+                return f"{continue_type.capitalize()} continuation functionality not available.", False
         except Exception as e:
             error_msg = f"Continuation operation failed: {e}"
             self._log(error_msg, level="error")
-            return error_msg
+            return error_msg, False
 
-    def execute_deploy_command(self, args: str) -> str:
+    def execute_deploy_command(self, args: str) -> tuple[str, bool]:
         """Execute the deploy command to deploy an application.
 
         Args:
             args: Optional design file path (defaults to design.txt)
 
         Returns:
-            Command result message
+            Tuple of command result message and success flag
         """
         design_file = args.strip() if args.strip() else "design.txt"
         if not Path(design_file).exists():
-            return f"{design_file} not found. Please run /design first."
+            return f"{design_file} not found. Please run /design first.", False
 
         self._log(f"Starting deployment process for design: {design_file}")
 
@@ -569,9 +619,12 @@ class CommandProcessor:
 
                 if not result.get("success", False):
                     if result.get("cancelled", False):
-                        return "Deployment process cancelled by user."
+                        return "Deployment process cancelled by user.", False
                     else:
-                        return f"Deployment failed: {result.get('error', 'Unknown error')}"
+                        return (
+                            f"Deployment failed: {result.get('error', 'Unknown error')}",
+                            False,
+                        )
 
                 # Format successful deployment result
                 access_url = result.get("access_url")
@@ -584,7 +637,7 @@ class CommandProcessor:
                 if env_file:
                     response += f"\nEnvironment variables saved to: {env_file}"
 
-                return response
+                return response, True
 
             # Fallback to direct deployment manager access if available
             elif hasattr(self.coordinator, 'deployment_manager') and hasattr(self.coordinator.deployment_manager, 'start_deployment_conversation'):
@@ -613,7 +666,10 @@ class CommandProcessor:
                 result = self.coordinator.deployment_manager.execute_deployment()
 
                 if not result.get("success", False):
-                    return f"Deployment failed: {result.get('error', 'Unknown error')}"
+                    return (
+                        f"Deployment failed: {result.get('error', 'Unknown error')}",
+                        False,
+                    )
 
                 # Format successful deployment result
                 access_url = result.get("access_url")
@@ -626,22 +682,22 @@ class CommandProcessor:
                 if env_file:
                     response += f"\nEnvironment variables saved to: {env_file}"
 
-                return response
+                return response, True
             else:
-                return "Deployment functionality not available."
+                return "Deployment functionality not available.", False
         except Exception as e:
             error_msg = f"Deployment failed: {e}"
             self._log(error_msg, level="error")
-            return error_msg
+            return error_msg, False
 
-    def execute_help_command(self, args: str) -> str:
+    def execute_help_command(self, args: str) -> tuple[str, bool]:
         """Execute the help command to show available commands.
 
         Args:
             args: Optional command name for specific help
 
         Returns:
-            Help message
+            Tuple of help message and success flag
         """
         if args.strip():
             # Show help for specific command
@@ -673,9 +729,12 @@ class CommandProcessor:
             }
 
             if command in help_msgs:
-                return f"/{command}: {help_msgs[command]}"
+                return f"/{command}: {help_msgs[command]}", True
             else:
-                return f"Unknown command: {command}. Type /help for available commands."
+                return (
+                    f"Unknown command: {command}. Type /help for available commands.",
+                    False,
+                )
         else:
             # Show all available commands
             help_text = """Available commands:
@@ -701,16 +760,16 @@ class CommandProcessor:
 /help [command]: Show available commands
 
 Type /help <command> for more information on a specific command."""
-            return help_text
+            return help_text, True
 
-    def execute_config_command(self, args: str) -> str:
+    def execute_config_command(self, args: str) -> tuple[str, bool]:
         """Execute the config command to show current configuration.
 
         Args:
             args: Optional arguments (unused)
 
         Returns:
-            Command result message
+            Tuple of command result message and success flag
         """
         self._log("Displaying current configuration...")
 
@@ -722,20 +781,20 @@ Type /help <command> for more information on a specific command."""
                     result += f"  {key}: {'*' * 10}\n"
                 else:
                     result += f"  {key}: {value}\n"
-            return result
+            return result, True
         except Exception as e:
             error_msg = f"Error getting configuration: {e}"
             self._log(error_msg, level="error")
-            return error_msg
+            return error_msg, False
 
-    def execute_reload_llm_config_command(self, args: str) -> str:
+    def execute_reload_llm_config_command(self, args: str) -> tuple[str, bool]:
         """Execute the reload-llm-config command to reload the LLM configuration.
 
         Args:
             args: Optional arguments (unused)
 
         Returns:
-            Command result message
+            Tuple of command result message and success flag
         """
         self._log("Reloading LLM configuration...")
 
@@ -743,20 +802,20 @@ Type /help <command> for more information on a specific command."""
             from agent_s3.router_agent import RouterAgent
             router = RouterAgent()
             router.reload_config()
-            return "LLM configuration reloaded successfully."
+            return "LLM configuration reloaded successfully.", True
         except Exception as e:
             error_msg = f"Failed to reload LLM configuration: {e}"
             self._log(error_msg, level="error")
-            return error_msg
+            return error_msg, False
 
-    def execute_explain_command(self, args: str) -> str:
+    def execute_explain_command(self, args: str) -> tuple[str, bool]:
         """Execute the explain command to explain the last LLM interaction.
 
         Args:
             args: Optional arguments (unused)
 
         Returns:
-            Command result message
+            Tuple of command result message and success flag
         """
         self._log("Explaining the last LLM interaction with context...")
 
@@ -764,43 +823,43 @@ Type /help <command> for more information on a specific command."""
             # Gather context: tech stack and code snippets
             context = self.coordinator._gather_context()
             self.coordinator.explain_last_llm_interaction(context)
-            return ""  # Return empty string as output is already printed by the explain method
+            return "", True  # Return empty string as output is already printed by the explain method
         except Exception as e:
             error_msg = f"Error explaining last LLM interaction: {e}"
             self._log(error_msg, level="error")
-            return error_msg
+            return error_msg, False
 
-    def execute_request_command(self, args: str) -> str:
+    def execute_request_command(self, args: str) -> tuple[str, bool]:
         """Execute the request command to process a full change request.
 
         Args:
             args: The change request text
 
         Returns:
-            Command result message
+            Tuple of command result message and success flag
         """
         if not args.strip():
-            return "Usage: /request <your feature request>"
+            return "Usage: /request <your feature request>", False
 
         request_text = args.strip()
         self._log(f"Processing full change request: {request_text}")
 
         try:
             self.coordinator.process_change_request(request_text)
-            return ""  # Return empty string as output is handled by process_change_request
+            return "", True  # Return empty string as output is handled by process_change_request
         except Exception as e:
             error_msg = f"Error processing change request: {e}"
             self._log(error_msg, level="error")
-            return error_msg
+            return error_msg, False
 
-    def execute_tasks_command(self, args: str) -> str:
+    def execute_tasks_command(self, args: str) -> tuple[str, bool]:
         """Execute the tasks command to list active tasks that can be resumed.
 
         Args:
             args: Optional arguments (unused)
 
         Returns:
-            Command result message
+            Tuple of command result message and success flag
         """
         self._log("Listing active tasks...")
 
@@ -808,7 +867,7 @@ Type /help <command> for more information on a specific command."""
             # List active tasks that can be resumed
             active_tasks = self.coordinator.task_state_manager.get_active_tasks()
             if not active_tasks:
-                return "No active tasks found to resume."
+                return "No active tasks found to resume.", True
 
             result = "\nActive tasks that can be resumed:\n"
             for i, task in enumerate(active_tasks, start=1):
@@ -824,25 +883,25 @@ Type /help <command> for more information on a specific command."""
             result += "/continue <task_id>  - where <task_id> is one of the IDs shown above\n"
             result += "Example: /continue " + active_tasks[0].get('task_id', 'task_id')[:8]
 
-            return result
+            return result, True
         except Exception as e:
             error_msg = f"Error listing tasks: {e}"
             self._log(error_msg, level="error")
-            return error_msg
+            return error_msg, False
 
-    def execute_clear_command(self, args: str) -> str:
+    def execute_clear_command(self, args: str) -> tuple[str, bool]:
         """Execute the clear command to clear a specific task state.
 
         Args:
             args: Task ID to clear
 
         Returns:
-            Command result message
+            Tuple of command result message and success flag
         """
         if not args.strip():
             return "Usage: /clear <task_id>\nUse '/tasks' to see available task IDs"
 
-        task_id = args.strip()
+            task_id = args.strip()
         self._log(f"Clearing task state for ID: {task_id}")
 
         try:
@@ -863,29 +922,32 @@ Type /help <command> for more information on a specific command."""
                 if confirm:
                     success = self.coordinator.task_state_manager.clear_state(matched_id)
                     if success:
-                        return f"Task {matched_id} successfully cleared."
+                        return f"Task {matched_id} successfully cleared.", True
                     else:
-                        return f"Failed to clear task {matched_id}."
+                        return f"Failed to clear task {matched_id}.", False
                 else:
-                    return "Operation canceled."
+                    return "Operation canceled.", False
             else:
-                return f"No tasks found matching ID: {task_id}\nUse '/tasks' to see available task IDs."
+                return (
+                    f"No tasks found matching ID: {task_id}\nUse '/tasks' to see available task IDs.",
+                    False,
+                )
         except Exception as e:
             error_msg = f"Error clearing task: {e}"
             self._log(error_msg, level="error")
-            return error_msg
+            return error_msg, False
 
-    def execute_db_command(self, args: str) -> str:
+    def execute_db_command(self, args: str) -> tuple[str, bool]:
         """Execute the db command for database operations.
 
         Args:
             args: Database command and parameters
 
         Returns:
-            Command result message
+            Tuple of command result message and success flag
         """
         if not hasattr(self.coordinator, 'database_manager') or not self.coordinator.database_manager:
-            return "Database tool is not available."
+            return "Database tool is not available.", False
 
         # Parse db_command from args
         parts = args.split(maxsplit=1)
@@ -907,13 +969,16 @@ Type /help <command> for more information on a specific command."""
             }
 
             if db_command in db_command_map:
-                return db_command_map[db_command](db_args)
+                return db_command_map[db_command](db_args), True
             else:
-                return f"Unknown database command: {db_command}\nUse '/db help' to see available commands"
+                return (
+                    f"Unknown database command: {db_command}\nUse '/db help' to see available commands",
+                    False,
+                )
         except Exception as e:
             error_msg = f"Error executing database command: {e}"
             self._log(error_msg, level="error")
-            return error_msg
+            return error_msg, False
 
     # Database command handlers
     def _db_help_command(self, args: str) -> str:
