@@ -26,10 +26,24 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         """Handle GET requests."""
         parsed = urlparse(self.path)
+        mount = getattr(self.server, "mount_path", "")
+        mount_no_slash = mount.rstrip("/")
 
-        if parsed.path == "/health":
+        if mount_no_slash and not parsed.path.startswith(mount_no_slash):
+            self.send_error(404)
+            return
+
+        rel_path = parsed.path[len(mount_no_slash):] if mount_no_slash else parsed.path
+
+        if mount_no_slash and parsed.path == mount_no_slash:
+            self.send_response(301)
+            self.send_header("Location", f"{mount_no_slash}/")
+            self.end_headers()
+            return
+
+        if rel_path == "/health":
             self.send_json({"status": "ok"})
-        elif parsed.path == "/help":
+        elif rel_path == "/help":
             result = self.execute_command("/help")
             self.send_json(result)
         else:
@@ -37,7 +51,16 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         """Handle POST requests."""
-        if self.path == "/command":
+        mount = getattr(self.server, "mount_path", "")
+        mount_no_slash = mount.rstrip("/")
+        path = self.path
+        if mount_no_slash:
+            if not path.startswith(mount_no_slash + "/"):
+                self.send_error(404)
+                return
+            path = path[len(mount_no_slash):]
+
+        if path == "/command":
             content_length = int(self.headers["Content-Length"])
             post_data = self.rfile.read(content_length)
 
@@ -131,13 +154,25 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 class EnhancedHTTPServer:
     """Enhanced HTTP server for Agent-S3."""
 
-    def __init__(self, host: str = "localhost", port: int = 8081, coordinator=None):
+    def __init__(
+        self,
+        host: str = "localhost",
+        port: int = 8081,
+        coordinator=None,
+        mount_path: str = "",
+    ):
         self.host = host
         self.port = port
         self.coordinator = coordinator
         self.server: Optional[HTTPServer] = None
         self.server_thread: Optional[threading.Thread] = None
         self.running = False
+
+        mount_path = mount_path.strip()
+        mount_path = mount_path.rstrip("/")
+        if mount_path and not mount_path.startswith("/"):
+            mount_path = f"/{mount_path}"
+        self.mount_path = mount_path
 
     def create_handler(self):
         """Create handler class with coordinator reference."""
@@ -164,14 +199,16 @@ class EnhancedHTTPServer:
         try:
             handler_class = self.create_handler()
             self.server = ThreadedHTTPServer((self.host, self.port), handler_class)
+            self.server.mount_path = self.mount_path
             self.running = True
 
             # Write connection info for VS Code
+            base_url = f"http://{self.host}:{self.port}{self.mount_path or ''}"
             connection_info = {
                 "type": "http",
                 "host": self.host,
                 "port": self.port,
-                "base_url": f"http://{self.host}:{self.port}",
+                "base_url": base_url,
             }
 
             with open(".agent_s3_http_connection.json", "w") as f:
