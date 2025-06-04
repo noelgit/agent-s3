@@ -1,8 +1,12 @@
 import * as vscode from 'vscode';
-import { spawn } from 'child_process';
+import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import { WebviewUIManager } from './webview-ui-loader';
 import { CHAT_HISTORY_KEY, DEFAULT_HTTP_TIMEOUT_MS, HTTP_TIMEOUT_SETTING } from './constants';
 import type { ChatHistoryEntry } from './types/message';
+
+interface NodeGlobal {
+    process?: NodeJS.Process;
+}
 
 interface HttpConnection {
     host: string;
@@ -216,7 +220,7 @@ async function executeAgentCommand(command: string): Promise<void> {
     }
 
     return new Promise<void>((resolve) => {
-        const childProcess = spawn('python', ['-m', 'agent_s3.cli', command], {
+        const childProcess: ChildProcessWithoutNullStreams = spawn('python', ['-m', 'agent_s3.cli', command], {
             cwd: workspacePath,
             stdio: 'pipe'
         });
@@ -229,7 +233,7 @@ async function executeAgentCommand(command: string): Promise<void> {
             appendToTerminal(data.toString());
         });
 
-        (childProcess as any).on('error', (err: Error) => {
+        childProcess.on('error', (err: Error) => {
             appendToTerminal(`Error starting CLI: ${err.message}\n`);
             vscode.window.showErrorMessage('Failed to start Agent-S3 CLI.');
             resolve();
@@ -248,7 +252,7 @@ interface HttpResult { result: string; output: string; success: boolean }
 
 async function tryHttpCommand(command: string): Promise<HttpResult | null> {
     const config = vscode.workspace.getConfiguration('agent-s3');
-    const timeoutEnv = (globalThis as any).process?.env?.AGENT_S3_HTTP_TIMEOUT;
+    const timeoutEnv = (globalThis as NodeGlobal).process?.env?.AGENT_S3_HTTP_TIMEOUT;
     const timeoutMs = Number(timeoutEnv) ||
         (config.get(HTTP_TIMEOUT_SETTING.split('.')[1], DEFAULT_HTTP_TIMEOUT_MS) as number);
 
@@ -286,7 +290,7 @@ async function tryHttpCommand(command: string): Promise<HttpResult | null> {
         return { result: data.result ?? '', output: data.output ?? '', success: data.success ?? true };
     } catch (error) {
         console.log(`HTTP command failed: ${String(error)}`);
-        if ((error as any).name === 'AbortError') {
+        if ((error as { name?: string }).name === 'AbortError') {
             try {
                 const { host, port } = await getHttpConnection();
                 const health = await fetch(`http://${host}:${port}/health`);

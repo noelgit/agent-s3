@@ -10,7 +10,7 @@ declare namespace vscode {
   }
 
   class EventEmitter<T> {
-    event: any;
+    event: unknown;
     fire(data: T): void;
     dispose(): void;
   }
@@ -18,37 +18,37 @@ declare namespace vscode {
   interface Memento {
     get<T>(key: string): T | undefined;
     get<T>(key: string, defaultValue: T): T;
-    update(key: string, value: any): Thenable<void>;
-    [key: string]: any;
+    update(key: string, value: unknown): Thenable<void>;
+    [key: string]: unknown;
   }
 
   interface ExtensionContext {
     subscriptions: Disposable[];
     workspaceState: Memento;
     globalState: Memento;
-    [key: string]: any;
+    [key: string]: unknown;
   }
 
   type Thenable<T> = Promise<T>;
 
-  const window: any;
-  const workspace: any;
-  const commands: any;
-  const env: any;
+  const window: unknown;
+  const workspace: unknown;
+  const commands: unknown;
+  const env: unknown;
   class Uri {
     fsPath: string;
     constructor(path?: string);
     static file(path: string): Uri;
     static joinPath(base: Uri, ...paths: string[]): Uri;
   }
-  const ViewColumn: any;
+  const ViewColumn: unknown;
 
   // Type placeholders used within the extension
-  type OutputChannel = any;
-  type Terminal = any;
-  type Webview = any;
-  type WebviewPanel = any;
-  type StatusBarItem = any;
+  type OutputChannel = unknown;
+  type Terminal = unknown;
+  type Webview = unknown;
+  type WebviewPanel = unknown;
+  type StatusBarItem = unknown;
   enum StatusBarAlignment { Left, Right }
 }
 

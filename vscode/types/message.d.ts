@@ -6,7 +6,7 @@ export interface ChatHistoryEntry {
 
 export interface Message {
   type: string;
-  data?: any;
+  data?: unknown;
   timestamp?: string;
 }
 

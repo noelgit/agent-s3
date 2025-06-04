@@ -6,7 +6,7 @@ import DOMPurify from 'dompurify';
 import './ChatView.css';
 
 // Configure markdown parser with syntax highlighting
-(marked as any).setOptions({
+(marked as any).setOptions({ // eslint-disable-line @typescript-eslint/no-explicit-any
   highlight: (code: string, lang: string) => {
     if (lang && hljs.getLanguage(lang)) {
       return hljs.highlight(code, { language: lang }).value;
@@ -29,13 +29,42 @@ interface StreamState {
   content: string;
   source: string;
   isThinking: boolean;
-  components: any[];
+  components: unknown[];
+}
+
+interface StreamBase {
+  stream_id: string;
+}
+
+interface StreamStartContent extends StreamBase {
+  source?: string;
+}
+
+interface StreamContentData extends StreamBase {
+  content: string;
+}
+
+interface StreamInteractiveData extends StreamBase {
+  component: unknown;
+}
+
+interface StreamEndData extends StreamBase {}
+
+interface TerminalOutputData {
+  text: string;
+  category: string;
+}
+
+interface CommandResultData {
+  result: string;
+  success: boolean;
+  command: string;
 }
 
 // Types are defined at the top of the file
 
 interface ChatViewProps {
-  messages?: any[]; // Messages passed from parent component
+  messages?: ChatMessage[]; // Messages passed from parent component
 }
 
 /**
@@ -156,7 +185,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
   /**
    * Handle thinking indicator messages
    */
-  const handleThinkingIndicator = (content: any) => {
+  const handleThinkingIndicator = (content: StreamStartContent) => {
     const { stream_id, source } = content;
     
     setActiveStreams(prev => ({
@@ -175,7 +204,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
   /**
    * Handle stream start messages
    */
-  const handleStreamStart = (content: any) => {
+  const handleStreamStart = (content: StreamStartContent) => {
     const { stream_id, source } = content;
     
     setActiveStreams(prev => ({
@@ -195,7 +224,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
   /**
    * Handle stream content messages
    */
-  const handleStreamContent = (content: any) => {
+  const handleStreamContent = (content: StreamContentData) => {
     const { stream_id, content: streamContent } = content;
     
     setActiveStreams(prev => {
@@ -215,7 +244,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
     });
   };
 
-  const handleStreamInteractive = (content: any) => {
+  const handleStreamInteractive = (content: StreamInteractiveData) => {
     const { stream_id, component } = content;
     setActiveStreams(prev => {
       const stream = prev[stream_id];
@@ -235,7 +264,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
   /**
    * Handle stream end messages
    */
-  const handleStreamEnd = (content: any) => {
+  const handleStreamEnd = (content: StreamEndData) => {
     const { stream_id } = content;
     
     setActiveStreams(prev => {
@@ -272,7 +301,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
   /**
    * Handle terminal output messages
    */
-  const handleTerminalOutput = (content: any) => {
+  const handleTerminalOutput = (content: TerminalOutputData) => {
     const { text, category } = content;
     
     // Add terminal output as system message
@@ -290,7 +319,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
   /**
    * Handle command result messages
    */
-  const handleCommandResult = (content: any) => {
+  const handleCommandResult = (content: CommandResultData) => {
     console.log('ChatView handleCommandResult called with:', content);
     const { result, success, command } = content;
     

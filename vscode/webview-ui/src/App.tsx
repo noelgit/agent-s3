@@ -9,7 +9,7 @@ import './App.css';
 // Import types from our types directory (we'll reference it in tsconfig.json)
 interface MessageData {
   type: string;
-  content: any;
+  content: unknown;
   id?: string;
 }
 

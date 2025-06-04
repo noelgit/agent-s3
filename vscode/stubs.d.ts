@@ -1,26 +1,26 @@
 declare module "vscode" {
-  const x: any;
+  const x: unknown;
   export = x;
 }
 declare module "fs" {
-  const x: any;
+  const x: unknown;
   export = x;
 }
 declare module "path" {
-  const x: any;
+  const x: unknown;
   export = x;
 }
 
 declare module "crypto" {
-  const x: any;
+  const x: unknown;
   export = x;
 }
 interface Buffer {}
 declare const Buffer: {
-  new(...args: any[]): Buffer;
-  from(input: any, encoding?: string): Buffer;
-  isBuffer(input: any): boolean;
+  new(...args: unknown[]): Buffer;
+  from(input: unknown, encoding?: string): Buffer;
+  isBuffer(input: unknown): boolean;
 };
 namespace NodeJS {
-  type Timeout = any;
+  type Timeout = unknown;
 }

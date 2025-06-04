@@ -6,17 +6,17 @@ declare module "vscode-webview" {
   /**
    * Post a message to the extension host
    */
-  export function postMessage(message: any): void;
+  export function postMessage(message: unknown): void;
 
   /**
    * Get state previously set
    */
-  export function getState(): any;
+  export function getState(): unknown;
 
   /**
    * Set state that can be retrieved later
    */
-  export function setState(state: any): void;
+  export function setState(state: unknown): void;
 
   /**
    * WebView API object
