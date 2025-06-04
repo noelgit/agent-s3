@@ -32,6 +32,13 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
         elif parsed.path == "/help":
             result = self.execute_command("/help")
             self.send_json({"result": result})
+        elif parsed.path == "/status":
+            result = None
+            if hasattr(self.server, "result_lock"):
+                with self.server.result_lock:
+                    result = getattr(self.server, "last_command_result", None)
+                    self.server.last_command_result = None
+            self.send_json({"result": result})
         else:
             self.send_error(404)
 
@@ -60,14 +67,21 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
                 if command == "/help":
                     from agent_s3.cli import get_help_text
 
-                    return get_help_text()
+                    result = get_help_text()
                 elif command == "/config":
-                    return "Agent-S3 Configuration: Ready"
+                    result = "Agent-S3 Configuration: Ready"
                 elif command.startswith("/plan"):
                     description = command.replace("/plan", "").strip()
-                    return f"Plan for: {description}\n1. Analyze requirements\n2. Design solution\n3. Implement\n4. Test"
+                    result = (
+                        f"Plan for: {description}\n1. Analyze requirements\n2. Design solution\n3. Implement\n4. Test"
+                    )
                 else:
-                    return f"Unknown command: {command}"
+                    result = f"Unknown command: {command}"
+
+                if hasattr(self.server, "result_lock"):
+                    with self.server.result_lock:
+                        self.server.last_command_result = result
+                return result
 
             # Use coordinator's command processor
             if not hasattr(self.coordinator, "command_processor"):
@@ -79,12 +93,19 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
             if command == "/help":
                 from agent_s3.cli import get_help_text
 
-                return get_help_text()
+                result = get_help_text()
+                if hasattr(self.server, "result_lock"):
+                    with self.server.result_lock:
+                        self.server.last_command_result = result
+                return result
 
             # Process through coordinator's command processor
             from agent_s3.cli.dispatcher import dispatch
 
             result = dispatch(self.coordinator.command_processor, command)
+            if hasattr(self.server, "result_lock"):
+                with self.server.result_lock:
+                    self.server.last_command_result = result
             return result if result else f"Command '{command}' executed successfully"
 
         except Exception as e:
@@ -156,6 +177,9 @@ class EnhancedHTTPServer:
         try:
             handler_class = self.create_handler()
             self.server = ThreadedHTTPServer((self.host, self.port), handler_class)
+            # Store result data for polling
+            self.server.last_command_result = None  # type: ignore[attr-defined]
+            self.server.result_lock = threading.Lock()  # type: ignore[attr-defined]
             self.running = True
 
             # Write connection info for VS Code
@@ -170,7 +194,9 @@ class EnhancedHTTPServer:
                 json.dump(connection_info, f)
 
             logger.info(f"HTTP server started on http://{self.host}:{self.port}")
-            logger.info("Available endpoints: GET /health, GET /help, POST /command")
+            logger.info(
+                "Available endpoints: GET /health, GET /help, POST /command, GET /status"
+            )
 
             self.server.serve_forever()
         except Exception as e:

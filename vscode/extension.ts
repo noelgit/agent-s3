@@ -205,6 +205,10 @@ async function executeAgentCommand(command: string): Promise<void> {
         const httpResult = await tryHttpCommand(command);
         if (httpResult) {
             appendToTerminal(`$ ${command}\n${httpResult}\n`);
+            if (httpResult === 'Processing...') {
+                // Poll for the final result without blocking
+                void pollForResult();
+            }
             return;
         }
     } catch (error) {
@@ -226,7 +230,8 @@ async function executeAgentCommand(command: string): Promise<void> {
             appendToTerminal(data.toString());
         });
 
-        (childProcess as any).on('error', (err: Error) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        childProcess.on('error', (err: any) => {
             appendToTerminal(`Error starting CLI: ${err.message}\n`);
             vscode.window.showErrorMessage('Failed to start Agent-S3 CLI.');
             resolve();
@@ -243,6 +248,7 @@ async function executeAgentCommand(command: string): Promise<void> {
 
 async function tryHttpCommand(command: string): Promise<string | null> {
     const config = vscode.workspace.getConfiguration('agent-s3');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const timeoutEnv = (globalThis as any).process?.env?.AGENT_S3_HTTP_TIMEOUT;
     const timeoutMs = Number(timeoutEnv) ||
         (config.get(HTTP_TIMEOUT_SETTING.split('.')[1], DEFAULT_HTTP_TIMEOUT_MS) as number);
@@ -278,7 +284,7 @@ async function tryHttpCommand(command: string): Promise<string | null> {
         return data.result || data.error || 'Command executed';
     } catch (error) {
         console.log(`HTTP command failed: ${String(error)}`);
-        if ((error as any).name === 'AbortError') {
+        if (error instanceof Error && error.name === 'AbortError') {
             try {
                 const { host, port } = await getHttpConnection();
                 const health = await fetch(`http://${host}:${port}/health`);
@@ -294,6 +300,26 @@ async function tryHttpCommand(command: string): Promise<string | null> {
     } finally {
         clearTimeout(timer);
     }
+}
+
+async function pollForResult(interval = 2000, attempts = 15): Promise<void> {
+    for (let i = 0; i < attempts; i++) {
+        try {
+            const { host, port } = await getHttpConnection();
+            const resp = await fetch(`http://${host}:${port}/status`);
+            if (resp.ok) {
+                const data = await resp.json() as { result?: string | null };
+                if (data.result) {
+                    appendToTerminal(`${data.result}\n`);
+                    return;
+                }
+            }
+        } catch {
+            // ignore fetch errors
+        }
+        await new Promise((res) => setTimeout(res, interval));
+    }
+    vscode.window.showWarningMessage('Agent-S3 command processing timed out.');
 }
 
 export function deactivate(): void {
