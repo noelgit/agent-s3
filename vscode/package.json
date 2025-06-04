@@ -114,6 +114,16 @@
           "type": "number",
           "default": 5000,
           "description": "Timeout in milliseconds for HTTP requests. Overrides AGENT_S3_HTTP_TIMEOUT when set."
+        },
+        "agent-s3.statusPollIntervalMs": {
+          "type": "number",
+          "default": 1000,
+          "description": "Interval in milliseconds between status polling requests when waiting for a command result."
+        },
+        "agent-s3.statusPollAttempts": {
+          "type": "number",
+          "default": 30,
+          "description": "Maximum number of status polling attempts before giving up on a command result."
         }
       }
     }
