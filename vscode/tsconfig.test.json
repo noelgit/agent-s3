@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "typeRoots": ["../node_modules/@types", "./types"],
+    "types": ["vscode", "node"]
+  },
+  "exclude": [
+    "webview-ui",
+    "types/node"
+  ]
+}
