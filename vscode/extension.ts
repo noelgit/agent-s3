@@ -4,6 +4,38 @@ import { WebviewUIManager } from './webview-ui-loader';
 import { CHAT_HISTORY_KEY, DEFAULT_HTTP_TIMEOUT_MS, HTTP_TIMEOUT_SETTING } from './constants';
 import type { ChatHistoryEntry } from './types/message';
 
+interface HttpConnection {
+    host: string;
+    port: number;
+}
+
+let cachedConnection: HttpConnection | null = null;
+
+async function getHttpConnection(): Promise<HttpConnection> {
+    if (cachedConnection) {
+        return cachedConnection;
+    }
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        cachedConnection = { host: 'localhost', port: 8081 };
+        return cachedConnection;
+    }
+    const connectionUri = vscode.Uri.joinPath(workspaceFolder.uri, '.agent_s3_http_connection.json');
+    try {
+        const data = await vscode.workspace.fs.readFile(connectionUri);
+        const text = new TextDecoder('utf8').decode(data);
+        const json = JSON.parse(text) as { host?: string; port?: number };
+        if (typeof json.host === 'string' && typeof json.port === 'number') {
+            cachedConnection = { host: json.host, port: json.port };
+        } else {
+            cachedConnection = { host: 'localhost', port: 8081 };
+        }
+    } catch {
+        cachedConnection = { host: 'localhost', port: 8081 };
+    }
+    return cachedConnection;
+}
+
 interface HealthResponse {
     status: string;
 }
@@ -127,8 +159,8 @@ export function activate(context: vscode.ExtensionContext): void {
     // HTTP status command
     const statusCommand = vscode.commands.registerCommand('agent-s3.status', async () => {
         try {
-            // Try to connect to HTTP server
-            const response = await fetch('http://localhost:8081/health');
+            const { host, port } = await getHttpConnection();
+            const response = await fetch(`http://${host}:${port}/health`);
             const data = await response.json() as HealthResponse;
             
             if (data.status === 'ok') {
@@ -211,21 +243,24 @@ async function executeAgentCommand(command: string): Promise<void> {
 
 async function tryHttpCommand(command: string): Promise<string | null> {
     const config = vscode.workspace.getConfiguration('agent-s3');
-    const timeoutMs = Number(process.env.AGENT_S3_HTTP_TIMEOUT) ||
-        config.get<number>(HTTP_TIMEOUT_SETTING.split('.')[1], DEFAULT_HTTP_TIMEOUT_MS);
+    const timeoutEnv = (globalThis as any).process?.env?.AGENT_S3_HTTP_TIMEOUT;
+    const timeoutMs = Number(timeoutEnv) ||
+        (config.get(HTTP_TIMEOUT_SETTING.split('.')[1], DEFAULT_HTTP_TIMEOUT_MS) as number);
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const { host, port } = await getHttpConnection();
+    const baseUrl = `http://${host}:${port}`;
 
     try {
         let response;
 
         if (command === '/help') {
-            response = await fetch('http://localhost:8081/help', {
+            response = await fetch(`${baseUrl}/help`, {
                 signal: controller.signal
             });
         } else {
-            response = await fetch('http://localhost:8081/command', {
+            response = await fetch(`${baseUrl}/command`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ command }),
@@ -245,7 +280,8 @@ async function tryHttpCommand(command: string): Promise<string | null> {
         console.log(`HTTP command failed: ${String(error)}`);
         if ((error as any).name === 'AbortError') {
             try {
-                const health = await fetch('http://localhost:8081/health');
+                const { host, port } = await getHttpConnection();
+                const health = await fetch(`http://${host}:${port}/health`);
                 if (health.ok) {
                     vscode.window.showInformationMessage('Agent-S3 server is processing the request.');
                     return 'Processing...';

@@ -6,7 +6,7 @@ Description: Manual steps to verify HTTP timeout handling in the VS Code extensi
 
 This guide verifies that long-running HTTP commands do not cause the extension to fall back to the CLI.
 
-1. Launch the Agent-S3 backend so that the HTTP server is running on `http://localhost:8081`.
+1. Launch the Agent-S3 backend so that `.agent_s3_http_connection.json` is created with the HTTP server address.
 2. Set the environment variable `AGENT_S3_HTTP_TIMEOUT=1000` to force a short timeout.
 3. In VS Code, execute a command expected to run longer than one second, for example:
    - Open the command palette and run **Agent-S3: Make change request**.

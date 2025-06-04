@@ -45,9 +45,11 @@ The extension uses HTTP for communication with the backend server.
 Set `AGENT_S3_HTTP_TIMEOUT` (or the `agent-s3.httpTimeoutMs` setting) to adjust
 how long the extension waits for a response before falling back to CLI mode.
 
-When the backend starts, it starts an HTTP server on localhost:8081. The extension
-connects to this server for command processing, with automatic fallback to CLI
-commands when the server is unavailable.
+When the backend starts it writes a `.agent_s3_http_connection.json` file in the
+workspace root describing the HTTP server address. The extension reads this file
+to determine the host and port. If the file is missing or invalid it defaults to
+`localhost:8081`. Automatic fallback to CLI commands occurs when the server is
+unavailable.
 
 ## Usage
 
@@ -100,7 +102,8 @@ will remove all saved chat history for the workspace.
 
 ### Manual HTTP Timeout Test
 
-1. Start the Agent-S3 backend and ensure the HTTP server listens on port 8081.
+1. Start the Agent-S3 backend so that `.agent_s3_http_connection.json` is
+   created with the server's host and port.
 2. Set `AGENT_S3_HTTP_TIMEOUT` to a low value such as `1000`.
 3. Issue a long-running command using `Agent-S3: Make change request`.
 4. Confirm that the terminal shows a processing message and the CLI does not
