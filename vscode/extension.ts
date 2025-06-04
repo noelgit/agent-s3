@@ -189,7 +189,7 @@ export function activate(context: vscode.ExtensionContext): void {
     );
 }
 
-async function executeAgentCommand(command: string): Promise<void> {
+export async function executeAgentCommand(command: string): Promise<void> {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
         vscode.window.showErrorMessage('No workspace folder open');
@@ -205,8 +205,10 @@ async function executeAgentCommand(command: string): Promise<void> {
         const httpResult = await tryHttpCommand(command);
         if (httpResult) {
             appendToTerminal(`$ ${command}\n${httpResult.output}${httpResult.result}\n`);
-            if (!httpResult.success) {
+            if (httpResult.success === false) {
                 vscode.window.showErrorMessage('Agent-S3 command failed.');
+            } else if (httpResult.success === null) {
+                vscode.window.showInformationMessage('Processing...');
             }
             return;
         }
@@ -244,9 +246,9 @@ async function executeAgentCommand(command: string): Promise<void> {
     });
 }
 
-interface HttpResult { result: string; output: string; success: boolean }
+interface HttpResult { result: string; output: string; success: boolean | null }
 
-async function tryHttpCommand(command: string): Promise<HttpResult | null> {
+export async function tryHttpCommand(command: string): Promise<HttpResult | null> {
     const config = vscode.workspace.getConfiguration('agent-s3');
     const timeoutEnv = process.env.AGENT_S3_HTTP_TIMEOUT;
     const timeoutMs = Number(timeoutEnv) ||
@@ -295,11 +297,9 @@ async function tryHttpCommand(command: string): Promise<HttpResult | null> {
         console.log(`HTTP command failed: ${String(error)}`);
         if ((error as { name?: string }).name === 'AbortError') {
             try {
-                const { host, port } = await getHttpConnection();
-                const health = await fetch(`http://${host}:${port}/health`);
+                const health = await fetch(`${baseUrl}/health`);
                 if (health.ok) {
-                    vscode.window.showInformationMessage('Agent-S3 server is processing the request.');
-                    return 'Processing...';
+                    return { result: 'Processing...', output: '', success: null };
                 }
             } catch {
                 // ignore
