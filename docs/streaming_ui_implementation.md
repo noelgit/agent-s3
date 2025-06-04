@@ -118,13 +118,15 @@ Processes Agent-S3 commands.
 
 ## Configuration
 
-The system now uses HTTP configuration in `config.json`:
+The system now uses HTTP configuration in `config.json`.
+Set `allowed_origins` to restrict which Origins may access the API:
 
 ```json
 {
   "http": {
     "host": "localhost",
-    "port": 8081
+    "port": 8081,
+    "allowed_origins": ["*"]
   }
 }
 ```

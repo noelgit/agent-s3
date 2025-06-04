@@ -301,15 +301,17 @@ class Coordinator:
         """Initialize communication components like the HTTP server."""
         from agent_s3.communication.http_server import EnhancedHTTPServer
 
-        # Get host and port from HTTP config, with defaults
+        # Get host, port, and allowed origins from HTTP config, with defaults
         http_config = self.config.config.get('http', {})
         http_host = http_config.get('host', 'localhost')
         http_port = http_config.get('port', 8081)  # Default to 8081 for HTTP
+        allowed_origins = http_config.get('allowed_origins', ['*'])
 
         self.http_server = EnhancedHTTPServer(
             host=http_host,
             port=http_port,
-            coordinator=self
+            coordinator=self,
+            allowed_origins=allowed_origins,
         )
         # Start the server in a separate thread so it doesn't block the coordinator
         self.http_thread = self.http_server.start_in_thread()
