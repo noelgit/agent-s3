@@ -109,6 +109,11 @@
           ],
           "default": "wss",
           "description": "Protocol to use for WebSocket connections when not specified in the connection file. Defaults to secure 'wss'. Set to 'ws' to disable TLS."
+        },
+        "agent-s3.httpTimeoutMs": {
+          "type": "number",
+          "default": 5000,
+          "description": "Timeout in milliseconds for HTTP requests. Overrides AGENT_S3_HTTP_TIMEOUT when set."
         }
       }
     }
