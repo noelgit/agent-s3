@@ -42,6 +42,8 @@ AGENT_S3_ENCRYPTION_KEY="$(python -c 'from cryptography.fernet import Fernet; pr
 ### Configuration
 
 The extension uses HTTP for communication with the backend server.
+Set `AGENT_S3_HTTP_TIMEOUT` (or the `agent-s3.httpTimeoutMs` setting) to adjust
+how long the extension waits for a response before falling back to CLI mode.
 
 When the backend starts, it starts an HTTP server on localhost:8081. The extension
 connects to this server for command processing, with automatic fallback to CLI
@@ -95,6 +97,14 @@ used as the lookup key when loading or saving messages in `context.workspaceStat
 When you open the chat window, previous messages are loaded from this key and
 new entries are persisted back to it when the window closes. Clearing this key
 will remove all saved chat history for the workspace.
+
+### Manual HTTP Timeout Test
+
+1. Start the Agent-S3 backend and ensure the HTTP server listens on port 8081.
+2. Set `AGENT_S3_HTTP_TIMEOUT` to a low value such as `1000`.
+3. Issue a long-running command using `Agent-S3: Make change request`.
+4. Confirm that the terminal shows a processing message and the CLI does not
+   start while the server handles the request.
 
 ## Feedback and Contributions
 

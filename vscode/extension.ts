@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { spawn } from 'child_process';
 import { WebviewUIManager } from './webview-ui-loader';
-import { CHAT_HISTORY_KEY } from './constants';
+import { CHAT_HISTORY_KEY, DEFAULT_HTTP_TIMEOUT_MS, HTTP_TIMEOUT_SETTING } from './constants';
 import type { ChatHistoryEntry } from './types/message';
 
 interface HealthResponse {
@@ -210,8 +210,12 @@ async function executeAgentCommand(command: string): Promise<void> {
 }
 
 async function tryHttpCommand(command: string): Promise<string | null> {
+    const config = vscode.workspace.getConfiguration('agent-s3');
+    const timeoutMs = Number(process.env.AGENT_S3_HTTP_TIMEOUT) ||
+        config.get<number>(HTTP_TIMEOUT_SETTING.split('.')[1], DEFAULT_HTTP_TIMEOUT_MS);
+
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
         let response;
@@ -239,6 +243,17 @@ async function tryHttpCommand(command: string): Promise<string | null> {
         return data.result || data.error || 'Command executed';
     } catch (error) {
         console.log(`HTTP command failed: ${String(error)}`);
+        if ((error as any).name === 'AbortError') {
+            try {
+                const health = await fetch('http://localhost:8081/health');
+                if (health.ok) {
+                    vscode.window.showInformationMessage('Agent-S3 server is processing the request.');
+                    return 'Processing...';
+                }
+            } catch {
+                // ignore
+            }
+        }
         return null; // HTTP not available or timed out
     } finally {
         clearTimeout(timer);
