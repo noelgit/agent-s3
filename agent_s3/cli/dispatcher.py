@@ -1,6 +1,6 @@
 """Command dispatcher for Agent-S3 CLI."""
 
-from typing import Callable, Dict
+from typing import Callable, Dict, Tuple
 
 from agent_s3.command_processor import CommandProcessor
 
@@ -29,7 +29,7 @@ _COMMAND_MAP: Dict[str, str] = {
 }
 
 
-def dispatch(command_processor: CommandProcessor, raw_command: str) -> str:
+def dispatch(command_processor: CommandProcessor, raw_command: str) -> Tuple[str, bool]:
     """Parse and dispatch a command to the appropriate handler."""
     if raw_command.startswith("/"):
         raw_command = raw_command[1:]
@@ -37,6 +37,6 @@ def dispatch(command_processor: CommandProcessor, raw_command: str) -> str:
     cmd = cmd.lower()
     handler_name = _COMMAND_MAP.get(cmd)
     if not handler_name:
-        return f"Unknown command: {cmd}. Type /help for available commands."
-    handler: Callable[[str], str] = getattr(command_processor, handler_name)
+        return f"Unknown command: {cmd}. Type /help for available commands.", False
+    handler: Callable[[str], Tuple[str, bool]] = getattr(command_processor, handler_name)
     return handler(args.strip())

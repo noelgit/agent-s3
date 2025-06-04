@@ -204,7 +204,10 @@ async function executeAgentCommand(command: string): Promise<void> {
     try {
         const httpResult = await tryHttpCommand(command);
         if (httpResult) {
-            appendToTerminal(`$ ${command}\n${httpResult}\n`);
+            appendToTerminal(`$ ${command}\n${httpResult.output}${httpResult.result}\n`);
+            if (!httpResult.success) {
+                vscode.window.showErrorMessage('Agent-S3 command failed.');
+            }
             return;
         }
     } catch (error) {
@@ -241,7 +244,9 @@ async function executeAgentCommand(command: string): Promise<void> {
     });
 }
 
-async function tryHttpCommand(command: string): Promise<string | null> {
+interface HttpResult { result: string; output: string; success: boolean }
+
+async function tryHttpCommand(command: string): Promise<HttpResult | null> {
     const config = vscode.workspace.getConfiguration('agent-s3');
     const timeoutEnv = (globalThis as any).process?.env?.AGENT_S3_HTTP_TIMEOUT;
     const timeoutMs = Number(timeoutEnv) ||
@@ -274,8 +279,11 @@ async function tryHttpCommand(command: string): Promise<string | null> {
             throw new Error(`HTTP ${response.status}`);
         }
 
-        const data = await response.json() as { result?: string; error?: string };
-        return data.result || data.error || 'Command executed';
+        const data = await response.json() as { result?: string; output?: string; success?: boolean; error?: string };
+        if (data.error) {
+            return { result: data.error, output: '', success: false };
+        }
+        return { result: data.result ?? '', output: data.output ?? '', success: data.success ?? true };
     } catch (error) {
         console.log(`HTTP command failed: ${String(error)}`);
         if ((error as any).name === 'AbortError') {

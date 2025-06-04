@@ -39,17 +39,21 @@ def stub_dependencies(monkeypatch):
 
     original_process = CommandProcessor.process_command
 
-    def safe_process(self, command: str) -> str:
+    def safe_process(self, command: str):
         try:
             result = original_process(self, command)
         except Exception as exc:  # pragma: no cover - defensive
             self._log(f"Error executing command: {exc}", level="error")
-            return f"Error executing command: {exc}"
-        if isinstance(result, str) and result.startswith("Workspace initialization failed:"):
-            err = result.split(": ", 1)[1]
-            self._log(result, level="error")
-            return f"Error executing command: {err}"
-        return result
+            return f"Error executing command: {exc}", False
+        if isinstance(result, tuple):
+            output, success = result
+        else:
+            output, success = result, True
+        if isinstance(output, str) and output.startswith("Workspace initialization failed:"):
+            err = output.split(": ", 1)[1]
+            self._log(output, level="error")
+            return f"Error executing command: {err}", False
+        return output, success
 
     monkeypatch.setattr(CommandProcessor, "process_command", safe_process)
 
@@ -91,9 +95,10 @@ class TestCommandProcessor:
     def test_process_command_with_unknown_command(self, command_processor):
         """Test process_command with an unknown command."""
         # Exercise
-        result = command_processor.process_command("unknown_command")
+        result, success = command_processor.process_command("unknown_command")
 
         # Verify
+        assert not success
         assert "Unknown command" in result
 
     def test_process_command_with_error(self, command_processor, mock_coordinator):
@@ -102,9 +107,10 @@ class TestCommandProcessor:
         mock_coordinator.workspace_initializer.initialize_workspace.side_effect = Exception("Test error")
 
         # Exercise
-        result = command_processor.process_command("init")
+        result, success = command_processor.process_command("init")
 
         # Verify
+        assert not success
         assert "Error executing command" in result
         assert "Test error" in result
         mock_coordinator.scratchpad.log.assert_called()
@@ -120,10 +126,11 @@ class TestCommandProcessor:
     def test_execute_init_command(self, command_processor, mock_coordinator):
         """Test execute_init_command."""
         # Exercise
-        result = command_processor.execute_init_command("")
+        result, success = command_processor.execute_init_command("")
 
         # Verify
         mock_coordinator.workspace_initializer.initialize_workspace.assert_called_once()
+        assert success
         assert "Workspace initialized successfully" in result
 
     @patch('pathlib.Path.open')
@@ -136,30 +143,33 @@ class TestCommandProcessor:
         mock_open.return_value.__enter__.return_value = mock_file
 
         # Exercise
-        result = command_processor.execute_plan_command("Create a new feature")
+        result, success = command_processor.execute_plan_command("Create a new feature")
 
         # Verify
         mock_coordinator.progress_tracker.update_progress.assert_called()
         mock_file.write.assert_called_with("Test plan content")
+        assert success
         assert "Plan generated and saved" in result
 
     def test_execute_plan_command_with_empty_args(self, command_processor):
         """Test execute_plan_command with empty args."""
         # Exercise
-        result = command_processor.execute_plan_command("")
+        result, success = command_processor.execute_plan_command("")
 
         # Verify
+        assert not success
         assert "Please provide a plan description" in result
 
 
     def test_execute_test_command(self, command_processor, mock_coordinator):
         """Test execute_test_command."""
         # Exercise
-        result = command_processor.execute_test_command("")
+        result, success = command_processor.execute_test_command("")
 
         # Verify
         mock_coordinator.bash_tool.run_command.assert_called()
         mock_coordinator.progress_tracker.update_progress.assert_called()
+        assert success
         assert "Tests completed" in result
 
     def test_execute_debug_command(self, command_processor, mock_coordinator):
@@ -168,55 +178,61 @@ class TestCommandProcessor:
         mock_coordinator.debug_last_test = MagicMock()
 
         # Exercise
-        result = command_processor.execute_debug_command("")
+        result, success = command_processor.execute_debug_command("")
 
         # Verify
         mock_coordinator.debug_last_test.assert_called_once()
         mock_coordinator.progress_tracker.update_progress.assert_called()
+        assert success
         assert "Debugging completed" in result
 
     def test_execute_terminal_command(self, command_processor, mock_coordinator):
         """Test execute_terminal_command."""
         # Exercise
-        result = command_processor.execute_terminal_command("ls -la")
+        result, success = command_processor.execute_terminal_command("ls -la")
 
         # Verify
         mock_coordinator.bash_tool.run_command.assert_called_with("ls -la", timeout=120)
         mock_coordinator.progress_tracker.update_progress.assert_called()
+        assert success
         assert "Command executed" in result
 
     def test_execute_terminal_command_empty_args(self, command_processor):
         """Test execute_terminal_command with empty args."""
         # Exercise
-        result = command_processor.execute_terminal_command("")
+        result, success = command_processor.execute_terminal_command("")
 
         # Verify
+        assert not success
         assert "Please provide a terminal command" in result
 
     def test_execute_personas_command(self, command_processor, mock_coordinator):
         """Test execute_personas_command."""
         # Exercise
-        result = command_processor.execute_personas_command("")
+        result, success = command_processor.execute_personas_command("")
 
         # Verify
         mock_coordinator.workspace_initializer.execute_personas_command.assert_called_once()
+        assert success
         assert "Personas created" in result
 
     def test_execute_guidelines_command(self, command_processor, mock_coordinator):
         """Test execute_guidelines_command."""
         # Exercise
-        result = command_processor.execute_guidelines_command("")
+        result, success = command_processor.execute_guidelines_command("")
 
         # Verify
         mock_coordinator.workspace_initializer.execute_guidelines_command.assert_called_once()
+        assert success
         assert "Guidelines created" in result
 
     def test_execute_help_command_general(self, command_processor):
         """Test execute_help_command with no specific command."""
         # Exercise
-        result = command_processor.execute_help_command("")
+        result, success = command_processor.execute_help_command("")
 
         # Verify
+        assert success
         assert "Available commands" in result
         assert "/init:" in result
         assert "/plan" in result
@@ -224,17 +240,19 @@ class TestCommandProcessor:
     def test_execute_help_command_specific(self, command_processor):
         """Test execute_help_command with a specific command."""
         # Exercise
-        result = command_processor.execute_help_command("init")
+        result, success = command_processor.execute_help_command("init")
 
         # Verify
+        assert success
         assert "/init:" in result
         assert "Initialize workspace" in result
 
 
     def test_execute_request_command(self, command_processor, mock_coordinator):
         """Test execute_request_command routes to process_change_request."""
-        result = command_processor.execute_request_command("Add feature")
+        result, success = command_processor.execute_request_command("Add feature")
         mock_coordinator.process_change_request.assert_called_once_with("Add feature")
+        assert success
         assert result == ""
 
     @patch('pathlib.Path.exists')
@@ -243,9 +261,10 @@ class TestCommandProcessor:
         mock_exists.return_value = True
         mock_coordinator.execute_implementation.return_value = {"success": True, "message": "done"}
 
-        result = command_processor.execute_implement_command("design.txt")
+        result, success = command_processor.execute_implement_command("design.txt")
 
         mock_coordinator.execute_implementation.assert_called_once_with("design.txt")
+        assert success
         assert "done" in result
 
     def test_execute_continue_command(self, command_processor, mock_coordinator):
@@ -255,14 +274,16 @@ class TestCommandProcessor:
             "message": "continued"
         }
 
-        result = command_processor.execute_continue_command("implementation")
+        result, success = command_processor.execute_continue_command("implementation")
 
         mock_coordinator.execute_continue.assert_called_once_with("implementation")
+        assert success
         assert "continued" in result
 
     def test_execute_design_auto_command(self, command_processor, mock_coordinator):
         mock_coordinator.execute_design_auto.return_value = {"success": True}
-        result = command_processor.execute_design_auto_command("build api")
+        result, success = command_processor.execute_design_auto_command("build api")
         mock_coordinator.execute_design_auto.assert_called_once_with("build api")
+        assert success
         assert "Design process completed successfully" in result
 

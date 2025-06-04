@@ -37,11 +37,11 @@ export function activate(context: vscode.ExtensionContext) {
                 body: JSON.stringify({ command })
             });
             
-            const data = await response.json();
-            
+            const data = await response.json() as { result?: string; output?: string; success?: boolean };
+
             // Show result in new document
             const doc = await vscode.workspace.openTextDocument({
-                content: `Command: ${command}\n\nResult:\n${data.result}`,
+                content: `Command: ${command}\n\nOutput:\n${data.output || ''}${data.result || ''}`,
                 language: 'markdown'
             });
             await vscode.window.showTextDocument(doc);
