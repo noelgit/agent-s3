@@ -248,6 +248,7 @@ See `docs/summarization.md` for details.
 - Status bar item (`$(sparkle) Agent-S3`) to start change requests
 - Dedicated terminal panel for backend interactions
 - Real-time status updates via HTTP API; `progress_log.jsonl` is retained only as a log file
+- The extension's `pollForResult` function repeatedly calls `GET /status` after a command is sent until a result is returned.
 - Server shuts down automatically on exit, removing the connection file
 - Connection file uses `0600` permissions on POSIX systems; default permissions
   apply on Windows

@@ -92,6 +92,18 @@ Processes Agent-S3 commands.
   "result": "Command output here"
 }
 ```
+### GET /status
+Returns the result of the last command. The server clears the stored result after it is retrieved.
+
+**Response:**
+```json
+{
+  "result": "Command output here",
+  "output": "",
+  "success": true
+}
+```
+
 
 ## File Structure
 
