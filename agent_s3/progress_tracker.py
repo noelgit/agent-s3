@@ -77,6 +77,11 @@ class ProgressTracker:
                 status = Status[status_val.upper()]
             except KeyError:
                 status = Status.IN_PROGRESS
+        elif isinstance(status_val, int):
+            try:
+                status = Status(status_val)
+            except ValueError:
+                status = Status.IN_PROGRESS
         elif isinstance(status_val, Status):
             status = status_val
         else:
