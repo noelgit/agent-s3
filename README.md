@@ -247,8 +247,8 @@ See `docs/summarization.md` for details.
 - Command Palette integration: Initialize workspace, Make change request, Show help, Show config, Reload LLM config, Explain last LLM interaction, Open Chat Window
 - Status bar item (`$(sparkle) Agent-S3`) to start change requests
 - Dedicated terminal panel for backend interactions
-- Real-time status updates via HTTP API; `progress_log.jsonl` is retained only as a log file
-- The extension's `pollForResult` function repeatedly calls `GET /status` after a command is sent until a result is returned.
+- Real-time status updates via HTTP API; `progress_log.jsonl` stores progress logs
+- The extension polls the `/status` endpoint until a command result is available
 - Server shuts down automatically on exit, removing the connection file
 - Connection file uses `0600` permissions on POSIX systems; default permissions
   apply on Windows
@@ -262,11 +262,11 @@ See `docs/summarization.md` for details.
 
 ## Streaming UI
 
-Agent-S3 features a real-time UI for chat and progress updates, powered by an HTTP-based architecture:
+Agent-S3 features a real-time UI for chat and progress updates, powered by an HTTP-based architecture. See [docs/streaming_ui_implementation.md](docs/streaming_ui_implementation.md) for implementation details:
 
 - **HTTP Client/Server:** The backend and VS Code extension communicate via HTTP REST API, supporting command processing and status updates.
 - **Streaming Chat UI:** The `ChatView` React component in the extension displays real-time agent responses, partial message rendering, and thinking indicators.
-- **Backend Integration:** The backend emits streaming updates for progress, terminal output, and chat, eliminating the need for file polling.
+- **Backend Integration:** The extension currently polls `/status` for command results and reads `progress_log.jsonl` for progress details. Streaming updates will be added after Issue #2.
 - **Robust Error Handling:** Includes reconnection logic, buffering, and error logging for reliable user experience.
 - **Extensible Protocol:** The message protocol supports future UI features like syntax highlighting, progress bars, and operation cancellation.
 
