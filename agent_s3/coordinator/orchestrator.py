@@ -1,4 +1,5 @@
 """Workflow orchestration helpers for the Coordinator."""
+
 from __future__ import annotations
 
 import logging
@@ -15,10 +16,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .registry import CoordinatorRegistry
+
 # Context bridge removed - using direct coordinator context management
 from typing import TYPE_CHECKING
 from ..enhanced_scratchpad_manager import LogLevel
 from ..pre_planner_json_enforced import call_pre_planner_with_enforced_json
+
 # GitHub integration handled through existing GitTool
 
 if TYPE_CHECKING:  # pragma: no cover - used for type hints only
@@ -28,7 +31,9 @@ if TYPE_CHECKING:  # pragma: no cover - used for type hints only
 class WorkflowOrchestrator:
     """Encapsulate planning and implementation workflows."""
 
-    def __init__(self, coordinator: "Coordinator", registry: CoordinatorRegistry) -> None:
+    def __init__(
+        self, coordinator: "Coordinator", registry: CoordinatorRegistry
+    ) -> None:
         self.coordinator = coordinator
         self.registry = registry
 
@@ -36,7 +41,9 @@ class WorkflowOrchestrator:
 
         # Workflow control state
         self.workflow_id = str(uuid.uuid4())
-        self.workflow_state = "ready"  # ready, running, paused, stopped, completed, failed
+        self.workflow_state = (
+            "ready"  # ready, running, paused, stopped, completed, failed
+        )
         self.current_phase = "idle"
         self.pause_event = threading.Event()
         self.stop_event = threading.Event()
@@ -45,7 +52,7 @@ class WorkflowOrchestrator:
         self.can_pause = True
         self.can_resume = False
         self.can_stop = True
-        
+
         # Valid state transitions for atomic updates
         self.valid_transitions = {
             "ready": {"running"},
@@ -65,15 +72,15 @@ class WorkflowOrchestrator:
         with self.control_lock:
             if to_state not in self.valid_transitions[self.workflow_state]:
                 self.coordinator.scratchpad.log(
-                    "Orchestrator", 
+                    "Orchestrator",
                     f"Invalid state transition from {self.workflow_state} to {to_state}",
-                    level=LogLevel.ERROR
+                    level=LogLevel.ERROR,
                 )
                 return False
-            
+
             old_state = self.workflow_state
             self.workflow_state = to_state
-            
+
             # Update control flags based on new state
             if to_state == "running":
                 self.can_pause = True
@@ -92,12 +99,12 @@ class WorkflowOrchestrator:
                 self.can_stop = False
                 self.pause_event.set()  # Unblock any waiting operations
                 self.stop_event.set()
-            
+
             # Log and broadcast the transition
             message = f"State transition: {old_state} → {to_state}"
             if reason:
                 message += f" ({reason})"
-            
+
             self.coordinator.scratchpad.log(
                 "Orchestrator", message, level=LogLevel.INFO
             )
@@ -125,7 +132,7 @@ class WorkflowOrchestrator:
                 "current_phase": self.current_phase,
                 "can_pause": self.can_pause,
                 "can_resume": self.can_resume,
-                "can_stop": self.can_stop
+                "can_stop": self.can_stop,
             }
 
     def _check_workflow_control(self) -> bool:
@@ -137,15 +144,17 @@ class WorkflowOrchestrator:
         # Handle pause state
         if not self.pause_event.is_set():
             self.coordinator.scratchpad.log(
-                "Orchestrator", "Workflow paused, waiting for resume...",
-                level=LogLevel.INFO
+                "Orchestrator",
+                "Workflow paused, waiting for resume...",
+                level=LogLevel.INFO,
             )
             # Wait with timeout to prevent infinite blocking
             resumed = self.pause_event.wait(timeout=30.0)
             if not resumed:
                 self.coordinator.scratchpad.log(
-                    "Orchestrator", "Pause timeout reached, checking workflow state...",
-                    level=LogLevel.WARNING
+                    "Orchestrator",
+                    "Pause timeout reached, checking workflow state...",
+                    level=LogLevel.WARNING,
                 )
 
             # Check if stopped while paused
@@ -175,18 +184,21 @@ class WorkflowOrchestrator:
                     "can_resume": self.can_resume,
                     "can_stop": self.can_stop,
                     "current_phase": self.current_phase,
-                    "message": message
-                }
+                    "message": message,
+                },
             )
 
             # Send via progress tracker if available
-            if hasattr(self.coordinator, 'progress_tracker') and hasattr(self.coordinator.progress_tracker, 'message_bus'):
+            if hasattr(self.coordinator, "progress_tracker") and hasattr(
+                self.coordinator.progress_tracker, "message_bus"
+            ):
                 self.coordinator.progress_tracker.message_bus.publish(status_msg)
         except Exception as e:
             # Don't let status broadcasting break the workflow
             self.coordinator.scratchpad.log(
-                "Orchestrator", f"Failed to broadcast status: {e}",
-                level=LogLevel.WARNING
+                "Orchestrator",
+                f"Failed to broadcast status: {e}",
+                level=LogLevel.WARNING,
             )
 
     # ------------------------------------------------------------------
@@ -205,8 +217,9 @@ class WorkflowOrchestrator:
         self.workflow_id = str(uuid.uuid4())
         if not self._atomic_state_transition("running", "Task started"):
             self.coordinator.scratchpad.log(
-                "Orchestrator", "Failed to start workflow - invalid state",
-                level=LogLevel.ERROR
+                "Orchestrator",
+                "Failed to start workflow - invalid state",
+                level=LogLevel.ERROR,
             )
             return
 
@@ -235,17 +248,23 @@ class WorkflowOrchestrator:
                         self._finalize_task(changes)
 
                 # Mark workflow as completed
-                if not self._atomic_state_transition("completed", "Workflow completed successfully"):
+                if not self._atomic_state_transition(
+                    "completed", "Workflow completed successfully"
+                ):
                     self.coordinator.scratchpad.log(
-                        "Orchestrator", "Failed to transition to completed state",
-                        level=LogLevel.WARNING
+                        "Orchestrator",
+                        "Failed to transition to completed state",
+                        level=LogLevel.WARNING,
                     )
 
             except Exception as exc:  # pragma: no cover - safety net
-                if not self._atomic_state_transition("failed", f"Workflow failed: {str(exc)}"):
+                if not self._atomic_state_transition(
+                    "failed", f"Workflow failed: {str(exc)}"
+                ):
                     self.coordinator.scratchpad.log(
-                        "Orchestrator", "Failed to transition to failed state",
-                        level=LogLevel.ERROR
+                        "Orchestrator",
+                        "Failed to transition to failed state",
+                        level=LogLevel.ERROR,
                     )
                 self.coordinator.error_handler.handle_exception(
                     exc=exc,
@@ -267,12 +286,14 @@ class WorkflowOrchestrator:
                 return {"success": False, "error": f"{design_file} not found"}
 
             if not hasattr(self.coordinator, "implementation_manager"):
-                self.coordinator.implementation_manager = self.coordinator.ImplementationManager(
-                    coordinator=self.coordinator
+                self.coordinator.implementation_manager = (
+                    self.coordinator.ImplementationManager(coordinator=self.coordinator)
                 )
 
             try:
-                return self.coordinator.implementation_manager.start_implementation(design_file)
+                return self.coordinator.implementation_manager.start_implementation(
+                    design_file
+                )
             except Exception as exc:
                 self.coordinator.scratchpad.log(
                     "Coordinator", f"Implementation failed: {exc}", level=LogLevel.ERROR
@@ -287,10 +308,16 @@ class WorkflowOrchestrator:
             inputs={"type": continue_type},
         ):
             if continue_type != "implementation":
-                return {"success": False, "error": f"Unknown continuation type '{continue_type}'"}
+                return {
+                    "success": False,
+                    "error": f"Unknown continuation type '{continue_type}'",
+                }
 
             if not hasattr(self.coordinator, "implementation_manager"):
-                return {"success": False, "error": "Implementation manager not available"}
+                return {
+                    "success": False,
+                    "error": "Implementation manager not available",
+                }
 
             try:
                 return self.coordinator.implementation_manager.continue_implementation()
@@ -300,7 +327,9 @@ class WorkflowOrchestrator:
                 )
                 return {"success": False, "error": str(exc)}
 
-    def start_pre_planning_from_design(self, design_file: str = "design.txt", *, implement: bool = True) -> Dict[str, Any]:
+    def start_pre_planning_from_design(
+        self, design_file: str = "design.txt", *, implement: bool = True
+    ) -> Dict[str, Any]:
         """Start pre-planning workflow based on a design file.
 
         Args:
@@ -311,7 +340,9 @@ class WorkflowOrchestrator:
         success, design_content = file_tool.read_file(design_file)
         if not success:
             self.coordinator.scratchpad.log(
-                "Coordinator", f"Failed to read design file: {design_content}", level=LogLevel.ERROR
+                "Coordinator",
+                f"Failed to read design file: {design_content}",
+                level=LogLevel.ERROR,
             )
             return {"success": False, "error": design_content}
 
@@ -336,7 +367,11 @@ class WorkflowOrchestrator:
                 with open(plan_path, "w", encoding="utf-8") as f:
                     json.dump({"plans": plans}, f, indent=2)
             except Exception as e:
-                self.coordinator.scratchpad.log("Coordinator", f"Failed to write plan file: {e}", level=LogLevel.ERROR)
+                self.coordinator.scratchpad.log(
+                    "Coordinator",
+                    f"Failed to write plan file: {e}",
+                    level=LogLevel.ERROR,
+                )
 
         return {"success": True, "tasks_started": len(tasks), "plans": plans}
 
@@ -350,50 +385,80 @@ class WorkflowOrchestrator:
         from_design: bool = False,
     ) -> List[Dict[str, Any]]:
         """Run the planning workflow and return approved plans."""
-        self.coordinator.progress_tracker.update_progress({"phase": "pre_planning", "status": "started"})
+        self.coordinator.progress_tracker.update_progress(
+            {"phase": "pre_planning", "status": "started"}
+        )
 
         if pre_planning_input is None:
             # Use consolidated context management directly through coordinator
             context = None
             try:
-                # Get optimized context for pre-planning using consolidated context manager
-                if hasattr(self.coordinator, 'context_manager') and self.coordinator.context_manager:
-                    # Use the modern gather_context method with task information
-                    context_result = self.coordinator.context_manager.gather_context(
+                # Gather context for the pre-planning LLM call.
+                # The result is a dictionary which flows directly into
+                # ``call_pre_planner_with_enforced_json`` via the ``context``
+                # argument, ensuring structured context is passed to the LLM.
+                if (
+                    hasattr(self.coordinator, "context_manager")
+                    and self.coordinator.context_manager
+                ):
+                    context = self.coordinator.context_manager.gather_context(
                         task_description=task,
-                        task_type='pre_planning',
-                        max_tokens=self.coordinator.config.config.get('context_management', {}).get('max_tokens_for_pre_planning', 4000)
+                        task_type="pre_planning",
+                        max_tokens=self.coordinator.config.config.get(
+                            "context_management", {}
+                        ).get("max_tokens_for_pre_planning", 4000),
                     )
-                    # Convert context result to string for legacy compatibility
-                    if isinstance(context_result, dict):
-                        context = json.dumps(context_result, indent=2)
-                    else:
-                        context = str(context_result)
-                    self.coordinator.scratchpad.log("Orchestrator", f"Retrieved consolidated context for pre-planning ({len(context)} chars)", level=LogLevel.DEBUG)
+                    self.coordinator.scratchpad.log(
+                        "Orchestrator",
+                        f"Retrieved consolidated context for pre-planning",
+                        level=LogLevel.DEBUG,
+                    )
                 else:
-                    self.coordinator.scratchpad.log("Orchestrator", "No context manager available", level=LogLevel.WARNING)
+                    self.coordinator.scratchpad.log(
+                        "Orchestrator",
+                        "No context manager available",
+                        level=LogLevel.WARNING,
+                    )
             except Exception as e:
-                self.coordinator.scratchpad.log("Orchestrator", f"Context gathering failed: {e}", level=LogLevel.WARNING)
+                self.coordinator.scratchpad.log(
+                    "Orchestrator",
+                    f"Context gathering failed: {e}",
+                    level=LogLevel.WARNING,
+                )
                 context = None
-            
-            success, pre_plan = call_pre_planner_with_enforced_json(self.coordinator.router_agent, task, context)
+
+            success, pre_plan = call_pre_planner_with_enforced_json(
+                self.coordinator.router_agent, task, context
+            )
             if not success:
-                self.coordinator.scratchpad.log("Coordinator", "Pre-planning failed", level=LogLevel.ERROR)
+                self.coordinator.scratchpad.log(
+                    "Coordinator", "Pre-planning failed", level=LogLevel.ERROR
+                )
                 return []
         else:
             pre_plan = pre_planning_input
 
         decision = "yes"
         if not from_design:
-            decision, _ = self.coordinator._present_pre_planning_results_to_user(pre_plan)
+            decision, _ = self.coordinator._present_pre_planning_results_to_user(
+                pre_plan
+            )
             if decision != "yes":
                 if decision == "modify":
-                    self.coordinator.scratchpad.log("Coordinator", "User chose to refine the request.")
+                    self.coordinator.scratchpad.log(
+                        "Coordinator", "User chose to refine the request."
+                    )
                 elif decision == "no":
-                    self.coordinator.scratchpad.log("Coordinator", "User cancelled the complex task.")
+                    self.coordinator.scratchpad.log(
+                        "Coordinator", "User cancelled the complex task."
+                    )
                 return []
 
-        fg_result = self.coordinator.feature_group_processor.process_pre_planning_output(pre_plan, task)
+        fg_result = (
+            self.coordinator.feature_group_processor.process_pre_planning_output(
+                pre_plan, task
+            )
+        )
         if not fg_result.get("success"):
             self.coordinator.scratchpad.log(
                 "Coordinator",
@@ -407,14 +472,20 @@ class WorkflowOrchestrator:
             consolidated_plan = data.get("consolidated_plan")
             if not consolidated_plan:
                 continue
-            decision, modification = self.coordinator.feature_group_processor.present_consolidated_plan_to_user(consolidated_plan)
+            decision, modification = (
+                self.coordinator.feature_group_processor.present_consolidated_plan_to_user(
+                    consolidated_plan
+                )
+            )
             if decision == "modify":
                 original_plan = json.loads(json.dumps(consolidated_plan))
                 consolidated_plan = self.coordinator.feature_group_processor.update_plan_with_modifications(
                     consolidated_plan, modification
                 )
-                decision, _ = self.coordinator.feature_group_processor.present_consolidated_plan_to_user(
-                    consolidated_plan, original_plan
+                decision, _ = (
+                    self.coordinator.feature_group_processor.present_consolidated_plan_to_user(
+                        consolidated_plan, original_plan
+                    )
                 )
             if decision == "yes":
                 plans.append(consolidated_plan)
@@ -422,10 +493,14 @@ class WorkflowOrchestrator:
                 # GitHub Integration: Create issue from approved plan
                 self._create_github_issue_for_plan(consolidated_plan, task)
 
-        self.coordinator.progress_tracker.update_progress({"phase": "feature_group_processing", "status": "completed"})
+        self.coordinator.progress_tracker.update_progress(
+            {"phase": "feature_group_processing", "status": "completed"}
+        )
         return plans
 
-    def _implementation_workflow(self, plans: List[Dict[str, Any]]) -> Tuple[Dict[str, str], bool]:
+    def _implementation_workflow(
+        self, plans: List[Dict[str, Any]]
+    ) -> Tuple[Dict[str, str], bool]:
         """Run the implementation workflow for approved plans."""
         all_changes: Dict[str, str] = {}
         git_tool = self.registry.get_tool("git_tool")
@@ -485,8 +560,10 @@ class WorkflowOrchestrator:
                     metadata={"plan": plan, "validation_step": validation.get("step")},
                 )
 
-                modifications = self.coordinator.prompt_moderator.request_debugging_guidance(
-                    group_name, attempt
+                modifications = (
+                    self.coordinator.prompt_moderator.request_debugging_guidance(
+                        group_name, attempt
+                    )
                 )
 
                 if modifications:
@@ -545,17 +622,33 @@ class WorkflowOrchestrator:
                             if isinstance(node, ast.Import):
                                 for alias in node.names:
                                     pkg = alias.name.split(".")[0]
-                                    if pkg and pkg.lower() not in existing_packages and not self._is_stdlib(pkg):
+                                    if (
+                                        pkg
+                                        and pkg.lower() not in existing_packages
+                                        and not self._is_stdlib(pkg)
+                                    ):
                                         new_packages.add(pkg)
                             elif isinstance(node, ast.ImportFrom) and node.module:
                                 pkg = node.module.split(".")[0]
-                                if pkg and pkg.lower() not in existing_packages and not self._is_stdlib(pkg):
+                                if (
+                                    pkg
+                                    and pkg.lower() not in existing_packages
+                                    and not self._is_stdlib(pkg)
+                                ):
                                     new_packages.add(pkg)
                     except Exception:
                         # Fallback regex parsing
-                        for match in re.findall(r"^\s*(?:from\s+([\w\.]+)\s+import|import\s+([\w\.]+))", content, re.MULTILINE):
+                        for match in re.findall(
+                            r"^\s*(?:from\s+([\w\.]+)\s+import|import\s+([\w\.]+))",
+                            content,
+                            re.MULTILINE,
+                        ):
                             pkg = (match[0] or match[1]).split(".")[0]
-                            if pkg and pkg.lower() not in existing_packages and not self._is_stdlib(pkg):
+                            if (
+                                pkg
+                                and pkg.lower() not in existing_packages
+                                and not self._is_stdlib(pkg)
+                            ):
                                 new_packages.add(pkg)
 
             if new_packages:
@@ -591,12 +684,18 @@ class WorkflowOrchestrator:
     def _is_stdlib(module: str) -> bool:
         """Return ``True`` if ``module`` is part of the Python standard library."""
         try:
-            if hasattr(sys, "stdlib_module_names") and module in sys.stdlib_module_names:
+            if (
+                hasattr(sys, "stdlib_module_names")
+                and module in sys.stdlib_module_names
+            ):
                 return True
             spec = importlib.util.find_spec(module)
             if not spec or not spec.origin:
                 return False
-            return "site-packages" not in spec.origin and "dist-packages" not in spec.origin
+            return (
+                "site-packages" not in spec.origin
+                and "dist-packages" not in spec.origin
+            )
         except Exception:
             return False
 
@@ -623,13 +722,17 @@ class WorkflowOrchestrator:
                     "coverage": None,
                 }
 
-            lint_exit, lint_output = self.coordinator.bash_tool.run_command("ruff check .", timeout=120)
+            lint_exit, lint_output = self.coordinator.bash_tool.run_command(
+                "ruff check .", timeout=120
+            )
             results["lint_output"] = lint_output
             if lint_exit != 0:
                 results.update({"success": False, "step": "lint"})
                 return results
 
-            type_exit, type_output = self.coordinator.bash_tool.run_command("mypy .", timeout=120)
+            type_exit, type_output = self.coordinator.bash_tool.run_command(
+                "mypy .", timeout=120
+            )
             results["type_output"] = type_output
             if type_exit != 0:
                 results.update({"success": False, "step": "type_check"})
@@ -645,7 +748,9 @@ class WorkflowOrchestrator:
             critic_data = self.coordinator.test_critic.run_analysis()
             mutation_score = critic_data.get("details", {}).get("mutation_score")
             results["mutation_score"] = mutation_score
-            threshold_config = self.coordinator.config.config.get("mutation_score_threshold", 70.0)
+            threshold_config = self.coordinator.config.config.get(
+                "mutation_score_threshold", 70.0
+            )
             try:
                 threshold = float(threshold_config)
             except (TypeError, ValueError):
@@ -659,7 +764,9 @@ class WorkflowOrchestrator:
                 results.update({"success": False, "step": "mutation"})
                 return results
         except Exception as exc:  # pragma: no cover - safety net
-            self.coordinator.scratchpad.log("Coordinator", f"Validation error: {exc}", level=LogLevel.ERROR)
+            self.coordinator.scratchpad.log(
+                "Coordinator", f"Validation error: {exc}", level=LogLevel.ERROR
+            )
             results.update({"success": False, "step": "unknown_error"})
             return results
 
@@ -682,7 +789,9 @@ class WorkflowOrchestrator:
                 "coverage": coverage or 0.0,
             }
         except Exception as exc:  # pragma: no cover - safety net
-            self.coordinator.scratchpad.log("Coordinator", f"Test execution failed: {exc}", level=LogLevel.ERROR)
+            self.coordinator.scratchpad.log(
+                "Coordinator", f"Test execution failed: {exc}", level=LogLevel.ERROR
+            )
             return {"success": False, "output": str(exc), "coverage": 0.0}
 
     # ------------------------------------------------------------------
@@ -709,7 +818,9 @@ class WorkflowOrchestrator:
     # GitHub Integration Methods
     # ------------------------------------------------------------------
 
-    def _create_github_issue_for_plan(self, consolidated_plan: Dict[str, Any], task_description: str) -> None:
+    def _create_github_issue_for_plan(
+        self, consolidated_plan: Dict[str, Any], task_description: str
+    ) -> None:
         """Create GitHub issue from approved consolidated plan using existing GitTool."""
         try:
             git_tool = self.registry.get_tool("git_tool")
@@ -717,29 +828,27 @@ class WorkflowOrchestrator:
                 return
 
             # Generate issue content using the existing workflow patterns
-            issue_title = self._generate_issue_title(task_description, consolidated_plan)
+            issue_title = self._generate_issue_title(
+                task_description, consolidated_plan
+            )
             issue_body = self._generate_issue_body(consolidated_plan, task_description)
 
             # Create issue using existing GitTool
             issue_url = git_tool.create_github_issue(
                 title=issue_title,
                 body=issue_body,
-                labels=["enhancement", "agent-s3-generated"]
+                labels=["enhancement", "agent-s3-generated"],
             )
 
             if issue_url:
-                self.coordinator.scratchpad.log(
-                    "GitHub",
-                    f"Created issue: {issue_url}"
-                )
+                self.coordinator.scratchpad.log("GitHub", f"Created issue: {issue_url}")
                 # Store for PR reference
-                setattr(self.coordinator, '_current_github_issue_url', issue_url)
+                setattr(self.coordinator, "_current_github_issue_url", issue_url)
 
         except Exception as e:
             # Silent failure - log but don't interrupt workflow
             self.coordinator.scratchpad.log(
-                "GitHub",
-                f"Issue creation failed: {str(e)}"
+                "GitHub", f"Issue creation failed: {str(e)}"
             )
 
     def _create_github_pr_for_implementation(self, changes: Dict[str, str]) -> None:
@@ -755,27 +864,19 @@ class WorkflowOrchestrator:
 
             # Create PR using existing GitTool
             pr_url = git_tool.create_pull_request(
-                title=pr_title,
-                body=pr_body,
-                draft=False
+                title=pr_title, body=pr_body, draft=False
             )
 
             if pr_url:
-                self.coordinator.scratchpad.log(
-                    "GitHub",
-                    f"Created PR: {pr_url}"
-                )
+                self.coordinator.scratchpad.log("GitHub", f"Created PR: {pr_url}")
 
         except Exception as e:
             # Silent failure - log but don't interrupt workflow
-            self.coordinator.scratchpad.log(
-                "GitHub",
-                f"PR creation failed: {str(e)}"
-            )
+            self.coordinator.scratchpad.log("GitHub", f"PR creation failed: {str(e)}")
 
     def _generate_issue_title(self, task_description: str, plan: Dict[str, Any]) -> str:
         """Generate descriptive issue title."""
-        feature_group = plan.get('feature_group', {}).get('name', '')
+        feature_group = plan.get("feature_group", {}).get("name", "")
         if feature_group:
             return f"Implement {feature_group}: {task_description[:80]}"
         else:
@@ -792,39 +893,45 @@ class WorkflowOrchestrator:
         body_parts.append("")
 
         # Test Plan Section
-        if 'test_plan' in plan or 'refined_test_specs' in plan:
+        if "test_plan" in plan or "refined_test_specs" in plan:
             body_parts.append("## Test Plan")
-            test_specs = plan.get('refined_test_specs', plan.get('test_plan', {}))
+            test_specs = plan.get("refined_test_specs", plan.get("test_plan", {}))
 
             if isinstance(test_specs, dict):
                 for spec_name, spec_data in test_specs.items():
                     if isinstance(spec_data, dict):
                         body_parts.append(f"### {spec_name}")
-                        if 'description' in spec_data:
-                            body_parts.append(f"**Description:** {spec_data['description']}")
-                        if 'test_cases' in spec_data:
+                        if "description" in spec_data:
+                            body_parts.append(
+                                f"**Description:** {spec_data['description']}"
+                            )
+                        if "test_cases" in spec_data:
                             body_parts.append("**Test Cases:**")
-                            for i, test_case in enumerate(spec_data['test_cases'], 1):
+                            for i, test_case in enumerate(spec_data["test_cases"], 1):
                                 if isinstance(test_case, dict):
-                                    name = test_case.get('name', f'Test Case {i}')
+                                    name = test_case.get("name", f"Test Case {i}")
                                     body_parts.append(f"- {name}")
             body_parts.append("")
 
         # Implementation Plan Section
-        if 'implementation_plan' in plan:
+        if "implementation_plan" in plan:
             body_parts.append("## Implementation Plan")
-            impl_plan = plan['implementation_plan']
+            impl_plan = plan["implementation_plan"]
             if isinstance(impl_plan, dict):
                 for file_path, file_details in impl_plan.items():
                     body_parts.append(f"### {file_path}")
                     if isinstance(file_details, dict):
-                        if 'description' in file_details:
-                            body_parts.append(f"**Description:** {file_details['description']}")
-                        if 'implementation_steps' in file_details:
+                        if "description" in file_details:
+                            body_parts.append(
+                                f"**Description:** {file_details['description']}"
+                            )
+                        if "implementation_steps" in file_details:
                             body_parts.append("**Implementation Steps:**")
-                            for step in file_details['implementation_steps']:
+                            for step in file_details["implementation_steps"]:
                                 if isinstance(step, dict):
-                                    step_desc = step.get('description', step.get('step', str(step)))
+                                    step_desc = step.get(
+                                        "description", step.get("step", str(step))
+                                    )
                                     body_parts.append(f"- {step_desc}")
                                 else:
                                     body_parts.append(f"- {step}")
@@ -837,9 +944,9 @@ class WorkflowOrchestrator:
 
     def _generate_pr_title(self, changes: Dict[str, str]) -> str:
         """Generate descriptive PR title."""
-        issue_url = getattr(self.coordinator, '_current_github_issue_url', None)
-        if issue_url and '#' in issue_url:
-            issue_number = issue_url.split('/')[-1]
+        issue_url = getattr(self.coordinator, "_current_github_issue_url", None)
+        if issue_url and "#" in issue_url:
+            issue_number = issue_url.split("/")[-1]
             return f"Implements #{issue_number}: Agent-S3 automated implementation"
         else:
             return f"Agent-S3 Implementation: {len(changes)} file(s) modified"
@@ -849,15 +956,17 @@ class WorkflowOrchestrator:
         body_parts = []
 
         # Header with issue reference
-        issue_url = getattr(self.coordinator, '_current_github_issue_url', None)
-        if issue_url and '#' in issue_url:
-            issue_number = issue_url.split('/')[-1]
+        issue_url = getattr(self.coordinator, "_current_github_issue_url", None)
+        if issue_url and "#" in issue_url:
+            issue_number = issue_url.split("/")[-1]
             body_parts.append(f"Closes #{issue_number}")
             body_parts.append("")
 
         body_parts.append("# Agent-S3 Implementation")
         body_parts.append("")
-        body_parts.append(f"**Summary:** Automated implementation affecting {len(changes)} file(s)")
+        body_parts.append(
+            f"**Summary:** Automated implementation affecting {len(changes)} file(s)"
+        )
         body_parts.append("")
 
         # Changes made
