@@ -350,7 +350,16 @@ class WorkflowOrchestrator:
         self.coordinator.progress_tracker.update_progress({"phase": "pre_planning", "status": "started"})
 
         if pre_planning_input is None:
-            success, pre_plan = call_pre_planner_with_enforced_json(self.coordinator.router_agent, task)
+            # Retrieve context from context manager if available
+            context = None
+            if hasattr(self.coordinator, 'context_manager') and self.coordinator.context_manager:
+                try:
+                    context = self.coordinator.context_manager.get_context()
+                except Exception as e:
+                    # Log warning but continue without context
+                    self.coordinator.scratchpad.log("Orchestrator", f"Failed to retrieve context: {e}", level=LogLevel.WARNING)
+            
+            success, pre_plan = call_pre_planner_with_enforced_json(self.coordinator.router_agent, task, context)
             if not success:
                 self.coordinator.scratchpad.log("Coordinator", "Pre-planning failed", level=LogLevel.ERROR)
                 return []

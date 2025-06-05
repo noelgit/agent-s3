@@ -996,6 +996,22 @@ class Coordinator:
                     }
                 }
                 
+                # Add tech stack detection
+                if hasattr(self, 'tech_stack_detector') and self.tech_stack_detector:
+                    try:
+                        tech_stack_info = self.tech_stack_detector.detect_tech_stack()
+                        context_data["tech_stack"] = tech_stack_info
+                        self.scratchpad.log("Coordinator", f"Detected tech stack: {tech_stack_info.get('primary_language', 'unknown')}")
+                    except Exception as tech_error:
+                        self.scratchpad.log("Coordinator", f"Error detecting tech stack: {tech_error}", level=LogLevel.DEBUG)
+                
+                # Add project structure summary
+                try:
+                    project_structure = self._analyze_project_structure(workspace_files)
+                    context_data["project_structure"] = project_structure
+                except Exception as struct_error:
+                    self.scratchpad.log("Coordinator", f"Error analyzing project structure: {struct_error}", level=LogLevel.DEBUG)
+                
                 # Add discovered files to context
                 for file_type, files in workspace_files.items():
                     for file_path in files[:10]:  # Limit initial context
@@ -1080,6 +1096,80 @@ class Coordinator:
         except Exception as e:
             self.scratchpad.log("Coordinator", f"Error discovering workspace files: {e}", level=LogLevel.WARNING)
             return {}
+    
+    def _analyze_project_structure(self, workspace_files: Dict[str, list]) -> Dict[str, Any]:
+        """Analyze project structure for planning context.
+        
+        Args:
+            workspace_files: Dict mapping file types to lists of file paths
+            
+        Returns:
+            Dict containing project structure analysis
+        """
+        try:
+            structure = {
+                "directories": {},
+                "file_counts": {},
+                "patterns": [],
+                "entry_points": []
+            }
+            
+            # Count files by type and directory
+            all_files = []
+            for file_type, files in workspace_files.items():
+                structure["file_counts"][file_type] = len(files)
+                all_files.extend(files)
+            
+            # Analyze directory structure
+            directories = set()
+            for file_path in all_files:
+                parts = file_path.parts[:-1]  # Exclude filename
+                for i in range(1, len(parts) + 1):
+                    directories.add('/'.join(parts[:i]))
+            
+            structure["directories"] = {
+                "total_dirs": len(directories),
+                "main_dirs": sorted(list(directories))[:10]  # Top 10 directories
+            }
+            
+            # Identify common patterns
+            patterns = []
+            code_files = workspace_files.get('code', [])
+            
+            # Look for common entry points
+            entry_points = []
+            for file_path in code_files:
+                filename = file_path.name.lower()
+                if filename in ['main.py', 'app.py', 'index.js', 'index.ts', 'server.js', 'app.js']:
+                    entry_points.append(str(file_path.relative_to(Path.cwd())))
+                elif filename == 'package.json' and file_path in workspace_files.get('config', []):
+                    try:
+                        with open(file_path, 'r') as f:
+                            pkg_data = json.loads(f.read())
+                            if 'main' in pkg_data:
+                                entry_points.append(f"package.json -> {pkg_data['main']}")
+                    except (json.JSONDecodeError, IOError, KeyError):
+                        pass
+            
+            structure["entry_points"] = entry_points
+            
+            # Detect project patterns
+            if any('src/' in str(f) for f in code_files):
+                patterns.append("src_directory_structure")
+            if any('test' in str(f).lower() for f in code_files):
+                patterns.append("test_directory_present")
+            if 'package.json' in [f.name for f in workspace_files.get('config', [])]:
+                patterns.append("npm_project")
+            if any(f.name in ['requirements.txt', 'pyproject.toml', 'setup.py'] for f in workspace_files.get('config', [])):
+                patterns.append("python_project")
+            
+            structure["patterns"] = patterns
+            
+            return structure
+            
+        except Exception as e:
+            self.scratchpad.log("Coordinator", f"Error analyzing project structure: {e}", level=LogLevel.WARNING)
+            return {"error": str(e)}
 
     def get_current_timestamp(self) -> str:
         """Get the current timestamp in ISO format.

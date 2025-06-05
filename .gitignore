@@ -79,6 +79,9 @@ sample.txt
 system_tests/
 task_snapshots/
 
+# Configuration files with secrets
+config.json
+
 # VS Code extension and webview build artifacts (keep source files)
 vscode/node_modules/
 vscode/webview-ui/node_modules/

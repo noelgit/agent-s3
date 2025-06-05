@@ -23,9 +23,20 @@ def generate_plan_via_workflow(
         Dictionary with ``success`` flag and ``plan`` on success. On failure,
         ``error`` will describe the reason.
     """
+    # Retrieve context from context manager if available
+    context = None
+    if hasattr(coordinator, 'context_manager') and coordinator.context_manager:
+        try:
+            context = coordinator.context_manager.get_context()
+        except Exception as e:
+            # Log warning but continue without context
+            if hasattr(coordinator, 'scratchpad'):
+                coordinator.scratchpad.log("PlanningHelper", f"Failed to retrieve context: {e}", level="warning")
+    
     success, pre_plan = pre_planner_json_enforced.call_pre_planner_with_enforced_json(
         coordinator.router_agent,
         task_description,
+        context,
     )
     if not success:
         return {"success": False, "error": "Pre-planning failed", "plan": None}
