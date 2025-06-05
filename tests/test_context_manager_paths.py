@@ -1,7 +1,7 @@
 import os
 import pytest
 
-from agent_s3.context_manager import ContextManager
+from agent_s3.tools.context_management.context_manager import ContextManager
 
 
 def test_symlink_outside_workspace(tmp_path):

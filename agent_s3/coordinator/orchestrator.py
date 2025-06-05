@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .registry import CoordinatorRegistry
+# Context bridge removed - using direct coordinator context management
 from typing import TYPE_CHECKING
 from ..enhanced_scratchpad_manager import LogLevel
 from ..pre_planner_json_enforced import call_pre_planner_with_enforced_json
@@ -30,6 +31,8 @@ class WorkflowOrchestrator:
     def __init__(self, coordinator: "Coordinator", registry: CoordinatorRegistry) -> None:
         self.coordinator = coordinator
         self.registry = registry
+
+        # Context management handled directly through coordinator
 
         # Workflow control state
         self.workflow_id = str(uuid.uuid4())
@@ -350,14 +353,28 @@ class WorkflowOrchestrator:
         self.coordinator.progress_tracker.update_progress({"phase": "pre_planning", "status": "started"})
 
         if pre_planning_input is None:
-            # Retrieve context from context manager if available
+            # Use consolidated context management directly through coordinator
             context = None
-            if hasattr(self.coordinator, 'context_manager') and self.coordinator.context_manager:
-                try:
-                    context = self.coordinator.context_manager.get_context()
-                except Exception as e:
-                    # Log warning but continue without context
-                    self.coordinator.scratchpad.log("Orchestrator", f"Failed to retrieve context: {e}", level=LogLevel.WARNING)
+            try:
+                # Get optimized context for pre-planning using consolidated context manager
+                if hasattr(self.coordinator, 'context_manager') and self.coordinator.context_manager:
+                    # Use the modern gather_context method with task information
+                    context_result = self.coordinator.context_manager.gather_context(
+                        task_description=task,
+                        task_type='pre_planning',
+                        max_tokens=self.coordinator.config.config.get('context_management', {}).get('max_tokens_for_pre_planning', 4000)
+                    )
+                    # Convert context result to string for legacy compatibility
+                    if isinstance(context_result, dict):
+                        context = json.dumps(context_result, indent=2)
+                    else:
+                        context = str(context_result)
+                    self.coordinator.scratchpad.log("Orchestrator", f"Retrieved consolidated context for pre-planning ({len(context)} chars)", level=LogLevel.DEBUG)
+                else:
+                    self.coordinator.scratchpad.log("Orchestrator", "No context manager available", level=LogLevel.WARNING)
+            except Exception as e:
+                self.coordinator.scratchpad.log("Orchestrator", f"Context gathering failed: {e}", level=LogLevel.WARNING)
+                context = None
             
             success, pre_plan = call_pre_planner_with_enforced_json(self.coordinator.router_agent, task, context)
             if not success:

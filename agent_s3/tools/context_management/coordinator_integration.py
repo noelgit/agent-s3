@@ -9,7 +9,9 @@ main application workflow.
 import logging
 import traceback
 import os
+import time
 from typing import Dict, Any, Optional
+from dataclasses import dataclass
 
 from agent_s3.tools.context_management.context_manager import ContextManager
 from agent_s3.tools.context_management.adaptive_config import (
@@ -21,12 +23,27 @@ logger = logging.getLogger(__name__)
 # Maximum number of characters from log messages to include in context updates
 MAX_LOG_LEN = 500
 
+
+@dataclass
+class IntegrationMetrics:
+    """Metrics for coordinator context integration."""
+    context_optimizations: int = 0
+    planning_contexts: int = 0
+    pre_planning_contexts: int = 0
+    error_recoveries: int = 0
+    cache_hits: int = 0
+    cache_misses: int = 0
+    total_context_time: float = 0.0
+    average_context_time: float = 0.0
+    
+
 class CoordinatorContextIntegration:
     """
-    Integration layer between Coordinator and Context Management.
+    Enhanced integration layer between Coordinator and Context Management.
 
     This class provides methods to integrate context management with the
-    Coordinator's workflow, allowing context to be optimized at key points.
+    Coordinator's workflow, allowing context to be optimized at key points
+    with improved error handling and performance monitoring.
     """
 
     def __init__(self, coordinator: Any, context_manager: Optional[ContextManager] = None):
@@ -40,6 +57,9 @@ class CoordinatorContextIntegration:
         self.coordinator = coordinator
         self.adaptive_config_manager = None
         self.config_explainer = None
+        self.metrics = IntegrationMetrics()
+        self._context_cache: Dict[str, Any] = {}
+        self._integration_health = True
 
         # Determine repository path from coordinator
         self.repo_path = self._get_repository_path()
@@ -424,7 +444,7 @@ class CoordinatorContextIntegration:
             # Stop background context optimization
             if hasattr(self.coordinator, 'context_manager') and self.coordinator.context_manager:
                 logger.info("Stopping context management background optimization")
-                self.coordinator.context_manager.stop_background_optimization()
+                self.coordinator.context_manager._stop_background_optimization()
 
                 # Save metrics and finalize adaptive configuration
                 if hasattr(self.coordinator.context_manager, 'adaptive_config_manager') and \
@@ -494,6 +514,333 @@ class CoordinatorContextIntegration:
 
             # Apply the patch
             setattr(self.coordinator, 'handle_completion', patched_handle_completion)
+
+    def _update_context_cache(self, key: str, value: Any) -> None:
+        """
+        Update the context cache with a new value.
+
+        Args:
+            key: Cache key
+            value: Cache value
+        """
+        self._context_cache[key] = value
+
+    def _get_context_cache(self, key: str) -> Any:
+        """
+        Get a value from the context cache.
+
+        Args:
+            key: Cache key
+
+        Returns:
+            Cached value or None if not present
+        """
+        return self._context_cache.get(key)
+
+    def _optimize_context_with_cache(self, context: Dict[str, Any], model_name: str) -> Dict[str, Any]:
+        """
+        Optimize context using the context manager, with caching support.
+
+        Args:
+            context: Input context
+            model_name: Model name for optimization
+
+        Returns:
+            Optimized context
+        """
+        cache_key = f"{model_name}:{hash(frozenset(context.items()))}"
+
+        # Check cache first
+        cached_result = self._get_context_cache(cache_key)
+        if cached_result is not None:
+            logger.info("Cache hit for context optimization")
+            self.metrics.cache_hits += 1
+            return cached_result
+
+        # If not cached, optimize context
+        logger.info("Optimizing context")
+        self.metrics.cache_misses += 1
+        optimized_context = self.context_manager.optimize_context(context, model_name)
+
+        # Update cache with new result
+        self._update_context_cache(cache_key, optimized_context)
+
+        return optimized_context
+
+    def _measure_context_optimization_time(self, context: Dict[str, Any], model_name: str) -> float:
+        """
+        Measure the time taken to optimize context.
+
+        Args:
+            context: Input context
+            model_name: Model name for optimization
+
+        Returns:
+            Time taken in seconds
+        """
+        start_time = time.time()
+        self.context_manager.optimize_context(context, model_name)
+        end_time = time.time()
+
+        elapsed_time = end_time - start_time
+        self.metrics.total_context_time += elapsed_time
+        self.metrics.average_context_time = (
+            self.metrics.total_context_time / (self.metrics.context_optimizations + 1)
+        )
+
+        return elapsed_time
+
+    def _recover_from_error(self, error: Exception) -> None:
+        """
+        Recover from an error during integration.
+
+        Args:
+            error: The error that occurred
+        """
+        logger.error("Error during integration: %s", error)
+        self.metrics.error_recoveries += 1
+
+        # Attempt to reset configuration as a recovery action
+        if hasattr(self.coordinator, 'adaptive_config_manager'):
+            logger.info("Attempting to reset configuration to recover")
+            try:
+                self.coordinator.adaptive_config_manager.reset_to_default()
+                logger.info("Configuration reset successfully")
+            except Exception as e:
+                logger.error("Failed to reset configuration: %s", e)
+
+        # Fallback to basic context manager integration if available
+        if hasattr(self.coordinator, 'context_manager'):
+            logger.info("Falling back to basic context manager integration")
+            self.coordinator.context_manager._stop_background_optimization()
+            self.coordinator.context_manager = None
+
+        # Mark integration as unhealthy
+        self._integration_health = False
+
+    def is_integration_healthy(self) -> bool:
+        """
+        Check if the integration is healthy.
+
+        Returns:
+            True if healthy, False otherwise
+        """
+        return self._integration_health
+
+    def get_integration_metrics(self) -> Dict[str, Any]:
+        """
+        Get comprehensive metrics about the coordinator integration.
+        
+        Returns:
+            Dictionary with integration metrics and health status
+        """
+        cache_hit_rate = 0.0
+        if (self.metrics.cache_hits + self.metrics.cache_misses) > 0:
+            cache_hit_rate = self.metrics.cache_hits / (self.metrics.cache_hits + self.metrics.cache_misses)
+        
+        return {
+            'integration_health': self._integration_health,
+            'context_optimizations': self.metrics.context_optimizations,
+            'planning_contexts': self.metrics.planning_contexts,
+            'pre_planning_contexts': self.metrics.pre_planning_contexts,
+            'error_recoveries': self.metrics.error_recoveries,
+            'cache_hits': self.metrics.cache_hits,
+            'cache_misses': self.metrics.cache_misses,
+            'cache_hit_rate': cache_hit_rate,
+            'cache_size': len(self._context_cache),
+            'total_context_time': self.metrics.total_context_time,
+            'average_context_time': self.metrics.average_context_time,
+            'context_manager_available': self.context_manager is not None,
+            'adaptive_config_available': self.adaptive_config_manager is not None,
+            'repository_path': self.repo_path
+        }
+    
+    def get_context_for_planning(self, task_description: str, **kwargs) -> str:
+        """
+        Get optimized context for planning workflows.
+        
+        Args:
+            task_description: Description of the planning task
+            **kwargs: Additional context parameters
+            
+        Returns:
+            Formatted context string for planning
+        """
+        start_time = time.time()
+        cache_key = f"planning:{hash(task_description)}:{hash(str(sorted(kwargs.items())))}"
+        
+        # Check cache first
+        if cache_key in self._context_cache:
+            self.metrics.cache_hits += 1
+            self.metrics.planning_contexts += 1
+            return self._context_cache[cache_key]
+        
+        self.metrics.cache_misses += 1
+        
+        try:
+            # Get context with planning-specific optimizations
+            context_data = self.context_manager.get_context_for_planning(
+                task_description, **kwargs
+            )
+            
+            self.metrics.planning_contexts += 1
+            context_time = time.time() - start_time
+            self.metrics.total_context_time += context_time
+            self.metrics.average_context_time = (
+                self.metrics.total_context_time / 
+                (self.metrics.planning_contexts + self.metrics.pre_planning_contexts)
+            )
+            
+            # Cache the result
+            self._context_cache[cache_key] = context_data
+            
+            return context_data
+            
+        except Exception as e:
+            logger.error(f"Error getting planning context: {e}")
+            self.metrics.error_recoveries += 1
+            self._integration_health = False
+            return f"Context retrieval failed: {str(e)}"
+    
+    def get_context_for_pre_planning(self, query: str, **kwargs) -> str:
+        """
+        Get optimized context for pre-planning workflows.
+        
+        Args:
+            query: Pre-planning query
+            **kwargs: Additional context parameters
+            
+        Returns:
+            Formatted context string for pre-planning
+        """
+        start_time = time.time()
+        cache_key = f"pre_planning:{hash(query)}:{hash(str(sorted(kwargs.items())))}"
+        
+        # Check cache first
+        if cache_key in self._context_cache:
+            self.metrics.cache_hits += 1
+            self.metrics.pre_planning_contexts += 1
+            return self._context_cache[cache_key]
+        
+        self.metrics.cache_misses += 1
+        
+        try:
+            # Get context with pre-planning specific optimizations
+            context_data = self.context_manager.get_context_for_pre_planning(
+                query, **kwargs
+            )
+            
+            self.metrics.pre_planning_contexts += 1
+            context_time = time.time() - start_time
+            self.metrics.total_context_time += context_time
+            self.metrics.average_context_time = (
+                self.metrics.total_context_time / 
+                (self.metrics.planning_contexts + self.metrics.pre_planning_contexts)
+            )
+            
+            # Cache the result
+            self._context_cache[cache_key] = context_data
+            
+            return context_data
+            
+        except Exception as e:
+            logger.error(f"Error getting pre-planning context: {e}")
+            self.metrics.error_recoveries += 1
+            self._integration_health = False
+            return f"Context retrieval failed: {str(e)}"
+    
+    def optimize_context_for_workflow(self, workflow_stage: str, context_hint: Optional[str] = None) -> None:
+        """
+        Optimize context management for specific workflow stages.
+        
+        Args:
+            workflow_stage: Current workflow stage (e.g., 'planning', 'execution', 'review')
+            context_hint: Optional hint about what context might be needed
+        """
+        try:
+            if hasattr(self.context_manager, 'optimize_for_workflow'):
+                self.context_manager.optimize_for_workflow(workflow_stage, context_hint)
+                self.metrics.context_optimizations += 1
+                logger.debug(f"Context optimized for workflow stage: {workflow_stage}")
+            else:
+                logger.warning("Context manager does not support workflow optimization")
+                
+        except Exception as e:
+            logger.error(f"Error optimizing context for workflow {workflow_stage}: {e}")
+            self.metrics.error_recoveries += 1
+    
+    def health_check(self) -> Dict[str, Any]:
+        """
+        Perform a comprehensive health check of the integration.
+        
+        Returns:
+            Dictionary with health check results
+        """
+        health_results = {
+            'overall_health': True,
+            'context_manager': False,
+            'adaptive_config': False,
+            'coordinator_integration': False,
+            'cache_system': False,
+            'errors': []
+        }
+        
+        try:
+            # Check context manager
+            if self.context_manager:
+                # Try a simple context retrieval
+                self.context_manager.get_context("health_check_test", max_results=1)
+                health_results['context_manager'] = True
+            else:
+                health_results['errors'].append("Context manager not available")
+                
+        except Exception as e:
+            health_results['errors'].append(f"Context manager error: {str(e)}")
+        
+        try:
+            # Check adaptive config
+            if self.adaptive_config_manager:
+                config = self.adaptive_config_manager.get_current_config()
+                health_results['adaptive_config'] = config is not None
+            else:
+                health_results['errors'].append("Adaptive config manager not available")
+                
+        except Exception as e:
+            health_results['errors'].append(f"Adaptive config error: {str(e)}")
+        
+        try:
+            # Check coordinator integration
+            if hasattr(self.coordinator, 'context_manager') and self.coordinator.context_manager:
+                health_results['coordinator_integration'] = True
+            else:
+                health_results['errors'].append("Coordinator integration not active")
+                
+        except Exception as e:
+            health_results['errors'].append(f"Coordinator integration error: {str(e)}")
+        
+        # Check cache system
+        health_results['cache_system'] = isinstance(self._context_cache, dict)
+        
+        # Overall health
+        health_results['overall_health'] = (
+            health_results['context_manager'] and 
+            health_results['coordinator_integration'] and 
+            health_results['cache_system'] and
+            len(health_results['errors']) == 0
+        )
+        
+        return health_results
+    
+    def clear_cache(self) -> None:
+        """Clear the integration cache."""
+        cache_size = len(self._context_cache)
+        self._context_cache.clear()
+        logger.info(f"Cleared integration cache ({cache_size} entries)")
+    
+    def reset_metrics(self) -> None:
+        """Reset integration metrics."""
+        self.metrics = IntegrationMetrics()
+        logger.info("Integration metrics reset")
 
 
 def setup_context_management(coordinator):

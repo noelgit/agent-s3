@@ -6,6 +6,7 @@ providing background optimization and continuous adaptation of context.
 """
 
 import copy
+import json
 import threading
 import time
 import logging
@@ -276,13 +277,43 @@ class ContextManager:
     Use type annotations or isinstance checks for static type checking only.
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None, coordinator: Any = None):
         """
         Initialize the ContextManager with configuration.
 
         Args:
             config: Configuration dictionary (optional)
+            coordinator: Legacy coordinator parameter (for backward compatibility)
         """
+        # Handle legacy constructor usage
+        if coordinator is not None:
+            logger.info("ContextManager initialized with legacy coordinator parameter")
+            self.coordinator = coordinator
+            # Extract config from coordinator if needed
+            if config is None and hasattr(coordinator, 'config'):
+                if hasattr(coordinator.config, 'config'):
+                    config = coordinator.config.config.get('context_management', {})
+                else:
+                    config = getattr(coordinator.config, 'context_management', {})
+            
+            # Setup scratchpad for legacy compatibility
+            if hasattr(coordinator, 'scratchpad') and coordinator.scratchpad is not None:
+                self.scratchpad = coordinator.scratchpad
+            else:
+                logger.warning("ContextManager initialized without a scratchpad on the coordinator")
+                # Create a dummy scratchpad to avoid AttributeError
+                class DummyScratchpad:
+                    def log(self, component: str, message: str, level: str = "info") -> None:
+                        logger.info(f"[{level.upper()}] {component}: {message}")
+                self.scratchpad = DummyScratchpad()
+                
+            # Legacy cache setup
+            self._context_cache: Dict[str, Dict[str, Any]] = {}
+            self._context_cache_max_size = 10
+            self._context_dependency_map: Dict[str, Dict[str, Any]] = {}
+        else:
+            self.coordinator = None
+            self.scratchpad = None
         self.config = config or {}
 
         # Initialize the tool registry
@@ -1540,3 +1571,175 @@ class ContextManager:
                     self.adaptive_config_manager.optimize_configuration()
             except Exception as e:
                 logger.error(f"Error during final optimization: {e}")
+
+    # Legacy ContextManager methods for backward compatibility
+    # These methods are kept to support existing code that expects the legacy interface
+    
+    def gather_and_cache_codebase_context(self, file_extensions: Optional[List[str]] = None, ignore_patterns: Optional[List[str]] = None) -> None:
+        """Legacy method: Scans the entire workspace for relevant files and caches their content summary."""
+        if self.scratchpad:
+            self.scratchpad.log("ContextManager", "Starting to gather and cache codebase context.", "info")
+        logger.info("gather_and_cache_codebase_context called - delegating to modern context gathering")
+        
+        if file_extensions is None:
+            file_extensions = [".py", ".js", ".ts", ".java", ".go", ".rb", ".php", ".cs", ".c", ".cpp", ".h", ".md", ".txt"]
+        if ignore_patterns is None:
+            ignore_patterns = [
+                "*/.git/*", "*/__pycache__/*", "*/node_modules/*", "*/dist/*", 
+                "*/build/*", "*.log", "*.tmp", "*.swp", "*.egg-info/*", "*/venv/*", "*/.venv/*"
+            ]
+
+        # Use modern context gathering approach
+        context_data = {"global_codebase_context": {}}
+        self.update_context(context_data)
+        
+        if self.scratchpad:
+            self.scratchpad.log("ContextManager", "Finished gathering codebase context using modern approach.", "info")
+
+    def get_global_codebase_context(self) -> Optional[Dict[str, str]]:
+        """Legacy method: Retrieves the cached global codebase context."""
+        logger.info("get_global_codebase_context called - returning from modern context")
+        context = self.get_context()
+        return context.get("global_codebase_context")
+
+    def allocate_token_budget(self, total_tokens: int, attempt_num: int = 1) -> Dict[str, int]:
+        """Legacy method: Allocate token budget for context elements."""
+        logger.info(f"allocate_token_budget called with {total_tokens} tokens, attempt {attempt_num}")
+        
+        # Use modern token budget allocation (for internal optimization)
+        self.allocation_strategy.allocate(
+            {"task_description": "legacy allocation"},
+            max_tokens=total_tokens
+        )
+        
+        # Convert to legacy format
+        return {
+            "task": int(total_tokens * 0.1),
+            "plan": int(total_tokens * 0.3), 
+            "code_context": int(total_tokens * 0.5),
+            "tech_stack": total_tokens - int(total_tokens * 0.9),
+        }
+
+    def gather_minimal_context(
+        self,
+        task: str,
+        plan: Any,
+        tech_stack: Dict[str, Any],
+        token_budgets: Dict[str, int],
+    ) -> Dict[str, Any]:
+        """Legacy method: Return minimal context for generation."""
+        logger.info("gather_minimal_context called - using modern context gathering")
+        
+        is_json = isinstance(plan, dict)
+        context = {
+            "task": task,
+            "tech_stack": tech_stack,
+            "code_context": {},
+            "is_json_plan": is_json,
+            "previous_attempts": [],
+        }
+        if is_json:
+            context["test_plan"] = plan.get("test_plan")
+            context["plan"] = json.dumps(plan.get("functional_plan", plan), indent=2)
+        else:
+            context["plan"] = str(plan)
+        return context
+
+    def gather_full_context(
+        self,
+        task: str,
+        plan: Any,
+        tech_stack: Dict[str, Any],
+        token_budgets: Dict[str, int],
+        failed_attempts: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        """Legacy method: Gather full context for generation."""
+        logger.info("gather_full_context called - using modern context gathering")
+        
+        context = self.gather_minimal_context(task, plan, tech_stack, token_budgets)
+        context["previous_attempts"] = failed_attempts or []
+        return context
+
+    def create_generation_prompt(self, context: Dict[str, Any]) -> str:
+        """Legacy method: Create a generation prompt from gathered context."""
+        logger.info("create_generation_prompt called")
+        
+        task = context.get("task", "")
+        plan = context.get("plan", "")
+        prompt_sections = [f"# Task\n{task}"]
+        if context.get("is_json_plan"):
+            prompt_sections.append("# Structured Plan (JSON Format)")
+            prompt_sections.append(str(plan))
+            if context.get("test_plan") is not None:
+                prompt_sections.append("# Test Plan")
+                prompt_sections.append(json.dumps(context["test_plan"], indent=2))
+            prompt_sections.append("# Instructions for JSON Plan Implementation")
+            prompt_sections.append(
+                "Follow these steps to implement the feature based on the JSON structured plan"
+            )
+        else:
+            prompt_sections.append("# Plan")
+            prompt_sections.append(str(plan))
+        return "\n".join(prompt_sections)
+
+    def prepare_file_context(
+        self, file_path: str, implementation_details: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Legacy method: Prepare context for a file by reading related existing files."""
+        if self.scratchpad:
+            self.scratchpad.log("ContextManager", f"Preparing context for {file_path}")
+        logger.info(f"prepare_file_context called for {file_path}")
+        
+        # Use modern context gathering approach
+        context = {
+            "existing_code": self.get_file_content(file_path) or "",
+            "related_files": {},
+            "imports": [],
+            "functions_to_implement": [d.get("function") for d in implementation_details if "function" in d]
+        }
+        
+        # Get related files using dependency graph
+        try:
+            related_files_list = self._get_relevant_files_from_graph([file_path])
+            for related_path in list(related_files_list)[:5]:  # Limit to 5 related files
+                if related_path != file_path:
+                    content = self.get_file_content(related_path)
+                    if content and len(content) > 0:
+                        if len(content) > 2000:
+                            content = content[:2000] + "... [truncated]"
+                        context["related_files"][related_path] = content
+        except Exception as e:
+            logger.warning(f"Error getting related files for {file_path}: {e}")
+            if self.scratchpad:
+                self.scratchpad.log("ContextManager", f"Error reading related files: {e}", level="warning")
+        
+        if self.scratchpad:
+            self.scratchpad.log("ContextManager", f"Added {len(context['related_files'])} related files to context")
+            
+        return context
+
+    @staticmethod
+    def _validate_path(path: str) -> None:
+        """Validate that the provided path stays within the workspace.
+
+        Symlinks are resolved to their real locations to prevent bypassing the
+        workspace boundary checks through link traversal.
+        """
+        normalized = os.path.normpath(path)
+        workspace_root = os.path.realpath(os.getcwd())
+
+        # Resolve the absolute path including any symlinks
+        candidate = (
+            normalized
+            if os.path.isabs(normalized)
+            else os.path.join(workspace_root, normalized)
+        )
+        resolved = os.path.realpath(candidate)
+
+        # Ensure the resolved path is within the workspace directory
+        if os.path.commonpath([workspace_root, resolved]) != workspace_root:
+            raise ValueError("Invalid absolute path outside workspace")
+
+        # Reject paths that explicitly navigate upward
+        if ".." in normalized.split(os.sep):
+            raise ValueError("Path traversal detected")

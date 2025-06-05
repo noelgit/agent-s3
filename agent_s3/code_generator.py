@@ -8,7 +8,7 @@ import ast
 from typing import Any, Dict, List, Optional, Tuple
 
 from .enhanced_scratchpad_manager import LogLevel
-from .context_manager import ContextManager
+from .tools.context_management.context_manager import ContextManager
 from .code_validator import CodeValidator
 from .debug_utils import DebugUtils
 

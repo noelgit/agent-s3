@@ -402,7 +402,7 @@ class Coordinator:
             if hasattr(self, 'context_manager') and self.context_manager:
                 try:
                     self.scratchpad.log("Coordinator", "Stopping context management background optimization")
-                    self.context_manager.stop_background_optimization()
+                    self.context_manager._stop_background_optimization()
                 except Exception as e:
                     self.scratchpad.log("Coordinator", f"Error stopping context management: {e}", level=LogLevel.ERROR)
 
