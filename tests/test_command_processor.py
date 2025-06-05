@@ -76,7 +76,6 @@ class TestCommandProcessor:
         coordinator.generate_plan = MagicMock(return_value="Test plan content")
         coordinator.workspace_initializer = MagicMock()
         coordinator.workspace_initializer.initialize_workspace = MagicMock(return_value=True)
-        coordinator.workspace_initializer.execute_personas_command = MagicMock(return_value="Personas created")
         coordinator.workspace_initializer.execute_guidelines_command = MagicMock(return_value="Guidelines created")
         coordinator.bash_tool = MagicMock()
         coordinator.bash_tool.run_command = MagicMock(return_value=(0, "Command output"))
@@ -206,15 +205,6 @@ class TestCommandProcessor:
         assert not success
         assert "Please provide a terminal command" in result
 
-    def test_execute_personas_command(self, command_processor, mock_coordinator):
-        """Test execute_personas_command."""
-        # Exercise
-        result, success = command_processor.execute_personas_command("")
-
-        # Verify
-        mock_coordinator.workspace_initializer.execute_personas_command.assert_called_once()
-        assert success
-        assert "Personas created" in result
 
     def test_execute_guidelines_command(self, command_processor, mock_coordinator):
         """Test execute_guidelines_command."""
@@ -233,8 +223,8 @@ class TestCommandProcessor:
 
         # Verify
         assert success
-        assert "Available commands" in result
-        assert "/init:" in result
+        assert "Agent-S3 Command-Line Interface" in result
+        assert "/init" in result
         assert "/plan" in result
 
     def test_execute_help_command_specific(self, command_processor):

@@ -11,7 +11,6 @@ from typing import Dict
 from agent_s3.config import Config
 from agent_s3.coordinator import Coordinator
 from agent_s3.router_agent import RouterAgent
-from .dispatcher import dispatch
 # Import authenticate_user only when needed to prevent circular imports
 # from agent_s3.auth import authenticate_user
 
@@ -36,58 +35,10 @@ def configure_logging(verbose: bool = False) -> None:
 
 
 def get_help_text() -> str:
-    """Return help information for the command-line interface."""
-    return """
-Agent-S3 Command-Line Interface
-
-Commands:
-  agent-s3 <prompt>          - Process a change request (full workflow)
-  agent-s3 /plan <prompt>    - Generate a plan only (bypass execution)
-  agent-s3 /request <prompt> - Full change request (plan, execute)
-  agent-s3 /init             - Initialize the workspace
-  agent-s3 /help             - Display this help message
-  agent-s3 /config           - Show current configuration
-  agent-s3 /reload-llm-config- Reload LLM configuration
-  agent-s3 /explain          - Explain the last LLM interaction
-  agent-s3 /terminal <cmd>   - Execute shell commands directly (bypassing LLM)
-  agent-s3 /cli bash <cmd>   - Run multi-line bash script via heredoc
-  agent-s3 /cli file <path>  - Write file content via heredoc
-  agent-s3 /design <obj>     - Start a design process
-  agent-s3 /design-auto <obj>- Start design with automatic approvals
-  agent-s3 /personas         - Generate default personas file
-  agent-s3 /guidelines       - Generate default guidelines file
-  agent-s3 /continue [id]    - Continue implementation from where it left off
-  agent-s3 /tasks            - List active tasks that can be resumed
-  agent-s3 /clear <id>       - Clear a specific task state
-  agent-s3 /db <command>     - Database operations (see /db help for details)
-  agent-s3 /test             - Run tests
-  agent-s3 /debug            - Start debugging utilities
-
-Special Commands (can be used in prompt):
-  /help                      - Display help message
-  /init                      - Initialize workspace
-  /config                    - Show current configuration
-  /reload-llm-config         - Reload LLM configuration
-  /explain                   - Explain the last LLM interaction
-  /plan <prompt>             - Generate a plan only (bypass execution)
-  /request <prompt>          - Full change request (plan + execution)
-  /terminal <cmd>            - Execute shell commands literally (bypassing LLM)
-  /cli bash <cmd>            - Multi-line bash execution (<<EOF ... EOF)
-  /cli file <path>           - Multi-line file content
-  /design <obj>              - Start a design process
-  /design-auto <obj>         - Start design with automatic approvals
-  /personas                  - Generate default personas file
-  /guidelines                - Generate default guidelines file
-  /continue [id]             - Continue implementation from where it left off
-  /tasks                     - List active tasks that can be resumed
-  /clear <id>                - Clear a specific task state
-  /db <command>              - Database operations (schema, query, test, etc.)
-  /test                      - Run tests
-  /debug                     - Start debugging utilities
-  @<filename>                - Open a file in the editor
-  #<tag>                     - Add a tag to the scratchpad
-
-"""
+    """Return help information - delegates to CLI dispatcher (single source of truth)."""
+    from agent_s3.cli.dispatcher import _handle_simple_help_command
+    help_text, _ = _handle_simple_help_command("")
+    return help_text
 
 
 def display_help() -> None:
@@ -96,21 +47,19 @@ def display_help() -> None:
 
 
 def process_command(coordinator: Coordinator, command: str) -> None:
-    """Process a special command by delegating to CommandProcessor.
+    """Process a special command by delegating to CLI dispatcher (single source of truth).
 
     Args:
         coordinator: The coordinator instance
         command: The command to process
     """
+    # ALL commands go through the CLI dispatcher - no exceptions
+    from agent_s3.cli.dispatcher import dispatch
+    
     # Initialize CommandProcessor if not already done
     if not hasattr(coordinator, 'command_processor'):
         from agent_s3.command_processor import CommandProcessor
         coordinator.command_processor = CommandProcessor(coordinator)
-
-    # Handle help command at CLI level since it's display-specific
-    if command == "/help":
-        display_help()
-        return
 
     try:
         result, _success = dispatch(coordinator.command_processor, command)
@@ -223,7 +172,25 @@ def main() -> None:
     # Case 2: Arguments provided (command or prompt mode)
     prompt_string = " ".join(args.prompt).strip()
 
-    # Handle /help command without initializing coordinator fully
+    # Handle simple commands without initializing coordinator to avoid hanging
+    if prompt_string.startswith("/"):
+        from agent_s3.cli.dispatcher import _SIMPLE_COMMANDS, _handle_simple_help_command, _handle_simple_config_command
+        
+        cmd = prompt_string[1:].split()[0].lower() if len(prompt_string) > 1 else ""
+        if cmd in _SIMPLE_COMMANDS:
+            # Handle simple commands directly
+            if cmd == "help":
+                cmd_args = prompt_string[6:].strip() if len(prompt_string) > 6 else ""
+                result, success = _handle_simple_help_command(cmd_args)
+                print(result)
+                sys.exit(0 if success else 1)
+            elif cmd == "config":
+                cmd_args = prompt_string[8:].strip() if len(prompt_string) > 8 else ""
+                result, success = _handle_simple_config_command(cmd_args)
+                print(result)
+                sys.exit(0 if success else 1)
+
+    # Handle /help command without initializing coordinator fully (legacy support)
     if prompt_string == "/help":
         display_help()
         return

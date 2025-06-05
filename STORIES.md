@@ -43,7 +43,6 @@ Refer to these resources for a complete understanding of the project.
         *   Creates required directories like .github if they don't exist
         *   Logs validation status and errors via EnhancedScratchpadManager
     *   It creates essential files if missing:
-        *   Creates personas.md via `execute_personas_command()` if it doesn't exist
         *   Creates .github/copilot-instructions.md via `execute_guidelines_command()` if missing
         *   Creates llm.json with default LLM configuration if not present
     *   During initialization it calls `TechStackDetector.detect_tech_stack()` to:

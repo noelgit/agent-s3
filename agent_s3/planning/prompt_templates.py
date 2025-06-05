@@ -14,29 +14,6 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def get_personas_content() -> str:
-    """Load the personas content from personas.md file. Returns str: Content of the personas.md file"""
-    try:
-        personas_path = Path("personas.md")
-        if personas_path.exists():
-            return personas_path.read_text(encoding='utf-8')
-        else:
-            logger.warning("personas.md file not found, using default personas")
-            return """## Business Development Manager
-Clarify why we're building this feature, whom it serves, and what real-world scenarios it must cover.
-
-## Expert Coder
-Define how the feature will be built—step by step, with tech choices, data models, and file breakdown.
-
-## Reviewer
-Ensure the proposed solution is logically consistent and covers all functional scenarios.
-
-## Validator
-Confirm the solution adheres to best practices and organizational guidelines.
-"""
-    except Exception as e:
-        logger.error("Error loading personas content: %s", str(e))
-        return "Error loading personas content. Using default expert personas."
 
 
 def get_coding_guidelines() -> str:

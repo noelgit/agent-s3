@@ -39,14 +39,16 @@
 
 .message.agent {
   align-self: flex-start;
-  background-color: var(--vscode-editor-inactiveSelectionBackground);
-  color: var(--vscode-editor-foreground);
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
 }
 
 .message.system {
   align-self: center;
-  background-color: var(--vscode-editorWidget-background);
-  color: var(--vscode-editorWidget-foreground);
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
   font-style: italic;
   max-width: 90%;
   text-align: center;
@@ -65,7 +67,8 @@
 }
 
 .message-content pre {
-  background-color: var(--vscode-editor-background);
+  background-color: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border);
   padding: 8px;
   border-radius: 4px;
   overflow-x: auto;

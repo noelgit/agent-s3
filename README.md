@@ -175,7 +175,7 @@ pip check
   - Tracking implementation progress in `implementation_progress.json`
   - Sequential implementation of tasks with the `/continue` command
   - Automatic test execution after each implementation step
-- CLI interface (`agent_s3.cli`) with commands: `/init`, `/help`, `/config`, `/reload-llm-config`, `/explain`, `/request`, `/terminal`, `/design`, `/design-auto`, `/personas`, `/guidelines`, `/continue`, `/tasks`, `/clear`, `/db`, `/test`, `/debug`. Supports multi-line heredoc input (`<<MARKER ... MARKER`) for `/cli file` and `/cli bash`.
+- CLI interface (`agent_s3.cli`) with commands: `/init`, `/help`, `/config`, `/reload-llm-config`, `/explain`, `/request`, `/terminal`, `/design`, `/design-auto`, `/guidelines`, `/continue`, `/tasks`, `/clear`, `/db`, `/test`, `/debug`. Supports multi-line heredoc input (`<<MARKER ... MARKER`) for `/cli file` and `/cli bash`.
 - GitHub authentication via OAuth App and GitHub App flows (`agent_s3.auth`)
 - Centralized configuration loading from `llm.json`, environment variables, and `.env` (`agent_s3.config`)
 - Dynamic LLM routing by arbitrary roles defined in `llm.json`, with circuit breaker, fallback logic, and metrics tracking (`agent_s3.router_agent`)
@@ -217,7 +217,7 @@ pip check
   - Warning system for uncovered critical files and missing test types
 - Progress tracking in `progress_log.jsonl` (`agent_s3.progress_tracker`) and detailed chain-of-thought logs via enhanced scratchpad management (`agent_s3.enhanced_scratchpad_manager`)
 - Interactive user prompts, plan reviews, patch diffs, and explanations via `agent_s3.prompt_moderator`
-- Workspace initialization (`/init`): Validates workspace (checks for `README.md`), creates default `.github/copilot-instructions.md`, `personas.md`, and `llm.json` if missing
+- Workspace initialization (`/init`): Validates workspace (checks for `README.md`), creates default `.github/copilot-instructions.md` and `llm.json` if missing
 - Task State Management & Resumption (`TaskStateManager`):
   - Saves task state snapshots for each phase (Planning, PromptApproval, IssueCreation, CodeGeneration, Execution, PRCreation) to disk
   - Allows resuming interrupted tasks from the last saved state via `/continue` or automatically on startup
@@ -475,8 +475,6 @@ python -m agent_s3.cli /cli file path/to/script.sh <<EOF
 echo "Hello from script"
 EOF
 
-# Create default personas.md
-python -m agent_s3.cli /personas
 
 # Create default copilot-instructions.md
 python -m agent_s3.cli /guidelines

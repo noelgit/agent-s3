@@ -967,18 +967,16 @@ class ContextManager:
                         if hasattr(self.allocation_strategy, 'reserved_tokens'):
                             self.allocation_strategy.reserved_tokens = reserved_tokens
 
-                # Update background optimization settings
-                background_opt = cm_config.get("background_optimization", {})
-                if background_opt:
-                    interval = background_opt.get("interval")
+                # Update background optimization settings (always enabled)
+                # Background optimization is always enabled for optimal performance
+                if not self.optimization_thread:
+                    self._start_background_optimization()
 
-                    # Background optimization always enabled
-                    if not self.optimization_thread:
-                        self._start_background_optimization()
-
-                    if interval:
-                        logger.debug(f"Using adaptive optimization interval: {interval}")
-                        self.optimization_interval = interval
+                # Update optimization interval if provided in config
+                interval = cm_config.get("optimization_interval")
+                if interval:
+                    logger.debug(f"Using adaptive optimization interval: {interval}")
+                    self.optimization_interval = interval
 
                 # Update pruning settings for ContentPruningManager
                 pruning_config = cm_config.get("pruning", {})

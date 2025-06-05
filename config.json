@@ -3,6 +3,7 @@
   "task_state_directory": "./task_snapshots",
   "sandbox_environment": false,
   "host_os_type": "linux",
+  "OPENROUTER_API_KEY": "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",
   "context_management": {
     "optimization_interval": 60,
     "compression_threshold": 1000,

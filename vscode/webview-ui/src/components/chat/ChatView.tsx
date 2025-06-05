@@ -143,6 +143,11 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
             isComplete: true
           };
           setMessages(prev => [...prev, chatMsg]);
+          
+          // Reset responding state when we get an agent message
+          if (message.content.source === 'agent') {
+            setIsAgentResponding(false);
+          }
           break;
       }
     });
@@ -294,17 +299,34 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
     console.log('ChatView handleCommandResult called with:', content);
     const { result, success, command } = content;
     
+    // Skip intermediate "Processing..." messages
+    if (result === 'Processing...' && success === null) {
+      return;
+    }
+    
+    // Format the result content for better display
+    let formattedResult = result;
+    
+    // If it looks like structured output, format it nicely
+    if (typeof result === 'string' && result.length > 100) {
+      // Add code block formatting for long outputs
+      formattedResult = `\`\`\`\n${result}\n\`\`\``;
+    }
+    
     // Add command result as agent message
     const newMessage: ChatMessage = {
       id: `command-result-${Date.now()}`,
-      type: 'agent',
-      content: result,
+      type: success === false ? 'system' : 'agent',
+      content: success === false ? `❌ ${formattedResult}` : formattedResult,
       timestamp: new Date(),
       isComplete: true
     };
     
     console.log('Adding command result message:', newMessage);
     setMessages(messages => [...messages, newMessage]);
+    
+    // CRITICAL FIX: Reset responding state when command completes
+    setIsAgentResponding(false);
   };
   
   /**
@@ -341,8 +363,13 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
       inputRef.current.focus();
     }
     
-    // Set responding state
+    // Set responding state with timeout safety net
     setIsAgentResponding(true);
+    
+    // Safety timeout - reset responding state after 60 seconds if no response
+    setTimeout(() => {
+      setIsAgentResponding(false);
+    }, 60000);
   };
   
   /**

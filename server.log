@@ -1,9 +1,20 @@
-INFO:agent_s3.config:Loaded LLM model configuration from llm.json
-INFO:agent_s3.config:Extracted 125 guidelines from /Users/noelpatron/Documents/GitHub/agent-s3/.github/copilot-instructions.md
-INFO:agent_s3.config:Configuration loaded
-INFO:faiss.loader:Loading faiss.
-INFO:faiss.loader:Successfully loaded faiss.
-INFO:faiss:Failed to load GPU Faiss: name 'GpuIndexIVFFlat' is not defined. Will not load constructor refs for GPU indexes. This is only an error if you're trying to use GPU Faiss.
-127.0.0.1 - - [02/Jun/2025 19:02:10] "GET /health HTTP/1.1" 200 -
-127.0.0.1 - - [02/Jun/2025 19:02:16] "GET /help HTTP/1.1" 200 -
-127.0.0.1 - - [02/Jun/2025 19:02:54] "POST /command HTTP/1.1" 200 -
+Starting Agent-S3 HTTP server on http://localhost:8081
+Available endpoints:
+  GET  /health
+  GET  /help
+  POST /command
+
+Press Ctrl+C to stop
+Traceback (most recent call last):
+  File "/Users/noelpatron/Documents/GitHub/agent-s3/vscode/../simple_http_server.py", line 122, in <module>
+    main()
+  File "/Users/noelpatron/Documents/GitHub/agent-s3/vscode/../simple_http_server.py", line 113, in main
+    httpd = HTTPServer(('localhost', port), Agent3Handler)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/lib/python3.12/socketserver.py", line 457, in __init__
+    self.server_bind()
+  File "/opt/miniconda3/lib/python3.12/http/server.py", line 136, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/opt/miniconda3/lib/python3.12/socketserver.py", line 478, in server_bind
+    self.socket.bind(self.server_address)
+OSError: [Errno 48] Address already in use

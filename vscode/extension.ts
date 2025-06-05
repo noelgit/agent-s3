@@ -1,50 +1,19 @@
 import * as vscode from 'vscode';
-import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
+import { spawn } from 'child_process';
 import { WebviewUIManager } from './webview-ui-loader';
-import { CHAT_HISTORY_KEY, DEFAULT_HTTP_TIMEOUT_MS, HTTP_TIMEOUT_SETTING } from './constants';
+import { CHAT_HISTORY_KEY } from './constants';
 import type { ChatHistoryEntry } from './types/message';
-
-interface HttpConnection {
-    host: string;
-    port: number;
-}
-
-let cachedConnection: HttpConnection | null = null;
-
-async function getHttpConnection(): Promise<HttpConnection> {
-    if (cachedConnection) {
-        return cachedConnection;
-    }
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) {
-        cachedConnection = { host: 'localhost', port: 8081 };
-        return cachedConnection;
-    }
-    const connectionUri = vscode.Uri.joinPath(workspaceFolder.uri, '.agent_s3_http_connection.json');
-    try {
-        const data = await vscode.workspace.fs.readFile(connectionUri);
-        const text = new TextDecoder('utf8').decode(data);
-        const json = JSON.parse(text) as { host?: string; port?: number };
-        if (typeof json.host === 'string' && typeof json.port === 'number') {
-            cachedConnection = { host: json.host, port: json.port };
-        } else {
-            cachedConnection = { host: 'localhost', port: 8081 };
-        }
-    } catch {
-        cachedConnection = { host: 'localhost', port: 8081 };
-    }
-    return cachedConnection;
-}
-
-interface HealthResponse {
-    status: string;
-}
+import { Agent3ChatProvider, Agent3HistoryProvider } from './tree-providers';
+import { ConnectionManager } from './src/config/connectionManager';
+import { HttpClient } from './src/http/httpClient';
 
 let chatManager: WebviewUIManager | undefined;
 let messageHistory: ChatHistoryEntry[] = [];
 // Use minimal type for terminalEmitter to avoid 'any' and generic issues
 let terminalEmitter: { event: unknown; fire(data: string): void; dispose(): void } | undefined;
 let agentTerminal: vscode.Terminal | undefined;
+let connectionManager: ConnectionManager;
+let httpClient: HttpClient;
 
 /**
  * Extension activation point
@@ -52,9 +21,22 @@ let agentTerminal: vscode.Terminal | undefined;
 export function activate(context: vscode.ExtensionContext): void {
     console.log('Agent-S3 HTTP Extension activated');
 
+    // Initialize connection management
+    connectionManager = ConnectionManager.getInstance();
+    httpClient = new HttpClient();
+
+    // Register tree data providers
+    const chatProvider = new Agent3ChatProvider(context);
+    const historyProvider = new Agent3HistoryProvider(context);
+    
+    vscode.window.registerTreeDataProvider('agent-s3-chat', chatProvider);
+    vscode.window.registerTreeDataProvider('agent-s3-history', historyProvider);
+
     // Initialize command
     const initCommand = vscode.commands.registerCommand('agent-s3.init', async () => {
         await executeAgentCommand('/init');
+        chatProvider.refresh();
+        historyProvider.refresh();
     });
 
     // Help command
@@ -76,6 +58,7 @@ export function activate(context: vscode.ExtensionContext): void {
         
         if (input) {
             await executeAgentCommand(`/request ${input}`);
+            historyProvider.refresh();
         }
     });
 
@@ -88,6 +71,7 @@ export function activate(context: vscode.ExtensionContext): void {
         
         if (input) {
             await executeAgentCommand(`/design-auto ${input}`);
+            historyProvider.refresh();
         }
     });
 
@@ -108,14 +92,36 @@ export function activate(context: vscode.ExtensionContext): void {
                     messageHistory.push(entry);
                     await context.workspaceState.update(CHAT_HISTORY_KEY, messageHistory);
 
-                    appendToTerminal(`$ ${text}\n`);
-                    chatManager?.postMessage({ type: 'COMMAND_RESULT', content: { result: 'Processing...', success: true, command: text } });
-                    await executeAgentCommand(text);
-
-                    const ack: ChatHistoryEntry = { role: 'assistant', content: 'See terminal for details.', timestamp: new Date().toISOString() };
-                    messageHistory.push(ack);
-                    await context.workspaceState.update(CHAT_HISTORY_KEY, messageHistory);
-                    chatManager?.postMessage({ type: 'CHAT_MESSAGE', content: { text: ack.content, source: 'agent' } });
+                    // Send initial response to chat
+                    chatManager?.postMessage({ type: 'COMMAND_RESULT', content: { result: 'Processing...', success: null, command: text } });
+                    
+                    try {
+                        // Try HTTP first, fallback to CLI
+                        const result = await executeAgentCommandWithOutput(text);
+                        
+                        // Send successful completion with output to chat
+                        const ack: ChatHistoryEntry = { role: 'assistant', content: result, timestamp: new Date().toISOString() };
+                        messageHistory.push(ack);
+                        await context.workspaceState.update(CHAT_HISTORY_KEY, messageHistory);
+                        
+                        // Send completion signal to chat interface
+                        chatManager?.postMessage({ type: 'COMMAND_RESULT', content: { result: result, success: true, command: text } });
+                        chatManager?.postMessage({ type: 'CHAT_MESSAGE', content: { text: ack.content, source: 'agent' } });
+                        
+                        // Refresh tree views
+                        chatProvider.refresh();
+                        historyProvider.refresh();
+                    } catch (error) {
+                        // Send error completion
+                        const errorMsg = `Command failed: ${error instanceof Error ? error.message : String(error)}`;
+                        const errorAck: ChatHistoryEntry = { role: 'assistant', content: errorMsg, timestamp: new Date().toISOString() };
+                        messageHistory.push(errorAck);
+                        await context.workspaceState.update(CHAT_HISTORY_KEY, messageHistory);
+                        
+                        // Send error completion signal to chat interface
+                        chatManager?.postMessage({ type: 'COMMAND_RESULT', content: { result: errorMsg, success: false, command: text } });
+                        chatManager?.postMessage({ type: 'CHAT_MESSAGE', content: { text: errorMsg, source: 'agent' } });
+                    }
                 }
             });
         }
@@ -123,54 +129,103 @@ export function activate(context: vscode.ExtensionContext): void {
         chatManager.createOrShowPanel();
     });
 
-    // Interactive view command
-    const interactiveCommand = vscode.commands.registerCommand('agent-s3.openInteractiveView', async () => {
+    // Quick command
+    const quickCommand = vscode.commands.registerCommand('agent-s3.openQuickCommand', async () => {
         const input = await vscode.window.showInputBox({
-            prompt: 'Enter Agent-S3 command for interactive processing',
+            prompt: 'Enter Agent-S3 command for immediate execution',
             placeHolder: '/plan add user authentication'
         });
 
         if (!input) return;
         await executeAgentCommand(input);
+        historyProvider.refresh();
     });
 
     // Show chat entry command
-    const showChatCommand = vscode.commands.registerCommand('agent-s3.showChatEntry', async () => {
-        const input = await vscode.window.showInputBox({
-            prompt: 'Enter message to add to chat',
-            placeHolder: 'Your message here'
-        });
+    const showChatCommand = vscode.commands.registerCommand('agent-s3.showChatEntry', async (entry?: ChatHistoryEntry) => {
+        if (entry) {
+            // Show the chat entry content in an information message
+            const timestamp = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : 'Unknown time';
+            vscode.window.showInformationMessage(
+                `${entry.role} (${timestamp}): ${entry.content}`,
+                'Copy to Clipboard'
+            ).then((selection: string | undefined) => {
+                if (selection === 'Copy to Clipboard') {
+                    vscode.env.clipboard.writeText(entry.content);
+                }
+            });
+        } else {
+            // Fallback to input box
+            const input = await vscode.window.showInputBox({
+                prompt: 'Enter message to add to chat',
+                placeHolder: 'Your message here'
+            });
 
-        if (input) {
-            // For now, treat as a command
-            await executeAgentCommand(input);
+            if (input) {
+                // For now, treat as a command
+                await executeAgentCommand(input);
+                chatProvider.refresh();
+                historyProvider.refresh();
+            }
         }
     });
 
-    // Refresh commands (placeholder)
+    // Refresh commands
     const refreshChatCommand = vscode.commands.registerCommand('agent-s3.refreshChat', async () => {
+        chatProvider.refresh();
         vscode.window.showInformationMessage('Chat view refreshed');
     });
 
     const refreshHistoryCommand = vscode.commands.registerCommand('agent-s3.refreshHistory', async () => {
+        historyProvider.refresh();
         vscode.window.showInformationMessage('History view refreshed');
     });
 
-    // HTTP status command
+    // HTTP status command with connection info
     const statusCommand = vscode.commands.registerCommand('agent-s3.status', async () => {
         try {
-            const { host, port } = await getHttpConnection();
-            const response = await fetch(`http://${host}:${port}/health`);
-            const data = await response.json() as HealthResponse;
+            const config = await connectionManager.getConnectionConfig();
+            const isRemote = config.host !== 'localhost' && config.host !== '127.0.0.1';
+            const protocol = config.use_tls ? 'https' : 'http';
             
-            if (data.status === 'ok') {
-                vscode.window.showInformationMessage('Agent-S3 HTTP Server: Connected ✅');
+            // Test connection
+            const testResult = await httpClient.testConnection();
+            const status = testResult ? '✅ Connected' : '❌ Disconnected';
+            
+            const timeout = vscode.workspace.getConfiguration('agent-s3').get('httpTimeoutMs') as number || 10000;
+            
+            const message = [
+                `Agent-S3 Connection Status:`,
+                `${status}`,
+                `Endpoint: ${protocol}://${config.host}:${config.port}`,
+                `Remote: ${isRemote ? 'Yes' : 'No (Local)'}`,
+                `Auth: ${config.auth_token ? 'Enabled' : 'None'}`,
+                `Timeout: ${timeout}ms`
+            ].join('\n');
+            
+            vscode.window.showInformationMessage(message);
+        } catch (error) {
+            vscode.window.showErrorMessage(`Status check failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+
+    // Test connection command
+    const testConnectionCommand = vscode.commands.registerCommand('agent-s3.testConnection', async () => {
+        try {
+            const config = await connectionManager.getConnectionConfig();
+            const protocol = config.use_tls ? 'https' : 'http';
+            
+            vscode.window.showInformationMessage(`Testing connection to ${protocol}://${config.host}:${config.port}...`);
+            
+            const testResult = await httpClient.testConnection();
+            
+            if (testResult) {
+                vscode.window.showInformationMessage(`✅ Connection successful to Agent-S3 backend`);
             } else {
-                vscode.window.showWarningMessage('Agent-S3 HTTP Server: Unexpected response');
+                vscode.window.showWarningMessage(`❌ Connection failed to Agent-S3 backend`);
             }
         } catch (error) {
-            // Fallback to CLI if HTTP server not available
-            vscode.window.showWarningMessage('Agent-S3 HTTP Server: Not running. Using CLI mode.');
+            vscode.window.showErrorMessage(`Connection test failed: ${error instanceof Error ? error.message : String(error)}`);
         }
     });
 
@@ -181,158 +236,100 @@ export function activate(context: vscode.ExtensionContext): void {
         requestCommand,
         designAutoCommand,
         chatCommand,
-        interactiveCommand,
+        quickCommand,
         showChatCommand,
         refreshChatCommand,
         refreshHistoryCommand,
-        statusCommand
+        statusCommand,
+        testConnectionCommand
     );
 }
 
 export async function executeAgentCommand(command: string): Promise<void> {
+    const result = await executeAgentCommandWithOutput(command);
+    // For backward compatibility, show in terminal as well
+    appendToTerminal(`$ ${command}\n${result}\n`);
+}
+
+export async function executeAgentCommandWithOutput(command: string): Promise<string> {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
-        vscode.window.showErrorMessage('No workspace folder open');
-        return;
+        throw new Error('No workspace folder open');
     }
 
-    const workspacePath = workspaceFolder.uri.fsPath;
-    const term = getAgentTerminal();
-    term.show(true);
-
-    // Try HTTP server first, fallback to CLI if it fails or times out
+    // First try HTTP if connection is available
     try {
-        const httpResult = await tryHttpCommand(command);
-        if (httpResult) {
-            appendToTerminal(`$ ${command}\n${httpResult.output}${httpResult.result}\n`);
-            if (httpResult.success === false) {
-                vscode.window.showErrorMessage('Agent-S3 command failed.');
-            } else if (httpResult.success === null) {
-                vscode.window.showInformationMessage('Processing...');
-            }
-            return;
+        const response = await httpClient.sendCommand(command);
+        if (response.success) {
+            return response.output || response.result || 'Command completed successfully';
+        } else {
+            throw new Error('HTTP command failed');
         }
-    } catch (error) {
-        console.log('HTTP server not available, falling back to CLI');
-        vscode.window.showWarningMessage('Agent-S3 HTTP server not available. Using CLI mode.');
+    } catch (httpError) {
+        console.log('HTTP failed, falling back to CLI:', httpError);
+        
+        // Fallback to CLI execution
+        return executeCommandViaCLI(command, workspaceFolder.uri.fsPath);
     }
+}
 
-    return new Promise<void>((resolve) => {
-        const childProcess: ChildProcessWithoutNullStreams = spawn('python', ['-m', 'agent_s3.cli', command], {
+async function executeCommandViaCLI(command: string, workspacePath: string): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+        const CLI_TIMEOUT_MS = 30000; // 30 seconds timeout for CLI operations
+        let processResolved = false;
+        let output = '';
+        
+        // Use CLI dispatcher as fallback
+        const childProcess = spawn('python', ['-m', 'agent_s3.cli', command], {
             cwd: workspacePath,
             stdio: 'pipe'
         });
 
-        childProcess.stdout.on('data', (data: Buffer) => {
-            appendToTerminal(data.toString());
+        // Set up timeout for CLI process
+        const timeoutHandle = setTimeout(() => {
+            if (!processResolved) {
+                processResolved = true;
+                const timeoutMsg = '[TIMEOUT] CLI command timed out after 30 seconds';
+                console.log('CLI process timed out - process will be abandoned');
+                reject(new Error(timeoutMsg));
+            }
+        }, CLI_TIMEOUT_MS);
+
+        childProcess.stdout?.on('data', (data: Buffer) => {
+            output += data.toString();
         });
 
-        childProcess.stderr.on('data', (data: Buffer) => {
-            appendToTerminal(data.toString());
+        childProcess.stderr?.on('data', (data: Buffer) => {
+            output += data.toString();
         });
 
-        childProcess.on('error', (err: Error) => {
-            appendToTerminal(`Error starting CLI: ${err.message}\n`);
-            vscode.window.showErrorMessage('Failed to start Agent-S3 CLI.');
-            resolve();
+        childProcess.on('error', (err: unknown) => {
+            if (!processResolved) {
+                processResolved = true;
+                clearTimeout(timeoutHandle);
+                reject(new Error(`Failed to start CLI: ${err instanceof Error ? err.message : String(err)}`));
+            }
         });
 
         childProcess.on('close', (code: number | null) => {
-            if (code !== 0) {
-                vscode.window.showErrorMessage('Agent-S3 command failed.');
+            if (!processResolved) {
+                processResolved = true;
+                clearTimeout(timeoutHandle);
+                if (code !== 0 && code !== null) {
+                    reject(new Error(`Process exited with code ${code}\n${output}`));
+                } else {
+                    resolve(output || 'Command completed successfully');
+                }
             }
-            resolve();
         });
     });
 }
 
-interface HttpResult { result: string; output: string; success: boolean | null }
+// Note: HTTP-related interfaces and functions removed - CLI dispatcher is now the single source of truth
 
-export async function tryHttpCommand(command: string): Promise<HttpResult | null> {
-    const config = vscode.workspace.getConfiguration('agent-s3');
-    const timeoutEnv = process.env.AGENT_S3_HTTP_TIMEOUT;
-    const timeoutMs = Number(timeoutEnv) ||
-        (config.get(HTTP_TIMEOUT_SETTING.split('.')[1], DEFAULT_HTTP_TIMEOUT_MS) as number);
+// Note: tryHttpCommand function removed - CLI dispatcher is now the single source of truth
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const { host, port } = await getHttpConnection();
-    const baseUrl = `http://${host}:${port}`;
-
-    try {
-        let response;
-
-        if (command === '/help') {
-            response = await fetch(`${baseUrl}/help`, {
-                signal: controller.signal
-            });
-        } else {
-            response = await fetch(`${baseUrl}/command`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ command, async: true }),
-                signal: controller.signal
-            });
-        }
-
-        clearTimeout(timer);
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        const data = await response.json() as { result?: string; output?: string; success?: boolean; error?: string; job_id?: string };
-        if (data.error) {
-            return { result: data.error, output: '', success: false };
-        }
-        if (data.job_id) {
-            const pollResult = await pollForResult(baseUrl, data.job_id);
-            if (pollResult) {
-                return pollResult;
-            }
-            return { result: 'Timed out waiting for result.', output: '', success: false };
-        }
-        return { result: data.result ?? '', output: data.output ?? '', success: data.success ?? true };
-    } catch (error) {
-        console.log(`HTTP command failed: ${String(error)}`);
-        if ((error as { name?: string }).name === 'AbortError') {
-            try {
-                const health = await fetch(`${baseUrl}/health`);
-                if (health.ok) {
-                    return { result: 'Processing...', output: '', success: null };
-                }
-            } catch {
-                // ignore
-            }
-        }
-        return null; // HTTP not available or timed out
-    } finally {
-        clearTimeout(timer);
-    }
-}
-
-async function pollForResult(baseUrl: string, jobId: string): Promise<HttpResult | null> {
-    const config = vscode.workspace.getConfiguration('agent-s3');
-    const interval = config.get('statusPollIntervalMs', 1000);
-    const attempts = config.get('statusPollAttempts', 30);
-
-    for (let i = 0; i < attempts; i++) {
-        try {
-            await new Promise(resolve => setTimeout(resolve, interval));
-            const resp = await fetch(`${baseUrl}/status/${encodeURIComponent(jobId)}`);
-            if (!resp.ok) {
-                continue;
-            }
-            const data = await resp.json() as { ready?: boolean; result?: string; output?: string; success?: boolean };
-            if (data.ready) {
-                return { result: data.result ?? '', output: data.output ?? '', success: data.success ?? true };
-            }
-        } catch (err) {
-            console.log(`Status polling error: ${String(err)}`);
-        }
-    }
-    return null;
-}
+// Note: pollForResult function removed - CLI dispatcher is now the single source of truth
 
 export function deactivate(): void {
     console.log('Agent-S3 HTTP Extension deactivated');

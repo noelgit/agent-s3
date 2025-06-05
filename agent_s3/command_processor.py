@@ -41,24 +41,93 @@ class CommandProcessor:
             Tuple of command result message and success flag
         """
         self._log("Initializing workspace...")
+        initialization_success = False
+        result_msg = "Workspace initialization failed."
 
         try:
+            # Update progress tracking
+            if hasattr(self.coordinator, 'progress_tracker'):
+                self.coordinator.progress_tracker.update_progress({
+                    "phase": "init",
+                    "status": "started",
+                    "timestamp": datetime.now().isoformat()
+                })
+
             # Delegate to workspace_initializer if available, otherwise use coordinator
             if hasattr(self.coordinator, 'workspace_initializer'):
-                success = self.coordinator.workspace_initializer.initialize_workspace()
+                initialization_success = self.coordinator.workspace_initializer.initialize_workspace()
+                result_msg = "Workspace initialized successfully."
+                
+                # Get validation details for better user feedback
+                if hasattr(self.coordinator.workspace_initializer, 'validation_failure_reason') and self.coordinator.workspace_initializer.validation_failure_reason:
+                    if initialization_success:
+                        result_msg += f" Note: {self.coordinator.workspace_initializer.validation_failure_reason}"
+                    else:
+                        result_msg = f"Workspace initialization completed with warnings: {self.coordinator.workspace_initializer.validation_failure_reason}. Some features may be limited."
             else:
-                success = self.coordinator.initialize_workspace()
+                # Handle coordinator fallback with proper return value parsing
+                result = self.coordinator.initialize_workspace()
+                
+                # Parse dictionary return value correctly
+                if isinstance(result, dict):
+                    initialization_success = result.get("success", False)
+                    is_valid = result.get("is_workspace_valid", False)
+                    errors = result.get("errors", [])
+                    validation_reason = result.get("validation_failure_reason")
+                    
+                    if initialization_success and is_valid:
+                        result_msg = "Workspace initialized successfully."
+                    elif initialization_success and not is_valid:
+                        error_details = "; ".join(str(err) for err in errors) if errors else validation_reason or "Unknown validation issues"
+                        result_msg = f"Workspace initialization completed with warnings: {error_details}. Some features may be limited."
+                    else:
+                        error_details = "; ".join(str(err) for err in errors) if errors else "Unknown error"
+                        result_msg = f"Workspace initialization failed: {error_details}"
+                        initialization_success = False
+                else:
+                    # Fallback for unexpected return type
+                    initialization_success = bool(result)
+                    result_msg = "Workspace initialized successfully." if initialization_success else "Workspace initialization failed."
 
-            if success:
-                return "Workspace initialized successfully.", True
-            else:
-                return (
-                    "Workspace initialization completed with warnings. Some features may be limited.",
-                    True,
-                )
+            # After successful initialization, gather codebase context
+            if initialization_success:
+                self._log("Gathering initial codebase context...")
+                if hasattr(self.coordinator, 'gather_initial_code_context'):
+                    context_gathering_success = self.coordinator.gather_initial_code_context()
+                    if context_gathering_success:
+                        self._log("Initial codebase context gathered successfully.")
+                        result_msg += " Initial codebase context gathered."
+                    else:
+                        self._log("Failed to gather initial codebase context.", level="warning")
+                        result_msg += " Warning: Failed to gather initial codebase context."
+                else:
+                    self._log("Coordinator does not have 'gather_initial_code_context' method.", level="warning")
+                    result_msg += " Warning: Context gathering feature not available."
+            
+            # Update progress tracking
+            if hasattr(self.coordinator, 'progress_tracker'):
+                self.coordinator.progress_tracker.update_progress({
+                    "phase": "init",
+                    "status": "completed" if initialization_success else "failed",
+                    "result": result_msg,
+                    "timestamp": datetime.now().isoformat()
+                })
+
+            return result_msg, initialization_success
+
         except Exception as e:
             error_msg = f"Workspace initialization failed: {e}"
             self._log(error_msg, level="error")
+            
+            # Update progress tracking with failure
+            if hasattr(self.coordinator, 'progress_tracker'):
+                self.coordinator.progress_tracker.update_progress({
+                    "phase": "init",
+                    "status": "failed",
+                    "error": str(e),
+                    "timestamp": datetime.now().isoformat()
+                })
+            
             return error_msg, False
 
     def execute_plan_command(self, args: str) -> tuple[str, bool]:
@@ -176,11 +245,23 @@ class CommandProcessor:
             # Run tests
             if hasattr(self.coordinator, 'run_tests_all'):
                 self.coordinator.run_tests_all()
+                
+                # Update progress tracking for run_tests_all path
+                if hasattr(self.coordinator, 'progress_tracker'):
+                    self.coordinator.progress_tracker.update_progress({
+                        "phase": "test",
+                        "status": "completed",
+                        "output": "Tests executed via run_tests_all",
+                        "timestamp": datetime.now().isoformat()
+                    })
+                
                 return "Tests completed.", True
             elif hasattr(self.coordinator, 'bash_tool'):
                 test_cmd = "pytest --maxfail=1 --disable-warnings -q"
                 if args:
-                    test_cmd += f" {args}"
+                    # Sanitize args to prevent command injection
+                    sanitized_args = self._sanitize_test_args(args.strip())
+                    test_cmd += f" {sanitized_args}"
 
                 result = self.coordinator.bash_tool.run_command(test_cmd, timeout=120)
                 print(result[1])
@@ -236,21 +317,21 @@ class CommandProcessor:
                     "timestamp": datetime.now().isoformat()
                 })
 
-            # Debug last test
+            # Debug last test (canonical behavior)
             if hasattr(self.coordinator, 'debug_last_test'):
                 self.coordinator.debug_last_test()
-
-                # Update progress tracking
-                if hasattr(self.coordinator, 'progress_tracker'):
-                    self.coordinator.progress_tracker.update_progress({
-                        "phase": "debug",
-                        "status": "completed",
-                        "timestamp": datetime.now().isoformat()
-                    })
-
-                return "Debugging completed.", True
             else:
-                return "Debugging functionality not available.", False
+                return "Debug functionality not available.", False
+
+            # Update progress tracking on success
+            if hasattr(self.coordinator, 'progress_tracker'):
+                self.coordinator.progress_tracker.update_progress({
+                    "phase": "debug",
+                    "status": "completed",
+                    "timestamp": datetime.now().isoformat()
+                })
+
+            return "Debugging completed.", True
         except Exception as e:
             error_msg = f"Debugging failed: {e}"
             self._log(error_msg, level="error")
@@ -328,31 +409,6 @@ class CommandProcessor:
 
             return error_msg, False
 
-    def execute_personas_command(self, args: str) -> tuple[str, bool]:
-        """Execute the personas command to create/update personas.md.
-
-        Args:
-            args: Optional arguments (unused)
-
-        Returns:
-            Tuple of command result message and success flag
-        """
-        self._log("Creating/updating personas.md...")
-
-        try:
-            # Execute personas command
-            if hasattr(self.coordinator, 'workspace_initializer'):
-                result = self.coordinator.workspace_initializer.execute_personas_command()
-            elif hasattr(self.coordinator, 'execute_personas_command'):
-                result = self.coordinator.execute_personas_command()
-            else:
-                return "Personas management functionality not available.", False
-
-            return result, True
-        except Exception as e:
-            error_msg = f"Personas management failed: {e}"
-            self._log(error_msg, level="error")
-            return error_msg, False
 
     def execute_guidelines_command(self, args: str) -> tuple[str, bool]:
         """Execute the guidelines command to create/update copilot-instructions.md.
@@ -399,6 +455,15 @@ class CommandProcessor:
         self._log(f"Starting design process for: {args}")
 
         try:
+            # Update progress tracking
+            if hasattr(self.coordinator, 'progress_tracker'):
+                self.coordinator.progress_tracker.update_progress({
+                    "phase": "design",
+                    "status": "started",
+                    "objective": args.strip(),
+                    "timestamp": datetime.now().isoformat()
+                })
+
             # Check if the coordinator supports the design workflow
             if hasattr(self.coordinator, 'execute_design'):
                 # Execute the design workflow through the coordinator
@@ -406,6 +471,15 @@ class CommandProcessor:
 
                 # Handle errors and cancellations
                 if not result.get("success", False):
+                    # Update progress tracking for failure
+                    if hasattr(self.coordinator, 'progress_tracker'):
+                        self.coordinator.progress_tracker.update_progress({
+                            "phase": "design",
+                            "status": "cancelled" if result.get("cancelled", False) else "failed",
+                            "error": result.get('error', 'Unknown error'),
+                            "timestamp": datetime.now().isoformat()
+                        })
+                    
                     if result.get("cancelled", False):
                         return "Design process cancelled by user.", False
                     else:
@@ -413,6 +487,15 @@ class CommandProcessor:
                             f"Design process failed: {result.get('error', 'Unknown error')}",
                             False,
                         )
+
+                # Update progress tracking for success
+                if hasattr(self.coordinator, 'progress_tracker'):
+                    self.coordinator.progress_tracker.update_progress({
+                        "phase": "design",
+                        "status": "completed",
+                        "next_action": result.get("next_action"),
+                        "timestamp": datetime.now().isoformat()
+                    })
 
                 # Process next actions based on user choices during design
                 next_action = result.get("next_action")
@@ -436,6 +519,16 @@ class CommandProcessor:
         except Exception as e:
             error_msg = f"Design process failed: {e}"
             self._log(error_msg, level="error")
+            
+            # Update progress tracking for exception
+            if hasattr(self.coordinator, 'progress_tracker'):
+                self.coordinator.progress_tracker.update_progress({
+                    "phase": "design",
+                    "status": "failed",
+                    "error": str(e),
+                    "timestamp": datetime.now().isoformat()
+                })
+            
             return error_msg, False
 
     def execute_design_auto_command(self, args: str) -> tuple[str, bool]:
@@ -627,17 +720,7 @@ class CommandProcessor:
                         )
 
                 # Format successful deployment result
-                access_url = result.get("access_url")
-                env_file = result.get("env_file")
-                message = result.get("message", "Deployment completed successfully.")
-
-                response = f"{message}"
-                if access_url:
-                    response += f"\nApplication is accessible at: {access_url}"
-                if env_file:
-                    response += f"\nEnvironment variables saved to: {env_file}"
-
-                return response, True
+                return self._format_deployment_result(result), True
 
             # Fallback to direct deployment manager access if available
             elif hasattr(self.coordinator, 'deployment_manager') and hasattr(self.coordinator.deployment_manager, 'start_deployment_conversation'):
@@ -648,10 +731,13 @@ class CommandProcessor:
                 # Continue the conversation flow
                 is_deployment_ready = False
                 while not is_deployment_ready:
-                    user_message = input("Deployment> ")
+                    try:
+                        user_message = input("Deployment> ")
+                    except (EOFError, KeyboardInterrupt):
+                        return "Deployment process cancelled by user.", False
 
                     if user_message.lower() in ["/exit", "/quit", "/cancel"]:
-                        return "Deployment process cancelled by user."
+                        return "Deployment process cancelled by user.", False
 
                     # Check for direct deployment command
                     if user_message.lower() == "/start-deployment":
@@ -672,17 +758,7 @@ class CommandProcessor:
                     )
 
                 # Format successful deployment result
-                access_url = result.get("access_url")
-                env_file = result.get("env_file")
-                message = result.get("message", "Deployment completed successfully.")
-
-                response = f"{message}"
-                if access_url:
-                    response += f"\nApplication is accessible at: {access_url}"
-                if env_file:
-                    response += f"\nEnvironment variables saved to: {env_file}"
-
-                return response, True
+                return self._format_deployment_result(result), True
             else:
                 return "Deployment functionality not available.", False
         except Exception as e:
@@ -691,7 +767,7 @@ class CommandProcessor:
             return error_msg, False
 
     def execute_help_command(self, args: str) -> tuple[str, bool]:
-        """Execute the help command to show available commands.
+        """Execute the help command - delegates to CLI dispatcher (single source of truth).
 
         Args:
             args: Optional command name for specific help
@@ -699,68 +775,10 @@ class CommandProcessor:
         Returns:
             Tuple of help message and success flag
         """
-        if args.strip():
-            # Show help for specific command
-            command = args.strip().lower()
-            if command.startswith('/'):
-                command = command[1:]
-
-            help_msgs = {
-                "init": "Initialize workspace with essential files (personas.md, guidelines, etc.)",
-                "plan": "Generate a development plan from a request description",
-                "test": "Run all tests in the codebase",
-                "debug": "Debug last test failure",
-                "terminal": "Execute a terminal command",
-                "personas": "Create/update personas.md with default content",
-                "guidelines": "Create/update copilot-instructions.md with default content",
-                "design": "Create a design document based on a design objective",
-                "design-auto": "Run design workflow with automatic approvals",
-                "implement": "Implement a design from design.txt",
-                "continue": "Continue implementation from where it left off",
-                "deploy": "Deploy an application based on a design",
-                "help": "Show available commands or help for a specific command",
-                "config": "Show current configuration",
-                "reload-llm-config": "Reload LLM configuration",
-                "explain": "Explain the last LLM interaction",
-                "request": "Process a full change request (plan + execution)",
-                "tasks": "List active tasks that can be resumed",
-                "clear": "Clear a specific task state",
-                "db": "Database operations (schema, query, test, etc.)"
-            }
-
-            if command in help_msgs:
-                return f"/{command}: {help_msgs[command]}", True
-            else:
-                return (
-                    f"Unknown command: {command}. Type /help for available commands.",
-                    False,
-                )
-        else:
-            # Show all available commands
-            help_text = """Available commands:
-/init: Initialize workspace
-/plan <description>: Generate a development plan
-/test [filter]: Run tests (optional filter)
-/debug: Debug last test failure
-/terminal <command>: Execute terminal command
-/personas: Create/update personas.md
-/guidelines: Create/update copilot-instructions.md
-/design <objective>: Create a design document
-/design-auto <objective>: Auto-approve design workflow
-/implement: Implement a design from design.txt
-/continue: Continue implementation
-/deploy [design_file]: Deploy an application
-/config: Show current configuration
-/reload-llm-config: Reload LLM configuration
-/explain: Explain the last LLM interaction
-/request <prompt>: Full change request (plan + execution)
-/tasks: List active tasks that can be resumed
-/clear <task_id>: Clear a specific task state
-/db <command>: Database operations (schema, query, test, etc.)
-/help [command]: Show available commands
-
-Type /help <command> for more information on a specific command."""
-            return help_text, True
+        # Delegate to CLI dispatcher - SINGLE SOURCE OF TRUTH
+        from agent_s3.cli.dispatcher import _handle_simple_help_command
+        help_text, success = _handle_simple_help_command(args)
+        return help_text, success
 
     def execute_config_command(self, args: str) -> tuple[str, bool]:
         """Execute the config command to show current configuration.
@@ -871,17 +889,37 @@ Type /help <command> for more information on a specific command."""
 
             result = "\nActive tasks that can be resumed:\n"
             for i, task in enumerate(active_tasks, start=1):
+                # Validate task structure and provide safe defaults
+                if not isinstance(task, dict):
+                    self._log(f"Invalid task format at index {i}: {type(task)}", level="warning")
+                    continue
+                    
                 task_id = task.get('task_id', 'Unknown')
                 phase = task.get('phase', 'Unknown')
                 timestamp = task.get('last_updated', 'Unknown')
                 request = task.get('request_text', 'Unknown')
-                result += f"{i}. [{task_id[:8]}] Phase: {phase}, Request: {request[:60]}...\n"
+                
+                # Safe string operations with validation
+                safe_task_id = str(task_id)[:8] if task_id and task_id != 'Unknown' else 'Unknown'
+                safe_request = str(request)[:60] if request and request != 'Unknown' else 'No description'
+                
+                result += f"{i}. [{safe_task_id}] Phase: {phase}, Request: {safe_request}...\n"
                 result += f"   Last updated: {timestamp}\n"
 
-            # Show instructions for resuming
+            # Show instructions for resuming with validation
             result += "\nTo resume a task, use:\n"
             result += "/continue <task_id>  - where <task_id> is one of the IDs shown above\n"
-            result += "Example: /continue " + active_tasks[0].get('task_id', 'task_id')[:8]
+            
+            # Safe example generation
+            if active_tasks and len(active_tasks) > 0:
+                first_task = active_tasks[0]
+                if isinstance(first_task, dict) and first_task.get('task_id'):
+                    example_id = str(first_task.get('task_id'))[:8]
+                    result += f"Example: /continue {example_id}"
+                else:
+                    result += "Example: /continue <task_id>"
+            else:
+                result += "Example: /continue <task_id>"
 
             return result, True
         except Exception as e:
@@ -899,9 +937,9 @@ Type /help <command> for more information on a specific command."""
             Tuple of command result message and success flag
         """
         if not args.strip():
-            return "Usage: /clear <task_id>\nUse '/tasks' to see available task IDs"
+            return "Usage: /clear <task_id>\nUse '/tasks' to see available task IDs", False
 
-            task_id = args.strip()
+        task_id = args.strip()
         self._log(f"Clearing task state for ID: {task_id}")
 
         try:
@@ -910,21 +948,33 @@ Type /help <command> for more information on a specific command."""
             matching_tasks = [t for t in active_tasks if t.get('task_id', '').startswith(task_id)]
 
             if matching_tasks:
-                # Use the first matching task
+                # Handle multiple matches - let user choose
+                if len(matching_tasks) > 1:
+                    match_info = f"Multiple tasks match '{task_id}':\n"
+                    for i, task in enumerate(matching_tasks, 1):
+                        task_full_id = task.get('task_id', 'Unknown')
+                        phase = task.get('phase', 'Unknown')
+                        request = task.get('request_text', 'No description')
+                        match_info += f"  {i}. {task_full_id} (Phase: {phase}, Request: {request[:40]}...)\n"
+                    match_info += "\nPlease specify a more complete task ID to avoid ambiguity."
+                    return match_info, False
+                
+                # Single match - proceed with confirmation
                 matched_task = matching_tasks[0]
                 matched_id = matched_task.get('task_id')
 
-                # Prompt for confirmation
+                # Validate clear_state return type and prompt moderator usage
                 from agent_s3.prompt_moderator import PromptModerator
                 prompt_moderator = getattr(self.coordinator, 'prompt_moderator', None) or PromptModerator(self.coordinator)
 
                 confirm = prompt_moderator.ask_yes_no_question(f"Are you sure you want to clear task {matched_id}?")
                 if confirm:
                     success = self.coordinator.task_state_manager.clear_state(matched_id)
-                    if success:
+                    # Validate return type
+                    if isinstance(success, bool) and success:
                         return f"Task {matched_id} successfully cleared.", True
                     else:
-                        return f"Failed to clear task {matched_id}.", False
+                        return f"Failed to clear task {matched_id}. Result: {success}", False
                 else:
                     return "Operation canceled.", False
             else:
@@ -1075,9 +1125,14 @@ Type /help <command> for more information on a specific command."""
 
         db_name = parts[0]
         sql = parts[1]
+        
+        # Sanitize SQL to prevent injection
+        sanitized_sql, is_safe = self._sanitize_sql_query(sql)
+        if not is_safe:
+            return "Query rejected for security reasons. Please use only safe read-only queries."
 
         result = f"Executing query on {db_name}...\n"
-        query_result = self.coordinator.database_manager.execute_query(sql, db_name=db_name)
+        query_result = self.coordinator.database_manager.execute_query(sanitized_sql, db_name=db_name)
         if query_result.get("success", False):
             result += "\nQuery Results:\n"
             results = query_result.get("results", [])
@@ -1127,9 +1182,14 @@ Type /help <command> for more information on a specific command."""
 
         db_name = parts[0]
         sql = parts[1]
+        
+        # Sanitize SQL to prevent injection
+        sanitized_sql, is_safe = self._sanitize_sql_query(sql)
+        if not is_safe:
+            return "Query rejected for security reasons. Please use only safe read-only queries."
 
         result = f"Explaining query on {db_name}...\n"
-        explain_result = self.coordinator.database_manager.database_tool.explain_query(sql, db_name=db_name)
+        explain_result = self.coordinator.database_manager.database_tool.explain_query(sanitized_sql, db_name=db_name)
         if explain_result.get("success", False):
             result += "\nQuery Execution Plan:\n"
             plan = explain_result.get("plan", [])
@@ -1192,3 +1252,106 @@ Type /help <command> for more information on a specific command."""
                 }
                 log_func = log_map.get(level, logging.info)
                 log_func(message)
+
+    def _sanitize_test_args(self, args: str) -> str:
+        """Sanitize test arguments to prevent command injection.
+        
+        Args:
+            args: Raw test arguments
+            
+        Returns:
+            Sanitized arguments safe for pytest execution
+        """
+        import re
+        import shlex
+        
+        # Split args safely and validate each part
+        try:
+            # Use shlex to safely parse arguments
+            parsed_args = shlex.split(args)
+        except ValueError:
+            # If parsing fails, treat as unsafe and return empty
+            self._log(f"Failed to parse test args safely: {args}", level="warning")
+            return ""
+        
+        sanitized_parts = []
+        for arg in parsed_args:
+            # Allow only safe pytest arguments and test paths
+            if re.match(r'^[a-zA-Z0-9_./:\-]+$', arg) or arg.startswith('-'):
+                # Additional validation for pytest flags
+                if arg.startswith('-') and not re.match(r'^-[a-zA-Z\-]+$', arg):
+                    self._log(f"Potentially unsafe pytest flag: {arg}", level="warning")
+                    continue
+                sanitized_parts.append(arg)
+            else:
+                self._log(f"Rejected unsafe test argument: {arg}", level="warning")
+        
+        return ' '.join(sanitized_parts)
+
+    def _sanitize_sql_query(self, sql: str) -> tuple[str, bool]:
+        """Sanitize SQL query to prevent SQL injection.
+        
+        Args:
+            sql: Raw SQL query
+            
+        Returns:
+            Tuple of (sanitized_sql, is_safe)
+        """
+        import re
+        
+        # Remove leading/trailing whitespace
+        sql = sql.strip()
+        
+        # Check for obviously dangerous patterns
+        dangerous_patterns = [
+            r';.*?(?:DROP|DELETE|UPDATE|INSERT|ALTER|CREATE|EXEC|EXECUTE)',
+            r'--.*?(?:DROP|DELETE|UPDATE|INSERT|ALTER|CREATE)',
+            r'/\*.*?(?:DROP|DELETE|UPDATE|INSERT|ALTER|CREATE).*?\*/',
+            r'xp_cmdshell',
+            r'sp_executesql',
+            r'UNION.*?SELECT.*?FROM.*?WHERE',
+            r';\s*(?:DROP|DELETE|UPDATE|INSERT|ALTER|CREATE)',
+        ]
+        
+        for pattern in dangerous_patterns:
+            if re.search(pattern, sql, re.IGNORECASE | re.DOTALL):
+                self._log(f"Potentially dangerous SQL pattern detected: {pattern}", level="warning")
+                return "", False
+        
+        # For basic safety, only allow SELECT, SHOW, DESCRIBE, EXPLAIN statements
+        # and limit to single statements
+        if ';' in sql and not sql.strip().endswith(';'):
+            self._log("Multiple SQL statements not allowed", level="warning")
+            return "", False
+        
+        # Remove trailing semicolon for consistency
+        sql = sql.rstrip(';')
+        
+        # Only allow safe read-only operations
+        safe_prefixes = ['SELECT', 'SHOW', 'DESCRIBE', 'DESC', 'EXPLAIN']
+        if not any(sql.upper().startswith(prefix) for prefix in safe_prefixes):
+            self._log(f"Only read-only queries allowed. Query starts with: {sql[:20]}", level="warning")
+            return "", False
+        
+        return sql, True
+
+    def _format_deployment_result(self, result: dict) -> str:
+        """Format deployment result with access URL and environment file info.
+        
+        Args:
+            result: Deployment result dictionary
+            
+        Returns:
+            Formatted result message
+        """
+        access_url = result.get("access_url")
+        env_file = result.get("env_file")
+        message = result.get("message", "Deployment completed successfully.")
+
+        response = f"{message}"
+        if access_url:
+            response += f"\nApplication is accessible at: {access_url}"
+        if env_file:
+            response += f"\nEnvironment variables saved to: {env_file}"
+
+        return response

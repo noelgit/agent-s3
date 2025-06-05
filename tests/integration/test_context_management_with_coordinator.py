@@ -65,7 +65,6 @@ def test_config_dict():
     return {
         "context_management": {
             "enabled": True,
-            "background_enabled": True,
             "optimization_interval": 5,  # Short interval for testing
             "compression_threshold": 1000,
             "checkpoint_interval": 30,
@@ -244,13 +243,11 @@ class TestContextManagementIntegration:
         assert hasattr(coordinator, 'context_manager')
         assert isinstance(coordinator.context_manager, ContextManager)
 
-        # Verify background optimization is running
-        # (only if background_enabled is True in the config)
-        if coordinator.config.config.get('context_management', {}).get('background_enabled', True):
-            assert coordinator.context_manager.optimization_running is True
-            assert coordinator.context_manager.optimization_thread is not None
-            if hasattr(coordinator.context_manager.optimization_thread, 'is_alive'):
-                assert coordinator.context_manager.optimization_thread.is_alive() is True
+        # Verify background optimization is running (always enabled)
+        assert coordinator.context_manager.optimization_running is True
+        assert coordinator.context_manager.optimization_thread is not None
+        if hasattr(coordinator.context_manager.optimization_thread, 'is_alive'):
+            assert coordinator.context_manager.optimization_thread.is_alive() is True
 
     @setup_with_llm_integration_patch
     def test_context_updates(self, coordinator_instance):
@@ -314,22 +311,20 @@ class TestContextManagementIntegration:
         # Set up context management
         setup_context_management(coordinator)
 
-        # Verify background thread is running if background_enabled is True
-        bg_enabled = coordinator.config.config.get('context_management', {}).get('background_enabled', True)
-        if bg_enabled:
-            assert coordinator.context_manager.optimization_running is True
-            assert coordinator.context_manager.optimization_thread is not None
-            if hasattr(coordinator.context_manager.optimization_thread, 'is_alive'):
-                assert coordinator.context_manager.optimization_thread.is_alive() is True
+        # Verify background thread is running (always enabled)
+        assert coordinator.context_manager.optimization_running is True
+        assert coordinator.context_manager.optimization_thread is not None
+        if hasattr(coordinator.context_manager.optimization_thread, 'is_alive'):
+            assert coordinator.context_manager.optimization_thread.is_alive() is True
 
-            # Shutdown the coordinator
-            coordinator.shutdown()
+        # Shutdown the coordinator
+        coordinator.shutdown()
 
-            # Give the thread a moment to stop
-            time.sleep(0.1)
+        # Give the thread a moment to stop
+        time.sleep(0.1)
 
-            # Verify the background thread was stopped
-            assert coordinator.context_manager.optimization_running is False
+        # Verify the background thread was stopped
+        assert coordinator.context_manager.optimization_running is False
 
 
 class TestDirectIntegration:
@@ -411,10 +406,7 @@ class TestBackgroundIntegration:
         # Set up context management with a very short optimization interval
         setup_context_management(coordinator)
 
-        # Only test if background is enabled
-        bg_enabled = coordinator.config.config.get('context_management', {}).get('background_enabled', True)
-        if not bg_enabled:
-            pytest.skip("Background optimization is disabled")
+        # Background optimization is always enabled
 
         # Set a very short interval for testing
         coordinator.context_manager.optimization_interval = 0.5  # 500ms
@@ -541,25 +533,22 @@ def test_comprehensive_integration(coordinator_instance, test_workspace):
     assert "metadata" in optimized
     assert "code_context" in optimized
 
-    # 3. Check for background processing if enabled
-    bg_enabled = coordinator.config.config.get('context_management', {}).get('background_enabled', True)
-    if bg_enabled:
-        # Update context directly in the current_context
-        coordinator.context_manager.current_context["new_key"] = "new_value"
+    # 3. Check for background processing (always enabled)
+    # Update context directly in the current_context
+    coordinator.context_manager.current_context["new_key"] = "new_value"
 
-        # Allow background optimization to run
-        time.sleep(coordinator.context_manager.optimization_interval + 0.5)
+    # Allow background optimization to run
+    time.sleep(coordinator.context_manager.optimization_interval + 0.5)
 
-        # Get the latest context
-        latest_context = coordinator.context_manager.get_optimized_context()
+    # Get the latest context
+    latest_context = coordinator.context_manager.get_optimized_context()
 
-        # Verify background update
-        assert "new_key" in latest_context
-        assert latest_context["new_key"] == "new_value"
+    # Verify background update
+    assert "new_key" in latest_context
+    assert latest_context["new_key"] == "new_value"
 
     # 4. Shutdown and verify cleanup
     coordinator.shutdown()
 
-    # Verify that background optimization was stopped if it was running
-    if bg_enabled:
-        assert coordinator.context_manager.optimization_running is False
+    # Verify that background optimization was stopped
+    assert coordinator.context_manager.optimization_running is False

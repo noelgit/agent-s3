@@ -66,8 +66,8 @@
         "title": "Agent-S3: Open Chat Window"
       },
       {
-        "command": "agent-s3.openInteractiveView",
-        "title": "Agent-S3: Open Interactive View"
+        "command": "agent-s3.openQuickCommand",
+        "title": "Agent-S3: Quick Command"
       },
       {
         "command": "agent-s3.showChatEntry",
@@ -82,6 +82,14 @@
         "command": "agent-s3.refreshHistory",
         "title": "Agent-S3: Refresh History View",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "agent-s3.status",
+        "title": "Agent-S3: Show Connection Status"
+      },
+      {
+        "command": "agent-s3.testConnection",
+        "title": "Agent-S3: Test Backend Connection"
       }
     ],
     "menus": {
@@ -101,19 +109,28 @@
     "configuration": {
       "title": "Agent-S3",
       "properties": {
-        "agent-s3.websocketProtocol": {
+        "agent-s3.remoteHost": {
           "type": "string",
-          "enum": [
-            "ws",
-            "wss"
-          ],
-          "default": "wss",
-          "description": "Protocol to use for WebSocket connections when not specified in the connection file. Defaults to secure 'wss'. Set to 'ws' to disable TLS."
+          "description": "Remote Agent-S3 backend hostname or IP address (e.g., 'agent-s3.example.com')"
+        },
+        "agent-s3.remotePort": {
+          "type": "number",
+          "default": 8081,
+          "description": "Remote Agent-S3 backend port number"
+        },
+        "agent-s3.authToken": {
+          "type": "string",
+          "description": "Authentication token for remote Agent-S3 backend"
+        },
+        "agent-s3.useTls": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use HTTPS for remote connections"
         },
         "agent-s3.httpTimeoutMs": {
           "type": "number",
-          "default": 5000,
-          "description": "Timeout in milliseconds for HTTP requests. Overrides AGENT_S3_HTTP_TIMEOUT when set."
+          "default": 10000,
+          "description": "HTTP request timeout in milliseconds (increased for remote connections)"
         },
         "agent-s3.statusPollIntervalMs": {
           "type": "number",
@@ -140,7 +157,7 @@
     "test-websocket": "node test-websocket-standalone.js"
   },
   "devDependencies": {
-    "@types/node": "^22.14.1",
+    "@types/node": "^22.15.29",
     "@types/react": "^18.0.28",
     "@types/react-dom": "^18.0.11",
     "@types/vscode": "^1.99.1",

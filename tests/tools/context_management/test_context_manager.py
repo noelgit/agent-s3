@@ -112,7 +112,7 @@ def test_optimize_context_returns_optimized_copy():
 
 def test_ensure_background_optimization_running():
     """Test that ensure_background_optimization_running starts the background thread if not running."""
-    cm = ContextManager(config={"background_enabled": True})
+    cm = ContextManager()  # Background optimization always enabled
     # Mock the _start_background_optimization method
     cm._start_background_optimization = Mock()
 

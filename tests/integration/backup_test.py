@@ -31,7 +31,6 @@ def test_config():
     config_dict = {
         "context_management": {
             "enabled": True,
-            "background_enabled": True,
             "optimization_interval": 5,  # Short interval for testing
             "compression_threshold": 1000,
             "checkpoint_interval": 30,

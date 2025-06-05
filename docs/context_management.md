@@ -31,7 +31,6 @@ Agent-S3 includes a modular context management subsystem that optimizes what inf
 {
   "context_management": {
     "enabled": true,
-    "background_enabled": true,
     "optimization_interval": 60,
     "compression_threshold": 8000,
     "adaptive_config": { "enabled": true }

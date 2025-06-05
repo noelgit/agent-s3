@@ -18,7 +18,6 @@ def mock_config():
     config.complexity_threshold = 100.0
     config.config = {
         "context_management": {
-            "background_enabled": False
         },
         "enforced_json": True
     }

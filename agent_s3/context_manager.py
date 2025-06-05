@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import fnmatch
 from typing import Any, Dict, List, Optional
 
 from .enhanced_scratchpad_manager import LogLevel
@@ -15,10 +16,127 @@ class ContextManager:
 
     def __init__(self, coordinator: Any) -> None:
         self.coordinator = coordinator
-        self.scratchpad = coordinator.scratchpad
+        # Ensure scratchpad is available on coordinator, or initialize a default one for ContextManager
+        if hasattr(coordinator, 'scratchpad') and coordinator.scratchpad is not None:
+            self.scratchpad = coordinator.scratchpad
+        else:
+            # Fallback: if coordinator doesn't have a scratchpad, ContextManager might need its own or log a warning.
+            # For now, let's assume it should exist on coordinator. If not, this indicates a setup issue.
+            logging.warning("ContextManager initialized without a scratchpad on the coordinator. Logging will be limited.")
+            # Create a dummy scratchpad to avoid AttributeError if absolutely necessary, though this is not ideal.
+            class DummyScratchpad:
+                def log(self, component: str, message: str, level: str = "info") -> None:
+                    print(f"[{level.upper()}] {component}: {message}") # Simple print fallback
+            self.scratchpad = DummyScratchpad()
+            
         self._context_cache: Dict[str, Dict[str, Any]] = {}
         self._context_cache_max_size = 10
         self._context_dependency_map: Dict[str, Dict[str, Any]] = {}
+
+    def gather_and_cache_codebase_context(self, file_extensions: Optional[List[str]] = None, ignore_patterns: Optional[List[str]] = None) -> None:
+        """Scans the entire workspace for relevant files and caches their content summary.
+
+        Args:
+            file_extensions: List of file extensions to include (e.g., [".py", ".js"]). Defaults to common code types.
+            ignore_patterns: List of glob patterns to ignore (e.g., ["*/node_modules/*", "*.log"]). Defaults to common ignores.
+        """
+        self.scratchpad.log("ContextManager", "Starting to gather and cache codebase context.", "info")
+        
+        if file_extensions is None:
+            file_extensions = [".py", ".js", ".ts", ".java", ".go", ".rb", ".php", ".cs", ".c", ".cpp", ".h", ".md", ".txt"]
+        if ignore_patterns is None:
+            ignore_patterns = [
+                "*/.git/*", "*/__pycache__/*", "*/node_modules/*", "*/dist/*", 
+                "*/build/*", "*.log", "*.tmp", "*.swp", "*.egg-info/*", "*/venv/*", "*/.venv/*"
+            ]
+
+        workspace_root = os.getcwd()
+        all_files_context = {}
+        files_processed = 0
+        max_files_to_process = 500 # Safety limit to prevent excessive processing
+
+        for root, _, files in os.walk(workspace_root):
+            if files_processed >= max_files_to_process:
+                self.scratchpad.log("ContextManager", f"Reached max files limit ({max_files_to_process}). Stopping scan.", "warning")
+                break
+            for file in files:
+                if files_processed >= max_files_to_process:
+                    break
+
+                file_path = os.path.join(root, file)
+                relative_path = os.path.relpath(file_path, workspace_root)
+
+                # Check if file should be ignored
+                if any(fnmatch.fnmatch(relative_path, pattern) for pattern in ignore_patterns):
+                    continue
+                if not any(file.endswith(ext) for ext in file_extensions):
+                    continue
+                
+                try:
+                    self._validate_path(file_path) # Ensure path is safe
+                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                        # For initial scan, we might take a summary or first N lines
+                        # to avoid storing excessively large files in cache directly.
+                        # Here, let's take the first 200 lines as a simple summary.
+                        content_lines = [next(f) for _ in range(200) if next(f, None) is not None]
+                        content_summary = "".join(content_lines)
+                        if len(content_summary) > 10000: # Further truncate if still too large
+                            content_summary = content_summary[:10000] + "... [truncated]"
+                        
+                        all_files_context[relative_path] = content_summary
+                        files_processed += 1
+                except Exception as e:
+                    self.scratchpad.log("ContextManager", f"Error processing file {relative_path}: {e}", "error")
+        
+        # Store this aggregated context. For simplicity, let's use a specific cache key.
+        # This is a simplified caching strategy for global context.
+        # A more robust solution might involve a dedicated global cache or vector DB.
+        global_context_cache_key = "__global_codebase_context__"
+        if len(self._context_cache) >= self._context_cache_max_size:
+            # Simple eviction: remove the oldest if cache is full
+            # This might not be ideal for global context, consider a dedicated slot or larger cache
+            try:
+                oldest_key = next(iter(self._context_cache))
+                if oldest_key != global_context_cache_key: # Don't evict global context if it's the only one left
+                    self._context_cache.pop(oldest_key, None)
+                    self._context_dependency_map.pop(oldest_key, None)
+            except StopIteration:
+                pass # Cache is empty
+
+        self._context_cache[global_context_cache_key] = {
+            "type": "global_codebase_overview",
+            "content": all_files_context,
+            "timestamp": os.path.getmtime(workspace_root) # Use workspace root mtime as a simple freshness check
+        }
+        # For global context, dependency tracking is simpler; it depends on the whole workspace.
+        self._context_dependency_map[global_context_cache_key] = {
+            "paths": [workspace_root],
+            "timestamps": {workspace_root: os.path.getmtime(workspace_root)}
+        }
+
+        self.scratchpad.log("ContextManager", f"Finished gathering codebase context. Processed {files_processed} files.", "info")
+
+    def get_global_codebase_context(self) -> Optional[Dict[str, str]]:
+        """Retrieves the cached global codebase context, if available and valid."""
+        global_context_cache_key = "__global_codebase_context__"
+        cached_entry = self._context_cache.get(global_context_cache_key)
+        
+        if cached_entry:
+            # Check freshness (simplified: check if workspace root mtime changed)
+            # A more robust check would involve individual file mtimes if feasible
+            workspace_root = os.getcwd()
+            dep_info = self._context_dependency_map.get(global_context_cache_key)
+            if dep_info and dep_info["timestamps"].get(workspace_root) == os.path.getmtime(workspace_root):
+                self.scratchpad.log("ContextManager", "Retrieved valid global codebase context from cache.", "info")
+                return cached_entry.get("content")
+            else:
+                self.scratchpad.log("ContextManager", "Global codebase context in cache is stale. Needs refresh.", "warning")
+                # Optionally, trigger a refresh here or let the caller handle it
+                # For now, just remove the stale entry
+                self._context_cache.pop(global_context_cache_key, None)
+                self._context_dependency_map.pop(global_context_cache_key, None)
+                return None
+        return None
 
     def allocate_token_budget(self, total_tokens: int, attempt_num: int = 1) -> Dict[str, int]:
         """Allocate token budget for context elements."""

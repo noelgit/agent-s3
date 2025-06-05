@@ -106,15 +106,15 @@ export class Agent3ChatProvider implements vscode.TreeDataProvider<Agent3TreeIte
 
     items.push(
       new Agent3TreeItem(
-        "Interactive View",
+        "Quick Command",
         vscode.TreeItemCollapsibleState.None,
         {
-          command: "agent-s3.openInteractiveView", 
-          title: "Open Interactive View",
+          command: "agent-s3.openQuickCommand", 
+          title: "Quick Command",
         },
-        new vscode.ThemeIcon("preview"),
-        "Open the interactive components view",
-        "interactiveView"
+        new vscode.ThemeIcon("terminal"),
+        "Execute a single Agent-S3 command",
+        "quickCommand"
       )
     );
 

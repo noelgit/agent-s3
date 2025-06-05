@@ -11,6 +11,7 @@ import re
 import traceback
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime
+from pathlib import Path
 
 # Third-party imports
 # None required
@@ -963,6 +964,122 @@ class Coordinator:
                 "created_files": [],
                 "errors": [{"type": "exception", "message": error_msg}]
             }
+
+    def gather_initial_code_context(self) -> bool:
+        """Gather initial codebase context for the workspace.
+        
+        This method triggers the context management system to analyze and index
+        the codebase, making it ready for Agent-S3 operations.
+        
+        Returns:
+            bool: True if context gathering succeeded, False otherwise
+        """
+        try:
+            self.scratchpad.log("Coordinator", "Starting initial codebase context gathering")
+            
+            # Check if context management is available
+            if not hasattr(self, 'context_manager') or not self.context_manager:
+                self.scratchpad.log("Coordinator", "Context manager not available, skipping context gathering", level=LogLevel.WARNING)
+                return False
+            
+            # Update context with current workspace
+            workspace_files = self._discover_workspace_files()
+            if workspace_files:
+                # Use context manager to gather and optimize context
+                context_data = {
+                    "code_context": {},
+                    "documentation": {},
+                    "configuration": {},
+                    "metadata": {
+                        "workspace_initialized": True,
+                        "context_gathering_time": datetime.now().isoformat()
+                    }
+                }
+                
+                # Add discovered files to context
+                for file_type, files in workspace_files.items():
+                    for file_path in files[:10]:  # Limit initial context
+                        try:
+                            if file_path.stat().st_size < 50000:  # 50KB limit
+                                content = file_path.read_text(encoding='utf-8', errors='ignore')
+                                relative_path = str(file_path.relative_to(Path.cwd()))
+                                
+                                if file_type == 'code':
+                                    context_data["code_context"][relative_path] = content
+                                elif file_type == 'docs':
+                                    context_data["documentation"][relative_path] = content
+                                elif file_type == 'config':
+                                    context_data["configuration"][relative_path] = content
+                                    
+                        except Exception as file_error:
+                            self.scratchpad.log("Coordinator", f"Error reading file {file_path}: {file_error}", level=LogLevel.DEBUG)
+                
+                # Update context manager with initial context
+                self.context_manager.update_context(context_data)
+                
+                # Trigger initial optimization
+                if hasattr(self.context_manager, 'ensure_background_optimization_running'):
+                    self.context_manager.ensure_background_optimization_running()
+                
+                self.scratchpad.log("Coordinator", f"Initial context gathered with {len(context_data['code_context'])} code files")
+                return True
+            else:
+                self.scratchpad.log("Coordinator", "No relevant files found for context gathering")
+                return True  # Not an error, just an empty workspace
+                
+        except Exception as e:
+            self.scratchpad.log("Coordinator", f"Error during context gathering: {e}", level=LogLevel.ERROR)
+            return False
+
+    def _discover_workspace_files(self) -> Dict[str, list]:
+        """Discover files in the workspace for context gathering.
+        
+        Returns:
+            Dict mapping file types to lists of file paths
+        """
+        try:
+            workspace_root = Path.cwd()
+            
+            # File type mappings
+            code_extensions = {'.py', '.js', '.ts', '.jsx', '.tsx', '.java', '.cpp', '.c', '.h', '.cs', '.rb', '.go', '.rs', '.php', '.swift', '.kt'}
+            config_extensions = {'.json', '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf'}
+            doc_extensions = {'.md', '.rst', '.txt'}
+            
+            discovered_files = {
+                'code': [],
+                'config': [],
+                'docs': []
+            }
+            
+            # Ignore patterns for file discovery
+            ignore_patterns = {
+                'node_modules', '.git', '__pycache__', '.mypy_cache', '.pytest_cache',
+                'dist', 'build', '.venv', 'venv', '.env', 'coverage_html', '.agent_s3'
+            }
+            
+            # Scan for relevant files
+            for file_path in workspace_root.rglob('*'):
+                if (file_path.is_file() and 
+                    not any(pattern in str(file_path) for pattern in ignore_patterns) and
+                    not file_path.name.startswith('.')):
+                    
+                    if file_path.suffix in code_extensions:
+                        discovered_files['code'].append(file_path)
+                    elif file_path.suffix in config_extensions:
+                        discovered_files['config'].append(file_path)
+                    elif file_path.suffix in doc_extensions:
+                        discovered_files['docs'].append(file_path)
+            
+            # Sort by modification time (most recent first) and limit results
+            for file_type in discovered_files:
+                discovered_files[file_type].sort(key=lambda f: f.stat().st_mtime, reverse=True)
+                discovered_files[file_type] = discovered_files[file_type][:20]  # Limit per type
+            
+            return discovered_files
+            
+        except Exception as e:
+            self.scratchpad.log("Coordinator", f"Error discovering workspace files: {e}", level=LogLevel.WARNING)
+            return {}
 
     def get_current_timestamp(self) -> str:
         """Get the current timestamp in ISO format.

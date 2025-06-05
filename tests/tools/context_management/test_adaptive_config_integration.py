@@ -25,7 +25,6 @@ class MockCoordinator:
         self.config.config = {
             'context_management': {
                 'enabled': True,
-                'background_enabled': True,
                 'adaptive_config': {
                     'enabled': True
                 }
