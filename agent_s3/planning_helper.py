@@ -1,8 +1,10 @@
 """Helper utilities for planning workflows."""
+
 from typing import Any
 from typing import Dict
 
 from . import pre_planner_json_enforced
+
 
 def generate_plan_via_workflow(
     coordinator: Any,
@@ -27,26 +29,26 @@ def generate_plan_via_workflow(
     context = None
     try:
         # Use consolidated context manager directly (context_bridge removed)
-        if hasattr(coordinator, 'context_manager') and coordinator.context_manager:
+        if hasattr(coordinator, "context_manager") and coordinator.context_manager:
             # Use consolidated context manager with planning-specific gathering
-            context_result = coordinator.context_manager.gather_context(
+            context = coordinator.context_manager.gather_context(
                 task_description=task_description,
-                task_type='planning',
-                max_tokens=coordinator.config.config.get('context_management', {}).get('max_tokens_for_planning', 4000)
+                task_type="planning",
+                max_tokens=coordinator.config.config.get("context_management", {}).get(
+                    "max_tokens_for_planning", 4000
+                ),
             )
-            # Convert to string for backward compatibility
-            if isinstance(context_result, dict):
-                import json
-                context = json.dumps(context_result, indent=2)
-            else:
-                context = str(context_result)
-            if hasattr(coordinator, 'scratchpad'):
-                coordinator.scratchpad.log("PlanningHelper", f"Retrieved consolidated context ({len(context)} chars)", level="debug")
+            if hasattr(coordinator, "scratchpad"):
+                coordinator.scratchpad.log(
+                    "PlanningHelper", "Retrieved consolidated context", level="debug"
+                )
     except Exception as e:
         # Log warning but continue without context
-        if hasattr(coordinator, 'scratchpad'):
-            coordinator.scratchpad.log("PlanningHelper", f"Failed to retrieve context: {e}", level="warning")
-    
+        if hasattr(coordinator, "scratchpad"):
+            coordinator.scratchpad.log(
+                "PlanningHelper", f"Failed to retrieve context: {e}", level="warning"
+            )
+
     success, pre_plan = pre_planner_json_enforced.call_pre_planner_with_enforced_json(
         coordinator.router_agent,
         task_description,
