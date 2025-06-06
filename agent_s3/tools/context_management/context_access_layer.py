@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from hashlib import sha1
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, Set
 
 from .context_manager import ContextManager
 from .context_monitoring import get_context_monitor
