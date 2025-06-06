@@ -35,7 +35,7 @@ def mock_config():
 def mock_file_tool():
     """Create a mock file tool."""
     file_tool = MagicMock()
-    file_tool.read_file.return_value = "Mock file content"
+    file_tool.read_file.return_value = (True, "Mock file content")
     file_tool.write_file.return_value = True
     return file_tool
 

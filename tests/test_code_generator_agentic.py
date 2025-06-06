@@ -59,7 +59,10 @@ class TestCodeGeneratorAgentic:
         ]
 
         # Mock file reading
-        mock_coordinator.file_tool.read_file.return_value = "import datetime\nimport agent_s3.utils\n\ndef existing_func():\n    pass"
+        mock_coordinator.file_tool.read_file.return_value = (
+            True,
+            "import datetime\nimport agent_s3.utils\n\ndef existing_func():\n    pass",
+        )
 
         # Mock os.path.exists and os.listdir
         with patch('pathlib.Path.exists', return_value=True), \

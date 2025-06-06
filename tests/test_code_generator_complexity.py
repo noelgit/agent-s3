@@ -134,7 +134,7 @@ class TestCodeGeneratorComplexity:
             return True
         """
 
-        mock_coordinator.file_tool.read_file.return_value = existing_content
+        mock_coordinator.file_tool.read_file.return_value = (True, existing_content)
 
         with patch('pathlib.Path.exists', return_value=True):
             complexity = code_generator._estimate_file_complexity(implementation_details, file_path="module.py")

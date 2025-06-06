@@ -629,8 +629,8 @@ class FeatureGroupProcessor:
             if hasattr(self.coordinator, "file_tool") and affected_files:
                 for file_path in affected_files:
                     try:
-                        content = self.coordinator.file_tool.read(file_path)
-                        if content:
+                        success, content = self.coordinator.file_tool.read_file(file_path)
+                        if success and content:
                             file_contents[file_path] = content
                     except Exception:
                         # Silently continue if file doesn't exist - it might be a new file
