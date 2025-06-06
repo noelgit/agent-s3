@@ -296,12 +296,7 @@ class WorkspaceInitializer:
                 "last_indexed": str(datetime.now().isoformat()),
                 "indexed_files": [],
                 "file_hashes": {},
-                "semantic_summaries": {},
-                "api_endpoints": [],
-                "data_models": [],
-                "business_logic": [],
-                "architectural_patterns": [],
-                "ready_for_context": True
+                "ready_for_context": True,
             }
             
             # Analyze code files for semantic content
@@ -319,18 +314,6 @@ class WorkspaceInitializer:
                             "modified": str(datetime.fromtimestamp(file_path.stat().st_mtime).isoformat())
                         }
                         
-                        # Generate semantic analysis
-                        semantic_summary = self._analyze_file_semantics(file_path)
-                        if semantic_summary:
-                            file_info["semantic_analysis"] = semantic_summary
-                            index_data["semantic_summaries"][relative_path] = semantic_summary
-                            
-                            # Extract structured information for different categories
-                            self._extract_api_endpoints(semantic_summary, relative_path, index_data)
-                            self._extract_data_models(semantic_summary, relative_path, index_data)
-                            self._extract_business_logic(semantic_summary, relative_path, index_data)
-                            self._extract_architectural_patterns(semantic_summary, relative_path, index_data)
-                        
                         index_data["indexed_files"].append(file_info)
                         
                         # Simple hash for change detection
@@ -347,9 +330,6 @@ class WorkspaceInitializer:
             with open(index_path, 'w', encoding='utf-8') as f:
                 import json
                 json.dump(index_data, f, indent=2)
-            
-            # Save semantic summary for preplanning
-            self._save_semantic_summary_for_preplanning(index_data)
             
             self._log(f"Code indexing and semantic analysis completed with {len(index_data['indexed_files'])} files")
             
