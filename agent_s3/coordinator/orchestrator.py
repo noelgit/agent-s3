@@ -497,8 +497,17 @@ class WorkflowOrchestrator:
             return []
 
         plans: List[Dict[str, Any]] = []
-        for data in fg_result.get("feature_group_results", {}).values():
-            consolidated_plan = data.get("consolidated_plan")
+        group_results = fg_result.get("feature_group_results")
+        if group_results is None:
+            processed = fg_result.get("processed_groups", [])
+            group_results = {
+                grp.get("group_name", f"group_{i}"): {"consolidated_plan": grp}
+                for i, grp in enumerate(processed)
+                if isinstance(grp, dict)
+            }
+
+        for data in group_results.values():
+            consolidated_plan = data.get("consolidated_plan") if isinstance(data, dict) else None
             if not consolidated_plan:
                 continue
             decision, modification = (
