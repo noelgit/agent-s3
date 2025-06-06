@@ -906,7 +906,16 @@ class Coordinator:
         implement: bool = True,
     ) -> None:
         """Delegate task execution to the workflow orchestrator."""
-        self.orchestrator.run_task(task, pre_planning_input, from_design=from_design, implement=implement)
+        # Ensure any residual context from previous tasks is cleared
+        if hasattr(self, "context_manager") and self.context_manager:
+            self.context_manager.clear_context()
+
+        self.orchestrator.run_task(
+            task,
+            pre_planning_input,
+            from_design=from_design,
+            implement=implement,
+        )
 
     def execute_implementation(self, design_file: str = "design.txt") -> Dict[str, Any]:
         """Delegate execution to the workflow orchestrator."""

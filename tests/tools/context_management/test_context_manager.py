@@ -396,3 +396,28 @@ def test_set_adaptive_config_manager_updates_compression(monkeypatch):
 
     assert called["threshold"] == 3000
     assert called["ratio"] == 0.25
+
+
+def test_clear_context_resets_gather_context(monkeypatch):
+    """Ensure gather_context does not retain state after clear_context."""
+    # Avoid starting background optimization thread
+    monkeypatch.setattr(ContextManager, "_start_background_optimization", lambda self: None)
+
+    cm = ContextManager()
+
+    captured = []
+
+    def fake_allocate(context, task_type=None, task_keywords=None):
+        captured.append(context.copy())
+        return {"optimized_context": context}
+
+    cm.allocation_strategy.allocate = fake_allocate
+
+    cm.gather_context(current_files=["a.py"], task_description="first task")
+    cm.clear_context()
+    cm.gather_context(current_files=["b.py"])  # no task_description
+
+    first, second = captured
+    assert first.get("task_description") == "first task"
+    assert second.get("task_description") is None
+    assert second.get("current_files") == ["b.py"]
