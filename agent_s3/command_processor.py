@@ -59,11 +59,19 @@ class CommandProcessor:
                 result_msg = "Workspace initialized successfully."
                 
                 # Get validation details for better user feedback
-                if hasattr(self.coordinator.workspace_initializer, 'validation_failure_reason') and self.coordinator.workspace_initializer.validation_failure_reason:
+                if (
+                    hasattr(self.coordinator.workspace_initializer, "validation_failure_reason")
+                    and self.coordinator.workspace_initializer.validation_failure_reason
+                ):
                     if initialization_success:
-                        result_msg += f" Note: {self.coordinator.workspace_initializer.validation_failure_reason}"
+                        result_msg += (
+                            f" Note: {self.coordinator.workspace_initializer.validation_failure_reason}"
+                        )
                     else:
-                        result_msg = f"Workspace initialization completed with warnings: {self.coordinator.workspace_initializer.validation_failure_reason}. Some features may be limited."
+                        result_msg = (
+                            "Workspace initialization failed: "
+                            f"{self.coordinator.workspace_initializer.validation_failure_reason}"
+                        )
             else:
                 # Handle coordinator fallback with proper return value parsing
                 result = self.coordinator.initialize_workspace()

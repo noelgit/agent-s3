@@ -132,6 +132,20 @@ class TestCommandProcessor:
         assert success
         assert "Workspace initialized successfully" in result
 
+    def test_execute_init_command_failure(self, command_processor, mock_coordinator):
+        """Test execute_init_command when initialization fails."""
+        # Setup
+        mock_coordinator.workspace_initializer.initialize_workspace.return_value = False
+        mock_coordinator.workspace_initializer.validation_failure_reason = "bad config"
+
+        # Exercise
+        result, success = command_processor.execute_init_command("")
+
+        # Verify
+        mock_coordinator.workspace_initializer.initialize_workspace.assert_called_once()
+        assert not success
+        assert "Workspace initialization failed: bad config" in result
+
     @patch('pathlib.Path.open')
     @patch('pathlib.Path.exists')
     def test_execute_plan_command(self, mock_exists, mock_open, command_processor, mock_coordinator):

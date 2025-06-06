@@ -410,7 +410,7 @@ class WorkflowOrchestrator:
                     )
                     self.coordinator.scratchpad.log(
                         "Orchestrator",
-                        f"Retrieved consolidated context for pre-planning",
+                        "Retrieved consolidated context for pre-planning",
                         level=LogLevel.DEBUG,
                     )
                 else:
