@@ -918,9 +918,9 @@ class WorkflowOrchestrator:
 
     def _generate_issue_title(self, task_description: str, plan: Dict[str, Any]) -> str:
         """Generate descriptive issue title."""
-        feature_group = plan.get("feature_group", {}).get("name", "")
-        if feature_group:
-            return f"Implement {feature_group}: {task_description[:80]}"
+        group_name = plan.get("group_name", "")
+        if group_name:
+            return f"Implement {group_name}: {task_description[:80]}"
         else:
             return f"Agent-S3 Task: {task_description[:80]}"
 
