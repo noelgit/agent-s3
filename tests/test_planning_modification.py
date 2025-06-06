@@ -31,8 +31,8 @@ def test_planning_workflow_regenerates_preplan(monkeypatch):
     new_plan = {"original_request": "task", "feature_groups": [{"group_name": "fg"}]}
 
     monkeypatch.setattr(
-        "agent_s3.coordinator.orchestrator.call_pre_planner_with_enforced_json",
-        lambda router, task, context: (True, pre_plan),
+        "agent_s3.coordinator.orchestrator.pre_planning_workflow",
+        lambda router, task, context=None, max_preplanning_attempts=2, allow_interactive_clarification=False, clarification_callback=None: (True, pre_plan),
     )
 
     regen_called = {}

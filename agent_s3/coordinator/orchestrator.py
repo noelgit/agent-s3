@@ -21,7 +21,7 @@ from .registry import CoordinatorRegistry
 from typing import TYPE_CHECKING
 from ..enhanced_scratchpad_manager import LogLevel
 from ..pre_planner_json_enforced import (
-    call_pre_planner_with_enforced_json,
+    pre_planning_workflow,
     regenerate_pre_planning_with_modifications,
 )
 
@@ -430,8 +430,12 @@ class WorkflowOrchestrator:
                 )
                 context = None
 
-            success, pre_plan = call_pre_planner_with_enforced_json(
-                self.coordinator.router_agent, task, context
+            success, pre_plan = pre_planning_workflow(
+                self.coordinator.router_agent,
+                task,
+                context,
+                allow_interactive_clarification=False,
+                clarification_callback=lambda q: self.coordinator.prompt_moderator.ask_for_input(q),
             )
             if not success:
                 self.coordinator.scratchpad.log(
