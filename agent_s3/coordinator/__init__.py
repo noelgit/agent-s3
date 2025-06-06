@@ -711,8 +711,8 @@ class Coordinator:
 
                     # Handle user modification
                     try:
-                        # Import the regeneration function from planner_json_enforced
-                        from agent_s3.planner_json_enforced import regenerate_consolidated_plan_with_modifications
+                        # Import the regeneration function from planning module
+                        from agent_s3.planning.plan_generation import regenerate_consolidated_plan_with_modifications
 
                         # Regenerate the plan with modifications
                         modified_plan = regenerate_consolidated_plan_with_modifications(
