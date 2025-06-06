@@ -8,11 +8,30 @@ from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)))
 
 # Provide a dummy Coordinator to avoid heavy imports during testing
+_ORIG_COORDINATOR = sys.modules.get('agent_s3.coordinator')
+_ORIG_ROUTER_AGENT = sys.modules.get('agent_s3.router_agent')
+_ORIG_CONFIG = sys.modules.get('agent_s3.config')
+
 sys.modules['agent_s3.coordinator'] = types.SimpleNamespace(Coordinator=object)
 sys.modules['agent_s3.router_agent'] = types.SimpleNamespace(RouterAgent=object)
 sys.modules['agent_s3.config'] = types.SimpleNamespace(Config=object)
 
 from agent_s3.cli import process_command  # noqa: E402
+
+if _ORIG_COORDINATOR is not None:
+    sys.modules['agent_s3.coordinator'] = _ORIG_COORDINATOR
+else:
+    sys.modules.pop('agent_s3.coordinator', None)
+
+if _ORIG_ROUTER_AGENT is not None:
+    sys.modules['agent_s3.router_agent'] = _ORIG_ROUTER_AGENT
+else:
+    sys.modules.pop('agent_s3.router_agent', None)
+
+if _ORIG_CONFIG is not None:
+    sys.modules['agent_s3.config'] = _ORIG_CONFIG
+else:
+    sys.modules.pop('agent_s3.config', None)
 
 
 class TestCliProcessCommand(unittest.TestCase):
@@ -59,6 +78,7 @@ class TestCliProcessCommand(unittest.TestCase):
         command_processor.execute_continue_command.side_effect = stub_continue
 
         self.mock_coordinator.command_processor = command_processor
+
 
     @patch('builtins.print')
     def test_plan_command(self, mock_print):
