@@ -50,6 +50,7 @@ SCHEMA = {
     "implementation_plan": dict,
     "tests": dict,
     "discussion": str,
+    "task_description": str,
     "dependencies": dict,
     "risk_assessment": dict,
     "success": bool,
