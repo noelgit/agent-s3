@@ -56,9 +56,7 @@ def generate_refined_test_specifications(
     )
 
     # Get system prompt for test specification refinement
-    from ..planner_json_enforced import get_test_specification_refinement_system_prompt
-
-    system_prompt = get_test_specification_refinement_system_prompt()
+    system_prompt = get_stage_system_prompt("refined_tests")
 
     # Get LLM configuration with reasonable defaults
     config = _get_test_specification_config()
