@@ -20,7 +20,10 @@ from .registry import CoordinatorRegistry
 # Context bridge removed - using direct coordinator context management
 from typing import TYPE_CHECKING
 from ..enhanced_scratchpad_manager import LogLevel
-from ..pre_planner_json_enforced import call_pre_planner_with_enforced_json
+from ..pre_planner_json_enforced import (
+    call_pre_planner_with_enforced_json,
+    regenerate_pre_planning_with_modifications,
+)
 
 # GitHub integration handled through existing GitTool
 
@@ -440,18 +443,44 @@ class WorkflowOrchestrator:
 
         decision = "yes"
         if not from_design:
-            decision, _ = self.coordinator._present_pre_planning_results_to_user(
-                pre_plan
+            decision, modification_text = (
+                self.coordinator._present_pre_planning_results_to_user(pre_plan)
             )
-            if decision != "yes":
-                if decision == "modify":
-                    self.coordinator.scratchpad.log(
-                        "Coordinator", "User chose to refine the request."
+            if decision == "modify":
+                self.coordinator.scratchpad.log(
+                    "Coordinator", "User chose to refine the request."
+                )
+                try:
+                    from agent_s3.tools.static_plan_checker import StaticPlanChecker
+
+                    original_plan = json.loads(json.dumps(pre_plan))
+                    pre_plan = regenerate_pre_planning_with_modifications(
+                        self.coordinator.router_agent,
+                        original_plan,
+                        modification_text or "",
                     )
-                elif decision == "no":
-                    self.coordinator.scratchpad.log(
-                        "Coordinator", "User cancelled the complex task."
+                    plan_checker = StaticPlanChecker(
+                        context_registry=self.coordinator.context_registry
                     )
+                    is_valid, _ = plan_checker.validate_plan(pre_plan, original_plan)
+                    if not is_valid:
+                        self.coordinator.scratchpad.log(
+                            "Coordinator",
+                            "Modified pre-planning data failed validation",
+                            level=LogLevel.ERROR,
+                        )
+                        return []
+                except Exception as e:  # pragma: no cover - safety net
+                    self.coordinator.scratchpad.log(
+                        "Coordinator",
+                        f"Failed to regenerate pre-plan: {e}",
+                        level=LogLevel.ERROR,
+                    )
+                    return []
+            elif decision == "no":
+                self.coordinator.scratchpad.log(
+                    "Coordinator", "User cancelled the complex task."
+                )
                 return []
 
         fg_result = (
