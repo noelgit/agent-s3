@@ -94,6 +94,7 @@ vscode/*.vsix
 * 3.*
 * 4.*
 *.bak.*
+*.bak
 
 # Miscellaneous
 remove_ignored_files.sh
