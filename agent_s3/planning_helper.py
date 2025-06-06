@@ -67,8 +67,18 @@ def generate_plan_via_workflow(
             "plan": None,
         }
 
-    groups = fg_result.get("processed_groups", [])
-    if not groups:
+    group_results = fg_result.get("feature_group_results")
+    if group_results is None:
+        processed = fg_result.get("processed_groups", [])
+        if processed:
+            group_results = {
+                grp.get("group_name", f"group_{i}"): {"consolidated_plan": grp}
+                for i, grp in enumerate(processed)
+                if isinstance(grp, dict)
+            }
+
+    if not group_results:
         return {"success": False, "error": "No processed plans returned", "plan": None}
 
-    return {"success": True, "plan": groups[0]}
+    first_plan = next(iter(group_results.values()), {}).get("consolidated_plan")
+    return {"success": True, "plan": first_plan}

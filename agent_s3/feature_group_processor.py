@@ -494,19 +494,26 @@ class FeatureGroupProcessor:
             )
 
             processed_groups = []
+            feature_group_results: Dict[str, Dict[str, Any]] = {}
             all_groups_valid = True
 
-            for feature_group in feature_groups:
-                group_result = self._process_single_feature_group(feature_group, task_description)
+            for idx, feature_group in enumerate(feature_groups):
+                group_result = self._process_single_feature_group(
+                    feature_group, task_description
+                )
                 processed_groups.append(group_result)
-                
+
+                group_name = feature_group.get("group_name", f"group_{idx}")
+                feature_group_results[group_name] = {"consolidated_plan": group_result}
+
                 # Check if this group failed
                 if not group_result.get("success", True):
                     all_groups_valid = False
 
             return {
                 "success": all_groups_valid,
-                "processed_groups": processed_groups
+                "processed_groups": processed_groups,
+                "feature_group_results": feature_group_results,
             }
 
         except Exception as e:
