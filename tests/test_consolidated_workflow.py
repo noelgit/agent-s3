@@ -257,6 +257,10 @@ class TestConsolidatedWorkflow(unittest.TestCase):
             plan_data = json.load(f)
             self.assertEqual(plan_data["user_decision"], "modified")
             self.assertEqual(plan_data["modification_text"], "Add two-factor authentication")
+            self.assertEqual(
+                plan_data["consolidated_plan"].get("task_description"),
+                "Implement authentication",
+            )
 
             # Verify modification was added to architecture review
             considerations = plan_data["consolidated_plan"]["architecture_review"]["additional_considerations"]

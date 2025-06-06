@@ -686,6 +686,7 @@ class FeatureGroupProcessor:
             "implementation_plan": implementation_plan,
             "tests": tests,
             "discussion": plan_discussion,
+            "task_description": task_description,
             "dependencies": feature_group.get("dependencies", {}),
             "risk_assessment": feature_group.get("risk_assessment", {}),
             # The semantic_validation field will be added later if available
@@ -892,6 +893,8 @@ class FeatureGroupProcessor:
             updated_plan = regenerate_consolidated_plan_with_modifications(
                 self.coordinator.router_agent,
                 plan,
+                plan.get("architecture_review", {}),
+                plan.get("task_description", ""),
                 modifications,
             )
 
