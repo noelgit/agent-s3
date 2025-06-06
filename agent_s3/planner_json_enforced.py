@@ -266,9 +266,6 @@ def generate_implementation_plan(
 # Tests
 {json.dumps(tests, indent=2)}
 
-# Additional Context
-{json.dumps(context or {}, indent=2)}
-
 Your task is to create a detailed implementation plan that:
 1. Addresses ALL elements in the system design, maintaining correct element_id references
 2. Explicitly addresses all logical gaps, security concerns, and optimization suggestions from the architecture review
@@ -325,7 +322,9 @@ Focus on creating a comprehensive and detailed plan that a developer can follow 
                     role="planner",
                     system_prompt=system_prompt,
                     user_prompt=user_prompt,
-                    config=params
+                    config=params,
+                    tech_stack=context.get("tech_stack") if context else None,
+                    code_context=context.get("code_context") if context else None,
                 )
 
                 if not response_text:

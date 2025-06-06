@@ -559,12 +559,6 @@ def pre_planning_workflow(
 
     system_prompt = get_json_system_prompt()
     user_prompt = get_json_user_prompt(task_description)
-    if context:
-        try:
-            context_str = json.dumps(context, indent=2)
-        except TypeError:
-            context_str = str(context)
-        user_prompt += "\n\nContext:\n" + context_str
     openrouter_params = get_openrouter_params()
 
     current_prompt = user_prompt
@@ -581,6 +575,8 @@ def pre_planning_workflow(
             system_prompt=system_prompt,
             user_prompt=current_prompt,
             config=openrouter_params,
+            tech_stack=context.get("tech_stack") if context else None,
+            code_context=context.get("code_context") if context else None,
         )
         status, data = process_response(response, task_description)
         if status is True:

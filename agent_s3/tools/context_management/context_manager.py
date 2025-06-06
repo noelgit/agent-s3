@@ -379,6 +379,10 @@ class ContextManager:
             pruning_manager=self._pruning_manager,
             compressor=self.compression_manager,
         )
+        # Pruning decisions are based on recency, frequency, and importance
+        # scores managed by ``ContentPruningManager``. The relative weights for
+        # these factors can be tuned via the ``pruning`` section of the
+        # adaptive configuration.
 
         # Get configuration values for summarization from adaptive settings
         summarization_config = cm_config.get("summarization", {})
@@ -557,7 +561,19 @@ class ContextManager:
             current = current[key]
 
         # Set the value at the final level
-        current[keys[-1]] = new_value
+        final_key = keys[-1]
+
+        # Deduplicate file entries when updating the "files" section
+        if final_key == "files" and isinstance(new_value, dict):
+            existing = current.get(final_key, {}) if isinstance(current.get(final_key), dict) else {}
+            for path, content in new_value.items():
+                # Only update if path not present or content changed
+                if existing.get(path) != content:
+                    existing[path] = content
+            current[final_key] = existing
+            return
+
+        current[final_key] = new_value
 
     def initialize_tools(self, tech_stack_detector=None, code_analysis_tool=None,
                         file_history_analyzer=None, file_tool=None,
@@ -778,6 +794,11 @@ class ContextManager:
         Gather and optimize context based on various inputs.
         This is the primary method for external components to request context.
 
+        The returned context may be pruned by the background optimizer using
+        ``ContentPruningManager``. Items accessed frequently or marked as
+        important are kept, while older, low-value entries are removed when the
+        token budget is exceeded.
+        
         Args:
             current_files: List of currently relevant file paths.
             task_description: Natural language description of the current task.
