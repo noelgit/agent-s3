@@ -19,7 +19,7 @@ def test_execute_full_debugging_skips_invalid_new_file(tmp_path, monkeypatch):
     )
 
     file_tool = MagicMock()
-    file_tool.read_file.return_value = "print('hi')\n"
+    file_tool.read_file.return_value = (True, "print('hi')\n")
     file_tool.write_file = MagicMock()
 
     coordinator = MagicMock()
