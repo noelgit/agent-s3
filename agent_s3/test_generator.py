@@ -282,8 +282,7 @@ def generate_test_implementations(
 # Architecture Review
 {json.dumps(architecture_review, indent=2)}
 
-# Additional Context
-{json.dumps(context or {}, indent=2)}
+# Additional instructions may be provided via the context dictionary.
 
 Your task is to implement complete, runnable test code for each test specification with special attention to:
 
@@ -316,7 +315,9 @@ Each test must include complete runnable code - not stubs or pseudocode.
             role="test_engineer",
             system_prompt=system_prompt,
             user_prompt=user_prompt,
-            config=llm_params
+            config=llm_params,
+            tech_stack=context.get("tech_stack") if context else None,
+            code_context=context.get("code_context") if context else None,
         )
 
         # Parse and validate the response
