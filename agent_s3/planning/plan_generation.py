@@ -20,6 +20,48 @@ from .prompt_templates import (
 logger = logging.getLogger(__name__)
 
 
+def generate_architecture_review(
+    router_agent,
+    feature_group: Dict[str, Any],
+    task_description: str,
+    context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Generate an architecture review for a feature group via LLM."""
+
+    logger.info(
+        "Generating architecture review for feature group: %s",
+        feature_group.get("group_name", "Unknown"),
+    )
+
+    user_prompt = _create_architecture_review_user_prompt(
+        feature_group, task_description, context
+    )
+
+    system_prompt = get_stage_system_prompt("architecture_review")
+    config = _get_architecture_review_config()
+
+    try:
+        response = call_llm_with_retry(
+            router_agent,
+            system_prompt,
+            user_prompt,
+            config,
+        )
+
+        review_data = parse_and_validate_json(
+            response,
+            enforce_schema=False,
+            repair_mode=True,
+        )
+
+        logger.info("Successfully generated architecture review")
+        return review_data
+
+    except Exception as e:
+        logger.error("Failed to generate architecture review: %s", e)
+        return _create_fallback_architecture_review(feature_group)
+
+
 def generate_refined_test_specifications(
     router_agent,
     feature_group: Dict[str, Any],
@@ -244,6 +286,50 @@ def _extract_system_design_from_group(feature_group: Dict[str, Any]) -> Dict[str
                         system_design[key] = value
 
     return system_design
+
+
+def _create_architecture_review_user_prompt(
+    feature_group: Dict[str, Any],
+    task_description: str,
+    context: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Create user prompt for generating an architecture review."""
+
+    system_design = _extract_system_design_from_group(feature_group)
+    context_info = ""
+    if context:
+        context_info = f"\n\nAdditional Context:\n{context}"
+
+    return f"""
+Task Description: {task_description}
+
+Feature Group: {feature_group.get('group_name', 'Unknown')}
+Group Description: {feature_group.get('group_description', 'No description')}
+
+System Design Overview:
+{system_design}
+
+Please perform an architecture review highlighting logical gaps, security concerns, optimization suggestions, and any additional considerations.
+{context_info}
+"""
+
+
+def _get_architecture_review_config() -> Dict[str, Any]:
+    """Configuration for architecture review generation."""
+    return {
+        "max_tokens": 4000,
+        "temperature": 0.3,
+        "top_p": 0.9,
+    }
+
+
+def _create_fallback_architecture_review(feature_group: Dict[str, Any]) -> Dict[str, Any]:
+    """Fallback architecture review structure when generation fails."""
+    logger.warning("Creating fallback architecture review")
+    return {
+        "architecture_review": {},
+        "discussion": f"Fallback review for {feature_group.get('group_name', 'Unknown')}"
+    }
 
 
 def _create_test_specification_user_prompt(

@@ -13,6 +13,7 @@ from .llm_integration import (
     JSONPlannerError,
 )
 from .plan_generation import (
+    generate_architecture_review,
     generate_refined_test_specifications,
     regenerate_consolidated_plan_with_modifications,
     validate_pre_planning_for_planner,
@@ -33,6 +34,7 @@ __all__ = [
     'parse_and_validate_json',
     'get_openrouter_params',
     'JSONPlannerError',
+    'generate_architecture_review',
     'generate_refined_test_specifications',
     'regenerate_consolidated_plan_with_modifications',
     'validate_pre_planning_for_planner',

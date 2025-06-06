@@ -60,17 +60,13 @@ SCHEMA = {
 def test_run_task_with_mocked_llm(monkeypatch):
     """Integration test for Coordinator.run_task producing a consolidated plan."""
     # Patch heavy initialization to no-op
+    monkeypatch.setattr(Coordinator, "_initialize_core_components", lambda self: None)
     monkeypatch.setattr(Coordinator, "_initialize_tools", lambda self: None)
     monkeypatch.setattr(Coordinator, "_initialize_specialized_components", lambda self: None)
+    monkeypatch.setattr(Coordinator, "_initialize_communication", lambda self: None)
+    monkeypatch.setattr(Coordinator, "_finalize_initialization", lambda self: None)
 
-    with patch('agent_s3.coordinator.EnhancedScratchpadManager') as MockScratchpad, \
-         patch('agent_s3.coordinator.ProgressTracker') as MockTracker, \
-         patch('agent_s3.coordinator.TaskStateManager') as MockTSM, \
-         patch('agent_s3.coordinator.CommandProcessor'):
-        MockScratchpad.return_value = MagicMock()
-        MockTracker.return_value = MagicMock()
-        MockTSM.return_value = MagicMock(create_new_task_id=MagicMock(return_value="1"))
-
+    with patch.object(Coordinator, '__init__', lambda self, *a, **kw: None):
         coordinator = Coordinator()
 
     # Manually set required components
@@ -80,6 +76,7 @@ def test_run_task_with_mocked_llm(monkeypatch):
     coordinator.prompt_moderator = MagicMock()
     coordinator.prompt_moderator.ask_ternary_question.return_value = "yes"
     coordinator.test_critic = MagicMock(critique_tests=lambda tests, risk: {})
+    coordinator.orchestrator = MagicMock(run_task=lambda *a, **kw: None)
 
     # FeatureGroupProcessor instance using the coordinator
     from agent_s3.feature_group_processor import FeatureGroupProcessor
@@ -96,15 +93,15 @@ def test_run_task_with_mocked_llm(monkeypatch):
         lambda data, repo_root=None, context_registry=None: (True, {})
     )
     monkeypatch.setattr(
-        'agent_s3.planner_json_enforced.generate_architecture_review',
+        'agent_s3.planning.plan_generation.generate_architecture_review',
         lambda router, fg, task_description, context=None: ARCH_REVIEW
     )
     monkeypatch.setattr(
-        'agent_s3.planner_json_enforced.generate_refined_test_specifications',
+        'agent_s3.planning.plan_generation.generate_refined_test_specifications',
         lambda router, fg, arch, task_description, context=None: REFINED_TESTS
     )
     monkeypatch.setattr(
-        'agent_s3.planner_json_enforced.generate_test_implementations',
+        'agent_s3.test_generator.generate_test_implementations',
         lambda router, specs, sys_design, task_description, context=None: TEST_IMPL
     )
     monkeypatch.setattr(
@@ -112,7 +109,7 @@ def test_run_task_with_mocked_llm(monkeypatch):
         lambda router, sys_design, arch, tests, task_description, context=None: IMPL_PLAN
     )
     monkeypatch.setattr(
-        'agent_s3.planner_json_enforced.validate_planning_semantic_coherence',
+        'agent_s3.planning.semantic_validation.validate_planning_semantic_coherence',
         lambda router, arch, specs, impls, impl_plan, task_description, context=None: SEM_VALID
     )
 
@@ -128,9 +125,19 @@ def test_run_task_with_mocked_llm(monkeypatch):
     # Patch subsequent phases to keep run_task short
     monkeypatch.setattr(coordinator, '_apply_changes_and_manage_dependencies', lambda changes: True)
     monkeypatch.setattr(coordinator, '_run_validation_phase', lambda: {"success": True})
-    monkeypatch.setattr(coordinator, '_finalize_task', lambda changes: None)
-    monkeypatch.setattr(coordinator.code_generator if hasattr(coordinator, 'code_generator') else coordinator, 'generate_code', lambda plan, tech_stack=None: {})
-    monkeypatch.setattr(coordinator, 'debugging_manager', MagicMock(handle_error=lambda **kw: {"success": True, "changes": {}}))
+    monkeypatch.setattr(coordinator, '_finalize_task', lambda changes: None, raising=False)
+    monkeypatch.setattr(
+        coordinator.code_generator if hasattr(coordinator, 'code_generator') else coordinator,
+        'generate_code',
+        lambda plan, tech_stack=None: {},
+        raising=False,
+    )
+    monkeypatch.setattr(
+        coordinator,
+        'debugging_manager',
+        MagicMock(handle_error=lambda **kw: {"success": True, "changes": {}}),
+        raising=False,
+    )
 
     # Execute the run_task workflow
     coordinator.run_task("Implement auth")
