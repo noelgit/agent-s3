@@ -19,6 +19,7 @@ This document describes the implementation of HTTP-based communication for Agent
 
 3. **Progress Tracking**
    - File-based progress logging to `progress_log.jsonl`
+   - Automatic rotation via `RotatingFileHandler`; configure `progress_log_rotation` in `config.json`
    - VS Code reads this log for updates
 
 4. **Coordinator Integration**
@@ -35,7 +36,7 @@ This document describes the implementation of HTTP-based communication for Agent
 2. **VS Code Extension**
    - Integrated HTTP client with VS Code extension API
    - Command processing through HTTP endpoints
-  - Progress tracking written to `progress_log.jsonl`; no `/status` endpoint
+  - Progress tracking written to `progress_log.jsonl`; logs rotate automatically according to `progress_log_rotation` settings; no `/status` endpoint
   - Commands execute synchronously; the `/command` endpoint only returns immediate results and the `"async"` option is deprecated
 
 ## Communication Flow
@@ -94,6 +95,7 @@ Processes Agent-S3 commands. The endpoint returns immediate results; asynchronou
 }
 ```
 The response contains only the final command output. Progress updates are available in `progress_log.jsonl`.
+Rotation is controlled by `progress_log_rotation` in `config.json`.
 ## File Structure
 
 ### Backend Files

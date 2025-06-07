@@ -15,5 +15,9 @@
     "port": 8081,
     "allowed_origins": ["*"],
     "auth_token": ""
+  },
+  "progress_log_rotation": {
+    "max_bytes": 1048576,
+    "backup_count": 3
   }
 }
