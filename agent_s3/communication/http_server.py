@@ -10,6 +10,7 @@ from socketserver import ThreadingMixIn
 from urllib.parse import urlparse
 from uuid import uuid4
 from typing import Any, Dict, Optional
+import hmac
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,10 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
         header = self.headers.get("Authorization", "")
         if header.startswith("Bearer "):
             token = header.split(" ", 1)[1]
-            return token == self.auth_token
+            try:
+                return hmac.compare_digest(token, self.auth_token)
+            except Exception:
+                return False
         return False
 
     def do_GET(self) -> None:
