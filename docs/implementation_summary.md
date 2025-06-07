@@ -8,15 +8,13 @@ This document provides a comprehensive summary of the implemented Unified Contex
 
 ### 1. Core Components
 
-#### UnifiedContextManager (`unified_context_manager.py`)
+#### ContextManager (`context_manager.py`)
 - **Purpose**: Central coordinator that manages multiple context sources
-- **Features**: 
-  - Intelligent fallback between legacy and new context managers
+- **Features**:
   - Context deduplication to eliminate overlap
   - Performance caching with configurable TTL
   - Health monitoring and metrics tracking
-  - Dual retrieval mode for testing and comparison
-- **API**: Async interface compatible with both legacy and new systems
+- **API**: Synchronous interface compatible with existing systems
 - **Status**: ✅ Implemented and tested
 
 #### ContextMonitor (`context_monitoring.py`)  
@@ -30,15 +28,13 @@ This document provides a comprehensive summary of the implemented Unified Contex
 - **API**: Rich monitoring interface with metrics, events, and alerts
 - **Status**: ✅ Implemented and tested
 
-#### OrchestratorContextBridge (`context_bridge.py`)
-- **Purpose**: Workflow-aware context optimization for orchestrator integration
+#### CoordinatorContextIntegration (`coordinator_integration.py`)
+- **Purpose**: Enhanced integration layer between the Coordinator and Context Manager
 - **Features**:
-  - Phase-specific context optimization (planning vs execution)
-  - Workflow-level caching to reduce redundant calls
-  - Performance metrics tracking per workflow
-  - Context staleness detection and refresh
-  - Integration with orchestrator execution flow
-- **API**: Workflow-centric context retrieval interface
+  - Planning and pre-planning context helpers
+  - Workflow-aware caching with performance metrics
+  - Improved error handling and health monitoring
+- **API**: Direct methods on `CoordinatorContextIntegration`
 - **Status**: ✅ Implemented and tested
 
 #### Enhanced LLM Integration (`llm_integration.py`)
@@ -78,7 +74,7 @@ This document provides a comprehensive summary of the implemented Unified Contex
 #### Updated Orchestrator Integration
 - **Files Modified**: `orchestrator.py`, `planning_helper.py`
 - **Features**:
-  - Integration with context bridge for workflow-aware context
+  - CoordinatorContextIntegration provides workflow-aware context helpers
   - Enhanced context retrieval in planning workflows
   - Performance monitoring integration
   - Backward compatibility maintained
@@ -141,7 +137,7 @@ Result: 7/7 tests passed (100% success rate)
 ### 2. Component Integration Tests
 - **Unified Context Manager**: Successfully coordinates between legacy and new systems
 - **Context Monitor**: Accurately tracks performance and generates appropriate alerts
-- **Orchestrator Bridge**: Provides workflow-specific context optimization
+- **Coordinator Integration**: Provides workflow-specific context optimization
 - **LLM Integration**: Seamlessly integrates with existing LLM calling code
 - **Configuration Management**: Validates and manages configurations correctly
 
@@ -170,7 +166,7 @@ Result: 7/7 tests passed (100% success rate)
 - **Clear Separation**: Well-defined interfaces between components
 - **Comprehensive Logging**: Detailed event and performance logging
 - **Configuration Management**: Centralized and validated configuration
-- **Documentation**: Complete API documentation and migration guides
+- **Documentation**: Complete API documentation
 
 ### 4. Observability
 - **Performance Metrics**: Real-time tracking of all key metrics
@@ -241,25 +237,27 @@ Result: 7/7 tests passed (100% success rate)
 
 ### Basic Usage
 ```python
-from agent_s3.tools.context_management.unified_context_manager import get_unified_context_manager
+from agent_s3.tools.context_management.context_manager import ContextManager
 
-# Get unified context manager
-unified_manager = get_unified_context_manager()
+# Create a context manager
+context_manager = ContextManager()
 
 # Retrieve context for a task
-context = await unified_manager.get_context('task_id')
+context = context_manager.get_context()
 ```
 
 ### Workflow Integration
 ```python
-from agent_s3.coordinator.context_bridge import OrchestratorContextBridge
+from agent_s3.tools.context_management.coordinator_integration import (
+    CoordinatorContextIntegration,
+)
 
-# Create context bridge
-bridge = OrchestratorContextBridge(context_manager=unified_manager)
+# Create coordinator integration
+integration = CoordinatorContextIntegration(coordinator)
 
 # Get workflow-specific context
-planning_context = await bridge.get_workflow_context('workflow_id', 'planning')
-execution_context = await bridge.get_workflow_context('workflow_id', 'execution')
+planning_context = integration.get_context_for_planning('Plan task')
+execution_context = integration.get_context_for_pre_planning('pre-planning query')
 ```
 
 ### Monitoring
@@ -271,7 +269,7 @@ monitor = get_context_monitor()
 
 # Track performance
 with monitor.track_performance('context_operation'):
-    context = await unified_manager.get_context('task_id')
+    context = context_manager.get_context()
 
 # Check metrics
 metrics = monitor.get_metrics_summary()
@@ -317,7 +315,7 @@ print(f"Cache hit rate: {metrics['cache_hit_rate']}")
 
 ### 3. Developer Experience
 - **Migration Ease**: Backward compatibility maintained for all existing code
-- **Documentation Quality**: Comprehensive documentation and migration guides
+- **Documentation Quality**: Comprehensive documentation
 - **Testing Support**: Complete test suite with 100% core functionality coverage
 - **Configuration Simplicity**: Environment-specific presets reduce configuration complexity
 
