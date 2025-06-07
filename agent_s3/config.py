@@ -119,6 +119,15 @@ class LogFilesConfig(BaseModel):
     error: str = "error_log.json"
 
 
+class ProgressLogRotationConfig(BaseModel):
+    """Rotation settings for the progress log."""
+
+    max_bytes: int = 1024 * 1024
+    backup_count: int = 3
+    when: Optional[str] = None
+    interval: int = 1
+
+
 class EmbeddingConfig(BaseModel):
     chunk_size: int = 1000
     chunk_overlap: int = 200
@@ -175,6 +184,7 @@ class ConfigModel(BaseModel):
     complexity_scale_exponent: float = 0.8
     workspace_path: str = "."
     log_files: LogFilesConfig = LogFilesConfig()
+    progress_log_rotation: ProgressLogRotationConfig = ProgressLogRotationConfig()
     context_management: ContextManagementConfig = ContextManagementConfig()
     adaptive_config: AdaptiveConfig = AdaptiveConfig()
     # Security features always enabled

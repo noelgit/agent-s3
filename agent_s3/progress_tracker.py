@@ -54,11 +54,39 @@ class ProgressTracker:
         self.log_file_path = os.path.join(os.getcwd(), log_filename)
         self.config = config
 
-        # Setup logger for progress tracking
+        # Setup loggers
         self.logger = logging.getLogger(__name__)
+        self.progress_logger = logging.getLogger(f"{__name__}.progress")
 
         # Ensure the log directory exists
         os.makedirs(os.path.dirname(self.log_file_path) or ".", exist_ok=True)
+
+        rotation_cfg = getattr(config, "config", {}).get("progress_log_rotation", {})
+        when = rotation_cfg.get("when")
+        backup_count = rotation_cfg.get("backup_count", 3)
+
+        if when:
+            interval = rotation_cfg.get("interval", 1)
+            handler = logging.handlers.TimedRotatingFileHandler(
+                self.log_file_path,
+                when=when,
+                interval=interval,
+                backupCount=backup_count,
+                encoding="utf-8",
+            )
+        else:
+            max_bytes = rotation_cfg.get("max_bytes", 1024 * 1024)
+            handler = logging.handlers.RotatingFileHandler(
+                self.log_file_path,
+                maxBytes=max_bytes,
+                backupCount=backup_count,
+                encoding="utf-8",
+            )
+
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        self.progress_logger.addHandler(handler)
+        self.progress_logger.setLevel(logging.INFO)
+        self.progress_logger.propagate = False
 
     def update_progress(self, update: Dict[str, Any]) -> bool:
         """Backwards-compatible progress update using a dictionary.
@@ -118,13 +146,12 @@ class ProgressTracker:
             # Validate the entry using Pydantic
             validated_entry = ProgressEntry.model_validate(entry.model_dump())
 
-            # Convert to JSON line and append to file
+            # Convert to JSON line and append via logging handler
             json_line = validated_entry.model_dump_json()
 
-            with open(self.log_file_path, "a", encoding="utf-8") as f:
-                f.write(json_line + "\n")
+            self.progress_logger.info(json_line)
 
-            # Also log to standard logger
+            # Also log human-readable message for debugging
             self.logger.info(
                 f"Progress: {entry.phase} - {entry.status.name} - {entry.details or ''}"
             )
@@ -183,9 +210,8 @@ class ProgressTracker:
         try:
             self.logger.info(f"Progress: {phase} - {description}")
 
-            # Also write to progress log file
-            with open(self.log_file_path, "a", encoding="utf-8") as f:
-                f.write(json.dumps(progress_msg) + "\n")
+            # Write JSON progress message via handler
+            self.progress_logger.info(json.dumps(progress_msg))
 
         except Exception as e:
             self.logger.error("Failed to log progress message: %s", e)

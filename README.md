@@ -208,7 +208,7 @@ pip check
   - Comprehensive test validation including unit, property-based, and acceptance tests
   - Test quality metrics including coverage ratio
   - Warning system for uncovered critical files and missing test types
-- Progress tracking in `progress_log.jsonl` (`agent_s3.progress_tracker`) and detailed chain-of-thought logs via enhanced scratchpad management (`agent_s3.enhanced_scratchpad_manager`)
+- Progress tracking in `progress_log.jsonl` (`agent_s3.progress_tracker`) with automatic log rotation using `RotatingFileHandler`. Rotation settings are configured via `progress_log_rotation` in `config.json`. Detailed chain-of-thought logs are handled by `agent_s3.enhanced_scratchpad_manager`.
 - Interactive user prompts, plan reviews, patch diffs, and explanations via `agent_s3.prompt_moderator`
 - Workspace initialization (`/init`): Validates workspace (checks for `README.md`), creates default `.github/copilot-instructions.md` and `llm.json` if missing
 - Task State Management & Resumption (`TaskStateManager`):
