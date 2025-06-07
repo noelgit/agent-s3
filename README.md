@@ -242,7 +242,7 @@ See `docs/summarization.md` for details.
 - Status bar item (`$(sparkle) Agent-S3`) to start change requests
 - Dedicated terminal panel for backend interactions
   - Real-time status updates via HTTP API; progress is written to `progress_log.jsonl`
-  - Command results are returned directly from `POST /command`; no `/status` polling
+  - Command results are returned directly from `POST /command`; no `/status` endpoint
 - Connection information is stored in `.agent_s3_http_connection.json` at the root
   of your workspace
 - Optional Copilot-style chat UI for input; terminal shows actual outputs

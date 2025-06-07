@@ -52,14 +52,6 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
         elif parsed.path == "/help":
             result = self.execute_command("/help")
             self.send_json(result)
-        elif parsed.path.startswith("/status/"):
-            job_id = parsed.path.split("/", 2)[-1]
-            with self.job_lock:
-                result = self.jobs.pop(job_id, None)
-            if result is not None:
-                self.send_json({"ready": True, **result})
-            else:
-                self.send_json({"ready": False})
         else:
             self.send_error(404)
 
@@ -279,7 +271,7 @@ class EnhancedHTTPServer:
 
             logger.info(f"HTTP server started on http://{self.host}:{self.port}")
             logger.info(
-                "Available endpoints: GET /health, GET /help, POST /command, GET /status/<job_id>"
+                "Available endpoints: GET /health, GET /help, POST /command"
             )
 
             self.server.serve_forever()
