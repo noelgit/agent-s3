@@ -298,7 +298,11 @@ class TestCommandProcessor:
         assert "Design process completed successfully" in result
 
     def test_execute_design_auto_command_failure(self, command_processor, mock_coordinator):
-        mock_coordinator.execute_design_auto.return_value = {"success": False, "error": "oops"}
+        mock_coordinator.execute_design_auto.return_value = {
+            "success": False,
+            "error": "plan failed",
+        }
+
         result, success = command_processor.execute_design_auto_command("build api")
 
         mock_coordinator.execute_design_auto.assert_called_once_with("build api")
@@ -307,5 +311,19 @@ class TestCommandProcessor:
         assert calls[1].args[0]["status"] == "failed"
 
         assert not success
-        assert "Design process failed" in result
+        assert "Design process failed: plan failed" in result
+
+    def test_execute_design_auto_command_unavailable_updates_progress(self, command_processor, mock_coordinator):
+        """Ensure progress is updated when automated design is unavailable."""
+        if hasattr(mock_coordinator, "execute_design_auto"):
+            delattr(mock_coordinator, "execute_design_auto")
+
+        result, success = command_processor.execute_design_auto_command("build api")
+
+        calls = mock_coordinator.progress_tracker.update_progress.call_args_list
+        assert calls[0].args[0]["status"] == "started"
+        assert calls[1].args[0]["status"] == "failed"
+
+        assert not success
+        assert result == "Automated design not available in this workspace."
 

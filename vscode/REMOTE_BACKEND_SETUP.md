@@ -261,8 +261,7 @@ The remote backend exposes the following endpoints:
 {
     "success": true,
     "result": "Command output here",
-    "output": "Detailed output",
-    "job_id": "optional-job-id"
+    "output": "Detailed output"
 }
 ```
 

@@ -13,4 +13,4 @@ This guide verifies that the extension gracefully falls back to the CLI when an 
    - Provide a complex request that will take additional processing time.
 4. Run the request. The extension sends an HTTP `POST /command` request.
 5. Because the timeout is short, the HTTP request fails and the extension automatically falls back to the CLI.
-6. The command output appears in the terminal once the CLI run completes; no polling of `/status` occurs.
+6. The command output appears in the terminal once the CLI run completes; the server does not expose a `/status` endpoint.
