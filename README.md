@@ -78,7 +78,7 @@ Agent-S3 is a multi-component system with dependencies across Python, Node.js, a
 ### Quick Setup
 
 **Prerequisites:**
-- Python 3.8+ 
+- Python 3.10+
 - Node.js 16+
 - npm or yarn
 
@@ -87,8 +87,6 @@ Agent-S3 is a multi-component system with dependencies across Python, Node.js, a
 # Core runtime dependencies
 pip install -r requirements.txt
 
-# Development and testing dependencies  
-pip install -r requirements-dev.txt
 ```
 
 **Node.js Dependencies:**
@@ -332,7 +330,6 @@ Install the required dependencies before running the test suite:
 
 ```bash
 pip install -r requirements.txt
-pip install -r requirements-dev.txt
 ```
 
 To verify the parser implementations are working correctly:
@@ -366,8 +363,6 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
    pip install -r requirements.txt
    # Optional: install tokenizer extras (provides tiktoken)
    pip install '.[tokenizers]'
-   # Install development tools for linting, type checking and tests
-   pip install -r requirements-dev.txt
    ```
 2. **VS Code Extension:**
    - Open the `vscode` folder in VS Code
@@ -521,7 +516,7 @@ python -m agent_s3.cli /clear <task_id>
 Install the development requirements first:
 
 ```bash
-pip install -r requirements-dev.txt
+pip install -r requirements.txt
 ```
 
 - **Tests:** `pytest`
