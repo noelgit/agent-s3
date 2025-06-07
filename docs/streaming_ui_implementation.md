@@ -36,6 +36,7 @@ This document describes the implementation of HTTP-based communication for Agent
    - Integrated HTTP client with VS Code extension API
    - Command processing through HTTP endpoints
   - Progress tracking written to `progress_log.jsonl`; no `/status` endpoint
+  - Commands execute synchronously; there is no async job mode
 
 ## Communication Flow
 
