@@ -99,7 +99,7 @@ Refer to these resources for a complete understanding of the project.
     *   It shows the terminal (`terminal.show()`).
     *   It sends the developer's request (from input box or chat message) to the CLI, escaping quotes: `python -m agent_s3.cli "<user_request>"` (`terminal.sendText`).
     *   It shows an information notification: `Processing request: <user_request>` (`vscode.window.showInformationMessage`).
-    *   It uses `HttpClient` to send the command and polls the `/status` endpoint for progress updates.
+     *   It uses `HttpClient` to send the command and reads `progress_log.jsonl` for progress updates without polling `/status`.
 3.  **Backend CLI Action (`agent_s3/cli.py`):**
     *   The `main` function parses the command-line arguments, receiving the request text.
     *   It loads the configuration (`Config`).
@@ -160,7 +160,7 @@ Refer to these resources for a complete understanding of the project.
             *   Includes database schema metadata in PR descriptions when database changes are involved
         *   Clears the task state and reports completion.
 5.  **VS Code Monitoring (`vscode/extension.ts`):**
-    *   Progress updates are fetched via `HttpClient` using the `/status` endpoint, eliminating the file watcher.
+     *   Progress updates are read from `progress_log.jsonl`, eliminating the file watcher and the `/status` polling logic.
     *   Updates the status bar with current phase and status.
     *   When a final state is reached, shows a notification with result summary.
     *   If a PR was created, includes the PR URL in the notification.
