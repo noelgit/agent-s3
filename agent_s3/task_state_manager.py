@@ -15,18 +15,23 @@ import stat
 # Set up logging
 logger = logging.getLogger(__name__)
 
+CURRENT_STATE_VERSION = 1
+
+
 class TaskState:
     """Base class for all task state objects."""
 
-    def __init__(self, task_id: str):
+    def __init__(self, task_id: str, state_version: int = CURRENT_STATE_VERSION) -> None:
         """Initialize the task state with a unique task ID.
 
         Args:
             task_id: Unique identifier for the task
+            state_version: Version number for the serialized state
         """
         self.task_id = task_id
         self.timestamp = datetime.now().isoformat()
         self.phase = "base"  # Will be overridden by subclasses
+        self.state_version = state_version
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the state to a dictionary for serialization.
@@ -37,7 +42,8 @@ class TaskState:
         return {
             "task_id": self.task_id,
             "timestamp": self.timestamp,
-            "phase": self.phase
+            "phase": self.phase,
+            "state_version": self.state_version,
         }
 
     @classmethod
@@ -50,7 +56,10 @@ class TaskState:
         Returns:
             Instantiated task state object
         """
-        state = cls(task_id=data.get("task_id", ""))
+        state = cls(
+            task_id=data.get("task_id", ""),
+            state_version=data.get("state_version", CURRENT_STATE_VERSION),
+        )
         state.timestamp = data.get("timestamp", datetime.now().isoformat())
         state.phase = data.get("phase", "base")
         return state
@@ -104,6 +113,7 @@ class PlanningState(TaskState):
             tech_stack=data.get("tech_stack", {})
         )
         state.timestamp = data.get("timestamp", datetime.now().isoformat())
+        state.state_version = data.get("state_version", CURRENT_STATE_VERSION)
         state.plan = data.get("plan", {})
         state.discussion = data.get("discussion", "")
         return state
@@ -147,6 +157,7 @@ class PromptApprovalState(TaskState):
             discussion=data.get("discussion", "")
         )
         state.timestamp = data.get("timestamp", datetime.now().isoformat())
+        state.state_version = data.get("state_version", CURRENT_STATE_VERSION)
         state.is_approved = data.get("is_approved", False)
         state.user_modifications = data.get("user_modifications", "")
         return state
@@ -190,6 +201,7 @@ class IssueCreationState(TaskState):
             body=data.get("body", "")
         )
         state.timestamp = data.get("timestamp", datetime.now().isoformat())
+        state.state_version = data.get("state_version", CURRENT_STATE_VERSION)
         state.issue_url = data.get("issue_url")
         state.is_created = data.get("is_created", False)
         return state
@@ -242,6 +254,7 @@ class CodeGenerationState(TaskState):
             tech_stack=data.get("tech_stack", {})
         )
         state.timestamp = data.get("timestamp", datetime.now().isoformat())
+        state.state_version = data.get("state_version", CURRENT_STATE_VERSION)
         state.generated_changes = data.get("generated_changes", [])
         state.current_iteration = data.get("current_iteration", 0)
         return state
@@ -307,6 +320,7 @@ class ExecutionState(TaskState):
             test_results=data.get("test_results", {})
         )
         state.timestamp = data.get("timestamp", datetime.now().isoformat())
+        state.state_version = data.get("state_version", CURRENT_STATE_VERSION)
         state.is_applied = data.get("is_applied", False)
         state.errors = data.get("errors", [])
 
@@ -386,6 +400,7 @@ class PRCreationState(TaskState):
             issue_url=data.get("issue_url")
         )
         state.timestamp = data.get("timestamp", datetime.now().isoformat())
+        state.state_version = data.get("state_version", CURRENT_STATE_VERSION)
         state.pr_url = data.get("pr_url")
         state.is_created = data.get("is_created", False)
 
@@ -502,6 +517,16 @@ class TaskStateManager:
             with open(snapshot_file, "r") as f:
                 state_dict = json.load(f)
 
+            # Verify state version
+            version = state_dict.get("state_version", 0)
+            if version > CURRENT_STATE_VERSION:
+                logger.error(
+                    "Snapshot version %s is newer than supported %s", version, CURRENT_STATE_VERSION
+                )
+                return None
+            if version < CURRENT_STATE_VERSION:
+                state_dict = self._migrate_state(state_dict, version)
+
             if phase not in self.state_classes:
                 logger.warning("Unknown phase: %s", phase)
                 return None
@@ -518,6 +543,14 @@ class TaskStateManager:
         except Exception as e:
             logger.error("Error loading task snapshot: %s", e)
             return None
+
+    def _migrate_state(self, state_dict: Dict[str, Any], from_version: int) -> Dict[str, Any]:
+        """Migrate a snapshot dictionary to the current version."""
+        migrated = dict(state_dict)
+        # Placeholder for future migrations
+        if from_version < CURRENT_STATE_VERSION:
+            migrated["state_version"] = CURRENT_STATE_VERSION
+        return migrated
 
     def get_active_tasks(self) -> List[Dict[str, Any]]:
         """Get a list of active tasks.
