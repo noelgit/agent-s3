@@ -265,8 +265,17 @@ class EnhancedHTTPServer:
             }
 
             connection_file = ".agent_s3_http_connection.json"
-            with open(connection_file, "w") as f:
-                json.dump(connection_info, f)
+            if os.name == "nt":
+                with open(connection_file, "w") as f:
+                    json.dump(connection_info, f)
+            else:
+                fd = os.open(
+                    connection_file,
+                    os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+                    0o600,
+                )
+                with os.fdopen(fd, "w") as f:
+                    json.dump(connection_info, f)
 
             # Set restrictive permissions on non-Windows systems
             if os.name != "nt":
