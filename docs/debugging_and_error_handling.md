@@ -78,3 +78,41 @@ Error handling can be tuned via:
 - Similarity threshold for pattern matching
 - Context gathering depth per error type
 
+## Terminal Hanging Issue Resolution
+
+### Problem
+The VS Code extension previously hung indefinitely when executing certain CLI
+commands. Simple commands triggered the entire Coordinator startup, no timeout
+mechanism was in place, and failed processes were not cleaned up properly.
+
+### Implemented Fix
+- Added lightweight handlers for `/help` and `/config` so they bypass full
+  initialization.
+- Updated the CLI main entry point to detect these commands early and exit with
+  proper status codes.
+- Introduced a 30‑second timeout in the VS Code extension with graceful process
+  cleanup and user feedback.
+- Verified that the Coordinator shuts down correctly, cleaning up background
+  threads and HTTP resources.
+
+### Verification Commands
+```bash
+python -m agent_s3.cli /help
+python -m agent_s3.cli /config
+python -m agent_s3.cli "list files in current directory"
+```
+
+## Manual HTTP Timeout Test
+
+This procedure verifies that the extension falls back to the CLI when an HTTP
+request exceeds the configured timeout.
+
+1. Start the Agent-S3 backend so `.agent_s3_http_connection.json` contains the
+   server address.
+2. Set `AGENT_S3_HTTP_TIMEOUT=1000` to force a short timeout.
+3. In VS Code, run a command expected to take more than one second, such as
+   **Agent-S3: Make change request** with a complex prompt.
+4. The extension sends an HTTP `POST /command` request which fails due to the
+   short timeout and automatically falls back to the CLI.
+5. Command output appears in the terminal once the CLI run completes.
+
