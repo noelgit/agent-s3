@@ -874,7 +874,11 @@ class Coordinator:
             if not success:
                 return {"success": False, "error": message}
 
-            self.start_pre_planning_from_design("design.txt", implement=False)
+            planning_result = self.start_pre_planning_from_design(
+                "design.txt", implement=False
+            )
+            if not planning_result.get("success", False):
+                return planning_result
 
             return {
                 "success": True,
