@@ -35,7 +35,7 @@ This document describes the implementation of HTTP-based communication for Agent
 2. **VS Code Extension**
    - Integrated HTTP client with VS Code extension API
    - Command processing through HTTP endpoints
-   - Progress tracking written to `progress_log.jsonl`; no `/status` polling
+  - Progress tracking written to `progress_log.jsonl`; no `/status` endpoint
 
 ## Communication Flow
 
@@ -92,19 +92,6 @@ Processes Agent-S3 commands.
   "result": "Command output here"
 }
 ```
-### GET /status
-Returns the result of the last asynchronous command. This endpoint is retained for compatibility, but the VS Code extension now reads `progress_log.jsonl` instead of polling `/status`.
-
-**Response:**
-```json
-{
-  "result": "Command output here",
-  "output": "",
-  "success": true
-}
-```
-
-
 ## File Structure
 
 ### Backend Files
