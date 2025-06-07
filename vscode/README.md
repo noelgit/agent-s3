@@ -41,15 +41,16 @@ AGENT_S3_ENCRYPTION_KEY="$(python -c 'from cryptography.fernet import Fernet; pr
 
 ### Configuration
 
-The extension uses HTTP for communication with the backend server.
-Set `AGENT_S3_HTTP_TIMEOUT` (or the `agent-s3.httpTimeoutMs` setting) to adjust
-how long the extension waits for a response before falling back to CLI mode.
+The extension communicates with the backend over HTTP. Set
+`AGENT_S3_HTTP_TIMEOUT` (or the `agent-s3.httpTimeoutMs` setting) to control how
+long it waits for a server response. If the request times out or the server
+can't be reached, the extension seamlessly falls back to CLI commands so your
+tasks keep running.
 
 When the backend starts it writes a `.agent_s3_http_connection.json` file in the
 workspace root describing the HTTP server address. The extension reads this file
 to determine the host and port. If the file is missing or invalid it defaults to
-`localhost:8081`. Automatic fallback to CLI commands occurs when the server is
-unavailable.
+`localhost:8081`.
 
 If the server is configured with an authentication token, set the
 `agent-s3.authToken` setting or the `AGENT_S3_AUTH_TOKEN` environment variable so
@@ -92,8 +93,12 @@ Agent-S3 provides real-time status updates in the VS Code interface as it works 
 
 Detailed logs are available in your workspace:
 - `scratchpad.txt` - Detailed internal chain-of-thought log
-- `progress_log.jsonl` - Structured progress updates
+- `progress_log.jsonl` - Structured progress updates that show each step of the
+  agent's work
 - `development_status.json` - Overall development status tracking
+
+During CLI fallback, progress information continues to be appended to
+`progress_log.jsonl`. You can monitor this file to follow long-running tasks.
 
 ## Chat History Persistence
 
