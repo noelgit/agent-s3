@@ -242,8 +242,8 @@ See `docs/summarization.md` for details.
 - Status bar item (`$(sparkle) Agent-S3`) to start change requests
 - Dedicated terminal panel for backend interactions
   - Real-time status updates via HTTP API; progress is logged to `progress_log.jsonl`
-  - Command results are returned directly from `POST /command`; no `/status` endpoint
-  - Commands run synchronously; there is no asynchronous job API
+  - Command results are returned immediately from `POST /command`; no `/status` endpoint
+  - Commands run synchronously; there is no asynchronous job API. The `"async"` option is deprecated
 - Connection information is stored in `.agent_s3_http_connection.json` at the root
   of your workspace
 - Optional Copilot-style chat UI for input; terminal shows actual outputs
@@ -257,8 +257,8 @@ See `docs/summarization.md` for details.
 Agent-S3 features a real-time UI for chat and progress updates, powered by an HTTP-based architecture. See [docs/streaming_ui_implementation.md](docs/streaming_ui_implementation.md) for implementation details:
 
 - **HTTP Client/Server:** The backend and VS Code extension communicate via HTTP REST API, supporting command processing and status updates.
-- **Streaming Chat UI:** The `ChatView` React component in the extension displays real-time agent responses, partial message rendering, and thinking indicators.
-  - **Backend Integration:** The extension sends commands to `POST /command` and receives streaming responses. Progress logs are kept in `progress_log.jsonl` for reference.
+- **Chat UI:** The `ChatView` React component shows progress updates from `progress_log.jsonl` and displays thinking indicators.
+  - **Backend Integration:** The extension sends commands to `POST /command` and receives immediate results. Progress logs are kept in `progress_log.jsonl` for reference. The `"async"` option is deprecated.
 - **Robust Error Handling:** Includes reconnection logic, buffering, and error logging for reliable user experience.
 - **Extensible Protocol:** The message protocol supports future UI features like syntax highlighting, progress bars, and operation cancellation.
 
