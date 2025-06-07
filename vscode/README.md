@@ -54,6 +54,10 @@ to determine the host and port. If the file is missing or invalid it defaults to
 `localhost:8081`. Automatic fallback to CLI commands occurs when the server is
 unavailable.
 
+If the server is configured with an authentication token, set the
+`agent-s3.authToken` setting or the `AGENT_S3_AUTH_TOKEN` environment variable so
+the extension can include `Authorization: Bearer <token>` with each request.
+
 ## Usage
 
 1. Run "Agent-S3: Initialize workspace" from the command palette (Ctrl+Shift+P) to set up your workspace and authenticate with GitHub

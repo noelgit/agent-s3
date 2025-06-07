@@ -13,6 +13,7 @@
   "http": {
     "host": "localhost",
     "port": 8081,
-    "allowed_origins": ["*"]
+    "allowed_origins": ["*"],
+    "auth_token": ""
   }
 }
