@@ -12,6 +12,8 @@ import datetime
 import re
 from typing import Dict, List, Optional, Any
 
+from agent_s3.error_handler import ErrorHandler
+
 logger = logging.getLogger(__name__)
 
 
@@ -21,7 +23,7 @@ class ImplementationManager:
     Tracks progress and handles implementation execution.
     """
 
-    def __init__(self, coordinator=None):
+    def __init__(self, coordinator=None, error_handler: Optional[ErrorHandler] = None):
         """
         Initialize the implementation manager.
 
@@ -32,6 +34,9 @@ class ImplementationManager:
         self.router_agent = coordinator.router_agent if coordinator else None
         self.scratchpad = coordinator.scratchpad if coordinator else None
         self.progress_file = "implementation_progress.json"
+        self.error_handler = error_handler or ErrorHandler(
+            component="ImplementationManager", logger=logger, reraise=False, default_phase="implementation"
+        )
 
     def _log(self, message: str, level: str = "info") -> None:
         """Log a message using the scratchpad if available."""
@@ -39,7 +44,9 @@ class ImplementationManager:
             self.scratchpad.log("ImplementationManager", message, level=level)
         else:
             if level.lower() == "error":
-                logger.error(message)
+                self.error_handler.handle_exception(
+                    Exception(message), operation="log", reraise=False
+                )
             elif level.lower() == "warning":
                 logger.warning(message)
             else:
@@ -113,7 +120,11 @@ class ImplementationManager:
                     return json.load(f)
             return None
         except Exception as e:
-            self._log(f"Error loading progress tracker: {e}", level="error")
+            self.error_handler.handle_exception(
+                e,
+                operation="_load_progress_tracker",
+                reraise=False,
+            )
             return None
 
     def _save_progress_tracker(self, progress: Dict[str, Any]) -> bool:
@@ -135,7 +146,11 @@ class ImplementationManager:
                 json.dump(progress, f, indent=2)
             return True
         except Exception as e:
-            self._log(f"Error saving progress tracker: {e}", level="error")
+            self.error_handler.handle_exception(
+                e,
+                operation="_save_progress_tracker",
+                reraise=False,
+            )
             return False
 
     def _initialize_progress_tracker(self, design_file: str) -> Dict[str, Any]:
@@ -179,7 +194,11 @@ class ImplementationManager:
 
             return progress
         except Exception as e:
-            self._log(f"Error initializing progress tracker: {e}", level="error")
+            self.error_handler.handle_exception(
+                e,
+                operation="_initialize_progress_tracker",
+                reraise=False,
+            )
             # Return basic structure even if extraction fails
             return progress
 
@@ -292,7 +311,12 @@ class ImplementationManager:
             task["error"] = str(e)
             self._save_progress_tracker(progress)
 
-            self._log(f"Error implementing task {task_id}: {e}", level="error")
+            self.error_handler.handle_exception(
+                e,
+                operation="_implement_next_task",
+                variables={"task_id": task_id},
+                reraise=False,
+            )
 
             return {
                 "success": False,
@@ -429,7 +453,11 @@ class ImplementationManager:
                 test_result = self.coordinator.test_runner_tool.run_tests()
                 return test_result
             except Exception as e:
-                self._log(f"Error running tests: {e}", level="error")
+                self.error_handler.handle_exception(
+                    e,
+                    operation="_run_tests",
+                    reraise=False,
+                )
                 return {"success": False, "error": str(e)}
         else:
             self._log("No test runner available, skipping tests")

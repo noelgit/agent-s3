@@ -134,7 +134,8 @@ class Coordinator:
             base_dir=os.path.join(
                 os.path.dirname(self.config.get_log_file_path("development")),
                 "task_snapshots"
-            )
+            ),
+            error_handler=self.error_handler,
         )
         self.current_task_id = None
 
@@ -248,7 +249,10 @@ class Coordinator:
         self.feature_group_processor = FeatureGroupProcessor(coordinator=self)
 
         # Implementation manager handles step-by-step execution of design tasks
-        self.implementation_manager = ImplementationManager(coordinator=self)
+        self.implementation_manager = ImplementationManager(
+            coordinator=self,
+            error_handler=self.error_handler,
+        )
 
         # Design manager for interactive design conversations
         self.design_manager = DesignManager(coordinator=self)
