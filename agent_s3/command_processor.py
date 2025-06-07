@@ -550,6 +550,13 @@ class CommandProcessor:
             if hasattr(self.coordinator, 'execute_design_auto'):
                 result = self.coordinator.execute_design_auto(args.strip())
             else:
+                if hasattr(self.coordinator, 'progress_tracker'):
+                    self.coordinator.progress_tracker.update_progress({
+                        "phase": "design-auto",
+                        "status": "failed",
+                        "error": "feature unavailable",
+                        "timestamp": datetime.now().isoformat(),
+                    })
                 return "Automated design not available in this workspace.", False
 
             if not result.get("success", False):
