@@ -23,7 +23,8 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
         self.allowed_origins = allowed_origins or ["*"]
         self.jobs = jobs if jobs is not None else {}
         self.job_lock = job_lock or threading.Lock()
-        self.auth_token = auth_token
+        # Allow auth token to be provided directly or via environment variable
+        self.auth_token = auth_token or os.getenv("AGENT_S3_AUTH_TOKEN")
         super().__init__(*args, **kwargs)
 
     def log_message(self, format: str, *args: Any) -> None:
@@ -42,9 +43,6 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         """Handle GET requests."""
-        if not self._authorized():
-            self.send_json({"error": "Unauthorized"}, status=401)
-            return
         parsed = urlparse(self.path)
 
         if parsed.path == "/health":
@@ -53,6 +51,9 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
             result = self.execute_command("/help")
             self.send_json(result)
         elif parsed.path.startswith("/status/"):
+            if not self._authorized():
+                self.send_json({"error": "Unauthorized"}, status=401)
+                return
             job_id = parsed.path.split("/", 2)[-1]
             with self.job_lock:
                 result = self.jobs.pop(job_id, None)
@@ -71,10 +72,10 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         """Handle POST requests."""
-        if not self._authorized():
-            self.send_json({"error": "Unauthorized"}, status=401)
-            return
         if self.path == "/command":
+            if not self._authorized():
+                self.send_json({"error": "Unauthorized"}, status=401)
+                return
             content_length = int(self.headers["Content-Length"])
             post_data = self.rfile.read(content_length)
 

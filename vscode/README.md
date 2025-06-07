@@ -53,7 +53,9 @@ unavailable.
 
 If the server is configured with an authentication token, set the
 `agent-s3.authToken` setting or the `AGENT_S3_AUTH_TOKEN` environment variable so
-the extension can include `Authorization: Bearer <token>` with each request.
+the extension can include `Authorization: Bearer <token>` with each request. The
+backend denies `/command` and `/status` requests with HTTP 401 when the token is
+missing or invalid.
 
 ## Usage
 

@@ -137,6 +137,7 @@ python -m agent_s3.communication.http_server --host 0.0.0.0 --port 8081 --auth-t
 3. Local file (.agent_s3_http_connection.json)
 4. Default (localhost:8081, no auth, HTTP)
 ```
+`/command` and `/status` requests return HTTP 401 if the configured auth token is missing or incorrect.
 
 ### **Command Execution Flow:**
 ```typescript

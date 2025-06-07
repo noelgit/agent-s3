@@ -60,6 +60,7 @@ export AGENT_S3_AUTH_TOKEN=your-auth-token-here
 export AGENT_S3_USE_TLS=true
 export AGENT_S3_HTTP_TIMEOUT_MS=15000
 ```
+The backend refuses `/command` and `/status` requests with HTTP 401 if this token is missing or incorrect.
 
 ## Local Configuration File
 
