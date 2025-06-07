@@ -44,9 +44,6 @@ AGENT_S3_ENCRYPTION_KEY="$(python -c 'from cryptography.fernet import Fernet; pr
 The extension uses HTTP for communication with the backend server.
 Set `AGENT_S3_HTTP_TIMEOUT` (or the `agent-s3.httpTimeoutMs` setting) to adjust
 how long the extension waits for a response before falling back to CLI mode.
-`agent-s3.statusPollIntervalMs` controls how frequently the extension polls the
-backend for command results. `agent-s3.statusPollAttempts` limits the number of
-polling attempts before giving up.
 
 When the backend starts it writes a `.agent_s3_http_connection.json` file in the
 workspace root describing the HTTP server address. The extension reads this file
