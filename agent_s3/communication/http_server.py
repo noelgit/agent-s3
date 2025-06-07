@@ -211,7 +211,8 @@ class EnhancedHTTPServer:
         self.port = port
         self.coordinator = coordinator
         self.allowed_origins = allowed_origins or ["*"]
-        self.auth_token = auth_token
+        # Automatically use AGENT_S3_AUTH_TOKEN when auth_token is not supplied
+        self.auth_token = auth_token or os.getenv("AGENT_S3_AUTH_TOKEN")
         self.jobs: Dict[str, Dict[str, Any]] = {}
         self.job_lock = threading.Lock()
         self.server: Optional[HTTPServer] = None
