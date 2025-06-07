@@ -244,8 +244,8 @@ This ensures commands continue working even with connectivity issues.
 The remote backend exposes the following endpoints:
 
 - `GET /health` - Server health check
-- `POST /command` - Execute Agent-S3 commands
-- `GET /status/<job_id>` - Optional endpoint to fetch the result of an asynchronous command
+- `POST /command` - Execute Agent-S3 commands and return results immediately
+  (the `/status` endpoint and asynchronous mode are deprecated)
 
 ### Request Format
 
@@ -266,10 +266,9 @@ The remote backend exposes the following endpoints:
 }
 ```
 
-If a `job_id` is returned, the server is processing the request asynchronously.
-You may retrieve the final result with `GET /status/<job_id>`. The VS Code
-extension monitors `progress_log.jsonl` locally rather than polling this
-endpoint.
+The server processes requests synchronously. Results are returned directly in
+the response to `POST /command`, and the previous asynchronous job workflow is
+deprecated.
 
 ## Contributing
 
