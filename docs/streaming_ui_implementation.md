@@ -35,6 +35,7 @@ This document describes the implementation of HTTP-based communication for Agent
 2. **VS Code Extension**
    - Integrated HTTP client with VS Code extension API
    - Command processing through HTTP endpoints
+   - `POST /command` returns results immediately; the `"async"` option is deprecated
   - Progress tracking written to `progress_log.jsonl`; no `/status` endpoint
 
 ## Communication Flow
@@ -77,7 +78,7 @@ Returns the same help text as `python -m agent_s3.cli /help`.
 ```
 
 ### POST /command
-Processes Agent-S3 commands.
+Processes Agent-S3 commands. Results are returned immediately; the `"async"` option is deprecated.
 
 **Request:**
 ```json
