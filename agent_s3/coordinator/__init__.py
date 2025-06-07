@@ -307,12 +307,14 @@ class Coordinator:
         http_host = http_config.get('host', 'localhost')
         http_port = http_config.get('port', 8081)  # Default to 8081 for HTTP
         allowed_origins = http_config.get('allowed_origins', ['*'])
+        auth_token = http_config.get('auth_token') or os.getenv('AGENT_S3_AUTH_TOKEN')
 
         self.http_server = EnhancedHTTPServer(
             host=http_host,
             port=http_port,
             coordinator=self,
             allowed_origins=allowed_origins,
+            auth_token=auth_token,
         )
         # Start the server in a separate thread so it doesn't block the coordinator
         self.http_thread = self.http_server.start_in_thread()

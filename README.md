@@ -385,6 +385,7 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   - `pre_planning_mode` selects `off`, `json`, or `enforced_json` workflow. See `docs/pre_planning_workflow.md` for details.
   - HTTP server settings for request/response handling
   - `AGENT_S3_HTTP_TIMEOUT` (optional, defaults to `5000`) timeout in milliseconds before the VS Code extension falls back to CLI mode (see `docs/manual_http_timeout_test.md` for a verification procedure)
+  - `AGENT_S3_AUTH_TOKEN` (optional) require `Authorization: Bearer <token>` on HTTP requests; may also be set in `config.json` under `http.auth_token`
   - `TEST_WS_TOKEN` (optional, defaults to `"replace-me"`)
     authentication token for `simple-test-server.js`
   - `MAX_DESIGN_PATTERNS` (optional, defaults to `3`)

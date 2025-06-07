@@ -16,20 +16,34 @@ logger = logging.getLogger(__name__)
 class Agent3HTTPHandler(BaseHTTPRequestHandler):
     """HTTP request handler for Agent-S3."""
 
-    def __init__(self, *args, coordinator=None, allowed_origins=None, jobs=None, job_lock=None, **kwargs):
+    def __init__(self, *args, coordinator=None, allowed_origins=None, jobs=None, job_lock=None, auth_token=None, **kwargs):
         self.coordinator = coordinator
         # Default to allow any origin for backward compatibility
         self.allowed_origins = allowed_origins or ["*"]
         self.jobs = jobs if jobs is not None else {}
         self.job_lock = job_lock or threading.Lock()
+        self.auth_token = auth_token
         super().__init__(*args, **kwargs)
 
     def log_message(self, format: str, *args: Any) -> None:
         """Override to use our logger instead of stderr."""
         logger.info("%s - - %s" % (self.address_string(), format % args))
 
+    def _authorized(self) -> bool:
+        """Check Authorization header against configured token."""
+        if not self.auth_token:
+            return True
+        header = self.headers.get("Authorization", "")
+        if header.startswith("Bearer "):
+            token = header.split(" ", 1)[1]
+            return token == self.auth_token
+        return False
+
     def do_GET(self) -> None:
         """Handle GET requests."""
+        if not self._authorized():
+            self.send_json({"error": "Unauthorized"}, status=401)
+            return
         parsed = urlparse(self.path)
 
         if parsed.path == "/health":
@@ -56,6 +70,9 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         """Handle POST requests."""
+        if not self._authorized():
+            self.send_json({"error": "Unauthorized"}, status=401)
+            return
         if self.path == "/command":
             content_length = int(self.headers["Content-Length"])
             post_data = self.rfile.read(content_length)
@@ -145,7 +162,10 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
         if allow_origin:
             self.send_header("Access-Control-Allow-Origin", allow_origin)
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header(
+                "Access-Control-Allow-Headers",
+                "Content-Type, Authorization",
+            )
 
         self.end_headers()
 
@@ -164,7 +184,7 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
         if allow_origin:
             self.send_header("Access-Control-Allow-Origin", allow_origin)
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.end_headers()
 
 
@@ -177,11 +197,19 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 class EnhancedHTTPServer:
     """Enhanced HTTP server for Agent-S3."""
 
-    def __init__(self, host: str = "localhost", port: int = 8081, coordinator=None, allowed_origins=None):
+    def __init__(
+        self,
+        host: str = "localhost",
+        port: int = 8081,
+        coordinator=None,
+        allowed_origins=None,
+        auth_token: Optional[str] = None,
+    ):
         self.host = host
         self.port = port
         self.coordinator = coordinator
         self.allowed_origins = allowed_origins or ["*"]
+        self.auth_token = auth_token
         self.jobs: Dict[str, Dict[str, Any]] = {}
         self.job_lock = threading.Lock()
         self.server: Optional[HTTPServer] = None
@@ -194,6 +222,7 @@ class EnhancedHTTPServer:
         allowed_origins = self.allowed_origins
         jobs = self.jobs
         job_lock = self.job_lock
+        auth_token = self.auth_token
 
         class BoundHandler(Agent3HTTPHandler):
             def __init__(self, *args, **kwargs):
@@ -203,6 +232,7 @@ class EnhancedHTTPServer:
                     allowed_origins=allowed_origins,
                     jobs=jobs,
                     job_lock=job_lock,
+                    auth_token=auth_token,
                     **kwargs,
                 )
 
