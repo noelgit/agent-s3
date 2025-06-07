@@ -287,7 +287,25 @@ class TestCommandProcessor:
     def test_execute_design_auto_command(self, command_processor, mock_coordinator):
         mock_coordinator.execute_design_auto.return_value = {"success": True}
         result, success = command_processor.execute_design_auto_command("build api")
+
         mock_coordinator.execute_design_auto.assert_called_once_with("build api")
+        calls = mock_coordinator.progress_tracker.update_progress.call_args_list
+        assert calls[0].args[0]["phase"] == "design-auto"
+        assert calls[0].args[0]["status"] == "started"
+        assert calls[1].args[0]["status"] == "completed"
+
         assert success
         assert "Design process completed successfully" in result
+
+    def test_execute_design_auto_command_failure(self, command_processor, mock_coordinator):
+        mock_coordinator.execute_design_auto.return_value = {"success": False, "error": "oops"}
+        result, success = command_processor.execute_design_auto_command("build api")
+
+        mock_coordinator.execute_design_auto.assert_called_once_with("build api")
+        calls = mock_coordinator.progress_tracker.update_progress.call_args_list
+        assert calls[0].args[0]["status"] == "started"
+        assert calls[1].args[0]["status"] == "failed"
+
+        assert not success
+        assert "Design process failed" in result
 

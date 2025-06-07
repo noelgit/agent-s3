@@ -547,16 +547,48 @@ class CommandProcessor:
         self._log(f"Starting automated design for: {args}")
 
         try:
+            # Update progress tracking when starting
+            if hasattr(self.coordinator, "progress_tracker"):
+                self.coordinator.progress_tracker.update_progress(
+                    {
+                        "phase": "design-auto",
+                        "status": "started",
+                        "objective": args.strip(),
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                )
+
             if hasattr(self.coordinator, 'execute_design_auto'):
                 result = self.coordinator.execute_design_auto(args.strip())
             else:
                 return "Automated design not available in this workspace.", False
 
             if not result.get("success", False):
+                # Update progress tracking for failure
+                if hasattr(self.coordinator, "progress_tracker"):
+                    self.coordinator.progress_tracker.update_progress(
+                        {
+                            "phase": "design-auto",
+                            "status": "failed",
+                            "error": result.get("error", "Unknown error"),
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    )
                 return (
                     f"Design process failed: {result.get('error', 'Unknown error')}",
                     False,
                 )
+
+            # Update progress tracking for success
+            if hasattr(self.coordinator, "progress_tracker"):
+                self.coordinator.progress_tracker.update_progress(
+                    {
+                        "phase": "design-auto",
+                        "status": "completed",
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                )
+
             return (
                 "Design process completed successfully. Design saved to design.txt",
                 True,
@@ -564,6 +596,16 @@ class CommandProcessor:
         except Exception as e:
             error_msg = f"Design process failed: {e}"
             self._log(error_msg, level="error")
+            # Update progress tracking for exception
+            if hasattr(self.coordinator, "progress_tracker"):
+                self.coordinator.progress_tracker.update_progress(
+                    {
+                        "phase": "design-auto",
+                        "status": "failed",
+                        "error": str(e),
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                )
             return error_msg, False
 
     def execute_implement_command(self, args: str) -> tuple[str, bool]:
