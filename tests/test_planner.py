@@ -181,13 +181,6 @@ class TestPlanner(unittest.TestCase):
         self.mock_coordinator.scratchpad.log.assert_any_call("Planner", "Error parsing debate response: Received empty response.")
 
 
-    # Tests for legacy confirm_and_potentially_modify_plan method have been removed
-    # This method was part of the workflow using the simple system prompt, which has been removed
-
-
-    # Tests for legacy create_plan method with simple system prompt have been removed
-    # The create_plan method and related functionality has been removed from planner.py
-    # The pre-planner to planner flow now exclusively uses planner_json_enforced.py with the extensive system prompt
 
 if __name__ == '__main__':
     unittest.main()
