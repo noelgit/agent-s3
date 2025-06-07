@@ -8,15 +8,13 @@ This document provides a comprehensive summary of the implemented Unified Contex
 
 ### 1. Core Components
 
-#### UnifiedContextManager (`unified_context_manager.py`)
+#### ContextManager (`context_manager.py`)
 - **Purpose**: Central coordinator that manages multiple context sources
-- **Features**: 
-  - Intelligent fallback between legacy and new context managers
+- **Features**:
   - Context deduplication to eliminate overlap
   - Performance caching with configurable TTL
   - Health monitoring and metrics tracking
-  - Dual retrieval mode for testing and comparison
-- **API**: Async interface compatible with both legacy and new systems
+- **API**: Synchronous interface compatible with existing systems
 - **Status**: ✅ Implemented and tested
 
 #### ContextMonitor (`context_monitoring.py`)  
@@ -241,13 +239,13 @@ Result: 7/7 tests passed (100% success rate)
 
 ### Basic Usage
 ```python
-from agent_s3.tools.context_management.unified_context_manager import get_unified_context_manager
+from agent_s3.tools.context_management.context_manager import ContextManager
 
-# Get unified context manager
-unified_manager = get_unified_context_manager()
+# Create a context manager
+context_manager = ContextManager()
 
 # Retrieve context for a task
-context = await unified_manager.get_context('task_id')
+context = context_manager.get_context()
 ```
 
 ### Workflow Integration
