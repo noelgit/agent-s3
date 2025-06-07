@@ -98,3 +98,6 @@ vscode/*.vsix
 
 # Miscellaneous
 remove_ignored_files.sh
+.agent_s3_http_connection.json
+vscode/.agent_s3_http_connection.json
+server.log

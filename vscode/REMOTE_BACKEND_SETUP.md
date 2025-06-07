@@ -187,6 +187,7 @@ All Agent-S3 commands executed through the chat interface will:
    ```bash
    # On remote server
    tail -f /path/to/agent-s3/server.log
+   # This log is generated at runtime and should not be committed to version control
    ```
 
 ### Common Problems

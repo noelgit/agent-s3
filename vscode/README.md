@@ -49,7 +49,8 @@ tasks keep running.
 
 When the backend starts it writes a `.agent_s3_http_connection.json` file in the
 workspace root describing the HTTP server address. The extension reads this file
-to determine the host and port. If the file is missing or invalid it defaults to
+to determine the host and port. This file is generated at runtime and should not
+be committed to version control. If the file is missing or invalid it defaults to
 `localhost:8081`.
 
 If the server is configured with an authentication token, set the

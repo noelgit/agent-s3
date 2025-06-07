@@ -120,6 +120,11 @@ npm audit
 pip check
 ```
 
+### Runtime-Generated Files
+
+The backend writes connection details to `.agent_s3_http_connection.json` and logs output to `server.log` when running.
+These files are generated at runtime and are listed in `.gitignore` to avoid accidental commits.
+
 ## Core Features
 
 **Python Backend (`agent_s3`):**
@@ -243,7 +248,8 @@ See `docs/summarization.md` for details.
   - Command results are returned immediately from `POST /command`; no `/status` endpoint
   - Commands run synchronously; there is no asynchronous job API. The `"async"` option is deprecated
 - Connection information is stored in `.agent_s3_http_connection.json` at the root
-  of your workspace
+  of your workspace. This file is generated at runtime and should not be committed
+  to version control
 - Optional Copilot-style chat UI for input; terminal shows actual outputs
 - WebView panels for structured information display:
   - Code change plan reviews
