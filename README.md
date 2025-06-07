@@ -125,13 +125,7 @@ pip check
 ## Core Features
 
 **Python Backend (`agent_s3`):**
-- Real-time communication between backend and VS Code extension via HTTP server with:
-  - Automatic reconnection and heartbeat monitoring
-  - Message type-based routing and handlers
-  - Fallback to CLI commands when HTTP server is unavailable
-  - Authentication and secure message passing
-  - 64&nbsp;KiB message size limit enforced server-side
-    (configurable via HTTP server settings)
+- Commands are sent via an HTTP server. The extension falls back to CLI when the server is unreachable.
 - Advanced context management with:
   - Context registry with multiple providers that can be registered and queried
   - Tool/manager registry for coordinator components (`agent_s3.coordinator.registry`)
@@ -249,10 +243,7 @@ See `docs/summarization.md` for details.
 - Dedicated terminal panel for backend interactions
 - Real-time status updates via HTTP API; `progress_log.jsonl` stores progress logs
 - The extension polls the `/status` endpoint until a command result is available
-- Server shuts down automatically on exit, removing the connection file
-- Connection file uses `0600` permissions on POSIX systems; default permissions
-  apply on Windows
-- Connection information is stored in `.agent_s3_ws_connection.json` at the root
+- Connection information is stored in `.agent_s3_http_connection.json` at the root
   of your workspace
 - Optional Copilot-style chat UI for input; terminal shows actual outputs
 - WebView panels for structured information display:

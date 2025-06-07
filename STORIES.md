@@ -29,7 +29,6 @@ Refer to these resources for a complete understanding of the project.
     *   It shows the terminal (`terminal.show()`).
     *   It sends the command `python -m agent_s3.cli /init` to the terminal (`terminal.sendText`).
     *   A notification "Initializing Agent-S3 workspace..." appears (`vscode.window.showInformationMessage`).
-    *   A timeout is set to update the internal `isInitialized` flag after a delay (this is a simple check, the CLI process confirms actual success).
 4.  **Backend CLI Action (`agent_s3/cli.py`):**
     *   The `main` function parses arguments and identifies the `/init` command.
     *   It calls `process_command`.
@@ -75,7 +74,6 @@ Refer to these resources for a complete understanding of the project.
 9.  **Initialization Complete:**
     *   The CLI prints a confirmation message.
     *   The `Coordinator` finishes.
-    *   The VS Code extension's `isInitialized` flag (set via timeout earlier) allows subsequent commands.
 
 **Outcome:** Agent-S3 is ready to use in the workspace. The user is authenticated with GitHub (if required), necessary configuration/guideline files are verified or created, and the tech stack is detected. Subsequent commands requiring GitHub access will use the stored token.
 
@@ -96,13 +94,12 @@ Refer to these resources for a complete understanding of the project.
     *   **CLI:** Open terminal, run `python -m agent_s3.cli "Your detailed change request here"`.
 2.  **VS Code Extension Action (`vscode/extension.ts` - for UI triggers):**
     *   The `makeChangeRequest` function (or the status bar command handler, or the chat message handler `panel.webview.onDidReceiveMessage`) is called.
-    *   It checks the `isInitialized` flag. If `false`, it prompts the user to initialize first (`vscode.window.showWarningMessage`, potentially calling `initializeWorkspace`).
     *   If triggered via Command Palette or Status Bar, it shows an input box (`vscode.window.showInputBox`) prompting "Enter your change request".
     *   It retrieves the dedicated "Agent-S3" terminal using `getAgentTerminal`.
     *   It shows the terminal (`terminal.show()`).
     *   It sends the developer's request (from input box or chat message) to the CLI, escaping quotes: `python -m agent_s3.cli "<user_request>"` (`terminal.sendText`).
     *   It shows an information notification: `Processing request: <user_request>` (`vscode.window.showInformationMessage`).
-    *   It opens a `BackendConnection` to get progress updates via HTTP API.
+    *   It uses `HttpClient` to send the command and polls the `/status` endpoint for progress updates.
 3.  **Backend CLI Action (`agent_s3/cli.py`):**
     *   The `main` function parses the command-line arguments, receiving the request text.
     *   It loads the configuration (`Config`).
@@ -163,7 +160,7 @@ Refer to these resources for a complete understanding of the project.
             *   Includes database schema metadata in PR descriptions when database changes are involved
         *   Clears the task state and reports completion.
 5.  **VS Code Monitoring (`vscode/extension.ts`):**
-    *   Progress updates are fetched through `BackendConnection` via HTTP API, eliminating the file watcher.
+    *   Progress updates are fetched via `HttpClient` using the `/status` endpoint, eliminating the file watcher.
     *   Updates the status bar with current phase and status.
     *   When a final state is reached, shows a notification with result summary.
     *   If a PR was created, includes the PR URL in the notification.
@@ -223,7 +220,7 @@ Refer to these resources for a complete understanding of the project.
     *   The CLI (`agent_s3/cli.py`) receives and processes the command or request exactly as described in Story 1 (for `/` commands like `/init`, `/help`, `/guidelines`) or Story 2 (for change requests).
     *   **Crucially, all interactive output from the backend (plans, persona debates, approval prompts, diffs, results) appears in the "Agent-S3" terminal, NOT directly in the chat UI bubbles.**
 10. **Chat UI Feedback via Streaming:**
-    *   Responses from the agent are fetched through `BackendConnection` as HTTP responses.
+    *   Responses from the agent are retrieved via `HttpClient` as HTTP responses.
     *   `ChatView` renders these messages progressively using its streaming handlers.
 
 **Outcome:** The user can initiate Agent-S3 commands and requests via the chat interface, and the conversation history is saved. However, the actual detailed interaction (planning, approvals, code diffs, results) occurs in the associated "Agent-S3" terminal, which the user needs to monitor.
