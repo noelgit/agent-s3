@@ -1300,3 +1300,103 @@ class Coordinator:
         if callable(parser):
             return parser(raw_output)
         return {"output": raw_output}
+
+    # ------------------------------------------------------------------
+    # Pull request helpers
+    # ------------------------------------------------------------------
+
+    def _create_pr_branch(self, branch_name: str, base_branch: str = "main") -> Dict[str, Any]:
+        """Create a new branch for the pull request."""
+        git_tool = self.coordinator_config.get_tool("git_tool")
+        if not git_tool:
+            raise RuntimeError("Git tool not available")
+
+        result = git_tool.create_branch(branch_name, source_branch=base_branch)
+        if not result.get("success"):
+            self.scratchpad.log("Coordinator", result.get("message", "Failed to create branch"), level=LogLevel.ERROR)
+            raise RuntimeError(result.get("message", "Failed to create branch"))
+        return result
+
+    def _stage_pr_changes(self, files: Optional[List[str]] = None) -> None:
+        """Stage changes for commit."""
+        git_tool = self.coordinator_config.get_tool("git_tool")
+        if not git_tool:
+            raise RuntimeError("Git tool not available")
+
+        if files:
+            file_list = " ".join([f'\"{f}\"' for f in files])
+            git_tool.run_git_command(f"add {file_list}")
+        else:
+            git_tool.run_git_command("add -A")
+
+    def _commit_pr_changes(self, commit_message: str) -> Dict[str, Any]:
+        """Commit staged changes."""
+        git_tool = self.coordinator_config.get_tool("git_tool")
+        if not git_tool:
+            raise RuntimeError("Git tool not available")
+
+        result = git_tool.commit_changes(commit_message, add_all=False)
+        if not result.get("success"):
+            self.scratchpad.log("Coordinator", result.get("message", "Failed to commit"), level=LogLevel.ERROR)
+            raise RuntimeError(result.get("message", "Failed to commit"))
+        return result
+
+    def _push_pr_branch(self, branch_name: str) -> Dict[str, Any]:
+        """Push the PR branch to the remote."""
+        git_tool = self.coordinator_config.get_tool("git_tool")
+        if not git_tool:
+            raise RuntimeError("Git tool not available")
+
+        result = git_tool.push_changes(branch_name, set_upstream=True)
+        if not result.get("success"):
+            self.scratchpad.log("Coordinator", result.get("message", "Failed to push"), level=LogLevel.ERROR)
+            raise RuntimeError(result.get("message", "Failed to push"))
+        return result
+
+    def _submit_pr(
+        self,
+        branch_name: str,
+        pr_title: str,
+        pr_body: str,
+        base_branch: str = "main",
+        draft: bool = False,
+    ) -> str:
+        """Create the pull request via GitHub API."""
+        git_tool = self.coordinator_config.get_tool("git_tool")
+        if not git_tool:
+            raise RuntimeError("Git tool not available")
+
+        pr_url = git_tool.create_pull_request(
+            pr_title,
+            pr_body,
+            head_branch=branch_name,
+            base_branch=base_branch,
+            draft=draft,
+        )
+        if not pr_url:
+            self.scratchpad.log("Coordinator", "Failed to create pull request", level=LogLevel.ERROR)
+            raise RuntimeError("Failed to create pull request")
+
+        self.scratchpad.log("Coordinator", f"Created PR: {pr_url}")
+        return pr_url
+
+    def _create_pr(
+        self,
+        changes: List[Dict[str, Any]],
+        pr_body: str,
+        branch_name: Optional[str] = None,
+        pr_title: Optional[str] = None,
+        base_branch: str = "main",
+        draft: bool = False,
+    ) -> str:
+        """High level helper to create a pull request from changes."""
+        if branch_name is None:
+            branch_name = f"agent-s3-pr-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        if pr_title is None:
+            pr_title = "Agent-S3 Automated PR"
+
+        self._create_pr_branch(branch_name, base_branch)
+        self._stage_pr_changes()
+        self._commit_pr_changes(pr_title)
+        self._push_pr_branch(branch_name)
+        return self._submit_pr(branch_name, pr_title, pr_body, base_branch, draft)
