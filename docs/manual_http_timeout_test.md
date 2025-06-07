@@ -12,5 +12,5 @@ This guide verifies that long-running HTTP commands are processed asynchronously
    - Open the command palette and run **Agent-S3: Make change request**.
    - Provide a complex request that will take additional processing time.
 4. Observe that the `/command` endpoint immediately returns a JSON object containing a `job_id`.
-5. The VS Code extension polls `GET /status/<job_id>` until the backend finishes processing.
-6. Once the job completes, the terminal output updates with the final result and no secondary CLI process is spawned.
+5. The extension waits for the HTTP response while showing progress in the terminal.
+6. When the server returns the result, it appears in the terminal output with no polling required.

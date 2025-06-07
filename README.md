@@ -125,13 +125,7 @@ pip check
 ## Core Features
 
 **Python Backend (`agent_s3`):**
-- Real-time communication between backend and VS Code extension via HTTP server with:
-  - Automatic reconnection and heartbeat monitoring
-  - Message type-based routing and handlers
-  - Fallback to CLI commands when HTTP server is unavailable
-  - Authentication and secure message passing
-  - 64&nbsp;KiB message size limit enforced server-side
-    (configurable via HTTP server settings)
+- Commands are sent via an HTTP server. The extension falls back to CLI when the server is unreachable.
 - Advanced context management with:
   - Context registry with multiple providers that can be registered and queried
   - Tool/manager registry for coordinator components (`agent_s3.coordinator.registry`)
@@ -247,12 +241,9 @@ See `docs/summarization.md` for details.
 - Command Palette integration: Initialize workspace, Make change request, Show help, Show config, Reload LLM config, Explain last LLM interaction, Open Chat Window
 - Status bar item (`$(sparkle) Agent-S3`) to start change requests
 - Dedicated terminal panel for backend interactions
-- Real-time status updates via HTTP API; `progress_log.jsonl` stores progress logs
-- The extension polls the `/status` endpoint until a command result is available
-- Server shuts down automatically on exit, removing the connection file
-- Connection file uses `0600` permissions on POSIX systems; default permissions
-  apply on Windows
-- Connection information is stored in `.agent_s3_ws_connection.json` at the root
+- Commands are sent over HTTP using the `/command` endpoint. The extension falls back to CLI when the server is unreachable.
+- Progress details are logged in `progress_log.jsonl` for troubleshooting.
+- Connection information is stored in `.agent_s3_http_connection.json` at the root
   of your workspace
 - Optional Copilot-style chat UI for input; terminal shows actual outputs
 - WebView panels for structured information display:
@@ -264,9 +255,9 @@ See `docs/summarization.md` for details.
 
 Agent-S3 features a real-time UI for chat and progress updates, powered by an HTTP-based architecture. See [docs/streaming_ui_implementation.md](docs/streaming_ui_implementation.md) for implementation details:
 
-- **HTTP Client/Server:** The backend and VS Code extension communicate via HTTP REST API, supporting command processing and status updates.
-- **Streaming Chat UI:** The `ChatView` React component in the extension displays real-time agent responses, partial message rendering, and thinking indicators.
-- **Backend Integration:** The extension currently polls `/status` for command results and reads `progress_log.jsonl` for progress details. Streaming updates will be added after Issue #2.
+- **HTTP Client/Server:** Commands are issued over HTTP via the `/command` endpoint. The extension falls back to CLI when requests fail.
+- **ChatView:** Displays command results returned by the HTTP API. Streaming hooks exist but are not yet active.
+- **Backend Integration:** Progress is logged to `progress_log.jsonl` for reference. Streaming updates will be added after Issue #2.
 - **Robust Error Handling:** Includes reconnection logic, buffering, and error logging for reliable user experience.
 - **Extensible Protocol:** The message protocol supports future UI features like syntax highlighting, progress bars, and operation cancellation.
 
