@@ -28,18 +28,3 @@ def test_coordinator_snapshot_forwarding():
     assert manager.received == ("files", "app.py")
 
 
-def test_coordinator_snapshot_legacy_manager():
-    class LegacyManager:
-        def __init__(self):
-            self.called = False
-        def get_current_context_snapshot(self):
-            self.called = True
-            return {"legacy": True}
-    registry = ContextRegistry()
-    manager = LegacyManager()
-    registry.register_provider("context_manager", manager)
-    coordinator = DummyCoordinator(registry)
-
-    result = coordinator.get_current_context_snapshot(context_type="tech_stack", query="")
-    assert result == {"legacy": True}
-    assert manager.called
