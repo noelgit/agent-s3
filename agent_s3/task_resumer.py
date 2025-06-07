@@ -85,6 +85,8 @@ class TaskResumer:
 
                 # Update progress
                 self.current_task_id = task_id
+                if hasattr(self.coordinator, "current_task_id"):
+                    self.coordinator.current_task_id = task_id
                 if self.progress_tracker:
                     self.progress_tracker.update_progress({
                         "phase": "resumption",
@@ -131,6 +133,8 @@ class TaskResumer:
             return False, "User declined to resume interrupted task."
 
         self.current_task_id = task_id
+        if hasattr(self.coordinator, "current_task_id"):
+            self.coordinator.current_task_id = task_id
         self._log(f"Auto-resuming interrupted task {task_id} from phase {phase}.")
 
         if self.progress_tracker:

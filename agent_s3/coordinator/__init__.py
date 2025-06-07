@@ -920,6 +920,9 @@ class Coordinator:
         if hasattr(self, "context_manager") and self.context_manager:
             self.context_manager.clear_context()
 
+        if not self.current_task_id:
+            self.current_task_id = self.task_state_manager.create_new_task_id()
+
         self.orchestrator.run_task(
             task,
             pre_planning_input,
