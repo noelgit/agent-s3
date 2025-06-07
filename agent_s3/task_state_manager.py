@@ -12,6 +12,8 @@ from typing import Dict, Any, List, Optional, Type, cast
 from datetime import datetime
 import stat
 
+from agent_s3.error_handler import ErrorHandler
+
 # Set up logging
 logger = logging.getLogger(__name__)
 
@@ -402,7 +404,7 @@ class PRCreationState(TaskState):
 class TaskStateManager:
     """Manages task state snapshots for resumption."""
 
-    def __init__(self, base_dir: str):
+    def __init__(self, base_dir: str, error_handler: Optional[ErrorHandler] = None):
         """Initialize the task state manager.
 
         Args:
@@ -417,6 +419,10 @@ class TaskStateManager:
             "execution": ExecutionState,
             "pr_creation": PRCreationState
         }
+
+        self.error_handler = error_handler or ErrorHandler(
+            component="TaskStateManager", logger=logger, reraise=False, default_phase="state"
+        )
 
         # Create the base directory if it doesn't exist
         os.makedirs(self.base_dir, exist_ok=True)
@@ -478,7 +484,12 @@ class TaskStateManager:
             logger.info("Saved task snapshot: %s", snapshot_file)
             return True
         except Exception as e:
-            logger.error("Error saving task snapshot: %s", e)
+            self.error_handler.handle_exception(
+                e,
+                operation="save_task_snapshot",
+                variables={"snapshot_file": snapshot_file},
+                reraise=False,
+            )
             return False
 
     def load_task_snapshot(self, task_id: str, phase: str) -> Optional[TaskState]:
@@ -512,11 +523,21 @@ class TaskStateManager:
 
             logger.info("Loaded task snapshot: %s", snapshot_file)
             return state
-        except json.JSONDecodeError:
-            logger.error("Invalid JSON in task snapshot: %s", snapshot_file)
+        except json.JSONDecodeError as e:
+            self.error_handler.handle_exception(
+                e,
+                operation="load_task_snapshot",
+                variables={"snapshot_file": snapshot_file},
+                reraise=False,
+            )
             return None
         except Exception as e:
-            logger.error("Error loading task snapshot: %s", e)
+            self.error_handler.handle_exception(
+                e,
+                operation="load_task_snapshot",
+                variables={"snapshot_file": snapshot_file},
+                reraise=False,
+            )
             return None
 
     def get_active_tasks(self) -> List[Dict[str, Any]]:
@@ -571,7 +592,11 @@ class TaskStateManager:
 
             return active_tasks
         except Exception as e:
-            logger.error("Error getting active tasks: %s", e)
+            self.error_handler.handle_exception(
+                e,
+                operation="get_active_tasks",
+                reraise=False,
+            )
             return []
 
     def delete_task(self, task_id: str) -> bool:
@@ -600,7 +625,12 @@ class TaskStateManager:
             logger.info("Deleted task: %s", task_id)
             return True
         except Exception as e:
-            logger.error("Error deleting task: %s", e)
+            self.error_handler.handle_exception(
+                e,
+                operation="delete_task",
+                variables={"task_id": task_id},
+                reraise=False,
+            )
             return False
 
     def clear_state(self, task_id: str) -> bool:
@@ -651,7 +681,11 @@ class TaskStateManager:
                     )
                     self.delete_task(task_id)
         except Exception as e:
-            logger.error("Error cleaning up old snapshots: %s", e)
+            self.error_handler.handle_exception(
+                e,
+                operation="_cleanup_old_snapshots",
+                reraise=False,
+            )
 
     def recover_from_corrupted_snapshot(self, task_id: str, phase: str) -> Optional[TaskState]:
         """Attempt to recover from a corrupted snapshot.
@@ -738,10 +772,18 @@ class TaskStateManager:
                         )
                         return prev_state
 
-            logger.error(
-                "Failed to recover task snapshot: %s", snapshot_file
+            self.error_handler.handle_exception(
+                Exception(f"Failed to recover task snapshot: {snapshot_file}"),
+                operation="recover_from_corrupted_snapshot",
+                variables={"snapshot_file": snapshot_file},
+                reraise=False,
             )
             return None
         except Exception as e:
-            logger.error("Error recovering task snapshot: %s", e)
+            self.error_handler.handle_exception(
+                e,
+                operation="recover_from_corrupted_snapshot",
+                variables={"snapshot_file": snapshot_file},
+                reraise=False,
+            )
             return None
