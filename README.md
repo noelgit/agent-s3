@@ -200,6 +200,7 @@ pip check
   - Context-aware error resolution with historical reasoning extraction
   - Requests engineer guidance if automated debugging fails after repeated attempts
   - See [docs/debugging_and_error_handling.md](docs/debugging_and_error_handling.md) for details
+- For details on the unified context management system, see [docs/context_management.md](docs/context_management.md)
 - Comprehensive test framework:
   - TestCritic for analyzing test quality and coverage (`agent_s3.tools.test_critic`)
   - TestFrameworks for framework-agnostic test generation (`agent_s3.tools.test_frameworks`)
