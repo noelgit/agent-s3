@@ -3,6 +3,7 @@
 
 import json
 import logging
+import os
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
@@ -233,8 +234,18 @@ class EnhancedHTTPServer:
                 "base_url": f"http://{self.host}:{self.port}",
             }
 
-            with open(".agent_s3_http_connection.json", "w") as f:
+            connection_file = ".agent_s3_http_connection.json"
+            with open(connection_file, "w") as f:
                 json.dump(connection_info, f)
+
+            # Set restrictive permissions on non-Windows systems
+            if os.name != "nt":
+                try:
+                    os.chmod(connection_file, 0o600)
+                except OSError:
+                    logger.warning(
+                        "Unable to set permissions on %s", connection_file, exc_info=True
+                    )
 
             logger.info(f"HTTP server started on http://{self.host}:{self.port}")
             logger.info(
