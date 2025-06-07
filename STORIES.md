@@ -99,7 +99,7 @@ Refer to these resources for a complete understanding of the project.
     *   It shows the terminal (`terminal.show()`).
     *   It sends the developer's request (from input box or chat message) to the CLI, escaping quotes: `python -m agent_s3.cli "<user_request>"` (`terminal.sendText`).
     *   It shows an information notification: `Processing request: <user_request>` (`vscode.window.showInformationMessage`).
-    *   It uses `HttpClient` to send the command to `POST /command` and streams progress updates directly from the response.
+    *   It uses `HttpClient` to send the command to `POST /command`. Progress details are written to `progress_log.jsonl`.
 3.  **Backend CLI Action (`agent_s3/cli.py`):**
     *   The `main` function parses the command-line arguments, receiving the request text.
     *   It loads the configuration (`Config`).
@@ -160,7 +160,7 @@ Refer to these resources for a complete understanding of the project.
             *   Includes database schema metadata in PR descriptions when database changes are involved
         *   Clears the task state and reports completion.
 5.  **VS Code Monitoring (`vscode/extension.ts`):**
-     *   Progress updates stream directly from the backend, so no `/status` polling is required.
+     *   The extension reads progress updates from `progress_log.jsonl`; no `/status` polling is required.
     *   Updates the status bar with current phase and status.
     *   When a final state is reached, shows a notification with result summary.
     *   If a PR was created, includes the PR URL in the notification.
@@ -219,9 +219,9 @@ Refer to these resources for a complete understanding of the project.
 9.  **Backend Processing:**
     *   The CLI (`agent_s3/cli.py`) receives and processes the command or request exactly as described in Story 1 (for `/` commands like `/init`, `/help`, `/guidelines`) or Story 2 (for change requests).
     *   **Crucially, all interactive output from the backend (plans, persona debates, approval prompts, diffs, results) appears in the "Agent-S3" terminal, NOT directly in the chat UI bubbles.**
-10. **Chat UI Feedback via Streaming:**
-    *   Responses from the agent are retrieved via `HttpClient` as HTTP responses.
-    *   `ChatView` renders these messages progressively using its streaming handlers.
+10. **Chat UI Feedback:**
+    *   Responses from the agent are retrieved via `HttpClient` as standard HTTP responses.
+    *   `ChatView` displays these messages once the command completes.
 
 **Outcome:** The user can initiate Agent-S3 commands and requests via the chat interface, and the conversation history is saved. However, the actual detailed interaction (planning, approvals, code diffs, results) occurs in the associated "Agent-S3" terminal, which the user needs to monitor.
 

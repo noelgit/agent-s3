@@ -251,17 +251,6 @@ See `docs/summarization.md` for details.
   - Diff visualization
   - Design documentation
 
-## Streaming UI
-
-Agent-S3 features a real-time UI for chat and progress updates, powered by an HTTP-based architecture. See [docs/streaming_ui_implementation.md](docs/streaming_ui_implementation.md) for implementation details:
-
-- **HTTP Client/Server:** The backend and VS Code extension communicate via HTTP REST API, supporting command processing and status updates.
-- **Streaming Chat UI:** The `ChatView` React component in the extension displays real-time agent responses, partial message rendering, and thinking indicators.
-  - **Backend Integration:** The extension sends commands to `POST /command` and receives streaming responses. Progress logs are kept in `progress_log.jsonl` for reference.
-- **Robust Error Handling:** Includes reconnection logic, buffering, and error logging for reliable user experience.
-- **Extensible Protocol:** The message protocol supports future UI features like syntax highlighting, progress bars, and operation cancellation.
-
-This architecture enables a Copilot-like, interactive experience with immediate feedback and smooth agent interaction.
 
 ## Prerequisites
 
