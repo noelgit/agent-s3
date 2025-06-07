@@ -327,9 +327,16 @@ parser.set_language(python_grammar)
 
 ### Testing
 
+Install the required dependencies before running the test suite:
+
+```bash
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+```
+
 To verify the parser implementations are working correctly:
 
-```zsh
+```bash
 pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
 ```
 
@@ -356,6 +363,8 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
    ```bash
    pip install -e .
    pip install -r requirements.txt
+   # Optional: install tokenizer extras (provides tiktoken)
+   pip install '.[tokenizers]'
    # Install development tools for linting, type checking and tests
    pip install -r requirements-dev.txt
    ```
