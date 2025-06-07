@@ -36,7 +36,7 @@ This document describes the implementation of HTTP-based communication for Agent
    - Integrated HTTP client with VS Code extension API
    - Command processing through HTTP endpoints
   - Progress tracking written to `progress_log.jsonl`; no `/status` endpoint
-  - Commands execute synchronously; there is no async job mode
+  - Commands execute synchronously; the `/command` endpoint only returns immediate results and the `"async"` option is deprecated
 
 ## Communication Flow
 
@@ -78,7 +78,7 @@ Returns the same help text as `python -m agent_s3.cli /help`.
 ```
 
 ### POST /command
-Processes Agent-S3 commands.
+Processes Agent-S3 commands. The endpoint returns immediate results; asynchronous execution via an `"async"` flag is deprecated.
 
 **Request:**
 ```json
@@ -93,6 +93,7 @@ Processes Agent-S3 commands.
   "result": "Command output here"
 }
 ```
+The response contains only the final command output. Progress updates are available in `progress_log.jsonl`.
 ## File Structure
 
 ### Backend Files
