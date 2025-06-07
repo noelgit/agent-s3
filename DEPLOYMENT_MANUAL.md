@@ -33,94 +33,11 @@ The Agent-S3 system consists of:
 
 ## Phase 1: Development Environment Setup
 
-### 1.1 Clone and Verify Repository
-
-```bash
-# Clone the repository
-git clone https://github.com/agent-s3/agent-s3.git
-cd agent-s3
-
-# Verify directory structure
-ls -la
-```
-
-Expected structure:
-```
-agent_s3/           # Core Python package
-vscode/             # VS Code extension
-docs/               # Documentation
-tests/              # Test suites
-requirements.txt    # Python dependencies
-pyproject.toml      # Python package configuration
-package.json        # Node.js dependencies
-```
-
-### 1.2 Python Environment Setup
-
-```bash
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-# On macOS/Linux:
-source venv/bin/activate
-# On Windows:
-# venv\Scripts\activate
-
-# Upgrade pip
-pip install --upgrade pip
-
-# Install development dependencies
-pip install -r requirements.txt
-
-# Install build tools
-pip install build twine
-
-# Install package in development mode
-pip install -e .
-```
-
-### 1.3 Node.js Environment Setup
-
-```bash
-# Install main project dependencies
-npm install
-
-# Install VS Code extension dependencies
-cd vscode
-npm install
-
-# Install VS Code Extension CLI (vsce) globally
-npm install -g @vscode/vsce
-
-# Install webview UI dependencies
-cd webview-ui
-npm install
-cd ../..
-```
-
-### 1.4 Verify Installation
-
-```bash
-# Validate Python dependencies
-python validate_dependencies.py
-
-# Check for any missing dependencies
-pip check
-
-# Validate Pydantic v2 compatibility
-python -c "
-import pydantic
-print(f'Pydantic version: {pydantic.__version__}')
-assert pydantic.__version__.startswith('2.'), 'Pydantic v2 required'
-print('✅ Pydantic v2 validation passed')
-"
-
-# Verify Node.js dependencies  
-npm audit
-cd vscode && npm audit && cd ..
-cd vscode/webview-ui && npm audit && cd ../..
-```
+Development setup instructions are covered in the
+[Development Guidelines](docs/development_guidelines.md). Follow those steps to
+clone the repository, install Python and Node.js dependencies, and run the basic
+build and test commands. Once your environment is ready, continue with the
+deployment steps below.
 
 ## Phase 2: Building Components
 
@@ -211,50 +128,9 @@ cd ../..
 
 ## Phase 3: Testing and Validation
 
-### 3.1 Python Package Testing
-
-```bash
-# Install test dependencies if not already installed
-pip install pytest
-
-# Ensure package is installed in development mode
-pip install -e .
-
-# Run unit tests (some import issues may occur with full test suite)
-python -m pytest tests/ -v
-
-# Alternative: Run individual test files to avoid collection conflicts
-python -m pytest tests/test_config_pydantic.py -v
-python -m pytest tests/test_code_generator.py -v
-python -m pytest tests/test_file_tool_paths.py -v
-
-# Run specific test suites
-python -m pytest tests/test_deployment_manager.py -v
-python -m pytest tests/test_coordinator_*.py -v
-
-
-# Check code coverage
-python -m pytest --cov=agent_s3 tests/
-```
-
-### 3.2 VS Code Extension Testing
-
-```bash
-cd vscode
-
-# Run TypeScript compilation check
-npm run typecheck
-
-# Run linting
-npm run lint
-
-# Fix linting issues if any
-npm run lint:fix
-
-# Test extension loading
-code --install-extension agent-s3-0.1.0.vsix
-cd ..
-```
+General testing and linting instructions are provided in the
+[Development Guidelines](docs/development_guidelines.md). After running the
+recommended test suite and linters, perform the deployment-specific checks below.
 
 ### 3.3 End-to-End Testing
 
@@ -922,26 +798,15 @@ journalctl -u agent-s3 -f
 
 **Issue: Python dependencies conflict**
 ```bash
-# Create fresh virtual environment
-python -m venv fresh_venv
-source fresh_venv/bin/activate
-pip install agent-s3
+# If dependency issues occur, recreate your environment following the
+# instructions in docs/development_guidelines.md and reinstall Agent-S3.
 ```
 
 **Issue: Pydantic v2 compatibility errors**
 ```bash
-# Check Pydantic version
+# Ensure your environment uses Pydantic v2 as described in
+# docs/development_guidelines.md.
 python -c "import pydantic; print(pydantic.__version__)"
-
-# If v1 is installed, upgrade
-pip install --upgrade "pydantic>=2.0.0"
-
-# Verify configuration model validation
-python -c "
-from agent_s3.config import ConfigModel
-config = ConfigModel()
-print('✅ Configuration model validation passed')
-"
 ```
 
 **Issue: Adaptive configuration not initializing**
@@ -1120,26 +985,10 @@ cat .agent_s3_http_connection.json
 **Issue: Import errors during startup**
 ```bash
 # Symptom: ModuleNotFoundError or ImportError during startup
-# Solution: Install package in editable mode
-
-# Reinstall in development mode
-pip uninstall agent-s3 -y
-pip install -e .
-
-# Verify installation
-python -c "
-from agent_s3.config import Config
-from agent_s3.coordinator import Coordinator
-print('✅ Core imports successful')
-"
-
-# Test configuration loading
-python -c "
-from agent_s3.config import Config
-config = Config()
-config.load()
-print('✅ Configuration loads successfully')
-"
+# Reinstall the package in editable mode as described in
+# docs/development_guidelines.md and verify imports:
+python -c "from agent_s3.config import Config; from agent_s3.coordinator import Coordinator; print('✅ Core imports successful')"
+python -c "from agent_s3.config import Config; Config().load(); print('✅ Configuration loads successfully')"
 ```
 
 **Issue: Tech stack detection subprocess errors**
