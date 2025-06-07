@@ -28,7 +28,7 @@ def generate_plan_via_workflow(
     # Use enhanced context management if available
     context = None
     try:
-        # Use consolidated context manager directly (context_bridge removed)
+        # Retrieve context if the coordinator provides a context manager
         if hasattr(coordinator, "context_manager") and coordinator.context_manager:
             # Use consolidated context manager with planning-specific gathering
             context = coordinator.context_manager.gather_context(
