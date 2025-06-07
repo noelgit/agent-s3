@@ -40,6 +40,9 @@ class WorkflowOrchestrator:
         self.coordinator = coordinator
         self.registry = registry
 
+        self._last_pr_title: Optional[str] = None
+        self._last_pr_body: Optional[str] = None
+
         # Context management handled directly through coordinator
 
         # Workflow control state
@@ -538,6 +541,20 @@ class WorkflowOrchestrator:
         self.coordinator.progress_tracker.update_progress(
             {"phase": "feature_group_processing", "status": "completed"}
         )
+
+        try:
+            from ..task_state_manager import PlanningState
+
+            state = PlanningState(
+                self.coordinator.current_task_id,
+                request_text=task,
+                code_context={},
+                tech_stack=getattr(self.coordinator, "tech_stack", {}),
+            )
+            state.plan = {"plans": plans}
+            self.coordinator.task_state_manager.save_task_snapshot(state)
+        except Exception:
+            pass
         return plans
 
     def _implementation_workflow(
@@ -576,6 +593,24 @@ class WorkflowOrchestrator:
                     plan, tech_stack=self.coordinator.tech_stack
                 )
 
+                try:
+                    from ..task_state_manager import CodeGenerationState
+
+                    cg_state = CodeGenerationState(
+                        self.coordinator.current_task_id,
+                        plan,
+                        getattr(self.coordinator, "_current_github_issue_url", None),
+                        {},
+                        getattr(self.coordinator, "tech_stack", {}),
+                    )
+                    cg_state.generated_changes = [
+                        {"path": p, "content": c} for p, c in changes.items()
+                    ]
+                    cg_state.current_iteration = attempt
+                    self.coordinator.task_state_manager.save_task_snapshot(cg_state)
+                except Exception:
+                    pass
+
                 if not self._apply_changes_and_manage_dependencies(changes):
                     if stash_created and git_tool:
                         git_tool.run_git_command("stash pop --index")
@@ -588,6 +623,22 @@ class WorkflowOrchestrator:
                     break
 
                 validation = self._run_validation_phase()
+
+                try:
+                    from ..task_state_manager import ExecutionState
+
+                    exec_state = ExecutionState(
+                        self.coordinator.current_task_id,
+                        [
+                            {"path": p, "content": c} for p, c in changes.items()
+                        ],
+                        attempt,
+                        validation,
+                    )
+                    exec_state.is_applied = validation.get("success", False)
+                    self.coordinator.task_state_manager.save_task_snapshot(exec_state)
+                except Exception:
+                    pass
 
                 if validation.get("success"):
                     all_changes.update(changes)
@@ -854,7 +905,23 @@ class WorkflowOrchestrator:
         self.coordinator.scratchpad.log("Coordinator", "Task completed successfully")
 
         # GitHub Integration: Create PR from successful implementation
-        self._create_github_pr_for_implementation(changes)
+        pr_url = self._create_github_pr_for_implementation(changes)
+
+        try:
+            from ..task_state_manager import PRCreationState
+
+            pr_state = PRCreationState(
+                self.coordinator.current_task_id,
+                branch_name="",  # branch unknown in simplified workflow
+                pr_title=self._last_pr_title or "",
+                pr_body=self._last_pr_body or "",
+                issue_url=getattr(self.coordinator, "_current_github_issue_url", None),
+            )
+            pr_state.pr_url = pr_url
+            pr_state.is_created = pr_url is not None
+            self.coordinator.task_state_manager.save_task_snapshot(pr_state)
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # GitHub Integration Methods
@@ -893,12 +960,12 @@ class WorkflowOrchestrator:
                 "GitHub", f"Issue creation failed: {str(e)}"
             )
 
-    def _create_github_pr_for_implementation(self, changes: Dict[str, str]) -> None:
+    def _create_github_pr_for_implementation(self, changes: Dict[str, str]) -> Optional[str]:
         """Create GitHub PR from successful implementation using existing GitTool."""
         try:
             git_tool = self.registry.get_tool("git_tool")
             if not git_tool or not git_tool.github_token:
-                return
+                return None
 
             # Generate PR content
             pr_title = self._generate_pr_title(changes)
@@ -909,13 +976,17 @@ class WorkflowOrchestrator:
                 title=pr_title, body=pr_body, draft=False
             )
 
+            self._last_pr_title = pr_title
+            self._last_pr_body = pr_body
+
             if pr_url:
                 self.coordinator.scratchpad.log("GitHub", f"Created PR: {pr_url}")
+            return pr_url
 
         except Exception as e:
             # Silent failure - log but don't interrupt workflow
             self.coordinator.scratchpad.log("GitHub", f"PR creation failed: {str(e)}")
-
+            return None
     def _generate_issue_title(self, task_description: str, plan: Dict[str, Any]) -> str:
         """Generate descriptive issue title."""
         group_name = plan.get("group_name", "")
