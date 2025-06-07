@@ -3,7 +3,7 @@
 import pytest
 import sys
 from types import ModuleType
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, ANY
 
 from agent_s3.command_processor import CommandProcessor
 
@@ -290,4 +290,32 @@ class TestCommandProcessor:
         mock_coordinator.execute_design_auto.assert_called_once_with("build api")
         assert success
         assert "Design process completed successfully" in result
+
+    def test_execute_design_auto_command_failure(self, command_processor, mock_coordinator):
+        mock_coordinator.execute_design_auto.return_value = {
+            "success": False,
+            "error": "plan failed",
+        }
+
+        result, success = command_processor.execute_design_auto_command("build api")
+
+        mock_coordinator.execute_design_auto.assert_called_once_with("build api")
+        assert not success
+        assert "Design process failed: plan failed" in result
+
+    def test_execute_design_auto_command_unavailable_updates_progress(self, command_processor, mock_coordinator):
+        """Ensure progress is updated when automated design is unavailable."""
+        if hasattr(mock_coordinator, "execute_design_auto"):
+            delattr(mock_coordinator, "execute_design_auto")
+
+        result, success = command_processor.execute_design_auto_command("build api")
+
+        mock_coordinator.progress_tracker.update_progress.assert_called_once_with({
+            "phase": "design-auto",
+            "status": "failed",
+            "error": "feature unavailable",
+            "timestamp": ANY,
+        })
+        assert not success
+        assert result == "Automated design not available in this workspace."
 

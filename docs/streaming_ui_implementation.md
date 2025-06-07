@@ -18,8 +18,8 @@ This document describes the implementation of HTTP-based communication for Agent
    - Response formatting for HTTP
 
 3. **Progress Tracking**
-   - File-based progress logging
-   - HTTP endpoint for progress queries
+   - File-based progress logging to `progress_log.jsonl`
+   - VS Code reads this log for updates
 
 4. **Coordinator Integration**
    - Modified to use HTTP server instead of WebSocket
@@ -35,8 +35,7 @@ This document describes the implementation of HTTP-based communication for Agent
 2. **VS Code Extension**
    - Integrated HTTP client with VS Code extension API
    - Command processing through HTTP endpoints
-   - Progress tracking via the `/status` endpoint and `progress_log.jsonl`
-     (polled until streaming support lands in Issue #2)
+  - Progress tracking written to `progress_log.jsonl`; no `/status` endpoint
 
 ## Communication Flow
 
@@ -52,7 +51,7 @@ VS Code Extension -> HTTP GET /health -> {"status": "ok"} -> Connection Status
 
 ### Progress Updates
 ```
-Backend -> `progress_log.jsonl` -> VS Code Extension polls `/status` -> UI Updates
+Backend -> `progress_log.jsonl` -> VS Code Extension reads log -> UI Updates
 ```
 
 ## API Endpoints
@@ -93,19 +92,6 @@ Processes Agent-S3 commands.
   "result": "Command output here"
 }
 ```
-### GET /status
-Returns the result of the last command. The extension polls this endpoint until a result is available. The server clears the stored result after it is retrieved.
-
-**Response:**
-```json
-{
-  "result": "Command output here",
-  "output": "",
-  "success": true
-}
-```
-
-
 ## File Structure
 
 ### Backend Files
