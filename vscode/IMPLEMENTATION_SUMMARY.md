@@ -104,7 +104,7 @@
 ### **Local Testing:**
 ```bash
 # Test default configuration (should use local CLI)
-# Commands: /help, /status in chat
+# Commands: /help, /config in chat
 
 # Test with local HTTP server
 python -m agent_s3.communication.http_server --host localhost --port 8081

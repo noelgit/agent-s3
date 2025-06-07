@@ -241,8 +241,8 @@ See `docs/summarization.md` for details.
 - Command Palette integration: Initialize workspace, Make change request, Show help, Show config, Reload LLM config, Explain last LLM interaction, Open Chat Window
 - Status bar item (`$(sparkle) Agent-S3`) to start change requests
 - Dedicated terminal panel for backend interactions
-- Real-time status updates via HTTP API; `progress_log.jsonl` stores progress logs
-- The extension polls the `/status` endpoint until a command result is available
+  - Real-time status updates via HTTP API; progress is written to `progress_log.jsonl`
+  - Command results are returned directly from `POST /command`; no `/status` endpoint
 - Connection information is stored in `.agent_s3_http_connection.json` at the root
   of your workspace
 - Optional Copilot-style chat UI for input; terminal shows actual outputs
@@ -257,7 +257,7 @@ Agent-S3 features a real-time UI for chat and progress updates, powered by an HT
 
 - **HTTP Client/Server:** The backend and VS Code extension communicate via HTTP REST API, supporting command processing and status updates.
 - **Streaming Chat UI:** The `ChatView` React component in the extension displays real-time agent responses, partial message rendering, and thinking indicators.
-- **Backend Integration:** The extension currently polls `/status` for command results and reads `progress_log.jsonl` for progress details. Streaming updates will be added after Issue #2.
+  - **Backend Integration:** The extension reads `progress_log.jsonl` for progress details and receives command results directly from `POST /command`. Streaming updates will be added after Issue #2.
 - **Robust Error Handling:** Includes reconnection logic, buffering, and error logging for reliable user experience.
 - **Extensible Protocol:** The message protocol supports future UI features like syntax highlighting, progress bars, and operation cancellation.
 
@@ -385,6 +385,7 @@ pytest tests/tools/parsing/ --maxfail=3 --disable-warnings -q
   - `pre_planning_mode` selects `off`, `json`, or `enforced_json` workflow. See `docs/pre_planning_workflow.md` for details.
   - HTTP server settings for request/response handling
   - `AGENT_S3_HTTP_TIMEOUT` (optional, defaults to `5000`) timeout in milliseconds before the VS Code extension falls back to CLI mode (see `docs/manual_http_timeout_test.md` for a verification procedure)
+  - `AGENT_S3_AUTH_TOKEN` (optional) require `Authorization: Bearer <token>` on HTTP requests; may also be set in `config.json` under `http.auth_token`
   - `TEST_WS_TOKEN` (optional, defaults to `"replace-me"`)
     authentication token for `simple-test-server.js`
   - `MAX_DESIGN_PATTERNS` (optional, defaults to `3`)
