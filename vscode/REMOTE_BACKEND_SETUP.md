@@ -244,8 +244,7 @@ This ensures commands continue working even with connectivity issues.
 The remote backend exposes the following endpoints:
 
 - `POST /command` - Execute Agent-S3 commands
-- `GET /status` - Check server status
-- `POST /health` - Health check endpoint
+- `GET /health` - Server health check
 
 ### Request Format
 
