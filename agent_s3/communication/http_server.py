@@ -8,7 +8,6 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from urllib.parse import urlparse
-from uuid import uuid4
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
@@ -17,12 +16,10 @@ logger = logging.getLogger(__name__)
 class Agent3HTTPHandler(BaseHTTPRequestHandler):
     """HTTP request handler for Agent-S3."""
 
-    def __init__(self, *args, coordinator=None, allowed_origins=None, jobs=None, job_lock=None, auth_token=None, **kwargs):
+    def __init__(self, *args, coordinator=None, allowed_origins=None, auth_token=None, **kwargs):
         self.coordinator = coordinator
         # Default to allow any origin for backward compatibility
         self.allowed_origins = allowed_origins or ["*"]
-        self.jobs = jobs if jobs is not None else {}
-        self.job_lock = job_lock or threading.Lock()
         self.auth_token = auth_token
         super().__init__(*args, **kwargs)
 
@@ -55,12 +52,6 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
         else:
             self.send_error(404)
 
-    def _run_async_job(self, job_id: str, command: str) -> None:
-        """Execute a command asynchronously and store the result."""
-        result = self.execute_command(command)
-        with self.job_lock:
-            self.jobs[job_id] = result
-
     def do_POST(self) -> None:
         """Handle POST requests."""
         if not self._authorized():
@@ -73,17 +64,8 @@ class Agent3HTTPHandler(BaseHTTPRequestHandler):
             try:
                 data = json.loads(post_data.decode("utf-8"))
                 command = data.get("command", "")
-                if data.get("async"):
-                    job_id = str(uuid4())
-                    threading.Thread(
-                        target=self._run_async_job,
-                        args=(job_id, command),
-                        daemon=True,
-                    ).start()
-                    self.send_json({"job_id": job_id})
-                else:
-                    result = self.execute_command(command)
-                    self.send_json(result)
+                result = self.execute_command(command)
+                self.send_json(result)
             except Exception as e:
                 logger.error(f"Error processing command: {e}", exc_info=True)
                 self.send_json({"error": str(e)}, status=500)
@@ -203,8 +185,6 @@ class EnhancedHTTPServer:
         self.coordinator = coordinator
         self.allowed_origins = allowed_origins or ["*"]
         self.auth_token = auth_token
-        self.jobs: Dict[str, Dict[str, Any]] = {}
-        self.job_lock = threading.Lock()
         self.server: Optional[HTTPServer] = None
         self.server_thread: Optional[threading.Thread] = None
         self.running = False
@@ -213,8 +193,6 @@ class EnhancedHTTPServer:
         """Create handler class with coordinator reference."""
         coordinator = self.coordinator
         allowed_origins = self.allowed_origins
-        jobs = self.jobs
-        job_lock = self.job_lock
         auth_token = self.auth_token
 
         class BoundHandler(Agent3HTTPHandler):
@@ -223,8 +201,6 @@ class EnhancedHTTPServer:
                     *args,
                     coordinator=coordinator,
                     allowed_origins=allowed_origins,
-                    jobs=jobs,
-                    job_lock=job_lock,
                     auth_token=auth_token,
                     **kwargs,
                 )

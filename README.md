@@ -243,6 +243,7 @@ See `docs/summarization.md` for details.
 - Dedicated terminal panel for backend interactions
   - Real-time status updates via HTTP API; progress is logged to `progress_log.jsonl`
   - Command results are returned directly from `POST /command`; no `/status` endpoint
+  - Commands run synchronously; there is no asynchronous job API
 - Connection information is stored in `.agent_s3_http_connection.json` at the root
   of your workspace
 - Optional Copilot-style chat UI for input; terminal shows actual outputs
