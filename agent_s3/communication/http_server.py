@@ -4,6 +4,7 @@
 import json
 import logging
 import os
+import socket
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
@@ -11,6 +12,31 @@ from urllib.parse import urlparse
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
+
+
+def find_available_port(start_port: int = 8081, max_attempts: int = 10) -> int:
+    """Find an available port starting from start_port.
+
+    Args:
+        start_port: The port to start searching from
+        max_attempts: Maximum number of ports to try
+
+    Returns:
+        An available port number
+
+    Raises:
+        OSError: If no available port is found
+    """
+    for port in range(start_port, start_port + max_attempts):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(("localhost", port))
+                return port
+        except OSError:
+            continue
+    raise OSError(
+        f"No available port found in range {start_port}-{start_port + max_attempts - 1}"
+    )
 
 
 class Agent3HTTPHandler(BaseHTTPRequestHandler):
@@ -212,6 +238,14 @@ class EnhancedHTTPServer:
         if self.running:
             logger.warning("HTTP server is already running")
             return self.server_thread
+
+        # Find an available port if the specified one is not
+        # available, up to 10 attempts
+        try:
+            self.port = find_available_port(self.port, 10)
+        except OSError as e:
+            logger.error(f"Failed to find available port: {e}", exc_info=True)
+            return None
 
         self.server_thread = threading.Thread(target=self._run_server, daemon=True)
         self.server_thread.start()

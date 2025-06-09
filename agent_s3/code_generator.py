@@ -21,7 +21,7 @@ class CodeGenerator:
         self.scratchpad = coordinator.scratchpad
         self.debugging_manager = getattr(coordinator, "debugging_manager", None)
         self.llm = getattr(coordinator, "llm", None)
-        self.context_manager = ContextManager(coordinator)
+        self.context_manager = ContextManager(coordinator=coordinator)
         self.validator = CodeValidator(coordinator)
         self.debug_utils = DebugUtils(self.debugging_manager, self.scratchpad)
         self.max_validation_attempts = 3
@@ -158,6 +158,7 @@ class CodeGenerator:
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             config=call_config,
+            scratchpad=self.scratchpad,  # Add the missing scratchpad parameter
         )
         generated_code = self._extract_code_from_response(response, file_path)
         if not generated_code:
@@ -267,6 +268,7 @@ class CodeGenerator:
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             config=call_config,
+            scratchpad=self.scratchpad,  # Add the missing scratchpad parameter
         )
         refined_code = self._extract_code_from_response(response, file_path)
         if not refined_code or len(refined_code.strip()) < 10:

@@ -51,6 +51,11 @@ class SummaryRefiner:
             The LLM generated summary or an empty string if the call fails.
         """
         try:
+            # Create a no-op scratchpad for this call
+            class _NoOpScratchpad:
+                def log(self, *_args, **_kwargs):
+                    pass
+            
             response = self.router_agent.call_llm_by_role(
                 role="summarizer",
                 system_prompt=(
@@ -58,6 +63,7 @@ class SummaryRefiner:
                     "Return only the improved summary."
                 ),
                 user_prompt=prompt,
+                scratchpad=_NoOpScratchpad(),  # Add the missing scratchpad parameter
             )
             return response or ""
         except Exception:

@@ -803,7 +803,13 @@ class RouterAgent:
         # Add more key types here
 
         if not api_key_name or not config.get(api_key_name):
-            raise ValueError(f"API key ({api_key_name or 'specified in auth_header'}) not found in configuration for model {model_name}")
+            error_msg = f"API key ({api_key_name or 'specified in auth_header'}) not found in configuration for model {model_name}"
+            if api_key_name == "openrouter_key":
+                error_msg += "\n💡 Please set OPENROUTER_KEY in your .env file. Get your API key from: https://openrouter.ai/keys"
+            elif api_key_name == "openai_key":
+                error_msg += "\n💡 Please set OPENAI_API_KEY in your .env file. Get your API key from: https://platform.openai.com/api-keys"
+            scratchpad.log("RouterAgent", error_msg, level="error")
+            raise ValueError(error_msg)
 
         api_key = config[api_key_name]
         auth_header_value = auth_header_template.replace(f"${api_key_name.upper()}", api_key)

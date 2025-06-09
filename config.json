@@ -3,7 +3,6 @@
   "task_state_directory": "./task_snapshots",
   "sandbox_environment": false,
   "host_os_type": "linux",
-  "OPENROUTER_API_KEY": "your-openrouter-api-key-here",
   "context_management": {
     "optimization_interval": 60,
     "compression_threshold": 1000,

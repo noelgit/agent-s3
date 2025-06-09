@@ -26,10 +26,17 @@ class SummaryRefinementManager:
             attempts += 1
             system_prompt = self._create_system_prompt(language)
             user_prompt = self._create_refinement_prompt(source, current_summary, current_validation, language)
+            
+            # Create a no-op scratchpad for this call
+            class _NoOpScratchpad:
+                def log(self, *_args, **_kwargs):
+                    pass
+            
             refined_summary = self.router_agent.call_llm_by_role(
                 role="summarizer",
                 system_prompt=system_prompt,
-                user_prompt=user_prompt
+                user_prompt=user_prompt,
+                scratchpad=_NoOpScratchpad(),  # Add the missing scratchpad parameter
             )
             current_validation = self.validator.validate(source, refined_summary, language)
             current_summary = refined_summary

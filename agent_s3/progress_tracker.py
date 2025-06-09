@@ -152,8 +152,9 @@ class ProgressTracker:
             self.progress_logger.info(json_line)
 
             # Also log human-readable message for debugging
+            status_name = entry.status.name if hasattr(entry.status, 'name') else str(entry.status)
             self.logger.info(
-                f"Progress: {entry.phase} - {entry.status.name} - {entry.details or ''}"
+                f"Progress: {entry.phase} - {status_name} - {entry.details or ''}"
             )
 
             return True

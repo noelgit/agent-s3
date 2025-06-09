@@ -50,12 +50,18 @@ def call_llm_with_retry(
     safe_max = max(config.get("max_tokens", 0) - prompt_tokens, 0)
     config = {**config, "max_tokens": safe_max}
 
+    # Create a no-op scratchpad for this call
+    class _NoOpScratchpad:
+        def log(self, *_args, **_kwargs):
+            pass
+
     try:
         response = router_agent.call_llm_by_role(
             role='planner',
             system_prompt=system_prompt,
             user_prompt=user_prompt,
-            config=config
+            config=config,
+            scratchpad=_NoOpScratchpad(),  # Add the missing scratchpad parameter
         )
         if not response:
             raise ValueError("LLM returned an empty response.")

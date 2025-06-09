@@ -510,11 +510,20 @@ def regenerate_pre_planning_with_modifications(
         "Modification Request:\n" + modification_text.strip()
     )
     openrouter_params = get_openrouter_params()
+    
+    # Create a no-op scratchpad for this function
+    class _NoOpScratchpad:
+        def log(self, *_args, **_kwargs):
+            pass
+    
+    scratchpad = _NoOpScratchpad()
+    
     response = router_agent.call_llm_by_role(
         role="pre_planner",
         system_prompt=system_prompt,
         user_prompt=user_prompt,
         config=openrouter_params,
+        scratchpad=scratchpad,  # Add the missing scratchpad parameter
     )
     status, data = process_response(response, original_results.get("original_request", ""))
     if status is True:
@@ -561,6 +570,13 @@ def pre_planning_workflow(
     user_prompt = get_json_user_prompt(task_description)
     openrouter_params = get_openrouter_params()
 
+    # Create a no-op scratchpad for this function
+    class _NoOpScratchpad:
+        def log(self, *_args, **_kwargs):
+            pass
+    
+    scratchpad = _NoOpScratchpad()
+
     current_prompt = user_prompt
     attempts = 0
     clarification_attempts = 0
@@ -575,6 +591,7 @@ def pre_planning_workflow(
             system_prompt=system_prompt,
             user_prompt=current_prompt,
             config=openrouter_params,
+            scratchpad=scratchpad,  # Add the missing scratchpad parameter
             tech_stack=context.get("tech_stack") if context else None,
             code_context=context.get("code_context") if context else None,
         )
@@ -1203,6 +1220,14 @@ class PrePlanner:
     ) -> Dict[str, Any]:
         """Call the router agent with retry logic."""
         last_error: Optional[str] = None
+        
+        # Create a no-op scratchpad for this method
+        class _NoOpScratchpad:
+            def log(self, *_args, **_kwargs):
+                pass
+        
+        scratchpad = _NoOpScratchpad()
+        
         for _ in range(max_retries + 1):
             try:
                 response = self.router_agent.call_llm_by_role(
@@ -1210,6 +1235,7 @@ class PrePlanner:
                     system_prompt=system_prompt,
                     user_prompt=user_prompt,
                     config=self.config.get("llm_params", {}),
+                    scratchpad=scratchpad,  # Add the missing scratchpad parameter
                 )
                 return {"success": True, "response": response}
             except Exception as e:  # pragma: no cover - error path

@@ -636,10 +636,17 @@ class MemoryManager:
     def _generate_summary(self, content: str, language: str = None) -> str:
         system_prompt = self.prompt_generator.create_system_prompt(language)
         user_prompt = self.prompt_generator.create_user_prompt(content, language)
+        
+        # Create a no-op scratchpad for this call
+        class _NoOpScratchpad:
+            def log(self, *_args, **_kwargs):
+                pass
+        
         return self.router_agent.call_llm_by_role(
             role="summarizer",
             system_prompt=system_prompt,
-            user_prompt=user_prompt
+            user_prompt=user_prompt,
+            scratchpad=_NoOpScratchpad(),  # Add the missing scratchpad parameter
         )
     
     def _enforce_cache_limits(self) -> None:
