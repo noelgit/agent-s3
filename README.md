@@ -79,7 +79,7 @@ Agent-S3 is a multi-component system with dependencies across Python, Node.js, a
 
 **Prerequisites:**
 - Python 3.10+
-- Node.js 16+
+ - Node.js 18+
 - npm or yarn
 
 **Python Dependencies:**

@@ -21,7 +21,7 @@ The Agent-S3 system consists of:
 
 ### Required Software
 - **Python 3.10+** (Required for agent_s3 package and Pydantic v2 compatibility)
-- **Node.js 16+** (Required for VS Code extension and webview UI)
+ - **Node.js 18+** (Required for VS Code extension and webview UI)
 - **npm or yarn** (Package management)
 - **Git** (Version control)
 - **Visual Studio Code** (For extension development/testing)
