@@ -109,7 +109,7 @@ The Agent-S3 project is a multi-component system that includes:
 - Native fetch API for HTTP client
 
 #### Development Dependencies
-- `@types/node>=22.14.1` - Node.js type definitions
+ - `@types/node>=18.0.0` - Node.js type definitions
 - `@types/react>=18.0.28` - React type definitions
 - `@types/react-dom>=18.0.11` - React DOM type definitions
 - `@types/vscode>=1.99.1` - VSCode API type definitions
@@ -129,7 +129,7 @@ The Agent-S3 project is a multi-component system that includes:
 - `dompurify>=3.0.9` - DOM sanitization
 
 #### Development Dependencies
-- `@types/node>=16.18.11` - Node.js type definitions
+ - `@types/node>=18.0.0` - Node.js type definitions
 - `@types/react>=18.3.21` - React type definitions
 - `@types/react-dom>=18.3.7` - React DOM type definitions
 - `@types/dompurify>=3.0.2` - DOMPurify type definitions
@@ -214,7 +214,7 @@ Additional language support can be added by installing the corresponding tree-si
 ## Troubleshooting
 
 ### Common Issues
-1. **Node.js Version Compatibility**: Ensure Node.js version >= 16.x for React 18 support
+1. **Node.js Version Compatibility**: Ensure Node.js version >= 18.x for React 18 support
 2. **Python Version**: Requires Python >= 3.8 for modern typing features
 3. **Platform-specific Dependencies**: Some packages (like `psycopg2-binary`) may require platform-specific builds
 
