@@ -98,3 +98,9 @@ vscode/*.vsix
 
 # Miscellaneous
 remove_ignored_files.sh
+
+# Temporary logs and progress files
+*.log
+*.jsonl
+.agent_s3_http_connection.json
+vscode/.agent_s3_http_connection.json
