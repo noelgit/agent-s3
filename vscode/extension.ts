@@ -7,6 +7,11 @@ import { Agent3ChatProvider, Agent3HistoryProvider } from './tree-providers';
 import { ConnectionManager } from './src/config/connectionManager';
 import { HttpClient } from './src/http/httpClient';
 
+// Declare process for Node.js environment
+declare const process: {
+    env: { [key: string]: string | undefined };
+};
+
 let chatManager: WebviewUIManager | undefined;
 let messageHistory: ChatHistoryEntry[] = [];
 // Use minimal type for terminalEmitter to avoid 'any' and generic issues
@@ -14,6 +19,18 @@ let terminalEmitter: { event: unknown; fire(data: string): void; dispose(): void
 let agentTerminal: vscode.Terminal | undefined;
 let connectionManager: ConnectionManager;
 let httpClient: HttpClient;
+
+/**
+ * Determine the Python executable used for CLI commands.
+ * Priority: VS Code setting `agent-s3.pythonExecutable` then
+ *          environment variable `AGENT_S3_PYTHON_EXECUTABLE` then
+ *          default 'python3'.
+ */
+function getPythonExecutable(): string {
+    const configExec = vscode.workspace.getConfiguration('agent-s3').get('pythonExecutable') as string | undefined;
+    const envExec = typeof process !== 'undefined' ? process.env.AGENT_S3_PYTHON_EXECUTABLE : undefined;
+    return configExec || envExec || 'python3';
+}
 
 /**
  * Extension activation point
@@ -280,7 +297,8 @@ async function executeCommandViaCLI(command: string, workspacePath: string): Pro
         let output = '';
         
         // Use CLI dispatcher as fallback
-        const childProcess = spawn('python', ['-m', 'agent_s3.cli', command], {
+        const pythonExec = getPythonExecutable();
+        const childProcess = spawn(pythonExec, ['-m', 'agent_s3.cli', command], {
             cwd: workspacePath,
             stdio: 'pipe'
         });
