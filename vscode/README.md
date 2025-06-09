@@ -56,6 +56,11 @@ If the server is configured with an authentication token, set the
 `agent-s3.authToken` setting or the `AGENT_S3_AUTH_TOKEN` environment variable so
 the extension can include `Authorization: Bearer <token>` with each request.
 
+The extension spawns the Agent-S3 CLI using `python3` by default. Set the
+`agent-s3.pythonExecutable` setting or `AGENT_S3_PYTHON_EXECUTABLE` environment
+variable to override the executable if your environment requires a different
+command.
+
 ## Usage
 
 1. Run "Agent-S3: Initialize workspace" from the command palette (Ctrl+Shift+P) to set up your workspace and authenticate with GitHub

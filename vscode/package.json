@@ -131,6 +131,11 @@
           "type": "number",
           "default": 10000,
           "description": "HTTP request timeout in milliseconds (increased for remote connections)"
+        },
+        "agent-s3.pythonExecutable": {
+          "type": "string",
+          "default": "python3",
+          "description": "Python executable used to run the Agent-S3 CLI. Falls back to the AGENT_S3_PYTHON_EXECUTABLE environment variable if not set."
         }
       }
     }
