@@ -11,3 +11,17 @@ def test_detect_design_completion_case_insensitive():
     ]
 
     assert manager.detect_design_completion()
+
+
+def test_extract_features_from_conversation_includes_user_features():
+    """Features from both assistant and user messages should be extracted without duplicates."""
+    manager = DesignManager()
+    manager.conversation_history = [
+        {"role": "assistant", "content": "1. Login system"},
+        {"role": "user", "content": "2. Search feature\n3. Profile"},
+        {"role": "assistant", "content": "Feature 2: Search feature"},
+    ]
+
+    features = manager._extract_features_from_conversation()
+
+    assert features == ["Login system", "Search feature", "Profile"]
