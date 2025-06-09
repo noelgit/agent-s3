@@ -168,8 +168,10 @@ class DesignManager:
             re.compile(r"(\d+(?:\.\d+)*)\.\s+(.+)")
         ]
 
+        seen = set()
+
         for msg in self.conversation_history:
-            if msg.get("role") != "assistant":
+            if msg.get("role") not in {"assistant", "user"}:
                 continue
 
             for line in msg.get("content", "").splitlines():
@@ -178,8 +180,10 @@ class DesignManager:
                     match = pattern.match(line)
                     if match:
                         description = match.group(2).strip()
-                        if description and description not in features:
+                        key = description.lower()
+                        if description and key not in seen:
                             features.append(description)
+                            seen.add(key)
                         break
 
         return features
