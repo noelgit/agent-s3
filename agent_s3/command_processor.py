@@ -463,6 +463,11 @@ class CommandProcessor:
         self._log(f"Starting design process for: {args}")
 
         try:
+            # Ensure clean slate for each design command by resetting conversation
+            if hasattr(self.coordinator, 'design_manager') and hasattr(self.coordinator.design_manager, 'reset_conversation'):
+                self.coordinator.design_manager.reset_conversation()
+                self._log("Reset design conversation history for new design session")
+            
             # Update progress tracking
             if hasattr(self.coordinator, 'progress_tracker'):
                 self.coordinator.progress_tracker.update_progress({
@@ -547,6 +552,11 @@ class CommandProcessor:
         self._log(f"Starting automated design for: {args}")
 
         try:
+            # Ensure clean slate for each design-auto command by resetting conversation
+            if hasattr(self.coordinator, 'design_manager') and hasattr(self.coordinator.design_manager, 'reset_conversation'):
+                self.coordinator.design_manager.reset_conversation()
+                self._log("Reset design conversation history for new automated design session")
+            
             if hasattr(self.coordinator, 'execute_design_auto'):
                 result = self.coordinator.execute_design_auto(args.strip())
             else:
