@@ -214,15 +214,36 @@ class ImplementationManager:
         """
         tasks = []
 
-        # Process each line
+        # First try to extract from detailed feature format
+        if "## Detailed Features" in design_content:
+            # Extract only from the Detailed Features section
+            detailed_section = design_content.split("## Detailed Features")[1]
+            if "## Design Conversation History" in detailed_section:
+                detailed_section = detailed_section.split("## Design Conversation History")[0]
+            
+            # Look for detailed features with **Feature:** markers
+            feature_pattern = r'\*\*(\d+)\.\s+Feature:\s+([^*\n]+)'
+            matches = re.findall(feature_pattern, detailed_section)
+            
+            for match in matches:
+                feature_num, feature_title = match
+                # Clean up the feature title
+                clean_title = feature_title.strip()
+                
+                # Create task entry
+                task = {"id": feature_num, "description": clean_title, "status": "pending"}
+                tasks.append(task)
+            
+            if tasks:
+                return tasks
+
+        # Fallback to simple numbered tasks for backward compatibility
         for line in design_content.split("\n"):
             line = line.strip()
             if not line:
                 continue
 
             # Try to match numbered task patterns (1., 1.1., etc.)
-            import re
-
             task_match = re.match(r"(\d+(?:\.\d+)*)\.\s+(.+)", line)
 
             if task_match:

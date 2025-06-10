@@ -62,6 +62,10 @@
         "title": "Agent-S3: Run automated design"
       },
       {
+        "command": "agent-s3.design",
+        "title": "Agent-S3: Interactive design session"
+      },
+      {
         "command": "agent-s3.openChatWindow",
         "title": "Agent-S3: Open Chat Window"
       },

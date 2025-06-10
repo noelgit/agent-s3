@@ -1248,7 +1248,13 @@ if __name__ == '__main__':
 
         try:
             # Call LLM with deployment role
-            response = self.llm.call_llm_agent("deployer", conversation)
+            response = self.llm.call_llm_by_role(
+                role="deployer",
+                system_prompt=self._get_deployment_system_prompt(),
+                user_prompt=json.dumps(conversation, indent=2),
+                config={},
+                scratchpad=self.scratchpad or type('NoOpScratchpad', (), {'log': lambda *args, **kwargs: None})()
+            )
             return response
         except Exception as e:
             if self.scratchpad:

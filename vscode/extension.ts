@@ -92,6 +92,39 @@ export function activate(context: vscode.ExtensionContext): void {
         }
     });
 
+    // Interactive Design command
+    const designCommand = vscode.commands.registerCommand('agent-s3.design', async () => {
+        const input = await vscode.window.showInputBox({
+            prompt: 'Enter design objective for interactive design session',
+            placeHolder: 'Create a todo application with user authentication'
+        });
+        
+        if (input) {
+            // Show information about the interactive design process
+            const proceed = await vscode.window.showInformationMessage(
+                `Starting interactive design session for: "${input}"\n\nThis will open the chat window where you can have a conversation with the AI designer. The AI will ask clarifying questions and guide you through the design process.`,
+                'Start Design Session',
+                'Cancel'
+            );
+            
+            if (proceed === 'Start Design Session') {
+                // Open chat window for interactive design
+                if (!chatManager) {
+                    chatManager = new WebviewUIManager(context.extensionUri, 'agent-s3-design', 'Agent-S3 Interactive Design');
+                }
+                chatManager.createOrShowPanel();
+                
+                // Send the design command through chat for interactive conversation
+                chatManager.postMessage({ 
+                    type: 'SEND_COMMAND', 
+                    content: { command: `/design ${input}` } 
+                });
+                
+                historyProvider.refresh();
+            }
+        }
+    });
+
     const chatCommand = vscode.commands.registerCommand('agent-s3.openChatWindow', async () => {
         if (!chatManager) {
             chatManager = new WebviewUIManager(context.extensionUri, 'agent-s3-chat', 'Agent-S3 Chat');
@@ -252,6 +285,7 @@ export function activate(context: vscode.ExtensionContext): void {
         guidelinesCommand,
         requestCommand,
         designAutoCommand,
+        designCommand,
         chatCommand,
         quickCommand,
         showChatCommand,
@@ -274,6 +308,11 @@ export async function executeAgentCommandWithOutput(command: string): Promise<st
         throw new Error('No workspace folder open');
     }
 
+    // Handle interactive design command specially
+    if (command.startsWith('/design ') && !command.startsWith('/design-auto ')) {
+        return handleInteractiveDesignCommand(command, workspaceFolder.uri.fsPath);
+    }
+
     // First try HTTP if connection is available
     try {
         const response = await httpClient.sendCommand(command);
@@ -292,7 +331,9 @@ export async function executeAgentCommandWithOutput(command: string): Promise<st
 
 async function executeCommandViaCLI(command: string, workspacePath: string): Promise<string> {
     return new Promise<string>((resolve, reject) => {
-        const CLI_TIMEOUT_MS = 30000; // 30 seconds timeout for CLI operations
+        // Use longer timeout for interactive commands like /design
+        const isInteractiveCommand = command.startsWith('/design ') || command.startsWith('/plan ');
+        const CLI_TIMEOUT_MS = isInteractiveCommand ? 300000 : 30000; // 5 minutes for interactive, 30 seconds for others
         let processResolved = false;
         let output = '';
         
@@ -307,7 +348,7 @@ async function executeCommandViaCLI(command: string, workspacePath: string): Pro
         const timeoutHandle = setTimeout(() => {
             if (!processResolved) {
                 processResolved = true;
-                const timeoutMsg = '[TIMEOUT] CLI command timed out after 30 seconds';
+                const timeoutMsg = `[TIMEOUT] CLI command timed out after ${CLI_TIMEOUT_MS / 1000} seconds`;
                 console.log('CLI process timed out - process will be abandoned');
                 reject(new Error(timeoutMsg));
             }
@@ -343,11 +384,154 @@ async function executeCommandViaCLI(command: string, workspacePath: string): Pro
     });
 }
 
-// Note: HTTP-related interfaces and functions removed - CLI dispatcher is now the single source of truth
+/**
+ * Handle interactive design commands with VS Code UI
+ */
+async function handleInteractiveDesignCommand(command: string, workspacePath: string): Promise<string> {
+    const objective = command.replace('/design ', '').trim();
+    
+    try {
+        // Start the design process
+        const pythonExec = getPythonExecutable();
+        const designProcess = spawn(pythonExec, ['-c', `
+import sys
+sys.path.append('${workspacePath.replace(/\\/g, '\\\\')}')
+from agent_s3.coordinator import Coordinator
+from agent_s3.design_manager import DesignManager
 
-// Note: tryHttpCommand function removed - CLI dispatcher is now the single source of truth
+coordinator = Coordinator()
+design_manager = DesignManager(coordinator)
 
-// Note: pollForResult function removed - CLI dispatcher is now the single source of truth
+# Start design conversation
+response = design_manager.start_design_conversation("${objective.replace(/"/g, '\\"')}")
+print("DESIGN_RESPONSE:" + response)
+
+# Check if complete
+is_complete = design_manager.detect_design_completion()
+print("DESIGN_COMPLETE:" + str(is_complete))
+`], {
+            cwd: workspacePath,
+            stdio: 'pipe'
+        });
+
+        let aiResponse = '';
+        let isComplete = false;
+
+        // Get initial response
+        await new Promise<void>((resolve, reject) => {
+            let buffer = '';
+            designProcess.stdout?.on('data', (data: Buffer) => {
+                buffer += data.toString();
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                
+                for (const line of lines) {
+                    if (line.startsWith('DESIGN_RESPONSE:')) {
+                        aiResponse = line.replace('DESIGN_RESPONSE:', '');
+                    } else if (line.startsWith('DESIGN_COMPLETE:')) {
+                        isComplete = line.replace('DESIGN_COMPLETE:', '') === 'True';
+                    }
+                }
+            });
+
+            designProcess.on('close', () => resolve());
+            designProcess.on('error', reject);
+        });
+
+        // Show AI response and handle conversation
+        let conversationOutput = `Design Session Started for: ${objective}\n\n`;
+        conversationOutput += `AI Designer: ${aiResponse}\n\n`;
+
+        // Continue conversation until complete
+        while (!isComplete) {
+            const userResponse = await vscode.window.showInputBox({
+                prompt: 'Your response to the AI designer (or type "/finalize-design" to complete)',
+                placeHolder: 'Provide more details, ask questions, or give feedback...',
+                ignoreFocusOut: true
+            });
+
+            if (!userResponse) {
+                conversationOutput += 'Design session cancelled by user.\n';
+                break;
+            }
+
+            conversationOutput += `You: ${userResponse}\n\n`;
+
+            // Send user response and get AI reply
+            const continueProcess = spawn(pythonExec, ['-c', `
+import sys
+sys.path.append('${workspacePath.replace(/\\/g, '\\\\')}')
+from agent_s3.coordinator import Coordinator
+from agent_s3.design_manager import DesignManager
+
+coordinator = Coordinator()
+design_manager = DesignManager(coordinator)
+
+# Load existing conversation from design.txt if it exists
+try:
+    with open('design.txt', 'r') as f:
+        content = f.read()
+    # Extract conversation from file and reload into design_manager
+    # This is a simplified approach - in practice you'd want better state management
+except:
+    pass
+
+# Continue conversation
+response, complete = design_manager.continue_conversation("${userResponse.replace(/"/g, '\\"')}")
+print("DESIGN_RESPONSE:" + (response or ""))
+print("DESIGN_COMPLETE:" + str(complete))
+
+# Write to file if complete
+if complete:
+    success, message = design_manager.write_design_to_file()
+    print("WRITE_SUCCESS:" + str(success))
+    print("WRITE_MESSAGE:" + message)
+`], {
+                cwd: workspacePath,
+                stdio: 'pipe'
+            });
+
+            await new Promise<void>((resolve, reject) => {
+                let buffer = '';
+                continueProcess.stdout?.on('data', (data: Buffer) => {
+                    buffer += data.toString();
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('DESIGN_RESPONSE:')) {
+                            aiResponse = line.replace('DESIGN_RESPONSE:', '');
+                        } else if (line.startsWith('DESIGN_COMPLETE:')) {
+                            isComplete = line.replace('DESIGN_COMPLETE:', '') === 'True';
+                        } else if (line.startsWith('WRITE_SUCCESS:')) {
+                            const writeSuccess = line.replace('WRITE_SUCCESS:', '') === 'True';
+                            if (writeSuccess) {
+                                conversationOutput += 'Design successfully written to design.txt\n';
+                            }
+                        }
+                    }
+                });
+
+                continueProcess.on('close', () => resolve());
+                continueProcess.on('error', reject);
+            });
+
+            if (aiResponse) {
+                conversationOutput += `AI Designer: ${aiResponse}\n\n`;
+            }
+
+            if (isComplete) {
+                conversationOutput += 'Design conversation completed!\n';
+                break;
+            }
+        }
+
+        return conversationOutput;
+
+    } catch (error) {
+        return `Error in interactive design: ${error instanceof Error ? error.message : String(error)}`;
+    }
+}
 
 export function deactivate(): void {
     console.log('Agent-S3 HTTP Extension deactivated');

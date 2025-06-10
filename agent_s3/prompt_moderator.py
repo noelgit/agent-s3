@@ -826,6 +826,51 @@ Focus on explaining the "why" behind the decisions, not just describing what's i
         Returns:
             The user's input
         """
+        # Use VS Code UI if available
+        if self.is_vscode_mode():
+            # Send input request via VS Code UI
+            wait_for_response = self.vscode_bridge.send_interactive_approval(
+                title="Input Required",
+                description=prompt,
+                options=[
+                    {
+                        "id": "input",
+                        "label": "Enter Response",
+                        "shortcut": "Enter",
+                        "description": "Type your response",
+                        "input_field": True
+                    },
+                    {
+                        "id": "cancel",
+                        "label": "Cancel",
+                        "shortcut": "Esc",
+                        "description": "Cancel operation"
+                    }
+                ]
+            )
+
+            if wait_for_response:
+                response = wait_for_response()
+                if response and response.get("option_id") == "input":
+                    user_input = response.get("input_text", "").strip()
+                    if user_input:
+                        if self.scratchpad:
+                            self.scratchpad.log("Moderator", f"User provided input via VS Code UI: {user_input[:50]}...")
+                        return user_input
+                elif response and response.get("option_id") == "cancel":
+                    if self.scratchpad:
+                        self.scratchpad.log("Moderator", "User cancelled input via VS Code UI")
+                    return "/cancel"
+
+            # Fallback to terminal if VS Code response fails
+            if self.vscode_bridge.config.fallback_to_terminal:
+                self.notify_user("No response from VS Code UI, falling back to terminal", level="warning")
+            else:
+                if self.scratchpad:
+                    self.scratchpad.log("Moderator", "No response from VS Code UI, returning empty")
+                return ""
+
+        # Default terminal input
         return input(f"{prompt}: ").strip()
 
     def ask_yes_no_question(self, question: str) -> bool:

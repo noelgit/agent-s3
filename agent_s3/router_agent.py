@@ -391,7 +391,11 @@ class RouterAgent:
         backoff_multiplier = config.get('backoff_multiplier', 2.0)
         failure_threshold = config.get('failure_threshold', 5)
         cooldown = config.get('cooldown_period', 300)
-        timeout = config.get('llm_timeout', 60)
+        
+        # Use separate connection and read timeouts for better reliability
+        connection_timeout = config.get('llm_connection_timeout', 10)
+        read_timeout = config.get('llm_read_timeout', 120)
+        timeout = (connection_timeout, read_timeout)
 
         backoff = initial_backoff
         primary_failed = False
@@ -848,10 +852,27 @@ class RouterAgent:
                 f"for {model_name}. Content may be truncated.", level="warning")
 
         scratchpad.log("RouterAgent", f"Calling {method} {endpoint} for model {model_name} "
-                      f"(Role: {role}, est. tokens: {total_tokens:.0f})")
+                      f"(Role: {role}, est. tokens: {total_tokens:.0f}, timeout: {timeout})")
 
         try:
-            response = requests.request(
+            # Create a session with connection pooling for better reliability
+            session = requests.Session()
+            
+            # Configure session with retry adapter
+            from requests.adapters import HTTPAdapter
+            from urllib3.util.retry import Retry
+            
+            retry_strategy = Retry(
+                total=3,
+                status_forcelist=[429, 500, 502, 503, 504],
+                allowed_methods=["HEAD", "GET", "PUT", "DELETE", "OPTIONS", "TRACE", "POST"],
+                backoff_factor=1
+            )
+            adapter = HTTPAdapter(max_retries=retry_strategy)
+            session.mount("http://", adapter)
+            session.mount("https://", adapter)
+            
+            response = session.request(
                 method,
                 endpoint,
                 headers=headers,
@@ -880,11 +901,26 @@ class RouterAgent:
 
             raise ValueError(f"Could not extract content from {model_name} response structure: {response_data}")
 
+        except requests.exceptions.ConnectTimeout:
+            duration = time.time() - start
+            self.metrics.record(role, model_name, duration, False, 0)
+            scratchpad.log("RouterAgent", f"Connection to {model_name} timed out after {timeout[0]} seconds.", level="error")
+            raise TimeoutError(f"Connection to {model_name} timed out.")
+        except requests.exceptions.ReadTimeout:
+            duration = time.time() - start
+            self.metrics.record(role, model_name, duration, False, 0)
+            scratchpad.log("RouterAgent", f"Read from {model_name} timed out after {timeout[1]} seconds.", level="error")
+            raise TimeoutError(f"Read from {model_name} timed out.")
         except requests.exceptions.Timeout:
             duration = time.time() - start
             self.metrics.record(role, model_name, duration, False, 0)
             scratchpad.log("RouterAgent", f"API call to {model_name} timed out after {timeout} seconds.", level="error")
             raise TimeoutError(f"API call to {model_name} timed out.")
+        except requests.exceptions.ConnectionError as e:
+            duration = time.time() - start
+            self.metrics.record(role, model_name, duration, False, 0)
+            scratchpad.log("RouterAgent", f"Connection error with {model_name}: {str(e)}", level="error")
+            raise ConnectionError(f"Connection error with {model_name}: {str(e)}")
         except requests.exceptions.RequestException as e:
             duration = time.time() - start
             self.metrics.record(role, model_name, duration, False, 0)

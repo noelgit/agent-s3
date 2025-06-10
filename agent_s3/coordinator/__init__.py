@@ -821,6 +821,9 @@ class Coordinator:
             try:
                 response = self.design_manager.start_design_conversation(objective)
                 if response:
+                    # Send response through VS Code UI if available
+                    if hasattr(self, 'prompt_moderator'):
+                        self.prompt_moderator.notify_user(f"AI Designer: {response}", level="info")
                     print(response)
             except Exception as e:
                 self.scratchpad.log("Coordinator", f"Failed to start design: {e}", level=LogLevel.ERROR)
@@ -829,13 +832,20 @@ class Coordinator:
             # Continue conversation until completion
             while True:
                 try:
-                    user_input = input()
+                    # Use VS Code UI for input if available, otherwise fallback to console
+                    if hasattr(self, 'prompt_moderator') and hasattr(self.prompt_moderator, 'ask_for_input'):
+                        user_input = self.prompt_moderator.ask_for_input("Your response (or type '/finalize-design' to complete): ")
+                    else:
+                        user_input = input("Your response (or type '/finalize-design' to complete): ")
                 except (KeyboardInterrupt, EOFError):
                     return {"success": False, "cancelled": True}
 
                 try:
                     response, is_complete = self.design_manager.continue_conversation(user_input)
                     if response:
+                        # Send response through VS Code UI if available
+                        if hasattr(self, 'prompt_moderator'):
+                            self.prompt_moderator.notify_user(response, level="info")
                         print(response)
                     if is_complete or self.design_manager.detect_design_completion():
                         break

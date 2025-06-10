@@ -1005,14 +1005,14 @@ def _process_pre_planning_response(
 def _attempt_pre_planning_call(
     router_agent,
     prompt: Dict[str, Any],
-    openrouter_params: Dict[str, Any]
+    config: Dict[str, Any]
 ) -> str:
     """Attempt a single pre-planning LLM call with retry logic.
     
     Args:
         router_agent: The agent responsible for LLM calls
         prompt: Prepared prompt dictionary
-        openrouter_params: OpenRouter parameters
+        config: Full configuration including API keys and parameters
     
     Returns:
         LLM response
@@ -1021,7 +1021,11 @@ def _attempt_pre_planning_call(
         ProcessingError: If LLM call fails
     """
     try:
-        response = router_agent.run(prompt, **openrouter_params)
+        # Merge openrouter params with the full config
+        openrouter_params = get_openrouter_params()
+        full_config = {**config, **openrouter_params}
+        
+        response = router_agent.run(prompt, **full_config)
         if not response:
             raise ProcessingError("Empty response from LLM")
         return response
@@ -1059,6 +1063,7 @@ def call_pre_planner_with_enforced_json(
     task_description: str,
     context: Optional[Dict[str, Any]] = None,
     allow_interactive_clarification: bool = True,
+    config: Optional[Dict[str, Any]] = None,
 ) -> Tuple[bool, Dict[str, Any]]:
     """
     Run the JSON-enforced pre-planning workflow using the router_agent.
@@ -1071,13 +1076,19 @@ def call_pre_planner_with_enforced_json(
         context: Optional context dictionary
         allow_interactive_clarification: Enable interactive clarification when
             ``True``. Unused currently but accepted for API parity.
+        config: Optional configuration dict. If None, will load from Config.
 
     Returns:
         Tuple of (success: bool, pre_planning_data: dict)
     """
+    # Get configuration if not provided
+    if config is None:
+        from agent_s3.config import Config
+        config_instance = Config()
+        config_instance.load()
+        config = config_instance.config
     # Prepare the prompt
     prompt = _prepare_pre_planning_prompt(task_description, context)
-    openrouter_params = get_openrouter_params()
     
     max_attempts = 3
     last_error = None
@@ -1087,7 +1098,7 @@ def call_pre_planner_with_enforced_json(
             logger.info(f"Pre-planning attempt {attempt}/{max_attempts}")
             
             # Make LLM call with retry logic
-            response = _attempt_pre_planning_call(router_agent, prompt, openrouter_params)
+            response = _attempt_pre_planning_call(router_agent, prompt, config)
             
             # Process the response
             success, data, error_msg = _process_pre_planning_response(response, task_description)

@@ -1035,6 +1035,28 @@ class WorkflowOrchestrator:
     # ------------------------------------------------------------------
     def _extract_tasks_from_design(self, design_content: str) -> List[str]:
         tasks: List[str] = []
+        
+        # First try to extract from detailed feature format
+        if "## Detailed Features" in design_content:
+            # Extract only from the Detailed Features section
+            detailed_section = design_content.split("## Detailed Features")[1]
+            if "## Design Conversation History" in detailed_section:
+                detailed_section = detailed_section.split("## Design Conversation History")[0]
+            
+            # Look for detailed features with **Feature:** markers
+            feature_pattern = r'\*\*(\d+)\.\s+Feature:\s+([^*\n]+)'
+            matches = re.findall(feature_pattern, detailed_section)
+            
+            for match in matches:
+                feature_num, feature_title = match
+                # Clean up the feature title
+                clean_title = feature_title.strip()
+                tasks.append(clean_title)
+            
+            if tasks:
+                return tasks
+        
+        # Fallback to simple numbered tasks for backward compatibility
         for line in design_content.splitlines():
             line = line.strip()
             if not line:

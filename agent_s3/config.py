@@ -14,6 +14,13 @@ from typing import Optional, Dict, List, Any
 
 from pydantic import BaseModel, ValidationError, ConfigDict
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv is optional
+
 # Export public classes and functions
 __all__ = [
     'ConfigModel',
@@ -193,7 +200,7 @@ class ConfigModel(BaseModel):
     interactive: bool = True
     allow_interactive_clarification: bool = True
     openrouter_key: str = os.environ.get("OPENROUTER_KEY", "")
-    openai_key: str = os.environ.get("OPENAI_KEY", "")
+    openai_key: str = os.environ.get("OPENAI_API_KEY", "")  # Fixed to match .env file
     encryption_key: str = os.environ.get("AGENT_S3_ENCRYPTION_KEY", "")
     dev_github_token: str = DEV_GITHUB_TOKEN
     llm_max_retries: int = LLM_MAX_RETRIES

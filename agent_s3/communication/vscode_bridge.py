@@ -12,8 +12,8 @@ class VSCodeBridge:
         })()
     
     def send_terminal_output(self, message):
-        """Stub method - outputs to terminal instead."""
-        print(message)
+        """Stub method - does nothing to avoid duplicate output."""
+        pass
     
     def send_interactive_approval(self, *args, **kwargs):
         """Stub method - returns None to trigger terminal fallback."""
@@ -24,13 +24,13 @@ class VSCodeBridge:
         return None
     
     def send_log_output(self, message, level="info"):
-        """Stub method - outputs to terminal instead."""
-        print(f"[{level.upper()}] {message}")
+        """Stub method - does nothing to avoid duplicate output."""
+        pass
     
     def send_progress_indicator(self, *args, **kwargs):
         """Stub method - does nothing."""
         pass
     
     def send_progress_update(self, message, percent):
-        """Stub method - outputs to terminal instead."""
-        print(f"Progress: {message} ({percent}%)")
+        """Stub method - does nothing to avoid duplicate output."""
+        pass
