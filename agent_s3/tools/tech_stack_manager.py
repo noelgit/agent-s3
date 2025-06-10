@@ -21,6 +21,120 @@ class TechStackManager:
             "meta": {}
         }
         self.best_practices = {}
+        
+        # Directories to exclude from file scanning for performance
+        self.excluded_dirs = {
+            'node_modules',
+            '__pycache__',
+            '.git',
+            'coverage_html',
+            '.pytest_cache',
+            'dist',
+            'build',
+            'out',
+            '.vscode',
+            '.idea',
+            'target',
+            'vendor',
+            '.venv',
+            'venv',
+            'env',
+            '.env',
+            'htmlcov',
+            '.coverage',
+            '.mypy_cache',
+            '.tox',
+            '.cache',
+            'bower_components',
+            'jspm_packages'
+        }
+
+    def _find_files_with_extension(self, extension: str, limit: int = 5) -> bool:
+        """
+        Efficiently find files with given extension, excluding common large directories.
+        Returns True if any files found, False otherwise.
+        Uses a limit to avoid scanning entire large codebases.
+        """
+        count = 0
+        try:
+            for path in self.workspace_path.rglob(f"*.{extension}"):
+                # Check if any parent directory is in excluded list
+                if any(part in self.excluded_dirs for part in path.parts):
+                    continue
+                count += 1
+                if count >= limit:
+                    return True
+            return count > 0
+        except Exception as e:
+            logging.warning(f"Error scanning for .{extension} files: {e}")
+            return False
+
+    def _find_specific_files(self, filenames: list, limit: int = 5) -> bool:
+        """
+        Efficiently find specific filenames, excluding common large directories.
+        Returns True if any files found, False otherwise.
+        """
+        count = 0
+        try:
+            for filename in filenames:
+                for path in self.workspace_path.rglob(filename):
+                    # Check if any parent directory is in excluded list
+                    if any(part in self.excluded_dirs for part in path.parts):
+                        continue
+                    count += 1
+                    if count >= limit:
+                        return True
+            return count > 0
+        except Exception as e:
+            logging.warning(f"Error scanning for specific files {filenames}: {e}")
+            return False
+
+    def _find_specific_files(self, filenames: list, limit: int = 5) -> bool:
+        """
+        Efficiently find specific files by name, excluding common large directories.
+        Returns True if any files found, False otherwise.
+        """
+        count = 0
+        try:
+            for filename in filenames:
+                for path in self.workspace_path.rglob(filename):
+                    # Check if any parent directory is in excluded list
+                    if any(part in self.excluded_dirs for part in path.parts):
+                        continue
+                    count += 1
+                    if count >= limit:
+                        return True
+            return count > 0
+        except Exception as e:
+            logging.warning(f"Error scanning for specific files {filenames}: {e}")
+            return False
+        
+        # Directories to exclude from file scanning for performance
+        self.excluded_dirs = {
+            'node_modules',
+            '__pycache__',
+            '.git',
+            'coverage_html',
+            '.pytest_cache',
+            'dist',
+            'build',
+            'out',
+            '.vscode',
+            '.idea',
+            'target',
+            'vendor',
+            '.venv',
+            'venv',
+            'env',
+            '.env',
+            'htmlcov',
+            '.coverage',
+            '.mypy_cache',
+            '.tox',
+            '.cache',
+            'bower_components',
+            'jspm_packages'
+        }
 
     def detect_tech_stack(self) -> Dict[str, Any]:
         """Detects the tech stack in the workspace with enhanced version detection."""
@@ -70,7 +184,7 @@ class TechStackManager:
     def _detect_languages(self):
         """Detect programming languages used in the project."""
         # Python
-        if list(self.workspace_path.glob("**/*.py")):
+        if self._find_files_with_extension("py"):
             self.tech_stack["languages"].add("Python")
             # Get Python version
             try:
@@ -88,10 +202,10 @@ class TechStackManager:
                     pass
 
         # JavaScript/TypeScript
-        if list(self.workspace_path.glob("**/*.js")):
+        if self._find_files_with_extension("js"):
             self.tech_stack["languages"].add("JavaScript")
 
-        if list(self.workspace_path.glob("**/*.ts")):
+        if self._find_files_with_extension("ts"):
             self.tech_stack["languages"].add("TypeScript")
             # Check for TypeScript version in package.json
             if (self.workspace_path / "package.json").exists():
@@ -104,8 +218,24 @@ class TechStackManager:
                 except Exception:
                     pass
 
+        # PHP
+        if self._find_files_with_extension("php"):
+            self.tech_stack["languages"].add("PHP")
+            # Get PHP version
+            try:
+                php_version = subprocess.check_output(["php", "--version"],
+                                                    stderr=subprocess.STDOUT,
+                                                    timeout=5).decode().strip()
+                # Extract version from output like "PHP 8.2.0 (cli) ..."
+                php_match = re.search(r'PHP\s+(\d+\.\d+\.\d+)', php_version)
+                if php_match:
+                    self.tech_stack["versions"]["php"] = php_match.group(1)
+            except (subprocess.TimeoutExpired, subprocess.CalledProcessError, OSError) as e:
+                logging.warning(f"Failed to get PHP version: {e}")
+                pass
+
         # Rust
-        if list(self.workspace_path.glob("**/*.rs")) or (self.workspace_path / "Cargo.toml").exists():
+        if self._find_files_with_extension("rs") or (self.workspace_path / "Cargo.toml").exists():
             self.tech_stack["languages"].add("Rust")
             if (self.workspace_path / "Cargo.toml").exists():
                 try:
@@ -119,7 +249,7 @@ class TechStackManager:
                     pass
 
         # Go
-        if list(self.workspace_path.glob("**/*.go")) or (self.workspace_path / "go.mod").exists():
+        if self._find_files_with_extension("go") or (self.workspace_path / "go.mod").exists():
             self.tech_stack["languages"].add("Go")
             if (self.workspace_path / "go.mod").exists():
                 try:
@@ -132,23 +262,29 @@ class TechStackManager:
                     pass
 
         # Java
-        if list(self.workspace_path.glob("**/*.java")):
+        if self._find_files_with_extension("java"):
             self.tech_stack["languages"].add("Java")
 
         # C#
-        if list(self.workspace_path.glob("**/*.cs")):
+        if self._find_files_with_extension("cs"):
             self.tech_stack["languages"].add("C#")
             # Check for .NET version in .csproj files
-            for csproj in self.workspace_path.glob("**/*.csproj"):
-                try:
-                    with open(csproj, "r") as f:
-                        content = f.read()
-                        target_match = re.search(r'<TargetFramework>(.*?)</TargetFramework>', content)
-                        if target_match:
-                            self.tech_stack["versions"]["dotnet"] = target_match.group(1)
-                            break
-                except Exception:
-                    continue
+            try:
+                for csproj in self.workspace_path.rglob("*.csproj"):
+                    # Skip if in excluded directory
+                    if any(part in self.excluded_dirs for part in csproj.parts):
+                        continue
+                    try:
+                        with open(csproj, "r") as f:
+                            content = f.read()
+                            target_match = re.search(r'<TargetFramework>(.*?)</TargetFramework>', content)
+                            if target_match:
+                                self.tech_stack["versions"]["dotnet"] = target_match.group(1)
+                                break
+                    except Exception:
+                        continue
+            except Exception:
+                pass
 
     def _detect_package_managers(self):
         """Detect package managers and dependencies."""
@@ -234,6 +370,45 @@ class TechStackManager:
             except Exception as e:
                 logging.warning(f"Could not parse package.json: {e}")
 
+        # PHP Composer
+        if (self.workspace_path / "composer.json").exists():
+            self.tech_stack["tools"].add("composer")
+            try:
+                with open(self.workspace_path / "composer.json", "r") as f:
+                    composer_data = json.load(f)
+
+                # Check for PHP version requirement
+                if "require" in composer_data and "php" in composer_data["require"]:
+                    php_version = composer_data["require"]["php"]
+                    # Clean version constraints like "^8.0" -> "8.0"
+                    clean_version = re.sub(r'[^0-9.]', '', php_version.split('|')[0])
+                    if clean_version:
+                        self.tech_stack["versions"]["php_min"] = clean_version
+
+                # Add dependencies from require and require-dev
+                require = composer_data.get("require", {})
+                require_dev = composer_data.get("require-dev", {})
+
+                for dep_dict in [require, require_dev]:
+                    for package, version in dep_dict.items():
+                        if package == "php":  # Skip PHP version requirement
+                            continue
+                        
+                        # Clean version
+                        clean_version = re.sub(r'[^0-9.]', '', version.split('|')[0])
+                        
+                        # Categorize PHP packages
+                        if self._is_php_framework(package):
+                            self.tech_stack["frameworks"].add(package)
+                            if clean_version:
+                                self.tech_stack["versions"][package] = clean_version
+                        else:
+                            self.tech_stack["libraries"].add(package)
+                            if clean_version:
+                                self.tech_stack["versions"][package] = clean_version
+            except Exception as e:
+                logging.warning(f"Could not parse composer.json: {e}")
+
     def _detect_build_systems(self):
         """Detect build systems and tools."""
         # Check for Webpack
@@ -278,7 +453,7 @@ class TechStackManager:
             self.tech_stack["tools"].add("vscode")
 
             # Check if it's a VS Code Extension
-            if list(self.workspace_path.glob("**/extension.ts")) or list(self.workspace_path.glob("**/extension.js")):
+            if self._find_specific_files(["extension.ts", "extension.js"]):
                 self.tech_stack["frameworks"].add("vscode-extension")
 
                 # Try to get extension version
@@ -289,6 +464,7 @@ class TechStackManager:
                             if "version" in pkg:
                                 self.tech_stack["versions"]["vscode-extension"] = pkg["version"]
                     except Exception:
+                        pass
                         pass
 
     def _detect_frameworks_and_versions(self):
@@ -302,7 +478,7 @@ class TechStackManager:
             self.tech_stack["meta"]["api_framework"] = "FastAPI"
 
         # Django
-        if list(self.workspace_path.glob("**/settings.py")) and list(self.workspace_path.glob("**/urls.py")):
+        if self._find_specific_files(["settings.py"]) and self._find_specific_files(["urls.py"]):
             self.tech_stack["frameworks"].add("django")
             self.tech_stack["meta"]["web_framework"] = "Django"
 
@@ -315,13 +491,13 @@ class TechStackManager:
                 pass
 
         # Flask
-        if "flask" in self.tech_stack["frameworks"] or list(self.workspace_path.glob("**/app.py")):
+        if "flask" in self.tech_stack["frameworks"] or self._find_specific_files(["app.py"]):
             if "flask" not in self.tech_stack["frameworks"]:
                 self.tech_stack["frameworks"].add("flask")
             self.tech_stack["meta"]["web_framework"] = "Flask"
 
         # React
-        if "react" in self.tech_stack["frameworks"] or list(self.workspace_path.glob("**/App.jsx")) or list(self.workspace_path.glob("**/App.tsx")):
+        if "react" in self.tech_stack["frameworks"] or self._find_specific_files(["App.jsx", "App.tsx"]):
             if "react" not in self.tech_stack["frameworks"]:
                 self.tech_stack["frameworks"].add("react")
             self.tech_stack["meta"]["ui_framework"] = "React"
@@ -334,7 +510,7 @@ class TechStackManager:
             self.tech_stack["meta"]["rendering"] = "Hybrid (SSR/SSG)"
 
         # Vue.js
-        if "vue" in self.tech_stack["frameworks"] or list(self.workspace_path.glob("**/App.vue")):
+        if "vue" in self.tech_stack["frameworks"] or self._find_specific_files(["App.vue"]):
             if "vue" not in self.tech_stack["frameworks"]:
                 self.tech_stack["frameworks"].add("vue.js")
             self.tech_stack["meta"]["ui_framework"] = "Vue.js"
@@ -344,6 +520,34 @@ class TechStackManager:
             if "angular" not in self.tech_stack["frameworks"]:
                 self.tech_stack["frameworks"].add("angular")
             self.tech_stack["meta"]["ui_framework"] = "Angular"
+
+        # Laravel
+        if "laravel" in self.tech_stack["frameworks"] or self._detect_laravel():
+            if "laravel" not in self.tech_stack["frameworks"]:
+                self.tech_stack["frameworks"].add("laravel")
+            self.tech_stack["meta"]["web_framework"] = "Laravel"
+            self.tech_stack["meta"]["language"] = "PHP"
+
+        # Symfony
+        if "symfony" in self.tech_stack["frameworks"] or self._detect_symfony():
+            if "symfony" not in self.tech_stack["frameworks"]:
+                self.tech_stack["frameworks"].add("symfony")
+            self.tech_stack["meta"]["web_framework"] = "Symfony"
+            self.tech_stack["meta"]["language"] = "PHP"
+
+        # CodeIgniter
+        if "codeigniter" in self.tech_stack["frameworks"] or self._detect_codeigniter():
+            if "codeigniter" not in self.tech_stack["frameworks"]:
+                self.tech_stack["frameworks"].add("codeigniter")
+            self.tech_stack["meta"]["web_framework"] = "CodeIgniter"
+            self.tech_stack["meta"]["language"] = "PHP"
+
+        # WordPress
+        if "wordpress" in self.tech_stack["frameworks"] or self._detect_wordpress():
+            if "wordpress" not in self.tech_stack["frameworks"]:
+                self.tech_stack["frameworks"].add("wordpress")
+            self.tech_stack["meta"]["cms"] = "WordPress"
+            self.tech_stack["meta"]["language"] = "PHP"
 
     def _add_best_practices(self):
         """Add best practices for the detected frameworks and languages."""
@@ -488,6 +692,19 @@ class TechStackManager:
         }
         return package.lower() in frameworks
 
+    def _is_php_framework(self, package: str) -> bool:
+        """Determine if a PHP package is a framework."""
+        frameworks = {
+            "laravel/framework", "laravel/laravel", "symfony/symfony", "symfony/framework-bundle",
+            "codeigniter4/framework", "codeigniter/framework", "cakephp/cakephp", "cake/cake",
+            "zendframework/zendframework", "laminas/laminas-mvc", "slim/slim", "phalcon/cphalcon",
+            "yiisoft/yii2", "yiisoft/yii", "drupal/core", "wordpress/wordpress",
+            "magento/magento2ce", "prestashop/prestashop", "phpunit/phpunit", "pestphp/pest",
+            "doctrine/orm", "twig/twig", "swiftmailer/swiftmailer", "guzzlehttp/guzzle"
+        }
+        # Check full package name and base name
+        return package.lower() in frameworks or package.lower().split('/')[-1] in {f.split('/')[-1] for f in frameworks}
+
     def get_formatted_tech_stack(self) -> str:
         """Return well-formatted tech stack information for LLM consumption."""
         output = []
@@ -560,3 +777,65 @@ class TechStackManager:
             "best_practices": self.best_practices
         }
         return result
+
+    def _detect_laravel(self) -> bool:
+        """Detect Laravel framework."""
+        # Check for Laravel specific files and directories
+        laravel_indicators = [
+            (self.workspace_path / "artisan").exists(),
+            (self.workspace_path / "app" / "Http" / "Kernel.php").exists(),
+            (self.workspace_path / "bootstrap" / "app.php").exists(),
+            self._find_specific_files(["web.php", "api.php"]),  # routes
+            # Check composer.json for Laravel
+            self._check_composer_for_package("laravel/framework")
+        ]
+        return any(laravel_indicators)
+
+    def _detect_symfony(self) -> bool:
+        """Detect Symfony framework."""
+        symfony_indicators = [
+            (self.workspace_path / "bin" / "console").exists(),
+            (self.workspace_path / "config" / "bundles.php").exists(),
+            (self.workspace_path / "src" / "Kernel.php").exists(),
+            self._check_composer_for_package("symfony/framework-bundle")
+        ]
+        return any(symfony_indicators)
+
+    def _detect_codeigniter(self) -> bool:
+        """Detect CodeIgniter framework."""
+        ci_indicators = [
+            (self.workspace_path / "system" / "CodeIgniter.php").exists(),
+            (self.workspace_path / "application" / "config" / "config.php").exists(),
+            self._find_specific_files(["index.php"]) and self._find_specific_files(["Config.php"]),
+            self._check_composer_for_package("codeigniter4/framework")
+        ]
+        return any(ci_indicators)
+
+    def _detect_wordpress(self) -> bool:
+        """Detect WordPress."""
+        wp_indicators = [
+            (self.workspace_path / "wp-config.php").exists(),
+            (self.workspace_path / "wp-content").exists(),
+            (self.workspace_path / "wp-includes").exists(),
+            self._find_specific_files(["functions.php", "style.css"]) and 
+            self._find_specific_files(["index.php"])
+        ]
+        return any(wp_indicators)
+
+    def _check_composer_for_package(self, package_name: str) -> bool:
+        """Check if a specific package exists in composer.json."""
+        composer_path = self.workspace_path / "composer.json"
+        if not composer_path.exists():
+            return False
+        
+        try:
+            with open(composer_path, "r") as f:
+                composer_data = json.load(f)
+            
+            # Check both require and require-dev
+            require = composer_data.get("require", {})
+            require_dev = composer_data.get("require-dev", {})
+            
+            return package_name in require or package_name in require_dev
+        except Exception:
+            return False

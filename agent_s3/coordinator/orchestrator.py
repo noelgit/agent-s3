@@ -58,6 +58,10 @@ class WorkflowOrchestrator:
         self.can_pause = True
         self.can_resume = False
         self.can_stop = True
+        
+        # Resource cleanup tracking
+        self._active_stashes: List[str] = []
+        self._cleanup_lock = threading.Lock()
 
         # Valid state transitions for atomic updates
         self.valid_transitions = {
@@ -105,6 +109,10 @@ class WorkflowOrchestrator:
                 self.can_stop = False
                 self.pause_event.set()  # Unblock any waiting operations
                 self.stop_event.set()
+                
+                # Cleanup resources when workflow terminates
+                if to_state in ("stopped", "failed"):
+                    self._cleanup_all_stashes()
 
             # Log and broadcast the transition
             message = f"State transition: {old_state} → {to_state}"
@@ -142,18 +150,22 @@ class WorkflowOrchestrator:
             }
 
     def _check_workflow_control(self) -> bool:
-        """Check workflow control state and handle pause/stop."""
-        # Check for stop signal
-        if self.stop_event.is_set():
-            return False
+        """Check workflow control state and handle pause/stop atomically."""
+        with self.control_lock:
+            # Check for stop signal first
+            if self.stop_event.is_set():
+                return False
 
-        # Handle pause state
+            # Handle pause state
+            if not self.pause_event.is_set():
+                self.coordinator.scratchpad.log(
+                    "Orchestrator",
+                    "Workflow paused, waiting for resume...",
+                    level=LogLevel.INFO,
+                )
+        
+        # Wait outside the lock to prevent deadlock
         if not self.pause_event.is_set():
-            self.coordinator.scratchpad.log(
-                "Orchestrator",
-                "Workflow paused, waiting for resume...",
-                level=LogLevel.INFO,
-            )
             # Wait with timeout to prevent infinite blocking
             resumed = self.pause_event.wait(timeout=30.0)
             if not resumed:
@@ -163,14 +175,15 @@ class WorkflowOrchestrator:
                     level=LogLevel.WARNING,
                 )
 
-            # Check if stopped while paused
-            if self.stop_event.is_set():
-                return False
+            # Re-check stop condition after waiting
+            with self.control_lock:
+                if self.stop_event.is_set():
+                    return False
 
         return True
 
     def _set_current_phase(self, phase: str):
-        """Set the current workflow phase."""
+        """Set the current workflow phase with proper locking."""
         with self.control_lock:
             self.current_phase = phase
             if self.workflow_state == "running":
@@ -396,40 +409,59 @@ class WorkflowOrchestrator:
         )
 
         if pre_planning_input is None:
-            # Use consolidated context management directly through coordinator
+            # Use consolidated context management with robust error handling
             context = None
             try:
-                # Gather context for the pre-planning LLM call.
-                # The result is a dictionary which flows directly into
-                # ``call_pre_planner_with_enforced_json`` via the ``context``
-                # argument, ensuring structured context is passed to the LLM.
-                if (
+                # Validate context manager availability first
+                if not (
                     hasattr(self.coordinator, "context_manager")
                     and self.coordinator.context_manager
                 ):
+                    self.coordinator.scratchpad.log(
+                        "Orchestrator",
+                        "Context manager not available - proceeding without context",
+                        level=LogLevel.WARNING,
+                    )
+                    context = None
+                else:
+                    # Gather context for the pre-planning LLM call
+                    max_tokens = self.coordinator.config.config.get(
+                        "context_management", {}
+                    ).get("max_tokens_for_pre_planning", 4000)
+                    
+                    # Validate max_tokens configuration
+                    if not isinstance(max_tokens, int) or max_tokens <= 0:
+                        self.coordinator.scratchpad.log(
+                            "Orchestrator",
+                            f"Invalid max_tokens_for_pre_planning: {max_tokens}, using default 4000",
+                            level=LogLevel.WARNING,
+                        )
+                        max_tokens = 4000
+                    
                     context = self.coordinator.context_manager.gather_context(
                         task_description=task,
                         task_type="pre_planning",
-                        max_tokens=self.coordinator.config.config.get(
-                            "context_management", {}
-                        ).get("max_tokens_for_pre_planning", 4000),
+                        max_tokens=max_tokens,
                     )
-                    self.coordinator.scratchpad.log(
-                        "Orchestrator",
-                        "Retrieved consolidated context for pre-planning",
-                        level=LogLevel.DEBUG,
-                    )
-                else:
-                    self.coordinator.scratchpad.log(
-                        "Orchestrator",
-                        "No context manager available",
-                        level=LogLevel.WARNING,
-                    )
+                    
+                    if context:
+                        self.coordinator.scratchpad.log(
+                            "Orchestrator",
+                            "Successfully retrieved consolidated context for pre-planning",
+                            level=LogLevel.DEBUG,
+                        )
+                    else:
+                        self.coordinator.scratchpad.log(
+                            "Orchestrator",
+                            "Context gathering returned empty result",
+                            level=LogLevel.WARNING,
+                        )
+                        
             except Exception as e:
                 self.coordinator.scratchpad.log(
                     "Orchestrator",
-                    f"Context gathering failed: {e}",
-                    level=LogLevel.WARNING,
+                    f"Context gathering failed with error: {e}",
+                    level=LogLevel.ERROR,
                 )
                 context = None
 
@@ -536,7 +568,13 @@ class WorkflowOrchestrator:
                 plans.append(consolidated_plan)
 
                 # GitHub Integration: Create issue from approved plan
-                self._create_github_issue_for_plan(consolidated_plan, task)
+                issue_url = self._create_github_issue_for_plan(consolidated_plan, task)
+                if issue_url:
+                    self.coordinator.scratchpad.log(
+                        "Orchestrator",
+                        f"Created GitHub issue for plan: {issue_url}",
+                        level=LogLevel.INFO,
+                    )
 
         self.coordinator.progress_tracker.update_progress(
             {"phase": "feature_group_processing", "status": "completed"}
@@ -576,102 +614,192 @@ class WorkflowOrchestrator:
 
             while attempt < max_attempts:
                 attempt += 1
-                stash_created = False
+                stash_id = None
+
+                # Create stash with proper tracking
                 if git_tool:
-                    rc, _ = git_tool.run_git_command(
-                        "stash push --keep-index --include-untracked -m 'agent-s3-temp'"
-                    )
-                    stash_created = rc == 0
-
-                self._set_current_phase("code_generation")
-                if not self._check_workflow_control():
-                    if stash_created and git_tool:
-                        git_tool.run_git_command("stash pop --index")
-                    break
-
-                changes = self.coordinator.code_generator.generate_code(
-                    plan, tech_stack=self.coordinator.tech_stack
-                )
+                    stash_id = self._create_tracked_stash(git_tool)
 
                 try:
-                    from ..task_state_manager import CodeGenerationState
+                    self._set_current_phase("code_generation")
+                    if not self._check_workflow_control():
+                        break
 
-                    cg_state = CodeGenerationState(
-                        self.coordinator.current_task_id,
-                        plan,
-                        getattr(self.coordinator, "_current_github_issue_url", None),
-                        {},
-                        getattr(self.coordinator, "tech_stack", {}),
+                    changes = self.coordinator.code_generator.generate_code(
+                        plan, tech_stack=self.coordinator.tech_stack
                     )
-                    cg_state.generated_changes = [
-                        {"path": p, "content": c} for p, c in changes.items()
-                    ]
-                    cg_state.current_iteration = attempt
-                    self.coordinator.task_state_manager.save_task_snapshot(cg_state)
-                except Exception:
-                    pass
 
-                if not self._apply_changes_and_manage_dependencies(changes):
-                    if stash_created and git_tool:
-                        git_tool.run_git_command("stash pop --index")
-                    break
+                    # Save code generation state
+                    try:
+                        from ..task_state_manager import CodeGenerationState
 
-                self._set_current_phase("validation")
-                if not self._check_workflow_control():
-                    if stash_created and git_tool:
-                        git_tool.run_git_command("stash pop --index")
-                    break
-
-                validation = self._run_validation_phase()
-
-                try:
-                    from ..task_state_manager import ExecutionState
-
-                    exec_state = ExecutionState(
-                        self.coordinator.current_task_id,
-                        [
+                        cg_state = CodeGenerationState(
+                            self.coordinator.current_task_id,
+                            plan,
+                            getattr(self.coordinator, "_current_github_issue_url", None),
+                            {},
+                            getattr(self.coordinator, "tech_stack", {}),
+                        )
+                        cg_state.generated_changes = [
                             {"path": p, "content": c} for p, c in changes.items()
-                        ],
-                        attempt,
-                        validation,
-                    )
-                    exec_state.is_applied = validation.get("success", False)
-                    self.coordinator.task_state_manager.save_task_snapshot(exec_state)
-                except Exception:
-                    pass
+                        ]
+                        cg_state.current_iteration = attempt
+                        self.coordinator.task_state_manager.save_task_snapshot(cg_state)
+                    except Exception as e:
+                        self.coordinator.scratchpad.log(
+                            "Orchestrator",
+                            f"Failed to save code generation state: {e}",
+                            level=LogLevel.WARNING,
+                        )
 
-                if validation.get("success"):
-                    all_changes.update(changes)
-                    overall_success = True
-                    if stash_created and git_tool:
-                        git_tool.run_git_command("stash drop")
+                    if not self._apply_changes_and_manage_dependencies(changes):
+                        break
+
+                    self._set_current_phase("validation")
+                    if not self._check_workflow_control():
+                        break
+
+                    validation = self._run_validation_phase()
+
+                    # Save execution state
+                    try:
+                        from ..task_state_manager import ExecutionState
+
+                        exec_state = ExecutionState(
+                            self.coordinator.current_task_id,
+                            [
+                                {"path": p, "content": c} for p, c in changes.items()
+                            ],
+                            attempt,
+                            validation,
+                        )
+                        exec_state.is_applied = validation.get("success", False)
+                        self.coordinator.task_state_manager.save_task_snapshot(exec_state)
+                    except Exception as e:
+                        self.coordinator.scratchpad.log(
+                            "Orchestrator",
+                            f"Failed to save execution state: {e}",
+                            level=LogLevel.WARNING,
+                        )
+
+                    if validation.get("success"):
+                        all_changes.update(changes)
+                        overall_success = True
+                        # Success - drop the stash
+                        if stash_id and git_tool:
+                            self._cleanup_stash(git_tool, stash_id, drop=True)
+                        break
+
+                    self.coordinator.debugging_manager.handle_error(
+                        error_message=f"Validation step '{validation.get('step')}' failed",
+                        traceback_text=validation.get("output", ""),
+                        metadata={"plan": plan, "validation_step": validation.get("step")},
+                    )
+
+                    modifications = (
+                        self.coordinator.prompt_moderator.request_debugging_guidance(
+                            group_name, attempt
+                        )
+                    )
+
+                    if modifications:
+                        plan = self.coordinator.feature_group_processor.update_plan_with_modifications(
+                            plan, modifications
+                        )
+                    else:
+                        break
+
+                except Exception as e:
+                    self.coordinator.scratchpad.log(
+                        "Orchestrator",
+                        f"Implementation attempt {attempt} failed: {e}",
+                        level=LogLevel.ERROR,
+                    )
                     break
-
-                self.coordinator.debugging_manager.handle_error(
-                    error_message=f"Validation step '{validation.get('step')}' failed",
-                    traceback_text=validation.get("output", ""),
-                    metadata={"plan": plan, "validation_step": validation.get("step")},
-                )
-
-                modifications = (
-                    self.coordinator.prompt_moderator.request_debugging_guidance(
-                        group_name, attempt
-                    )
-                )
-
-                if modifications:
-                    plan = self.coordinator.feature_group_processor.update_plan_with_modifications(
-                        plan, modifications
-                    )
-                else:
-                    if stash_created and git_tool:
-                        git_tool.run_git_command("stash pop --index")
-                    break
-
-                if stash_created and git_tool:
-                    git_tool.run_git_command("stash pop --index")
+                finally:
+                    # Always attempt to restore stash if validation failed
+                    if stash_id and git_tool and not validation.get("success", False):
+                        self._cleanup_stash(git_tool, stash_id, drop=False)
 
         return all_changes, overall_success
+
+    # ------------------------------------------------------------------
+    # Resource management helpers
+    # ------------------------------------------------------------------
+    
+    def _create_tracked_stash(self, git_tool) -> Optional[str]:
+        """Create a git stash with proper tracking."""
+        try:
+            with self._cleanup_lock:
+                stash_message = f"agent-s3-temp-{uuid.uuid4().hex[:8]}"
+                rc, output = git_tool.run_git_command(
+                    f"stash push --keep-index --include-untracked -m '{stash_message}'"
+                )
+                if rc == 0:
+                    self._active_stashes.append(stash_message)
+                    return stash_message
+                else:
+                    self.coordinator.scratchpad.log(
+                        "Orchestrator",
+                        f"Failed to create stash: {output}",
+                        level=LogLevel.WARNING,
+                    )
+                    return None
+        except Exception as e:
+            self.coordinator.scratchpad.log(
+                "Orchestrator",
+                f"Exception creating stash: {e}",
+                level=LogLevel.ERROR,
+            )
+            return None
+
+    def _cleanup_stash(self, git_tool, stash_id: str, drop: bool = False) -> bool:
+        """Clean up a tracked stash - either restore or drop it."""
+        try:
+            with self._cleanup_lock:
+                if stash_id not in self._active_stashes:
+                    return True  # Already cleaned up
+                
+                if drop:
+                    # Find stash index and drop it
+                    rc, stash_list = git_tool.run_git_command("stash list")
+                    if rc == 0:
+                        for line in stash_list.splitlines():
+                            if stash_id in line:
+                                stash_index = line.split(':')[0]
+                                rc, _ = git_tool.run_git_command(f"stash drop {stash_index}")
+                                break
+                else:
+                    # Restore stash
+                    rc, stash_list = git_tool.run_git_command("stash list")
+                    if rc == 0:
+                        for line in stash_list.splitlines():
+                            if stash_id in line:
+                                stash_index = line.split(':')[0]
+                                rc, _ = git_tool.run_git_command(f"stash pop {stash_index}")
+                                break
+                
+                # Remove from tracking regardless of success
+                self._active_stashes.remove(stash_id)
+                return rc == 0
+                
+        except Exception as e:
+            self.coordinator.scratchpad.log(
+                "Orchestrator",
+                f"Exception cleaning up stash {stash_id}: {e}",
+                level=LogLevel.ERROR,
+            )
+            return False
+
+    def _cleanup_all_stashes(self):
+        """Emergency cleanup of all tracked stashes."""
+        git_tool = self.registry.get_tool("git_tool")
+        if not git_tool:
+            return
+            
+        with self._cleanup_lock:
+            for stash_id in self._active_stashes.copy():
+                self._cleanup_stash(git_tool, stash_id, drop=False)
 
     # ------------------------------------------------------------------
     # Supporting helpers
@@ -754,15 +882,21 @@ class WorkflowOrchestrator:
 
                 exit_code, output = bash_tool.run_command(
                     "pip install -r requirements.txt",
-                    timeout=300,
+                    timeout=self.coordinator.config.config.get("pip_install_timeout", 300),
                 )
                 if exit_code != 0:
                     self.coordinator.scratchpad.log(
                         "Coordinator",
-                        f"Package installation failed: {output}",
+                        f"Package installation failed with exit code {exit_code}: {output}",
                         level=LogLevel.ERROR,
                     )
                     return False
+                else:
+                    self.coordinator.scratchpad.log(
+                        "Coordinator",
+                        f"Successfully installed {len(new_packages)} new packages",
+                        level=LogLevel.INFO,
+                    )
 
             return True
         except Exception as exc:  # pragma: no cover - safety net
@@ -777,19 +911,28 @@ class WorkflowOrchestrator:
     def _is_stdlib(module: str) -> bool:
         """Return ``True`` if ``module`` is part of the Python standard library."""
         try:
-            if (
-                hasattr(sys, "stdlib_module_names")
-                and module in sys.stdlib_module_names
-            ):
+            # First check Python 3.10+ stdlib_module_names
+            if hasattr(sys, "stdlib_module_names") and module in sys.stdlib_module_names:
                 return True
+                
+            # Fallback for older Python versions
             spec = importlib.util.find_spec(module)
             if not spec or not spec.origin:
                 return False
-            return (
-                "site-packages" not in spec.origin
-                and "dist-packages" not in spec.origin
-            )
-        except Exception:
+                
+            # Check if it's in standard library paths
+            stdlib_paths = [
+                "site-packages",
+                "dist-packages", 
+                "egg-info",
+                ".egg"
+            ]
+            
+            origin_path = str(spec.origin).lower()
+            return not any(path in origin_path for path in stdlib_paths)
+            
+        except (ImportError, AttributeError, ValueError):
+            # If we can't determine, assume it's not stdlib (safer for dependency management)
             return False
 
     def _run_validation_phase(self) -> Dict[str, Any]:
@@ -929,12 +1072,25 @@ class WorkflowOrchestrator:
 
     def _create_github_issue_for_plan(
         self, consolidated_plan: Dict[str, Any], task_description: str
-    ) -> None:
+    ) -> Optional[str]:
         """Create GitHub issue from approved consolidated plan using existing GitTool."""
         try:
             git_tool = self.registry.get_tool("git_tool")
-            if not git_tool or not git_tool.github_token:
-                return
+            if not git_tool:
+                self.coordinator.scratchpad.log(
+                    "GitHub", 
+                    "Git tool not available for issue creation",
+                    level=LogLevel.WARNING
+                )
+                return None
+                
+            if not git_tool.github_token:
+                self.coordinator.scratchpad.log(
+                    "GitHub", 
+                    "GitHub token not configured for issue creation",
+                    level=LogLevel.WARNING
+                )
+                return None
 
             # Generate issue content using the existing workflow patterns
             issue_title = self._generate_issue_title(
@@ -950,21 +1106,49 @@ class WorkflowOrchestrator:
             )
 
             if issue_url:
-                self.coordinator.scratchpad.log("GitHub", f"Created issue: {issue_url}")
+                self.coordinator.scratchpad.log(
+                    "GitHub", 
+                    f"Successfully created issue: {issue_url}",
+                    level=LogLevel.INFO
+                )
                 # Store for PR reference
                 setattr(self.coordinator, "_current_github_issue_url", issue_url)
+                return issue_url
+            else:
+                self.coordinator.scratchpad.log(
+                    "GitHub", 
+                    "Issue creation returned no URL",
+                    level=LogLevel.ERROR
+                )
+                return None
 
         except Exception as e:
-            # Silent failure - log but don't interrupt workflow
+            # More specific error logging instead of silent failure
             self.coordinator.scratchpad.log(
-                "GitHub", f"Issue creation failed: {str(e)}"
+                "GitHub", 
+                f"Issue creation failed: {str(e)}",
+                level=LogLevel.ERROR
             )
+            return None
 
     def _create_github_pr_for_implementation(self, changes: Dict[str, str]) -> Optional[str]:
         """Create GitHub PR from successful implementation using existing GitTool."""
         try:
             git_tool = self.registry.get_tool("git_tool")
-            if not git_tool or not git_tool.github_token:
+            if not git_tool:
+                self.coordinator.scratchpad.log(
+                    "GitHub", 
+                    "Git tool not available for PR creation",
+                    level=LogLevel.WARNING
+                )
+                return None
+                
+            if not git_tool.github_token:
+                self.coordinator.scratchpad.log(
+                    "GitHub", 
+                    "GitHub token not configured for PR creation",
+                    level=LogLevel.WARNING
+                )
                 return None
 
             # Generate PR content
@@ -980,12 +1164,27 @@ class WorkflowOrchestrator:
             self._last_pr_body = pr_body
 
             if pr_url:
-                self.coordinator.scratchpad.log("GitHub", f"Created PR: {pr_url}")
-            return pr_url
+                self.coordinator.scratchpad.log(
+                    "GitHub", 
+                    f"Successfully created PR: {pr_url}",
+                    level=LogLevel.INFO
+                )
+                return pr_url
+            else:
+                self.coordinator.scratchpad.log(
+                    "GitHub", 
+                    "PR creation returned no URL",
+                    level=LogLevel.ERROR
+                )
+                return None
 
         except Exception as e:
-            # Silent failure - log but don't interrupt workflow
-            self.coordinator.scratchpad.log("GitHub", f"PR creation failed: {str(e)}")
+            # More specific error logging instead of silent failure
+            self.coordinator.scratchpad.log(
+                "GitHub", 
+                f"PR creation failed: {str(e)}",
+                level=LogLevel.ERROR
+            )
             return None
     def _generate_issue_title(self, task_description: str, plan: Dict[str, Any]) -> str:
         """Generate descriptive issue title."""

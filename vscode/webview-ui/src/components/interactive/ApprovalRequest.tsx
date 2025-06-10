@@ -27,6 +27,16 @@ export const ApprovalRequest: React.FC<ApprovalRequestProps> = ({
     timeout ? timeout : null
   );
 
+  const handleSubmit = React.useCallback((optionId: string) => {
+    vscode.postMessage({
+      type: 'APPROVAL_RESPONSE',
+      content: {
+        request_id: requestId,
+        selected_option: optionId
+      }
+    });
+  }, [requestId]);
+
   React.useEffect(() => {
     let timerId: NodeJS.Timeout | null = null;
     
@@ -48,17 +58,7 @@ export const ApprovalRequest: React.FC<ApprovalRequestProps> = ({
     return () => {
       if (timerId) clearInterval(timerId);
     };
-  }, [timeout, options]);
-
-  const handleSubmit = (optionId: string) => {
-    vscode.postMessage({
-      type: 'APPROVAL_RESPONSE',
-      content: {
-        request_id: requestId,
-        selected_option: optionId
-      }
-    });
-  };
+  }, [timeout, options, handleSubmit]);
 
   return (
     <div className="approval-request">
