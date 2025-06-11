@@ -22,7 +22,9 @@ function App() {
       const message = event.data;
       
       // Process incoming message
-      if (message.type) {
+      if (message.type === 'LOAD_HISTORY') {
+        setMessages(message.history || []);
+      } else if (message.type) { // Ensure message.type exists before appending
         setMessages((prev: MessageData[]) => [...prev, message]);
       }
     };
@@ -104,7 +106,9 @@ function App() {
             m.type === 'STREAM_CONTENT' || 
             m.type === 'STREAM_END' || 
             m.type === 'TERMINAL_OUTPUT' ||
-            m.type === 'CHAT_MESSAGE'
+            m.type === 'CHAT_MESSAGE' ||
+            m.type === 'COMMAND_RESULT' || // Added
+            m.type === 'STREAM_INTERACTIVE' // Added
           )} />
         )}
       </main>
