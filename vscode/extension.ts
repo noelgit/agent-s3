@@ -480,13 +480,11 @@ async function handleInteractiveDesignCommand(command: string, workspacePath: st
     chatManager.createOrShowPanel(); // Ensure panel is visible
 
     const pythonExec = getPythonExecutable();
-    // Use stored extensionContext
-    const scriptPath = vscode.Uri.joinPath(extensionContext.extensionUri, 'scripts', 'design_interactive_session.py').fsPath;
     const streamId = `design_session_${Date.now()}`;
 
-    const childProcess = spawn(pythonExec, [scriptPath, objective], {
+    const childProcess = spawn(pythonExec, ['-m', 'agent_s3.cli', `/design ${objective}`], {
         cwd: workspacePath,
-        stdio: ['pipe', 'pipe', 'pipe'] // stdin, stdout, stderr
+        stdio: ['pipe', 'pipe', 'pipe'],
     });
 
     activeDesignSession = {
