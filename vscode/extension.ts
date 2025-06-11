@@ -550,7 +550,15 @@ async function handleInteractiveDesignCommand(command: string, workspacePath: st
                             // This part will be more relevant in Part 2 when handling ongoing conversation
                             // For now, we primarily care about the first message.
                             // We can log other messages or decide if they need handling here.
-                            console.log("Further stdout from design script (should be handled by chat input handler):", messageFromPython);
+                            // console.log("Further stdout from design script (should be handled by chat input handler):", messageFromPython);
+                            // Handle subsequent messages
+                            if (messageFromPython.type === 'ai_response') {
+                                chatManager?.postMessage({ type: 'CHAT_MESSAGE', id: streamId + '_ai_' + Date.now(), content: { text: messageFromPython.content, source: 'agent' } });
+                            } else if (messageFromPython.type === 'system_message') {
+                                chatManager?.postMessage({ type: 'CHAT_MESSAGE', id: streamId + '_system_' + Date.now(), content: { text: messageFromPython.content, source: 'system' } });
+                            } else if (messageFromPython.type === 'error') {
+                                chatManager?.postMessage({ type: 'CHAT_MESSAGE', id: streamId + '_error_' + Date.now(), content: { text: messageFromPython.content, source: 'system' } });
+                            }
                         }
                     } catch (e) {
                         console.error('Failed to parse JSON from Python script:', line, e);
@@ -562,6 +570,9 @@ async function handleInteractiveDesignCommand(command: string, workspacePath: st
                             if (activeDesignSession) activeDesignSession.isProcessAlive = false;
                             activeDesignSession = null;
                             reject(new Error(errorMsg));
+                        } else {
+                            // If it's not the first message, log to console and also inform user in chat.
+                            chatManager?.postMessage({ type: 'CHAT_MESSAGE', id: streamId + '_json_parse_error_' + Date.now(), content: { text: `Error parsing response from design script: ${line}`, source: 'system' } });
                         }
                     }
                 }
