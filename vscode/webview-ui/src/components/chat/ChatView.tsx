@@ -59,7 +59,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
   const [inputText, setInputText] = useState('');
   const [isAgentResponding, setIsAgentResponding] = useState(false);
   const [activeStreams, setActiveStreams] = useState<Record<string, StreamState>>({});
-  const [hasMore, setHasMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false); // setHasMore will be managed by App.tsx via props if needed. For now, ChatView won't request more history.
   
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -245,21 +245,26 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
     setIsAgentResponding(false);
   }, [generateMessageId]);
   
-  // Effect to handle WebView messages from extension
+  // Process external messages from parent component
+  // This is now the primary way messages are received and processed by ChatView.
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      try {
-        const message = event.data;
-        console.log('ChatView received message:', message.type, message);
-        
+    if (!externalMessages || !externalMessages.length) return; // Add guard for undefined externalMessages
+
+    try {
+      externalMessages.forEach(message => {
+        // Ensure message and message.type are defined
+        if (!message || !message.type) {
+          console.warn('Received an undefined message or message type:', message);
+          return;
+        }
+        console.log('ChatView processing external message:', message.type, message);
+
         switch (message.type) {
-          case 'LOAD_HISTORY':
-            if (Array.isArray(message.history)) {
-              setMessages(prev => [...message.history, ...prev]);
-              setHasMore(message.has_more);
-            }
-            break;
-            
+          // LOAD_HISTORY is handled by App.tsx, ChatView receives chat history via initial messages prop if needed,
+          // or App.tsx could convert LOAD_HISTORY into a series of CHAT_MESSAGE for ChatView if that pattern is preferred.
+          // For now, ChatView will not directly process LOAD_HISTORY from externalMessages.
+          // It will render messages passed to it, which might include historical messages loaded by App.tsx.
+
           case 'THINKING_INDICATOR':
             handleThinkingIndicator(message.content);
             break;
@@ -272,7 +277,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
             handleStreamContent(message.content);
             break;
 
-          case 'STREAM_INTERACTIVE':
+          case 'STREAM_INTERACTIVE': // Assuming App.tsx will pass this type
             handleStreamInteractive(message.content);
             break;
             
@@ -283,79 +288,40 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
           case 'TERMINAL_OUTPUT':
             handleTerminalOutput(message.content);
             break;
-            
-          case 'COMMAND_RESULT':
+
+          case 'COMMAND_RESULT': // Assuming App.tsx will pass this type
             handleCommandResult(message.content);
-            break;
-        }
-      } catch (error) {
-        console.error('Error processing message:', error, event.data);
-      }
-    };
-    
-    window.addEventListener('message', handleMessage);
-    
-    // Notify extension that the webview is ready
-    vscode.postMessage({ type: 'webview-ready' });
-    
-    return () => {
-      window.removeEventListener('message', handleMessage);
-      // Cleanup safety timeout to prevent memory leaks
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, [handleThinkingIndicator, handleStreamStart, handleStreamContent, handleStreamInteractive, handleStreamEnd, handleTerminalOutput, handleCommandResult]);
-  
-  // Process external messages from parent component
-  useEffect(() => {
-    if (!externalMessages.length) return;
-    
-    try {
-      externalMessages.forEach(message => {
-        switch (message.type) {
-          case 'THINKING_INDICATOR':
-            handleThinkingIndicator(message.content);
-            break;
-            
-          case 'STREAM_START':
-            handleStreamStart(message.content);
-            break;
-            
-          case 'STREAM_CONTENT':
-            handleStreamContent(message.content);
-            break;
-            
-          case 'STREAM_END':
-            handleStreamEnd(message.content);
-            break;
-            
-          case 'TERMINAL_OUTPUT':
-            handleTerminalOutput(message.content);
             break;
             
           case 'CHAT_MESSAGE':
-            // Handle chat messages from other sources
+            // Handle chat messages from other sources (e.g., history loaded by App.tsx)
             const chatMsg: ChatMessage = {
               id: message.id || generateMessageId(),
-              type: message.content.source === 'user' ? 'user' : 'agent',
-              content: message.content.text,
+              // Ensure message.content and message.content.source exist before accessing them
+              type: message.content && message.content.source === 'user' ? 'user' : 'agent',
+              content: message.content && message.content.text ? message.content.text : '',
               timestamp: new Date(),
               isComplete: true
             };
             setMessages(prev => [...prev, chatMsg]);
             
             // Reset responding state when we get an agent message
-            if (message.content.source === 'agent') {
+            if (message.content && message.content.source === 'agent') {
               setIsAgentResponding(false);
             }
+            break;
+
+          // Default case to log unhandled message types if App.tsx passes them
+          default:
+            console.warn(`ChatView received unhandled message type from externalMessages: ${message.type}`, message);
             break;
         }
       });
     } catch (error) {
-      console.error('Error processing external messages:', error, externalMessages);
+      console.error('Error processing external messages in ChatView:', error, externalMessages);
     }
-  }, [externalMessages, generateMessageId, handleThinkingIndicator, handleStreamStart, handleStreamContent, handleStreamEnd, handleTerminalOutput]);
+    // Added all relevant handlers to dependencies
+  }, [externalMessages, generateMessageId, handleThinkingIndicator, handleStreamStart, handleStreamContent, handleStreamInteractive, handleStreamEnd, handleTerminalOutput, handleCommandResult]);
    /**
    * Scroll to bottom of messages
    */
@@ -456,9 +422,15 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
     <div className="chat-container">
       <div className="messages-container">
         {hasMore && (
+          {/* The "Load More" button functionality might need to be re-evaluated.
+              If App.tsx manages history loading, it should also manage the "Load More" UI trigger.
+              For now, this button remains, but its message (`REQUEST_MORE_HISTORY`) would be handled by App.tsx.
+              Alternatively, App.tsx could pass a `hasMore` prop and a `loadMore` callback.
+           */}
+        {hasMore && (
           <button
             className="load-more"
-            onClick={() => vscode.postMessage({ type: 'REQUEST_MORE_HISTORY', already: messages.length })}
+            onClick={() => vscode.postMessage({ type: 'REQUEST_MORE_HISTORY', count: messages.length })}
           >
             Load More
           </button>

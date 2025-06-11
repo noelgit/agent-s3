@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { spawn } from 'child_process';
+import { spawn, ChildProcess } from 'child_process'; // Added ChildProcess
 import { WebviewUIManager } from './webview-ui-loader';
 import { CHAT_HISTORY_KEY } from './constants';
 import type { ChatHistoryEntry } from './types/message';
@@ -19,6 +19,43 @@ let terminalEmitter: { event: unknown; fire(data: string): void; dispose(): void
 let agentTerminal: vscode.Terminal | undefined;
 let connectionManager: ConnectionManager;
 let httpClient: HttpClient;
+let extensionContext: vscode.ExtensionContext; // Store context globally
+
+// Function to clean up the active design session
+function cleanupDesignSession(reason?: string) {
+    if (activeDesignSession) {
+        if (reason) {
+            chatManager?.postMessage({
+                type: 'CHAT_MESSAGE',
+                id: activeDesignSession.streamId + '_cleanup',
+                content: { text: `Design session ended: ${reason}`, source: 'system' }
+            });
+        }
+        if (activeDesignSession.isProcessAlive && activeDesignSession.process) {
+            activeDesignSession.process.kill();
+        }
+        activeDesignSession.isProcessAlive = false;
+        // Detach listeners by replacing the process object or explicitly removing them if attached one by one
+        // For simplicity here, we assume new listeners are setup on new process or old ones become no-ops
+        if (activeDesignSession.process) {
+            activeDesignSession.process.stdout?.removeAllListeners();
+            activeDesignSession.process.stderr?.removeAllListeners();
+            activeDesignSession.process.removeAllListeners('close');
+            activeDesignSession.process.removeAllListeners('error');
+        }
+        activeDesignSession = null;
+        console.log(`Active design session cleaned up. Reason: ${reason || 'N/A'}`);
+    }
+}
+
+// New session state variable
+interface ActiveDesignSession {
+  process: ChildProcess;
+  objective: string;
+  streamId: string; // To correlate messages in chat
+  isProcessAlive: boolean; // To track if the process is still running
+}
+let activeDesignSession: ActiveDesignSession | null = null;
 
 /**
  * Determine the Python executable used for CLI commands.
@@ -36,6 +73,7 @@ function getPythonExecutable(): string {
  * Extension activation point
  */
 export function activate(context: vscode.ExtensionContext): void {
+    extensionContext = context; // Store context
     console.log('Agent-S3 HTTP Extension activated');
 
     // Initialize connection management
@@ -139,38 +177,69 @@ export function activate(context: vscode.ExtensionContext): void {
                 if (message.type === 'send') {
                     const text = typeof message.text === 'string' ? message.text : '';
                     const entry: ChatHistoryEntry = { role: 'user', content: text, timestamp: new Date().toISOString() };
-                    messageHistory.push(entry);
-                    await context.workspaceState.update(CHAT_HISTORY_KEY, messageHistory);
-
-                    // Send initial response to chat
-                    chatManager?.postMessage({ type: 'COMMAND_RESULT', content: { result: 'Processing...', success: null, command: text } });
+                    const text = typeof message.text === 'string' ? message.text : '';
                     
-                    try {
-                        // Try HTTP first, fallback to CLI
-                        const result = await executeAgentCommandWithOutput(text);
-                        
-                        // Send successful completion with output to chat
-                        const ack: ChatHistoryEntry = { role: 'assistant', content: result, timestamp: new Date().toISOString() };
-                        messageHistory.push(ack);
+                    // Add user's message to the visual chat immediately
+                    // The history for general commands is handled below, design session messages are not added to general history here.
+                    // chatManager?.postMessage({ type: 'CHAT_MESSAGE', content: { text: text, source: 'user' } });
+                    // No, App.tsx already adds user message to its display when 'send' is emitted.
+
+                    if (activeDesignSession && activeDesignSession.isProcessAlive && activeDesignSession.process.stdin) {
+                        // Design session is active, route input to Python script
+                        console.log(`Forwarding to design session: ${text}`);
+                        try {
+                            const jsonInput = JSON.stringify({ content: text });
+                            activeDesignSession.process.stdin.write(jsonInput + '\n');
+
+                            // Optionally, add this user message to a specific design history if needed,
+                            // but not to the main `messageHistory` which is for general commands.
+                            // For now, the Python script's echo/response will be the record.
+                            const designEntry: ChatHistoryEntry = { role: 'user', content: `(Design Session) ${text}`, timestamp: new Date().toISOString() };
+                            // If you want to store design session chat, use a separate key or integrate carefully.
+                            // messageHistory.push(designEntry);
+                            // await context.workspaceState.update(CHAT_HISTORY_KEY, messageHistory);
+
+                        } catch (e) {
+                            const errorMsg = `Failed to send message to design script: ${e instanceof Error ? e.message : String(e)}`;
+                            console.error(errorMsg);
+                            chatManager?.postMessage({ type: 'CHAT_MESSAGE', content: { text: errorMsg, source: 'system' } });
+                            // Optionally cleanup if stdin write fails catastrophically
+                            // cleanupDesignSession("Error writing to design script stdin.");
+                        }
+                    } else {
+                        // No active design session, proceed with normal command execution
+                        const entry: ChatHistoryEntry = { role: 'user', content: text, timestamp: new Date().toISOString() };
+                        messageHistory.push(entry); // Add to general history
                         await context.workspaceState.update(CHAT_HISTORY_KEY, messageHistory);
+
+                        // Send initial "Processing..." response to chat
+                        chatManager?.postMessage({ type: 'COMMAND_RESULT', content: { result: 'Processing...', success: null, command: text } });
                         
-                        // Send completion signal to chat interface
-                        chatManager?.postMessage({ type: 'COMMAND_RESULT', content: { result: result, success: true, command: text } });
-                        chatManager?.postMessage({ type: 'CHAT_MESSAGE', content: { text: ack.content, source: 'agent' } });
-                        
-                        // Refresh tree views
-                        chatProvider.refresh();
-                        historyProvider.refresh();
-                    } catch (error) {
-                        // Send error completion
-                        const errorMsg = `Command failed: ${error instanceof Error ? error.message : String(error)}`;
-                        const errorAck: ChatHistoryEntry = { role: 'assistant', content: errorMsg, timestamp: new Date().toISOString() };
-                        messageHistory.push(errorAck);
-                        await context.workspaceState.update(CHAT_HISTORY_KEY, messageHistory);
-                        
-                        // Send error completion signal to chat interface
-                        chatManager?.postMessage({ type: 'COMMAND_RESULT', content: { result: errorMsg, success: false, command: text } });
-                        chatManager?.postMessage({ type: 'CHAT_MESSAGE', content: { text: errorMsg, source: 'agent' } });
+                        try {
+                            const result = await executeAgentCommandWithOutput(text);
+
+                            const ack: ChatHistoryEntry = { role: 'assistant', content: result, timestamp: new Date().toISOString() };
+                            messageHistory.push(ack);
+                            await context.workspaceState.update(CHAT_HISTORY_KEY, messageHistory);
+
+                            chatManager?.postMessage({ type: 'COMMAND_RESULT', content: { result: result, success: true, command: text } });
+                            // The 'CHAT_MESSAGE' for assistant is now typically sent by the command itself if it's interactive,
+                            // or here for simple commands. Design session handles its own CHAT_MESSAGE.
+                            if (!text.startsWith('/design ') || text.startsWith('/design-auto ')) { // Avoid double message for design starts
+                                chatManager?.postMessage({ type: 'CHAT_MESSAGE', content: { text: ack.content, source: 'agent' } });
+                            }
+
+                            chatProvider.refresh();
+                            historyProvider.refresh();
+                        } catch (error) {
+                            const errorMsg = `Command failed: ${error instanceof Error ? error.message : String(error)}`;
+                            const errorAck: ChatHistoryEntry = { role: 'assistant', content: errorMsg, timestamp: new Date().toISOString() };
+                            messageHistory.push(errorAck);
+                            await context.workspaceState.update(CHAT_HISTORY_KEY, messageHistory);
+
+                            chatManager?.postMessage({ type: 'COMMAND_RESULT', content: { result: errorMsg, success: false, command: text } });
+                            chatManager?.postMessage({ type: 'CHAT_MESSAGE', content: { text: errorMsg, source: 'agent' } });
+                        }
                     }
                 }
             });
@@ -308,7 +377,6 @@ export async function executeAgentCommandWithOutput(command: string): Promise<st
         throw new Error('No workspace folder open');
     }
 
-    // Handle interactive design command specially
     if (command.startsWith('/design ') && !command.startsWith('/design-auto ')) {
         return handleInteractiveDesignCommand(command, workspaceFolder.uri.fsPath);
     }
@@ -389,148 +457,177 @@ async function executeCommandViaCLI(command: string, workspacePath: string): Pro
  */
 async function handleInteractiveDesignCommand(command: string, workspacePath: string): Promise<string> {
     const objective = command.replace('/design ', '').trim();
-    
-    try {
-        // Start the design process
-        const pythonExec = getPythonExecutable();
-        const designProcess = spawn(pythonExec, ['-c', `
-import sys
-sys.path.append('${workspacePath.replace(/\\/g, '\\\\')}')
-from agent_s3.coordinator import Coordinator
-from agent_s3.design_manager import DesignManager
 
-coordinator = Coordinator()
-design_manager = DesignManager(coordinator)
+    if (activeDesignSession && activeDesignSession.isProcessAlive) {
+        const message = 'An interactive design session is already in progress. Please complete or terminate it before starting a new one.';
+        vscode.window.showErrorMessage(message);
+        chatManager?.postMessage({ type: 'CHAT_MESSAGE', content: { text: message, source: 'system' } });
+        return Promise.reject(new Error(message));
+    }
 
-# Start design conversation
-response = design_manager.start_design_conversation("${objective.replace(/"/g, '\\"')}")
-print("DESIGN_RESPONSE:" + response)
+    // Ensure chatManager is available
+    if (!chatManager) {
+        // This attempts to reuse the logic from agent-s3.openChatWindow to initialize chatManager
+        // It's assumed that activate has already run and set up the command.
+        // If this command is called without openChatWindow ever being called, chatManager might not be ready.
+        // A more robust solution might involve ensuring chatManager is initialized earlier or providing a dedicated init method.
+        await vscode.commands.executeCommand('agent-s3.openChatWindow');
+        if (!chatManager) {
+            const errorMsg = "Chat manager is not available. Cannot start interactive design.";
+            vscode.window.showErrorMessage(errorMsg);
+            return Promise.reject(new Error(errorMsg));
+        }
+    }
+    chatManager.createOrShowPanel(); // Ensure panel is visible
 
-# Check if complete
-is_complete = design_manager.detect_design_completion()
-print("DESIGN_COMPLETE:" + str(is_complete))
-`], {
-            cwd: workspacePath,
-            stdio: 'pipe'
-        });
+    const pythonExec = getPythonExecutable();
+    // Use stored extensionContext
+    const scriptPath = vscode.Uri.joinPath(extensionContext.extensionUri, 'scripts', 'design_interactive_session.py').fsPath;
+    const streamId = `design_session_${Date.now()}`;
 
-        let aiResponse = '';
-        let isComplete = false;
+    const childProcess = spawn(pythonExec, [scriptPath, objective], {
+        cwd: workspacePath,
+        stdio: ['pipe', 'pipe', 'pipe'] // stdin, stdout, stderr
+    });
 
-        // Get initial response
-        await new Promise<void>((resolve, reject) => {
-            let buffer = '';
-            designProcess.stdout?.on('data', (data: Buffer) => {
-                buffer += data.toString();
-                const lines = buffer.split('\n');
-                buffer = lines.pop() || '';
-                
-                for (const line of lines) {
-                    if (line.startsWith('DESIGN_RESPONSE:')) {
-                        aiResponse = line.replace('DESIGN_RESPONSE:', '');
-                    } else if (line.startsWith('DESIGN_COMPLETE:')) {
-                        isComplete = line.replace('DESIGN_COMPLETE:', '') === 'True';
-                    }
-                }
-            });
+    activeDesignSession = {
+        process: childProcess,
+        objective: objective,
+        streamId: streamId,
+        isProcessAlive: true,
+    };
 
-            designProcess.on('close', () => resolve());
-            designProcess.on('error', reject);
-        });
+    // Add a user-facing message that the session is starting
+    chatManager?.postMessage({
+        type: 'CHAT_MESSAGE',
+        id: streamId + '_init', // Unique ID for this system message
+        content: { text: `Starting interactive design session for: "${objective}"...`, source: 'system' }
+    });
 
-        // Show AI response and handle conversation
-        let conversationOutput = `Design Session Started for: ${objective}\n\n`;
-        conversationOutput += `AI Designer: ${aiResponse}\n\n`;
+    let initialMessageReceived = false;
+    let accumulatedData = '';
 
-        // Continue conversation until complete
-        while (!isComplete) {
-            const userResponse = await vscode.window.showInputBox({
-                prompt: 'Your response to the AI designer (or type "/finalize-design" to complete)',
-                placeHolder: 'Provide more details, ask questions, or give feedback...',
-                ignoreFocusOut: true
-            });
+    return new Promise<string>((resolve, reject) => {
+        childProcess.stdout?.on('data', (data: Buffer) => {
+            accumulatedData += data.toString();
+            // Process line by line if possible, assuming JSON objects are newline-terminated
+            let newlineIndex;
+            while ((newlineIndex = accumulatedData.indexOf('\n')) >= 0) {
+                const line = accumulatedData.substring(0, newlineIndex).trim();
+                accumulatedData = accumulatedData.substring(newlineIndex + 1);
 
-            if (!userResponse) {
-                conversationOutput += 'Design session cancelled by user.\n';
-                break;
-            }
-
-            conversationOutput += `You: ${userResponse}\n\n`;
-
-            // Send user response and get AI reply
-            const continueProcess = spawn(pythonExec, ['-c', `
-import sys
-sys.path.append('${workspacePath.replace(/\\/g, '\\\\')}')
-from agent_s3.coordinator import Coordinator
-from agent_s3.design_manager import DesignManager
-
-coordinator = Coordinator()
-design_manager = DesignManager(coordinator)
-
-# Load existing conversation from design.txt if it exists
-try:
-    with open('design.txt', 'r') as f:
-        content = f.read()
-    # Extract conversation from file and reload into design_manager
-    # This is a simplified approach - in practice you'd want better state management
-except:
-    pass
-
-# Continue conversation
-response, complete = design_manager.continue_conversation("${userResponse.replace(/"/g, '\\"')}")
-print("DESIGN_RESPONSE:" + (response or ""))
-print("DESIGN_COMPLETE:" + str(complete))
-
-# Write to file if complete
-if complete:
-    success, message = design_manager.write_design_to_file()
-    print("WRITE_SUCCESS:" + str(success))
-    print("WRITE_MESSAGE:" + message)
-`], {
-                cwd: workspacePath,
-                stdio: 'pipe'
-            });
-
-            await new Promise<void>((resolve, reject) => {
-                let buffer = '';
-                continueProcess.stdout?.on('data', (data: Buffer) => {
-                    buffer += data.toString();
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop() || '';
-                    
-                    for (const line of lines) {
-                        if (line.startsWith('DESIGN_RESPONSE:')) {
-                            aiResponse = line.replace('DESIGN_RESPONSE:', '');
-                        } else if (line.startsWith('DESIGN_COMPLETE:')) {
-                            isComplete = line.replace('DESIGN_COMPLETE:', '') === 'True';
-                        } else if (line.startsWith('WRITE_SUCCESS:')) {
-                            const writeSuccess = line.replace('WRITE_SUCCESS:', '') === 'True';
-                            if (writeSuccess) {
-                                conversationOutput += 'Design successfully written to design.txt\n';
+                if (line) {
+                    try {
+                        const messageFromPython = JSON.parse(line);
+                        if (!initialMessageReceived) {
+                            initialMessageReceived = true;
+                            if (messageFromPython.type === 'ai_response') {
+                                chatManager?.postMessage({
+                                    type: 'CHAT_MESSAGE',
+                                    id: streamId + '_first_ai',
+                                    content: { text: messageFromPython.content, source: 'agent' }
+                                });
+                                // Inform the user that the session has started and they can now chat.
+                                resolve(`Interactive design session started for "${objective}". Check the chat window to continue.`);
+                            } else if (messageFromPython.type === 'error') {
+                                const errorMsg = `Python script error on init: ${messageFromPython.content}`;
+                                vscode.window.showErrorMessage(errorMsg);
+                                chatManager?.postMessage({ type: 'CHAT_MESSAGE', content: { text: errorMsg, source: 'system' } });
+                                if (activeDesignSession) activeDesignSession.isProcessAlive = false;
+                                activeDesignSession = null;
+                                reject(new Error(errorMsg));
+                            } else {
+                                // Unexpected first message
+                                const errorMsg = `Unexpected first message type from Python script: ${messageFromPython.type}`;
+                                vscode.window.showErrorMessage(errorMsg);
+                                chatManager?.postMessage({ type: 'CHAT_MESSAGE', content: { text: errorMsg, source: 'system' } });
+                                if (activeDesignSession) activeDesignSession.isProcessAlive = false;
+                                activeDesignSession = null;
+                                reject(new Error(errorMsg));
                             }
+                        } else {
+                            // For subsequent messages from Python (e.g. if it sends more before user input)
+                            // This part will be more relevant in Part 2 when handling ongoing conversation
+                            // For now, we primarily care about the first message.
+                            // We can log other messages or decide if they need handling here.
+                            console.log("Further stdout from design script (should be handled by chat input handler):", messageFromPython);
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse JSON from Python script:', line, e);
+                        // If parsing fails for the first message, reject.
+                        if (!initialMessageReceived) {
+                            const errorMsg = 'Error parsing initial response from design script.';
+                            vscode.window.showErrorMessage(errorMsg);
+                            chatManager?.postMessage({ type: 'CHAT_MESSAGE', content: { text: errorMsg, source: 'system' } });
+                            if (activeDesignSession) activeDesignSession.isProcessAlive = false;
+                            activeDesignSession = null;
+                            reject(new Error(errorMsg));
                         }
                     }
-                });
-
-                continueProcess.on('close', () => resolve());
-                continueProcess.on('error', reject);
-            });
-
-            if (aiResponse) {
-                conversationOutput += `AI Designer: ${aiResponse}\n\n`;
+                }
             }
+        });
 
-            if (isComplete) {
-                conversationOutput += 'Design conversation completed!\n';
-                break;
+        childProcess.stderr?.on('data', (data: Buffer) => {
+            const errorOutput = data.toString();
+            console.error(`Interactive Design Python STDERR: ${errorOutput}`);
+            // If this is the first message, it's an error in starting.
+            if (!initialMessageReceived) {
+                initialMessageReceived = true; // Prevent further success processing
+                const errorMsg = `Error starting design session: ${errorOutput}`;
+                vscode.window.showErrorMessage(errorMsg);
+                chatManager?.postMessage({ type: 'CHAT_MESSAGE', content: { text: errorMsg, source: 'system' } });
+                if (activeDesignSession) activeDesignSession.isProcessAlive = false;
+                activeDesignSession = null;
+                reject(new Error(errorMsg));
+            } else {
+                // Ongoing errors could be sent to chat as system messages
+                 chatManager?.postMessage({ type: 'CHAT_MESSAGE', content: { text: `Design Script Error: ${errorOutput}`, source: 'system' } });
             }
-        }
+        });
 
-        return conversationOutput;
+        childProcess.on('error', (err: Error) => {
+            const errorMsg = `Failed to start interactive design process: ${err.message}`;
+            vscode.window.showErrorMessage(errorMsg);
+            chatManager?.postMessage({ type: 'CHAT_MESSAGE', content: { text: errorMsg, source: 'system' } });
+            if (activeDesignSession) activeDesignSession.isProcessAlive = false;
+            activeDesignSession = null;
+            reject(new Error(errorMsg));
+        });
 
-    } catch (error) {
-        return `Error in interactive design: ${error instanceof Error ? error.message : String(error)}`;
-    }
+        childProcess.on('close', (code: number | null) => {
+            if (activeDesignSession) activeDesignSession.isProcessAlive = false; // Mark as not alive
+            const closeMessage = `Design session process exited with code ${code}.`;
+            console.log(closeMessage);
+            // Only show message if it wasn't an error handled before or a clean startup
+            if (code !== 0 && !initialMessageReceived ) { // If error code and we never got the first message
+                 const errorMsg = `Design session process exited prematurely with code ${code}. Check logs.`;
+                 vscode.window.showWarningMessage(errorMsg);
+                 chatManager?.postMessage({ type: 'CHAT_MESSAGE', content: { text: errorMsg, source: 'system' } });
+                 reject(new Error(errorMsg)); // Reject if it closes before first message and has error code
+            } else if (!initialMessageReceived) { // Clean exit but no first message
+                 const errorMsg = `Design session process exited cleanly but sent no initial response.`;
+                 vscode.window.showWarningMessage(errorMsg);
+                 chatManager?.postMessage({ type: 'CHAT_MESSAGE', content: { text: errorMsg, source: 'system' } });
+                 reject(new Error(errorMsg));
+            } else {
+                // If it already started and then closes, Part 2 (chat handler) would manage this.
+                // For now, just a log or a subtle system message.
+                chatManager?.postMessage({ type: 'CHAT_MESSAGE', content: { text: closeMessage, source: 'system' } });
+            }
+            // Don't nullify activeDesignSession here if it successfully started,
+            // so the user message handler in Part 2 can know the session ended.
+            // Cleanup is now more explicitly handled by cleanupDesignSession.
+            // The 'close' event should always try to clean up.
+            if (!initialMessageReceived && code !== 0) { // If process died before init and had error
+                reject(new Error(`Design session process exited prematurely with code ${code}.`));
+            } else if (!initialMessageReceived) { // Process died before init, no error code
+                reject(new Error(`Design session process exited cleanly but sent no initial response.`));
+            }
+            // If we are here, it means the process closed. Call cleanup.
+            cleanupDesignSession(`Process exited with code ${code}.`);
+        });
+    });
 }
 
 export function deactivate(): void {
