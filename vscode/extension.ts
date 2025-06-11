@@ -177,7 +177,6 @@ export function activate(context: vscode.ExtensionContext): void {
                 if (message.type === 'send') {
                     const text = typeof message.text === 'string' ? message.text : '';
                     const entry: ChatHistoryEntry = { role: 'user', content: text, timestamp: new Date().toISOString() };
-                    const text = typeof message.text === 'string' ? message.text : '';
                     
                     // Add user's message to the visual chat immediately
                     // The history for general commands is handled below, design session messages are not added to general history here.
