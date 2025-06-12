@@ -1,6 +1,13 @@
 import sys
 import json
 import os
+import logging
+
+# Suppress INFO logging for cleaner interactive session
+logging.getLogger().setLevel(logging.WARNING)
+# Also suppress specific noisy loggers
+logging.getLogger('faiss').setLevel(logging.WARNING)
+logging.getLogger('agent_s3').setLevel(logging.WARNING)
 
 # Add vscode directory to sys.path to allow agent_s3 import if script is run directly
 # This might not be needed when spawned from extension.ts if PYTHONPATH is configured
@@ -23,11 +30,17 @@ except ImportError as e:
 
 def send_response(response_type, content, is_complete=None):
     """Helper to send JSON responses."""
-    payload = {"type": response_type, "content": content}
-    if is_complete is not None:
-        payload["is_complete"] = is_complete
-    print(json.dumps(payload))
-    sys.stdout.flush()
+    try:
+        payload = {"type": response_type, "content": content}
+        if is_complete is not None:
+            payload["is_complete"] = is_complete
+        print(json.dumps(payload))
+        sys.stdout.flush()
+    except Exception as e:
+        # Fallback error response
+        error_payload = {"type": "error", "content": f"Failed to send response: {str(e)}"}
+        print(json.dumps(error_payload))
+        sys.stdout.flush()
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -39,6 +52,7 @@ if __name__ == "__main__":
     try:
         coordinator = Coordinator()
         design_manager = DesignManager(coordinator) # TODO: Consider loading existing state if any
+        send_response("system_message", f"Initialized design manager successfully for objective: {objective}")
     except Exception as e:
         send_response("error", f"Failed to initialize DesignManager: {str(e)}")
         sys.exit(1)
@@ -71,6 +85,10 @@ if __name__ == "__main__":
                 send_response("system_message", "Stdin closed, terminating.")
                 break
 
+            line = line.strip()
+            if not line:  # Skip empty lines
+                continue
+
             try:
                 user_input_data = json.loads(line)
                 user_input = user_input_data.get("content")
@@ -78,7 +96,7 @@ if __name__ == "__main__":
                     send_response("error", "Invalid input: JSON 'content' field missing.")
                     continue
             except json.JSONDecodeError:
-                send_response("error", f"Invalid input: Not valid JSON. Received: {line.strip()}")
+                send_response("error", f"Invalid input: Not valid JSON. Received: {line}")
                 continue
 
             if user_input.lower() == "/finalize-design":
