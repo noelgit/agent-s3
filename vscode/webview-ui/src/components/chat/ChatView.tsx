@@ -59,7 +59,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
   const [inputText, setInputText] = useState('');
   const [isAgentResponding, setIsAgentResponding] = useState(false);
   const [activeStreams, setActiveStreams] = useState<Record<string, StreamState>>({});
-  const [hasMore, setHasMore] = useState(false); // setHasMore will be managed by App.tsx via props if needed. For now, ChatView won't request more history.
+  const [hasMore] = useState(false); // setHasMore will be managed by App.tsx via props if needed. For now, ChatView won't request more history.
   
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -421,12 +421,11 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages: externalMessages =
   return (
     <div className="chat-container">
       <div className="messages-container">
-        {hasMore && (
-          {/* The "Load More" button functionality might need to be re-evaluated.
-              If App.tsx manages history loading, it should also manage the "Load More" UI trigger.
-              For now, this button remains, but its message (`REQUEST_MORE_HISTORY`) would be handled by App.tsx.
-              Alternatively, App.tsx could pass a `hasMore` prop and a `loadMore` callback.
-           */}
+        {/* The "Load More" button functionality might need to be re-evaluated.
+            If App.tsx manages history loading, it should also manage the "Load More" UI trigger.
+            For now, this button remains, but its message (`REQUEST_MORE_HISTORY`) would be handled by App.tsx.
+            Alternatively, App.tsx could pass a `hasMore` prop and a `loadMore` callback.
+         */}
         {hasMore && (
           <button
             className="load-more"
